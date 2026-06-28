@@ -8,5 +8,6 @@ export { default as CascadeRowsLoader } from './CascadeRowsLoader';
 export { default as ScanLineLoader } from './ScanLineLoader';
 export { default as SkeletonTilesLoader } from './SkeletonTilesLoader';
 export { default as IndeterminateBarLoader } from './IndeterminateBarLoader';
+export { default as WeatherColumnsLoader } from './WeatherColumnsLoader';
 export { useLoaderVisibility, DEFAULT_MIN_VISIBLE_MS } from './useLoaderVisibility';
 export { usePrefersReducedMotion } from './usePrefersReducedMotion';

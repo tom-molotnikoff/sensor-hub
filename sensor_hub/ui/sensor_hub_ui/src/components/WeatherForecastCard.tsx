@@ -1,8 +1,6 @@
 import { useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
-import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import ExpandMoreOutlined from "@mui/icons-material/ExpandMoreOutlined";
 import ExpandLessOutlined from "@mui/icons-material/ExpandLessOutlined";
@@ -14,6 +12,7 @@ import { useIsMobile } from "../hooks/useMobile.ts";
 import DayForecastCard from "./DayForecastCard.tsx";
 import HourlyForecastDetail from "./HourlyForecastDetail.tsx";
 import EmptyState from "./EmptyState.tsx";
+import { WeatherColumnsLoader } from "../dashboard/widget-loaders";
 
 export default function WeatherForecastCard({ showTitle = true }: { showTitle?: boolean }) {
   const properties = useProperties();
@@ -48,23 +47,8 @@ export default function WeatherForecastCard({ showTitle = true }: { showTitle?: 
         />
       )}
       {hasLocation && loading && !data && (
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            py: 4,
-          }}
-        >
-          <CircularProgress size={32} />
-          <Typography
-            variant="body2"
-            sx={{
-              color: "text.secondary",
-              ml: 1
-            }}>
-            Loading forecast…
-          </Typography>
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          <WeatherColumnsLoader />
         </Box>
       )}
       {hasLocation && error && (
