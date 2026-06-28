@@ -295,7 +295,7 @@ func (s *SensorService) ServiceCollectAndStoreAllSensorReadings(ctx context.Cont
 			}
 		}
 	}
-	ws.BroadcastToTopic("current-readings", allReadings)
+	ws.PublishReadings(allReadings)
 	return nil
 }
 
@@ -355,7 +355,7 @@ func (s *SensorService) ServiceCollectFromSensorByName(ctx context.Context, sens
 		span.SetAttributes(attribute.Int("readings.count", len(readings)))
 		s.ServiceUpdateSensorHealthById(ctx, sensor.Id, gen.Good, "successful reading")
 		s.logger.Debug("collected readings", "sensor", sensorName, "count", len(readings))
-		ws.BroadcastToTopic("current-readings", readings)
+		ws.PublishReadings(readings)
 
 		// Process alerts for each reading
 		for _, reading := range readings {
@@ -632,7 +632,7 @@ func (s *SensorService) ServiceProcessPushReadings(ctx context.Context, sensor g
 	}
 
 	// Broadcast
-	ws.BroadcastToTopic("current-readings", readings)
+	ws.PublishReadings(readings)
 
 	return nil
 }

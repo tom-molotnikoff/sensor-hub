@@ -121,6 +121,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 	maintenanceRepo := database.NewMaintenanceRepository(db)
 
 	readingsService := service.NewReadingsService(readingsRepo, mtRepo, aggregationTiers, appProps.AppConfig.ReadingsAggregationEnabled, logger)
+
+	// Seed the in-memory current-readings store so a freshly started server serves
+	// correct toggle/sensor state on connect without a database query.
+	if latest, err := readingsService.ServiceGetLatest(ctx); err != nil {
+		logger.Warn("failed to seed current-readings store", "error", err)
+	} else {
+		ws.SeedReadings(latest)
+	}
 	propertiesService := service.NewPropertiesService(logger)
 	cleanupService := service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, maintenanceRepo, logger)
 
