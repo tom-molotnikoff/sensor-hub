@@ -23,6 +23,14 @@ export const fadeIn = keyframes`
   to { opacity: 1; }
 `;
 
+/** Rows/columns/tiles streaming in on a loop, like records arriving. */
+export const cascade = keyframes`
+  0% { opacity: 0; transform: translateY(8px); }
+  13% { opacity: 1; transform: none; }
+  74% { opacity: 1; }
+  92%, 100% { opacity: 0; }
+`;
+
 /** Self-drawing line: draw on, then sweep off, on a loop (dasharray 320). */
 export const draw = keyframes`
   0% { stroke-dashoffset: 320; }

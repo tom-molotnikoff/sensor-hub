@@ -8,6 +8,7 @@ import {Alert, Button, Snackbar} from "@mui/material";
 import {useState} from "react";
 import { useSensorContext } from "../hooks/useSensorContext.ts";
 import EmptyState from "./EmptyState.tsx";
+import { CascadeRowsLoader } from "../dashboard/widget-loaders";
 
 function TotalReadingsForEachSensorCard({ showTitle = true }: { showTitle?: boolean }) {
   const [data, refresh] = useTotalReadingsForEachSensor();
@@ -48,7 +49,9 @@ function TotalReadingsForEachSensorCard({ showTitle = true }: { showTitle?: bool
       </div>
 
       <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
-        {loaded && rows.length === 0 ? (
+        {!loaded ? (
+          <CascadeRowsLoader />
+        ) : rows.length === 0 ? (
           <EmptyState
             icon={<BarChartOutlinedIcon sx={{ fontSize: 48 }} />}
             title="No reading data yet"
@@ -65,7 +68,6 @@ function TotalReadingsForEachSensorCard({ showTitle = true }: { showTitle?: bool
                 paginationModel: { pageSize: 5, page: 0 },
               },
             }}
-            loading={!loaded}
             sx={{
               height: '100%',
               backgroundColor: 'background.paper',

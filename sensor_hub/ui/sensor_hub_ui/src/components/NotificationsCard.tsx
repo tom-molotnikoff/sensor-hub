@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Box, Typography, Button, Chip, IconButton, Menu, MenuItem, CircularProgress, Card, CardContent, Divider, Tabs, Tab } from '@mui/material';
+import { Box, Typography, Button, Chip, IconButton, Menu, MenuItem, Card, CardContent, Divider, Tabs, Tab } from '@mui/material';
+import { CascadeRowsLoader } from '../dashboard/widget-loaders';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import InfoIcon from '@mui/icons-material/Info';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -99,12 +100,7 @@ export default function NotificationsCard({ showTitle = true }: { showTitle?: bo
         <Tab label={`All (${notifications.length})`} />
       </Tabs>
       {loading ? (
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            p: 4
-          }}><CircularProgress /></Box>
+        <Box sx={{ flex: 1, minHeight: 0 }}><CascadeRowsLoader /></Box>
       ) : filteredNotifications.length === 0 ? (
         <Box
           sx={{

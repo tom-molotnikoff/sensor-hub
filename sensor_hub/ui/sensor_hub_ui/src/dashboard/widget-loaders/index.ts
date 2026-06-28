@@ -4,5 +4,7 @@ export { default as ValuePlaceholderLoader } from './ValuePlaceholderLoader';
 export { default as SignalTraceLoader } from './SignalTraceLoader';
 export { default as CircularDrawLoader } from './CircularDrawLoader';
 export { default as RippleHeatmapLoader } from './RippleHeatmapLoader';
+export { default as CascadeRowsLoader } from './CascadeRowsLoader';
+export { default as ScanLineLoader } from './ScanLineLoader';
 export { useLoaderVisibility, DEFAULT_MIN_VISIBLE_MS } from './useLoaderVisibility';
 export { usePrefersReducedMotion } from './usePrefersReducedMotion';

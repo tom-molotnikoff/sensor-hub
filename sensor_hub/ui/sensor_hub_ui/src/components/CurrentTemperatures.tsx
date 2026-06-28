@@ -6,6 +6,7 @@ import { useIsMobile } from "../hooks/useMobile";
 import { useSensorContext } from "../hooks/useSensorContext";
 import EmptyState from "./EmptyState";
 import ThermostatOutlinedIcon from "@mui/icons-material/ThermostatOutlined";
+import { CascadeRowsLoader } from "../dashboard/widget-loaders";
 
 interface CurrentTemperaturesProps {
   cardHeight?: string | number;
@@ -68,7 +69,9 @@ function CurrentTemperatures({ cardHeight, showTitle = true, onDataUpdate }: Cur
           width: "100%"
         }}
       >
-        {loaded && rows.length === 0 ? (
+        {!loaded ? (
+          <CascadeRowsLoader />
+        ) : rows.length === 0 ? (
           <EmptyState
             icon={<ThermostatOutlinedIcon sx={{ fontSize: 48 }} />}
             title="No live temperature data"
@@ -95,7 +98,6 @@ function CurrentTemperatures({ cardHeight, showTitle = true, onDataUpdate }: Cur
               '& .MuiDataGrid-cell': { fontSize: isMobile ? '0.9rem' : '1rem' },
               '& .MuiDataGrid-columnHeaders': { fontWeight: 'bold' },
             }}
-            loading={!loaded}
           />
         )}
       </div>
