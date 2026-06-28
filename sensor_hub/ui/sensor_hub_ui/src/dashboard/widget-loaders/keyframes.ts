@@ -36,3 +36,12 @@ export const drawRing = keyframes`
   55% { stroke-dashoffset: 0; }
   100% { stroke-dashoffset: -251.3; }
 `;
+
+/**
+ * Heatmap cell warming up. Colours are theme-dependent, so they are read from
+ * CSS custom properties set on the grid (--cell-base / --cell-active).
+ */
+export const ripple = keyframes`
+  0%, 65%, 100% { background-color: var(--cell-base); }
+  32% { background-color: var(--cell-active); }
+`;

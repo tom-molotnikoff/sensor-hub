@@ -8,6 +8,7 @@ import { useIsDark } from '../../theme/useIsDark';
 import { parseUTCTime } from '../../tools/Utils';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
+import { WidgetSwap, RippleHeatmapLoader } from '../widget-loaders';
 
 function valueToColor(value: number, low: number, high: number): string {
     const ratio = Math.max(0, Math.min(1, (value - low) / (high - low)));
@@ -40,6 +41,7 @@ export default function HeatmapWidget({ config }: WidgetProps) {
     const isDark = useIsDark();
     const reportUpdate = useReportWidgetUpdate();
     const [days, setDays] = useState<DayData[]>([]);
+    const [loading, setLoading] = useState(true);
     const [cellSize, setCellSize] = useState(28);
     const gridRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +78,7 @@ export default function HeatmapWidget({ config }: WidgetProps) {
     useEffect(() => {
         if (!sensor) return;
 
+        setLoading(true);
         const now = new Date();
         const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -101,7 +104,7 @@ export default function HeatmapWidget({ config }: WidgetProps) {
             }
             setDays(result);
             reportUpdate(new Date());
-        });
+        }).finally(() => setLoading(false));
     }, [sensor, measurementType]);
 
     if (!sensor || !measurementType) {
@@ -132,6 +135,7 @@ export default function HeatmapWidget({ config }: WidgetProps) {
                     justifyContent: 'center',
                 }}
             >
+                <WidgetSwap loading={loading && days.length === 0} loader={<RippleHeatmapLoader columns={cols} count={30} />}>
                 <Box
                     sx={{
                         display: 'grid',
@@ -159,6 +163,7 @@ export default function HeatmapWidget({ config }: WidgetProps) {
                         </Box>
                     ))}
                 </Box>
+                </WidgetSwap>
             </Box>
         </Box>
     );
