@@ -53,3 +53,9 @@ export const ripple = keyframes`
   0%, 65%, 100% { background-color: var(--cell-base); }
   32% { background-color: var(--cell-active); }
 `;
+
+/** Indeterminate progress segment sliding across a track. */
+export const indeterminate = keyframes`
+  0% { left: -40%; }
+  100% { left: 102%; }
+`;
