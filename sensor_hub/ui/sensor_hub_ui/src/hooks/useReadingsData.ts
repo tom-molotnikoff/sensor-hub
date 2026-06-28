@@ -39,6 +39,8 @@ export function useReadingsData({
                                    }: useReadingsDataProps) {
   const [mergedData, setMergedData] = useState<ChartEntry[]>([]);
   const [aggregation, setAggregation] = useState<AggregationMeta>({ interval: 'raw', function: 'none' });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const prevResponseJsonRef = useRef<string | null>(null);
   const prevSensorsKeyRef = useRef<string>("");
   const prevMergedJsonRef = useRef<string>("");
@@ -72,7 +74,13 @@ export function useReadingsData({
     const resolved = resolveTimeRangeRef.current?.();
     const initStart = resolved?.startDate?.toUTC().toISO() ?? startIso;
     const initEnd = resolved?.endDate?.toUTC().toISO() ?? endIso;
-    if (!initStart || !initEnd) return;
+    if (!initStart || !initEnd) {
+      setIsLoading(false);
+      return;
+    }
+
+    // New range / sensor set: we're loading the first result again.
+    setIsLoading(true);
 
     const fetchAndMaybeUpdate = async (
       fetchStartIso: string,
@@ -90,6 +98,8 @@ export function useReadingsData({
         const data: Reading[] = response.data?.readings ?? [];
 
         if (requestIdRef.current !== currentRequestId || !isMountedRef.current) return;
+
+        setError(null);
 
         setAggregation({
           interval: response.data?.aggregation_interval ?? 'raw',
@@ -134,10 +144,13 @@ export function useReadingsData({
       } catch (err: unknown) {
         if (!isMountedRef.current) return;
         logger.error("Error fetching readings:", err);
+        setError(err instanceof Error ? err.message : String(err));
       }
     };
 
-    void fetchAndMaybeUpdate(initStart, initEnd, true, 'normal');
+    void fetchAndMaybeUpdate(initStart, initEnd, true, 'normal').finally(() => {
+      if (isMountedRef.current) setIsLoading(false);
+    });
 
     const intervalId = window.setInterval(() => {
       // Re-resolve time range on each tick so relative presets slide forward
@@ -158,5 +171,5 @@ export function useReadingsData({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [measurementType, aggregationFunction, sensorsKey, pollIntervalMs, timeKey]);
 
-  return { mergedData, aggregation };
+  return { mergedData, aggregation, isLoading, error };
 }

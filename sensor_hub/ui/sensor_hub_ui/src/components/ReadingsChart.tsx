@@ -22,6 +22,7 @@ import type { DateTime } from "luxon";
 import EmptyState from "./EmptyState";
 import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
 import { useChartColours } from "../theme/chartColours";
+import { WidgetSwap, SignalTraceLoader } from "../dashboard/widget-loaders";
 
 const ReadingsChart = React.memo(function ReadingsChart({
   sensors,
@@ -49,7 +50,7 @@ const ReadingsChart = React.memo(function ReadingsChart({
 
   const [linesHidden, setLinesHidden] = useReducer(linesHiddenReducer, {});
 
-  const { mergedData: chartData } = useReadingsData({
+  const { mergedData: chartData, isLoading, error } = useReadingsData({
     startDate: startDate ? startDate : null,
     endDate: endDate ? endDate : null,
     sensors,
@@ -59,6 +60,10 @@ const ReadingsChart = React.memo(function ReadingsChart({
     resolveTimeRange,
     onDataUpdate,
   });
+
+  const noData = !Array.isArray(chartData) || chartData.length === 0;
+  // Show the loader only on the first load when we have sensors but no data yet.
+  const loading = sensors.length > 0 && isLoading && noData;
 
   // Only include sensors that have at least one non-null data point
   const activeSensors = useMemo(() => {
@@ -96,6 +101,7 @@ const ReadingsChart = React.memo(function ReadingsChart({
 
   return (
     <div data-testid="readings-chart" style={{ ...graphContainerStyle, flex: 1, minHeight: 0, position: 'relative' }}>
+      <WidgetSwap loading={loading} loader={<SignalTraceLoader />}>
       {sensors.length === 0 ? (
         <EmptyState
           icon={<ShowChartOutlinedIcon sx={{ fontSize: 48 }} />}
@@ -105,7 +111,14 @@ const ReadingsChart = React.memo(function ReadingsChart({
           actionHref="/sensors-overview"
           minHeight={200}
         />
-      ) : !Array.isArray(chartData) || chartData.length === 0 ? (
+      ) : error && noData ? (
+        <EmptyState
+          icon={<ShowChartOutlinedIcon sx={{ fontSize: 48 }} />}
+          title="Couldn't load readings"
+          description="Something went wrong fetching this chart. It will retry automatically."
+          minHeight={200}
+        />
+      ) : noData ? (
         <EmptyState
           icon={<ShowChartOutlinedIcon sx={{ fontSize: 48 }} />}
           title="No readings in selected date range"
@@ -172,6 +185,7 @@ const ReadingsChart = React.memo(function ReadingsChart({
           </ResponsiveContainer>
         </div>
       )}
+      </WidgetSwap>
     </div>
   );
 });

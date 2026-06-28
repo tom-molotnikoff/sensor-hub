@@ -18,6 +18,7 @@ import { useChartColours } from '../../theme/chartColours';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { resolveTimeRange } from '../timeRange';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
+import { WidgetSwap, SignalTraceLoader } from '../widget-loaders';
 
 export default function ComparisonChartWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
@@ -48,7 +49,7 @@ export default function ComparisonChartWidget({ config }: WidgetProps) {
         ? config.refreshInterval * 1000 : undefined;
     const resolveRange = useCallback(() => resolveTimeRange(config), [config]);
 
-    const { mergedData: chartData } = useReadingsData({
+    const { mergedData: chartData, isLoading, error } = useReadingsData({
         startDate: null,
         endDate: null,
         sensors: filteredSensors,
@@ -73,41 +74,44 @@ export default function ComparisonChartWidget({ config }: WidgetProps) {
         );
     }
 
-    if (chartData.length === 0) {
-        return (
-            <Typography
-                sx={{
-                    color: "text.secondary",
-                    p: 2
-                }}>No data for the selected range</Typography>
-        );
-    }
+    const noData = chartData.length === 0;
+    const loading = isLoading && noData;
 
     return (
         <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                    <CartesianGrid stroke={chartColours.grid} strokeDasharray="3 3" />
-                    <XAxis
-                        dataKey="time"
-                        tickFormatter={(t: string) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        minTickGap={50}
-                    />
-                    <YAxis label={yAxisLabel} />
-                    <Tooltip />
-                    <Legend />
-                    {filteredSensors.map((sensor, index) => (
-                        <Line
-                            key={sensor.name}
-                            type="linear"
-                            dataKey={sensor.name}
-                            stroke={chartColours.categorical[index % chartColours.categorical.length]}
-                            dot={false}
-                            connectNulls
-                        />
-                    ))}
-                </LineChart>
-            </ResponsiveContainer>
+            <WidgetSwap loading={loading} loader={<SignalTraceLoader />}>
+                {error && noData ? (
+                    <Typography sx={{ color: "text.secondary", p: 2 }}>
+                        Couldn't load comparison data. It will retry automatically.
+                    </Typography>
+                ) : noData ? (
+                    <Typography sx={{ color: "text.secondary", p: 2 }}>No data for the selected range</Typography>
+                ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                            <CartesianGrid stroke={chartColours.grid} strokeDasharray="3 3" />
+                            <XAxis
+                                dataKey="time"
+                                tickFormatter={(t: string) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                minTickGap={50}
+                            />
+                            <YAxis label={yAxisLabel} />
+                            <Tooltip />
+                            <Legend />
+                            {filteredSensors.map((sensor, index) => (
+                                <Line
+                                    key={sensor.name}
+                                    type="linear"
+                                    dataKey={sensor.name}
+                                    stroke={chartColours.categorical[index % chartColours.categorical.length]}
+                                    dot={false}
+                                    connectNulls
+                                />
+                            ))}
+                        </LineChart>
+                    </ResponsiveContainer>
+                )}
+            </WidgetSwap>
         </div>
     );
 }
