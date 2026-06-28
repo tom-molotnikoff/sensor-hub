@@ -258,3 +258,4 @@ sensorHub
 *.test
 
 docs/plans
+.lavish
