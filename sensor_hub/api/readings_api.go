@@ -67,16 +67,10 @@ func (s *Server) GetReadingsBetweenDates(c *gin.Context, params gen.GetReadingsB
 }
 
 func (s *Server) SubscribeCurrentReadings(c *gin.Context) {
-	ctx := c.Request.Context()
-	currentReadings, err := s.readingsService.ServiceGetLatest(ctx)
-
-	if err != nil {
-		slog.Error("error fetching latest readings", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching latest readings"})
-		return
-	}
-
+	// Register the connection first, then serve the snapshot from the in-memory store.
+	// This keeps the toggle's critical path off SQLite entirely, so a connecting client
+	// gets current state immediately instead of waiting on a contended query.
 	createPushWebSocket(c, "current-readings")
 
-	ws.BroadcastToTopic("current-readings", currentReadings)
+	ws.BroadcastToTopic("current-readings", ws.CurrentReadingsSnapshot())
 }
