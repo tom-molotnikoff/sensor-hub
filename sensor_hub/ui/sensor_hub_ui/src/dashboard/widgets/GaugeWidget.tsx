@@ -1,14 +1,16 @@
 import type { WidgetProps } from '../types';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useSensorContext } from '../../hooks/useSensorContext';
-import { useCurrentReadings } from '../../hooks/useCurrentReadings';
+import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurrentReadings';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
+import { WidgetSwap, CircularDrawLoader } from '../widget-loaders';
 
 export default function GaugeWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
     const reportUpdate = useReportWidgetUpdate();
     const readings = useCurrentReadings({ onDataUpdate: reportUpdate });
+    const ready = useCurrentReadingsReady();
 
     const sensorId = config.sensorId as number | undefined;
     const measurementType = config.measurementType as string | undefined;
@@ -25,6 +27,7 @@ export default function GaugeWidget({ config }: WidgetProps) {
     const value = reading?.numeric_value ?? null;
     const unit = reading?.unit ?? '';
     const percentage = value !== null ? Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100)) : 0;
+    const isLoading = value === null && !ready;
 
     const getColor = (pct: number) => {
         if (pct < 33) return '#1976d2';
@@ -33,6 +36,7 @@ export default function GaugeWidget({ config }: WidgetProps) {
     };
 
     return (
+        <WidgetSwap loading={isLoading} loader={<CircularDrawLoader />}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 2 }}>
             <Box sx={{ position: 'relative', display: 'inline-flex' }}>
                 <CircularProgress
@@ -60,5 +64,6 @@ export default function GaugeWidget({ config }: WidgetProps) {
                 {sensor.name}
             </Typography>
         </Box>
+        </WidgetSwap>
     );
 }

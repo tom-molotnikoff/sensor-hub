@@ -23,9 +23,16 @@ export const fadeIn = keyframes`
   to { opacity: 1; }
 `;
 
-/** Self-drawing line/ring: draw on, then sweep off, on a loop (dasharray 320). */
+/** Self-drawing line: draw on, then sweep off, on a loop (dasharray 320). */
 export const draw = keyframes`
   0% { stroke-dashoffset: 320; }
   55% { stroke-dashoffset: 0; }
   100% { stroke-dashoffset: -320; }
+`;
+
+/** Self-drawing ring: draw around, then sweep off (dasharray 251.3 = 2*pi*40). */
+export const drawRing = keyframes`
+  0% { stroke-dashoffset: 251.3; }
+  55% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -251.3; }
 `;
