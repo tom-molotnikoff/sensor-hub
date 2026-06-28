@@ -1,0 +1,11 @@
+-- Migration 000020: readings index hygiene
+--
+-- idx_readings_sensor_id (sensor_id) is the leftmost prefix of
+-- idx_readings_sensor_type_time (sensor_id, measurement_type_id, time DESC), so it
+-- adds no read value and only amplifies insert cost on the high-frequency ingest
+-- path. Drop it.
+--
+-- idx_readings_time_asc (time ASC) is intentionally kept: EXPLAIN QUERY PLAN on the
+-- live database confirmed the global retention delete
+-- (DELETE FROM readings WHERE time < ?) uses it.
+DROP INDEX IF EXISTS idx_readings_sensor_id;
