@@ -5,6 +5,7 @@ import { apiClient } from '../gen/client';
 import { useCurrentReadings } from '../hooks/useCurrentReadings';
 import LayoutCard from '../tools/LayoutCard';
 import { TypographyH2 } from '../tools/Typography';
+import { WidgetSwap, SensorDetailTilesLoader } from '../dashboard/widget-loaders';
 
 interface SensorDetailCardProps {
     sensor: Sensor;
@@ -13,18 +14,22 @@ interface SensorDetailCardProps {
 
 export default function SensorDetailCard({ sensor, onDataUpdate }: SensorDetailCardProps) {
     const [measurementTypes, setMeasurementTypes] = useState<MeasurementTypeInfo[]>([]);
+    const [loading, setLoading] = useState(true);
     const readings = useCurrentReadings({ onDataUpdate });
 
     useEffect(() => {
-        apiClient.GET('/sensors/by-id/{id}/measurement-types', { params: { path: { id: sensor.id } } }).then(({ data }) => setMeasurementTypes(data ?? []));
+        setLoading(true);
+        apiClient.GET('/sensors/by-id/{id}/measurement-types', { params: { path: { id: sensor.id } } })
+            .then(({ data }) => setMeasurementTypes(data ?? []))
+            .finally(() => setLoading(false));
     }, [sensor.id]);
-
-    if (measurementTypes.length === 0) return null;
 
     const sensorReadings = readings[sensor.name] ?? {};
 
     return (
-        <LayoutCard variant="secondary" changes={{ height: '100%', width: '100%' }}>
+        <WidgetSwap loading={loading && measurementTypes.length === 0} loader={<SensorDetailTilesLoader />}>
+            {measurementTypes.length === 0 ? null : (
+            <LayoutCard variant="secondary" changes={{ height: '100%', width: '100%' }}>
             <TypographyH2>{sensor.name}: Details</TypographyH2>
             <Grid container spacing={1} sx={{ mt: 1 }}>
                 {measurementTypes.map((mt) => {
@@ -48,5 +53,7 @@ export default function SensorDetailCard({ sensor, onDataUpdate }: SensorDetailC
                 })}
             </Grid>
         </LayoutCard>
+            )}
+        </WidgetSwap>
     );
 }
