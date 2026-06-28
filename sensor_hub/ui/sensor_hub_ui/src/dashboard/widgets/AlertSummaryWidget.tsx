@@ -3,6 +3,7 @@ import type { AlertRule } from '../../gen/aliases';
 import { useState, useEffect } from 'react';
 import { Box, Typography, List, ListItem, ListItemText, Chip } from '@mui/material';
 import { apiClient } from '../../gen/client';
+import { requestScheduler } from '../../scheduler/requestScheduler';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 
 export default function AlertSummaryWidget(_props: WidgetProps) {
@@ -11,7 +12,7 @@ export default function AlertSummaryWidget(_props: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
 
     useEffect(() => {
-        apiClient.GET('/alerts').then(({ data }) => {
+        requestScheduler.schedule('normal', () => apiClient.GET('/alerts')).then(({ data }) => {
             setRules((data as AlertRule[] | null) ?? []);
             setLoaded(true);
             reportUpdate(new Date());

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import type { ChartEntry, Sensor, Reading } from "../gen/aliases";
 import type { DateTime } from "luxon";
 import { apiClient } from "../gen/client";
+import { requestScheduler, type RequestPriority } from "../scheduler/requestScheduler";
 import { logger } from '../tools/logger';
 
 interface ResolvedRange {
@@ -77,14 +78,15 @@ export function useReadingsData({
       fetchStartIso: string,
       fetchEndIso: string,
       force = false,
+      priority: RequestPriority = 'normal',
     ) => {
       const currentRequestId = ++requestIdRef.current;
       const currentSensors = sensorsRef.current;
       const currentSensorsKey = currentSensors.map((s) => s.name).join("|");
       try {
-        const response = await apiClient.GET('/readings/between', {
+        const response = await requestScheduler.schedule(priority, () => apiClient.GET('/readings/between', {
           params: { query: { start: fetchStartIso, end: fetchEndIso, type: measurementType, aggregation_function: aggregationFunction as never } },
-        });
+        }));
         const data: Reading[] = response.data?.readings ?? [];
 
         if (requestIdRef.current !== currentRequestId || !isMountedRef.current) return;
@@ -135,14 +137,15 @@ export function useReadingsData({
       }
     };
 
-    void fetchAndMaybeUpdate(initStart, initEnd, true);
+    void fetchAndMaybeUpdate(initStart, initEnd, true, 'normal');
 
     const intervalId = window.setInterval(() => {
       // Re-resolve time range on each tick so relative presets slide forward
       const tick = resolveTimeRangeRef.current?.();
       const freshStart = tick?.startDate?.toUTC().toISO() ?? initStart;
       const freshEnd = tick?.endDate?.toUTC().toISO() ?? initEnd;
-      void fetchAndMaybeUpdate(freshStart, freshEnd);
+      // Background polls are low priority so they yield to initial loads and commands.
+      void fetchAndMaybeUpdate(freshStart, freshEnd, false, 'low');
     }, pollIntervalMs);
 
     return () => {
