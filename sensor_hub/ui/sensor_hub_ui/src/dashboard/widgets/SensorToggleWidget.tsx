@@ -4,6 +4,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import type { WidgetProps } from '../types';
 import type { Capability, CommandStatusMessage } from '../../gen/aliases';
 import { apiClient } from '../../gen/client';
+import { requestScheduler } from '../../scheduler/requestScheduler';
 import { useCurrentReadings } from '../../hooks/useCurrentReadings';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { useAuth } from '../../providers/AuthContext';
@@ -177,10 +178,12 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
     setOptimisticValue(nextValue);
     reportUpdate(new Date());
 
-    const { data, error } = await apiClient.POST('/sensors/{id}/command', {
+    // Send the command immediately and pause low-priority background polls for its duration,
+    // so the command (and its confirmation) aren't queued behind the read-only chart flood.
+    const { data, error } = await requestScheduler.runWithPreemption(() => apiClient.POST('/sensors/{id}/command', {
       params: { path: { id: sensor.id } },
       body: { property, value: nextValue },
-    });
+    }));
 
     if (error) {
       setOptimisticValue(previousValue);
