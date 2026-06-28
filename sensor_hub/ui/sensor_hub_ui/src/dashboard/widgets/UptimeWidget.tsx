@@ -6,6 +6,7 @@ import useSensorHealthHistory from '../../hooks/useSensorHealthHistory';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { buildHealthWindowModel, formatDurationShort, formatWindowLabel } from '../../health/healthWindow';
 import { useProperties } from '../../hooks/useProperties';
+import { WidgetSwap, IndeterminateBarLoader } from '../widget-loaders';
 
 export default function UptimeWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
@@ -15,7 +16,7 @@ export default function UptimeWidget({ config }: WidgetProps) {
     const sensor = sensorId ? sensors.find((s) => s.id === sensorId) : undefined;
     const sensorName = sensor?.name ?? '';
 
-    const [history] = useSensorHealthHistory(sensorName);
+    const [history, , historyLoading] = useSensorHealthHistory(sensorName);
 
     useEffect(() => {
         if (history.length > 0) reportUpdate(new Date());
@@ -55,6 +56,7 @@ export default function UptimeWidget({ config }: WidgetProps) {
     }
 
     return (
+        <WidgetSwap loading={historyLoading && !model} loader={<IndeterminateBarLoader />}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 2, gap: 2 }}>
             <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
                 {model ? `${uptime.toFixed(1)}%` : '—'}
@@ -85,5 +87,6 @@ export default function UptimeWidget({ config }: WidgetProps) {
                 color: "text.secondary"
             }}>{sensor.name}</Typography>
         </Box>
+        </WidgetSwap>
     );
 }

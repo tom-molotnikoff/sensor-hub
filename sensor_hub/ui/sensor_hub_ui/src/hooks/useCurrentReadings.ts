@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import type { CommandStatusMessage, Reading } from "../gen/aliases";
 import { WEBSOCKET_BASE } from "../environment/Environment";
 import { useAuth } from "../providers/AuthContext.tsx";
@@ -8,6 +8,34 @@ import { useReconnectingWebSocket } from './useReconnectingWebSocket';
 export type CurrentReadingsMap = Record<string, Record<string, Reading>>;
 
 let cachedCurrentReadings: CurrentReadingsMap = {};
+
+// Tracks whether we have ever received a readings snapshot this session, so
+// widgets can tell "still waiting for the first message" apart from "received,
+// but genuinely empty". Survives remounts (module scope) like the cache above.
+let hasReceivedFirstSnapshot = Object.keys(cachedCurrentReadings).length > 0;
+const readyListeners = new Set<() => void>();
+
+function markSnapshotReceived() {
+  if (hasReceivedFirstSnapshot) return;
+  hasReceivedFirstSnapshot = true;
+  readyListeners.forEach((listener) => listener());
+}
+
+/**
+ * Reactive flag: true once the first current-readings snapshot has arrived
+ * (or a warm cache is already populated). Use alongside a per-widget data check
+ * to drive a loading state — loader while `!ready && noReadingYet`.
+ */
+export function useCurrentReadingsReady(): boolean {
+  return useSyncExternalStore(
+    (callback) => {
+      readyListeners.add(callback);
+      return () => { readyListeners.delete(callback); };
+    },
+    () => hasReceivedFirstSnapshot,
+    () => hasReceivedFirstSnapshot,
+  );
+}
 
 interface UseCurrentReadingsOptions {
     onDataUpdate?: (date: Date) => void;
@@ -52,6 +80,7 @@ export function useCurrentReadings(options?: UseCurrentReadingsOptions): Current
           cachedCurrentReadings = next;
           return next;
         });
+        markSnapshotReceived();
         onDataUpdateRef.current?.(new Date());
         return;
       }
@@ -69,6 +98,7 @@ export function useCurrentReadings(options?: UseCurrentReadingsOptions): Current
           cachedCurrentReadings = next;
           return next;
         });
+        markSnapshotReceived();
         onDataUpdateRef.current?.(new Date());
         return;
       }
@@ -79,6 +109,7 @@ export function useCurrentReadings(options?: UseCurrentReadingsOptions): Current
           cachedCurrentReadings = next;
           return next;
         });
+        markSnapshotReceived();
         onDataUpdateRef.current?.(new Date());
       }
   }, []);

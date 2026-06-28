@@ -23,8 +23,12 @@ vi.mock('../hooks/useMobile', () => ({
 
 vi.mock('../theme/chartColours', () => ({
   useChartColours: () => ({
+    categorical: ['#D4451A'],
     grid: '#ccc',
     health: ['#0f0', '#f00', '#999'],
+    stat: ['', '', ''],
+    axisText: '#000',
+    noData: '#E0D8D0',
   }),
 }));
 
@@ -82,6 +86,15 @@ describe('SensorHealthHistoryChart', () => {
     vi.setSystemTime(new Date('2026-05-09T12:00:00Z'));
     Object.keys(properties).forEach((key) => delete properties[key]);
     useSensorHealthHistoryMock.mockReset();
+  });
+
+  it('shows the signal-trace loader while history is loading with no data yet', () => {
+    useSensorHealthHistoryMock.mockReturnValue([[], vi.fn(), true]);
+
+    render(<SensorHealthHistoryChart sensor={makeSensor()} />);
+
+    expect(screen.getByTestId('widget-loader')).toBeInTheDocument();
+    expect(screen.queryByTestId('area-chart')).not.toBeInTheDocument();
   });
 
   it('extends the latest health state to now before rendering the step chart', () => {

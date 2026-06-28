@@ -29,6 +29,10 @@ vi.mock('../WidgetUpdateContext', () => ({
   useReportWidgetUpdate: () => reportUpdateMock,
 }));
 
+vi.mock('../../theme/chartColours', () => ({
+  useChartColours: () => ({ categorical: ['#D4451A'], health: ['', '', ''], stat: ['', '', ''], grid: '#000', axisText: '#000', noData: '#E0D8D0' }),
+}));
+
 function makeSensor(overrides: Partial<Sensor> = {}): Sensor {
   return {
     id: 7,
@@ -64,6 +68,15 @@ describe('UptimeWidget', () => {
     Object.keys(properties).forEach((key) => delete properties[key]);
     reportUpdateMock.mockReset();
     useSensorHealthHistoryMock.mockReset();
+  });
+
+  it('shows the indeterminate-bar loader while health history is loading', () => {
+    useSensorHealthHistoryMock.mockReturnValue([[], vi.fn(), true]);
+
+    render(<UptimeWidget id="widget-1" isEditing={false} config={{ sensorId: 7 }} />);
+
+    expect(screen.getByTestId('widget-loader')).toBeInTheDocument();
+    expect(screen.queryByText('—')).not.toBeInTheDocument();
   });
 
   it('shows a time-weighted uptime percentage instead of transition-count uptime', () => {

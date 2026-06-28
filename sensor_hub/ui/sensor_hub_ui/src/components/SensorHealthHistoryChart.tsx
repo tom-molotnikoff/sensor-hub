@@ -17,6 +17,7 @@ import { useIsMobile } from "../hooks/useMobile";
 import { useChartColours } from "../theme/chartColours";
 import { buildHealthWindowModel, formatDurationShort, formatWindowLabel } from "../health/healthWindow";
 import { useProperties } from "../hooks/useProperties.ts";
+import { SignalTraceLoader } from "../dashboard/widget-loaders";
 
 // Custom dot that only renders at transition points for lines with valid values
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,7 +37,7 @@ function SensorHealthHistoryChart({sensor}: SensorHealthHistoryChartProps) {
   const isMobile = useIsMobile();
   const properties = useProperties();
 
-  const [healthHistoryData] = useSensorHealthHistory(sensor.name);
+  const [healthHistoryData, , historyLoading] = useSensorHealthHistory(sensor.name);
 
   const model = useMemo(() => {
     if (!Array.isArray(healthHistoryData) || healthHistoryData.length === 0) return null;
@@ -112,7 +113,11 @@ function SensorHealthHistoryChart({sensor}: SensorHealthHistoryChartProps) {
           </span>
         </div>
       )}
-      {!Array.isArray(mappedData) || mappedData.length === 0 ? (
+      {historyLoading && mappedData.length === 0 ? (
+        <div style={chartAreaStyle}>
+          <SignalTraceLoader />
+        </div>
+      ) : !Array.isArray(mappedData) || mappedData.length === 0 ? (
         <></>
       ) : (
         <div style={chartAreaStyle}>
