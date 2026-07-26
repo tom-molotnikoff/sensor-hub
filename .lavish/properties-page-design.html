@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Properties page - the design</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --bg: #F5F0EB; --paper: #FFFFFF; --paper-2: #FAF7F4;
+    --primary: #D4451A; --primary-dark: #B33612; --on-primary: #FFFFFF;
+    --text: #1A1A1A; --text-2: #5C5C5C; --divider: #D9D0C7; --hover: rgba(212,69,26,0.06);
+    --shadow: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+    --ok: #2E7D32; --warn: #B26A00; --err: #C62828; --info: #1565C0; --code-bg: #F1ECE7;
+  }
+  :root[data-theme="dark"] {
+    --bg: #1A1A1A; --paper: #242424; --paper-2: #2C2C2C;
+    --primary: #ED5125; --primary-dark: #C43D18; --on-primary: #FFFFFF;
+    --text: #E8E8E8; --text-2: #A0A0A0; --divider: #333333; --hover: rgba(237,81,37,0.08);
+    --shadow: 0 1px 3px rgba(0,0,0,0.5);
+    --ok: #66BB6A; --warn: #FFB74D; --err: #EF5350; --info: #64B5F6; --code-bg: #1E1E1E;
+  }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: Roboto, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  main { max-width: 1120px; margin: 0 auto; padding: 32px 20px 120px; }
+  section { margin-bottom: 54px; }
+  h1,h2,h3,h4 { line-height: 1.25; margin: 0; }
+  h1 { font-size: 33px; font-weight: 500; letter-spacing: -0.4px; }
+  h2 { font-size: 23px; font-weight: 500; }
+  h3 { font-size: 18px; font-weight: 500; }
+  h4 { font-size: 15px; font-weight: 600; }
+  p { margin: 12px 0; }
+  :where(p,li,td,th,h1,h2,h3,h4) { overflow-wrap: anywhere; }
+  a { color: var(--primary); }
+  .eyebrow { text-transform: uppercase; letter-spacing: 1.4px; font-size: 11px; font-weight: 700; color: var(--primary); }
+  .lede { font-size: 17px; color: var(--text-2); max-width: 70ch; }
+  .muted { color: var(--text-2); } .small { font-size: 13px; } .tiny { font-size: 12px; }
+  .mono { font-family: "SF Mono","Roboto Mono",ui-monospace,Menlo,Consolas,monospace; }
+  .rule { display:flex; align-items:center; gap:14px; margin:0 0 20px; }
+  .rule h2 { white-space: nowrap; }
+  .rule::after { content:""; flex:1; height:1px; background: var(--divider); }
+  .paper { background: var(--paper); border:1px solid var(--divider); border-radius:6px; box-shadow: var(--shadow); }
+  .pad { padding: 20px 22px; }
+  .grid { display:grid; gap:16px; } .grid > * { min-width:0; }
+  .g2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  @media (max-width: 900px) { .g2 { grid-template-columns: minmax(0,1fr); } }
+  code { font-family:"SF Mono","Roboto Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.86em;
+    background: var(--code-bg); border-radius:3px; padding:1px 5px; color: var(--text); }
+  pre { background: var(--code-bg); border:1px solid var(--divider); border-radius:4px; padding:14px 16px;
+    overflow-x:auto; font-size:12.5px; line-height:1.6; margin:12px 0; }
+  pre code { background:none; padding:0; font-size:inherit; }
+  .badge { display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:11px;
+    border:1px solid currentColor; white-space:nowrap; }
+  .b-ok{color:var(--ok);} .b-warn{color:var(--warn);} .b-err{color:var(--err);} .b-info{color:var(--info);} .b-flat{color:var(--text-2);}
+  .b-rec { color: var(--on-primary); background: var(--primary); border-color: var(--primary); }
+  .callout { border:1px solid var(--divider); border-left:4px solid var(--primary); background: var(--paper);
+    border-radius:0 6px 6px 0; padding:18px 22px; box-shadow: var(--shadow); }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.info { border-left-color: var(--info); }
+  .callout.ok { border-left-color: var(--ok); }
+  table { border-collapse: collapse; width:100%; font-size:13.5px; }
+  .tblwrap { overflow-x:auto; border:1px solid var(--divider); border-radius:6px; background: var(--paper); }
+  th,td { text-align:left; padding:9px 14px; border-bottom:1px solid var(--divider); vertical-align:top; }
+  th { font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-2); background: var(--paper-2); }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background: var(--hover); }
+  ul.tight { margin:8px 0; padding-left:20px; } ul.tight li { margin:5px 0; }
+  ol.tight { margin:8px 0; padding-left:20px; } ol.tight li { margin:6px 0; }
+  .mermaid { background: var(--paper); border:1px solid var(--divider); border-radius:6px; padding:16px; overflow-x:auto; }
+  .mermaid svg { max-width:100%; height:auto; }
+  .q { background: var(--paper); border:1px solid var(--divider); border-left:4px solid var(--primary);
+    border-radius:0 6px 6px 0; padding:20px 22px; box-shadow: var(--shadow); margin-top:20px; }
+  .q h3 { margin-bottom:4px; } .q .qsub { color:var(--text-2); font-size:13.5px; margin:0 0 14px; }
+  .opts { display:grid; gap:8px; margin-bottom:14px; }
+  .opt { display:grid; grid-template-columns:20px minmax(0,1fr); gap:10px; align-items:start; padding:11px 13px;
+    border:1px solid var(--divider); border-radius:5px; cursor:pointer; background: var(--paper-2); }
+  .opt:hover { border-color: var(--primary); }
+  .opt input { margin:3px 0 0; accent-color: var(--primary); width:16px; height:16px; }
+  .opt .ol { font-weight:600; font-size:14px; display:block; }
+  .opt .od { font-size:12.5px; color:var(--text-2); margin-top:2px; display:block; }
+  .qbtn { background: var(--primary); color: var(--on-primary); border:none; border-radius:4px; padding:8px 18px;
+    font-size:13px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; cursor:pointer; }
+  .qbtn:hover { background: var(--primary-dark); }
+  .qfree { width:100%; border:1px solid var(--divider); border-radius:4px; background: var(--paper-2);
+    padding:9px 11px; color:var(--text); font:inherit; font-size:13px; margin-bottom:12px; resize:vertical; }
+  .themebtn { position:fixed; top:14px; right:14px; z-index:50; background: var(--paper); color:var(--text);
+    border:1px solid var(--divider); border-radius:20px; padding:6px 14px; font-size:12px; cursor:pointer; box-shadow: var(--shadow); }
+  .step { display:grid; grid-template-columns:30px minmax(0,1fr); gap:12px; margin-bottom:14px; }
+  .stepn { width:26px; height:26px; border-radius:50%; background: var(--primary); color: var(--on-primary);
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; }
+</style>
+</head>
+<body>
+
+<button class="themebtn" data-lavish-action onclick="toggleTheme()">Light / dark</button>
+
+<main>
+
+<header style="margin-bottom:40px">
+  <div class="eyebrow">Sensor Hub &middot; the design</div>
+  <h1 style="margin:10px 0 14px">Properties page: definitions, honest apply-states, one grouped page</h1>
+  <p class="lede">
+    Every decision from the interview is locked. This is the design itself - architecture, data flow,
+    error handling, testing - plus two bugs I hit while tracing the data flow that this design has to
+    answer for. Three questions left at the bottom.
+  </p>
+</header>
+
+<!-- ============ SHAPE ============ -->
+<section>
+  <div class="rule"><h2>The shape of it</h2></div>
+  <div class="grid g2">
+    <div class="paper pad">
+      <h4>Backend</h4>
+      <ul class="tight small" style="margin-bottom:0">
+        <li>Six new struct tags on <code>ApplicationConfiguration</code>: <code>desc</code>, <code>group</code>, <code>unit</code>, <code>enum</code>, <code>apply</code>, <code>readonly</code>.</li>
+        <li><code>PropertyDef</code> and <code>buildRegistry()</code> carry them through - the reflection loop already exists, this is six more <code>field.Tag.Get</code> calls.</li>
+        <li>New <code>GET /properties/definitions</code>, spec-first in <code>api/openapi.yaml</code>, <code>x-required-permission: view_properties</code>.</li>
+        <li><code>GET /properties</code> and <code>PATCH /properties</code> untouched. CLI and the retention cards keep working.</li>
+        <li>Sensitive-key plumbing deleted.</li>
+        <li>Two live-apply fixes: <code>slog.LevelVar</code> for the log level, and an interval function on <code>periodic.TaskConfig</code>.</li>
+      </ul>
+    </div>
+    <div class="paper pad">
+      <h4>Frontend</h4>
+      <ul class="tight small" style="margin-bottom:0">
+        <li><code>useProperties</code> unchanged - it stays the websocket-backed value feed for everyone.</li>
+        <li>New <code>usePropertyDefinitions</code> - one fetch, cached for the session, definitions don't change without a deploy.</li>
+        <li><code>PropertiesCard</code> is replaced by a page composed of <code>PropertyGroupSection</code> and one <code>PropertyField</code> per property, which picks its control from <code>Kind</code>, <code>enum</code> and <code>readonly</code>.</li>
+        <li>Rail with scroll-spy plus a search box filtering on key, label and description.</li>
+        <li>A property with a definition but no group, or a value with no definition, still renders - see the degradation rules below.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ REGISTRY ============ -->
+<section>
+  <div class="rule"><h2>The registry, extended</h2></div>
+  <p class="muted small" style="margin-top:-6px">
+    Nothing here is a new mechanism - <code>buildRegistry()</code> already reflects over the struct at
+    <code>init()</code>. These are additional tags on the same pass.
+  </p>
+<pre><code>type PropertyDef struct {
+    // ... existing: FieldName, FieldIndex, Key, Kind, Default, File, Validate
+    Description string       // desc  - one sentence, shown under the label
+    Group       string       // group - sensors|retention|security|mqtt|email|weather|advanced
+    Unit        string       // unit  - "seconds", "days", "hours"; suffix on the input
+    Enum        []string     // enum  - comma-separated in the tag; renders a select
+    Apply       ApplyState   // apply - live|next-cycle|action:&lt;id&gt;   (default: live)
+    ReadOnly    bool         // readonly
+}</code></pre>
+
+  <div class="grid g2" style="margin-top:6px">
+    <div class="paper pad">
+      <h4>Why <code>apply</code> defaults to <code>live</code></h4>
+      <p class="small" style="margin-bottom:0">
+        18 of 29 properties are already live, so the default should be the common case and the tag should
+        only appear where something is unusual. It also means the failure mode of forgetting the tag is
+        "we claimed live and it was live" for most new properties - and the test below catches the rest.
+      </p>
+    </div>
+    <div class="paper pad">
+      <h4>Why <code>Validate</code> stays a string</h4>
+      <p class="small" style="margin-bottom:0">
+        Tempting to redesign it into min/max while we're here. Out of scope - the existing
+        <code>positive</code> / <code>non_negative</code> / <code>non_empty</code> vocabulary is enough
+        to drive client-side validation, and widening it is a separate change with its own risks.
+      </p>
+    </div>
+  </div>
+
+  <h3 style="margin:26px 0 10px">The endpoint</h3>
+<pre><code>GET /api/properties/definitions        x-required-permission: view_properties
+
+{
+  "definitions": [
+    {
+      "key": "sensor.collection.interval",
+      "label": "Collection interval",
+      "description": "How often every enabled sensor is polled.",
+      "type": "int",
+      "default": "300",
+      "group": "sensors",
+      "unit": "seconds",
+      "apply": "next-cycle",
+      "validate": "positive",
+      "readOnly": false
+    }
+  ],
+  "groups": [
+    { "id": "sensors", "label": "Sensors &amp; collection",
+      "description": "How often sensors are polled and how they are discovered.", "order": 1 }
+  ]
+}</code></pre>
+  <p class="small muted">
+    Groups are returned as their own ordered list rather than inferred from the properties, so ordering
+    and group descriptions live in the backend too and the UI holds no hardcoded knowledge of what a
+    group is. <code>label</code> is derived from the field name if no tag overrides it, so no property
+    can ship without a human-readable name.
+  </p>
+</section>
+
+<!-- ============ DATA FLOW ============ -->
+<section>
+  <div class="rule"><h2>Data flow</h2></div>
+  <div class="mermaid">
+flowchart TD
+  TAGS["ApplicationConfiguration struct tags"] --> REG["registry []PropertyDef&lt;br/&gt;built by reflection at init()"]
+  REG --> DEFS["GET /properties/definitions&lt;br/&gt;static for process lifetime"]
+  REG --> VALS["GET /properties&lt;br/&gt;key to value, unchanged"]
+  REG --> FILES["SaveToFiles&lt;br/&gt;three .properties files"]
+
+  DEFS --> HOOKD["usePropertyDefinitions&lt;br/&gt;fetch once, cache"]
+  VALS --> HOOKV["useProperties&lt;br/&gt;websocket feed"]
+  WS(["/properties/ws"]) --> HOOKV
+
+  HOOKD --> PAGE["Properties page"]
+  HOOKV --> PAGE
+  PAGE -->|PATCH /properties| SVC["PropertiesService"]
+  SVC -->|validate then reload| CFG["AppConfig in memory"]
+  SVC -->|async| FILES
+  SVC -->|broadcast| WS
+  WATCH["config file watcher&lt;br/&gt;polls mtime every 2s"] -->|external edit| CFG
+  WATCH -.->|MISSING: no broadcast| WS
+
+  style WATCH stroke-dasharray: 4 4
+  </div>
+</section>
+
+<!-- ============ TWO BUGS ============ -->
+<section>
+  <div class="rule"><h2>Two bugs the data flow exposed</h2></div>
+  <p class="muted small" style="margin-top:-6px">
+    Neither is caused by this work. Both sit directly in its path, and per the engineering standards we
+    fix what we find.
+  </p>
+
+  <div class="grid g2" style="margin-top:16px">
+    <div class="paper pad" style="border-left:3px solid var(--err)">
+      <h4><span class="badge b-err">Bug 1</span> A broadcast wipes your in-progress edits</h4>
+      <p class="small">
+        <code>PropertiesCard</code> does <code>useEffect(() =&gt; { if (properties) setEditedProperties(properties) }, [properties])</code>.
+        Every websocket message is a fresh object identity, so every broadcast overwrites local state.
+        If another admin saves - or you save in a second tab - everything you were half-way through typing
+        is silently replaced. On a page where you might be editing several fields before saving, that is
+        much worse than it is today.
+      </p>
+      <p class="small" style="margin-bottom:0"><strong>Design answer:</strong> hold two maps - server
+        values from the websocket, and a sparse map of only the fields you have touched. Render
+        <code>edited[key] ?? server[key]</code>. A broadcast then updates untouched fields freely and
+        leaves your edits alone. Where a broadcast changes a field you are editing, the helper line
+        changes to say someone else changed this to X - reset to take theirs.</p>
+      <span class="tiny mono muted">PropertiesCard.tsx:19-21</span>
+    </div>
+
+    <div class="paper pad" style="border-left:3px solid var(--warn)">
+      <h4><span class="badge b-warn">Bug 2</span> Editing the file over SSH doesn't reach the UI</h4>
+      <p class="small">
+        The watcher detects an external file change and calls <code>ReloadConfig</code>, but never calls
+        <code>ws.BroadcastToTopic("properties", ...)</code>. So an SSH edit - or an RPM upgrade rewriting
+        the defaults - updates the running config while every open browser keeps showing stale values
+        until someone reloads the page. On a page that is about to display "saved value" and
+        "modified from default", stale server state is actively misleading.
+      </p>
+      <p class="small" style="margin-bottom:0"><strong>Design answer:</strong> broadcast after a
+        successful watcher reload. One call, same as the service already does after a PATCH.</p>
+      <span class="tiny mono muted">config_watcher.go:89</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPONENTS ============ -->
+<section>
+  <div class="rule"><h2>Components</h2></div>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th style="width:30%">Component</th><th>Responsibility</th></tr></thead>
+      <tbody>
+        <tr><td class="mono tiny">PropertiesPage</td><td class="small">Layout, rail, search state, dirty state, save orchestration. Owns the two maps from Bug 1.</td></tr>
+        <tr><td class="mono tiny">PropertySearchRail</td><td class="small">Group list with per-group edited counts, scroll-spy on the sections, search input. Collapses above the content on mobile.</td></tr>
+        <tr><td class="mono tiny">PropertyGroupSection</td><td class="small">One card per group: heading, group description, the fields in registry order. Owns its anchor id for <code>/properties#mqtt</code>.</td></tr>
+        <tr><td class="mono tiny">PropertyField</td><td class="small">Picks its control from the definition: <code>bool</code> to switch, <code>int</code> to number field with unit suffix, <code>enum</code> to select, <code>readonly</code> to plain text. Renders label, description, validation error, modified state and apply-state.</td></tr>
+        <tr><td class="mono tiny">PropertyApplyNotice</td><td class="small">The one chip plus its action button. <code>next-cycle</code> renders a muted line; <code>action:mqtt-restart</code> renders the chip and a confirm-first button; <code>action:oauth-reload</code> links to the existing Reload control.</td></tr>
+        <tr><td class="mono tiny">usePropertyDefinitions</td><td class="small">Fetch once, cache for the session, expose loading and error.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin:26px 0 10px">Degradation rules</h3>
+  <p class="small muted" style="margin-top:0">
+    The two sources can disagree. They must never produce a blank page.
+  </p>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th style="width:38%">Situation</th><th>Behaviour</th></tr></thead>
+      <tbody>
+        <tr><td class="small">A value has no definition</td><td class="small">Render it in an "Ungrouped" section as a plain text field with its raw key. Can only happen if the registry and the running config disagree, which shouldn't occur - but a silently missing property is worse than an ugly one.</td></tr>
+        <tr><td class="small">A definition has no value</td><td class="small">Render with the default as placeholder. Shouldn't happen - <code>ConvertToMaps</code> emits every registered key.</td></tr>
+        <tr><td class="small">A definition has an unknown group</td><td class="small">Falls into "Ungrouped" rather than vanishing.</td></tr>
+        <tr><td class="small">The definitions request fails</td><td class="small">Fall back to today's behaviour: flat list of key and text field, with a banner saying descriptions and typed controls are unavailable. The page still edits properties. This is the important one - a definitions outage must not take away the ability to fix your config.</td></tr>
+        <tr><td class="small">The user lacks <code>manage_properties</code></td><td class="small">Everything renders, all controls disabled, no Save button. Same as today.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ ERRORS ============ -->
+<section>
+  <div class="rule"><h2>Error handling</h2></div>
+  <div class="grid g2">
+    <div class="paper pad">
+      <h4>Client-side, before the PATCH</h4>
+      <ul class="tight small" style="margin-bottom:0">
+        <li>Type check from <code>Kind</code>: an <code>int</code> field rejects non-numeric input at the field.</li>
+        <li>Rule check from <code>Validate</code>: <code>positive</code>, <code>non_negative</code>, <code>non_empty</code>.</li>
+        <li>Save is disabled while any field is invalid, and the rail marks which groups hold errors - otherwise an invalid field in a scrolled-away group makes Save mysteriously dead.</li>
+        <li>Client validation is convenience only. The backend stays authoritative and the UI must handle a rejection it did not predict.</li>
+      </ul>
+    </div>
+    <div class="paper pad">
+      <h4>Server-side, on the PATCH</h4>
+      <ul class="tight small" style="margin-bottom:0">
+        <li><code>LoadConfigurationFromMaps</code> already validates before anything is written, and the whole batch is rejected together. That is the right behaviour and it stays.</li>
+        <li>Today the error reaches the user as a raw Go string in a snackbar. The errors are already formatted as <code>invalid &lt;key&gt; value: &lt;raw&gt;</code>, so the API can return the offending key alongside the message and the UI can attach it to the right field.</li>
+        <li>Local edits survive a failed save. Currently a failure leaves you looking at an error with no clear state; the two-map model means your edits are still there to correct.</li>
+        <li>The file write is already async and only logs on failure - so the UI can report success while the write fails. Out of scope to fix here, but noted as a follow-up: the save should surface a persistence failure.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TESTING ============ -->
+<section>
+  <div class="rule"><h2>Testing</h2></div>
+  <div class="grid g2">
+    <div class="paper pad">
+      <h4>Go</h4>
+      <ul class="tight small" style="margin-bottom:0">
+        <li><strong>Registry completeness</strong> - table test asserting every registered property has a non-empty <code>desc</code> and a known <code>group</code>. This is the test that keeps the metadata honest as properties are added, and it is the reason the docs table can be deleted safely.</li>
+        <li><strong>Enum validity</strong> - any <code>enum</code> tag must contain the field's <code>default</code>.</li>
+        <li><strong>Apply-state validity</strong> - <code>apply</code> parses to a known state, and any <code>action:&lt;id&gt;</code> names an action the API actually implements.</li>
+        <li><strong>Endpoint</strong> - handler test for shape and for the <code>view_properties</code> permission.</li>
+        <li><strong>Live-apply fixes</strong> - a test that changing <code>log.level</code> through the service changes what the logger emits, and a periodic test that a task picks up a new interval on the next tick.</li>
+        <li><strong>Integration</strong> - per <code>CLAUDE.md</code>, <code>go test -tags integration ./integration/</code> after any Go change. <code>integration/properties_test.go</code> already exists to extend.</li>
+      </ul>
+    </div>
+    <div class="paper pad">
+      <h4>Frontend</h4>
+      <ul class="tight small" style="margin-bottom:0">
+        <li><code>PropertyField</code> renders the right control per type, including read-only and enum.</li>
+        <li>The Bug 1 case explicitly: type into a field, deliver a websocket message, assert the edit survives and untouched fields update.</li>
+        <li>Definitions-fetch failure falls back to the flat editable list rather than an empty page.</li>
+        <li>Search matches on key, label and description, and the group counts follow the filter.</li>
+        <li>Permission gating: no <code>manage_properties</code> means disabled controls and no Save.</li>
+        <li>Existing <code>PendingSensorsCard.test.tsx</code> and friends set the pattern - Vitest with the same testing-library idiom.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCOPE ============ -->
+<section>
+  <div class="rule"><h2>What this is not</h2></div>
+  <div class="grid g2">
+    <div class="paper pad" style="border-left:3px solid var(--ok)">
+      <h4>In</h4>
+      <ul class="tight small" style="margin-bottom:0">
+        <li>Registry tags, definitions endpoint, the rebuilt page.</li>
+        <li>Typed controls, descriptions, apply-state, modified marker and reset, inline validation, search.</li>
+        <li><code>log.level</code> and periodic-interval live-apply fixes.</li>
+        <li>Delete the sensitive-key plumbing.</li>
+        <li>Bugs 1 and 2.</li>
+        <li>Remove the property table from the docs and point at the UI.</li>
+      </ul>
+    </div>
+    <div class="paper pad" style="border-left:3px solid var(--warn)">
+      <h4>Out - raised as their own issues</h4>
+      <ul class="tight small" style="margin-bottom:0">
+        <li>Live-apply for <code>readings.aggregation.*</code> - needs its own thinking about re-tiering mid-flight.</li>
+        <li>Live-apply for <code>oauth.token.refresh.interval.minutes</code>.</li>
+        <li>Surfacing an async file-write failure to the user.</li>
+        <li>Dispersing groups into feature pages - the agreed later phase.</li>
+        <li>Any change to the <code>validate</code> vocabulary.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ QUESTIONS ============ -->
+<section>
+  <div class="rule"><h2>Three things I want you to decide</h2></div>
+
+  <form class="q" data-lavish-question="conflict" onsubmit="return queueAnswer(event,'conflict','Concurrent edit handling')">
+    <h3>1. When someone else changes a field you're editing</h3>
+    <p class="qsub">Bug 1's design answer keeps your edits. The question is what happens on the field where you actually collide.</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="conflict" value="keep my edit, show a muted line saying someone else set it to X with a link to take theirs"><span><span class="ol">Keep my edit, tell me about theirs <span class="badge b-rec">Recommended</span></span><span class="od">Your value stays in the box; the helper line says someone else changed this to 600 with a reset link. Nothing is lost and nothing changes under your cursor.</span></span></label>
+      <label class="opt"><input type="radio" name="conflict" value="keep my edit silently, let the save overwrite theirs"><span><span class="ol">Keep my edit silently</span><span class="od">Simplest. Last write wins with no warning, which on a single-admin home instance is arguably fine and is what happens today anyway.</span></span></label>
+      <label class="opt"><input type="radio" name="conflict" value="block the save and force a refresh when the server value changed under an edited field"><span><span class="ol">Block the save on conflict</span><span class="od">Strictest. Refuses the PATCH and makes you re-look. Probably heavier than a single-user home server warrants.</span></span></label>
+    </div>
+    <button type="submit" class="qbtn">Queue this answer</button>
+  </form>
+
+  <form class="q" data-lavish-question="mqttaction" onsubmit="return queueAnswer(event,'mqttaction','MQTT apply action')">
+    <h3>2. The MQTT broker action</h3>
+    <p class="qsub">The broker has <code>Start()</code>, <code>Stop()</code> and <code>IsRunning()</code> already, so bouncing it in-process is possible. Whether we should is your call - it disconnects every publishing sensor.</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="mqttaction" value="build a restart-broker action with a confirmation naming the consequence"><span><span class="ol">Build the action, confirm first <span class="badge b-rec">Recommended</span></span><span class="od">A button that stops and restarts the broker on the new port, behind a dialog that says it disconnects connected sensors. Genuinely better than a restart, and honest about the cost.</span></span></label>
+      <label class="opt"><input type="radio" name="mqttaction" value="label only: say a service restart is required, build no action"><span><span class="ol">Label only</span><span class="od">The chip says a service restart is required and we build no action. Smallest scope; the properties change sits pending until you restart, which is exactly the confusing state we set out to fix.</span></span></label>
+      <label class="opt"><input type="radio" name="mqttaction" value="defer the action to a follow-up issue, ship the honest label now"><span><span class="ol">Honest label now, action later</span><span class="od">Ship the label in this work and raise the bounce-the-broker action separately, so the MQTT lifecycle gets its own thinking.</span></span></label>
+    </div>
+    <button type="submit" class="qbtn">Queue this answer</button>
+  </form>
+
+  <form class="q" data-lavish-question="docs2" onsubmit="return queueAnswer(event,'docs2','Docs table')">
+    <h3>3. The docs table - you didn't come back on this</h3>
+    <p class="qsub">Your instruction was to drop it and point at the UI. My caveat was that the docs are the only place someone can see what's configurable before they install. I'll do whichever you say; I'm not deciding it quietly.</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="docs2" value="delete the table entirely, docs point at the UI"><span><span class="ol">Delete it, point at the UI</span><span class="od">Your original instruction, taken straight. Docs stop restating code; the registry completeness test guarantees the UI actually carries the descriptions.</span></span></label>
+      <label class="opt"><input type="radio" name="docs2" value="generate a minimal table from the registry at build time so there is still one source of truth"><span><span class="ol">Generate a minimal table from the registry</span><span class="od">Still one source of truth, still zero hand-maintenance, and pre-install evaluation keeps working. Costs a small generator and a make target.</span></span></label>
+      <label class="opt"><input type="radio" name="docs2" value="delete the table and instead document only that properties are self-describing in the UI"><span><span class="ol">Delete it, document the concept instead</span><span class="od">The docs explain that properties are self-describing in the UI and what the apply-states mean - complementing the code rather than listing it.</span></span></label>
+    </div>
+    <button type="submit" class="qbtn">Queue this answer</button>
+  </form>
+
+  <form class="q" data-lavish-question="design-open" onsubmit="return queueFree(event,'design-open','Design feedback')">
+    <h3>Anything else on the design</h3>
+    <p class="qsub">Once this settles I'll set up the issue tracker - this project has no <code>docs/issue-tracker.md</code> yet - and persist the design there.</p>
+    <textarea class="qfree" name="design-open" rows="4" placeholder="Architecture, the two bugs, error handling, testing, scope"></textarea>
+    <button type="submit" class="qbtn">Queue this answer</button>
+  </form>
+</section>
+
+</main>
+
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs";
+  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const paint = document.createElement("canvas").getContext("2d");
+  function toRgba(color) {
+    paint.clearRect(0, 0, 1, 1); paint.fillStyle = "#000"; paint.fillStyle = color; paint.fillRect(0, 0, 1, 1);
+    return paint.getImageData(0, 0, 1, 1).data;
+  }
+  function compositeRgba(fg, bg) {
+    const fa = fg[3] / 255, ba = bg[3] / 255, a = fa + ba * (1 - fa);
+    if (a === 0) return [0, 0, 0, 0];
+    return [ (fg[0]*fa + bg[0]*ba*(1-fa))/a, (fg[1]*fa + bg[1]*ba*(1-fa))/a, (fg[2]*fa + bg[2]*ba*(1-fa))/a, a*255 ];
+  }
+  function pageIsDark() {
+    const root = document.documentElement;
+    const rb = toRgba(getComputedStyle(root).backgroundColor);
+    const bb = document.body ? toRgba(getComputedStyle(document.body).backgroundColor) : [0,0,0,0];
+    const [r, g, b, a] = compositeRgba(bb, rb);
+    if (a > 0) return (0.2126*r + 0.7152*g + 0.0722*b) / 255 < 0.5;
+    return darkQuery.matches;
+  }
+  const diagrams = [...document.querySelectorAll(".mermaid")].map((el) => ({ el, src: el.textContent }));
+  let applied, rendering = false, queued = false;
+  function queueRender() { queued = true; if (rendering) return; void render(); }
+  async function render() {
+    rendering = true;
+    try {
+      while (queued) {
+        queued = false;
+        const theme = pageIsDark() ? "dark" : "default";
+        if (theme === applied) continue;
+        mermaid.initialize({ startOnLoad: false, theme, securityLevel: "strict" });
+        for (const { el, src } of diagrams) { el.removeAttribute("data-processed"); el.textContent = src; }
+        try { await mermaid.run({ nodes: diagrams.map((d) => d.el) }); }
+        catch (error) { console.error("Mermaid diagram render failed:", error); return; }
+        applied = theme;
+      }
+    } finally { rendering = false; if (queued) queueRender(); }
+  }
+  if (document.readyState === "complete") queueRender();
+  else window.addEventListener("load", queueRender, { once: true });
+  const themeObserver = new MutationObserver(queueRender);
+  for (const el of [document.documentElement, document.body]) {
+    if (!el) continue;
+    themeObserver.observe(el, { attributes: true, attributeFilter: ["data-theme", "class", "style"] });
+  }
+  darkQuery.addEventListener("change", queueRender);
+</script>
+<script>
+  function toggleTheme() {
+    var r = document.documentElement;
+    r.setAttribute('data-theme', r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  }
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+  function confirmQueued(form) {
+    var btn = form.querySelector('button[type="submit"]');
+    var old = btn.textContent;
+    btn.textContent = 'Queued ✓';
+    setTimeout(function () { btn.textContent = old; }, 1600);
+  }
+  function queueAnswer(event, key, label) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    var choice = new FormData(form).get(key);
+    if (!choice) return false;
+    window.lavish && window.lavish.queuePrompt(label + ': ' + choice, {
+      tag: 'choice', text: label + ': ' + choice, element: form, queueKey: key,
+      data: { question: key, answer: choice }
+    });
+    confirmQueued(form);
+    return false;
+  }
+  function queueFree(event, key, label) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    var val = (new FormData(form).get(key) || '').toString().trim();
+    if (!val) return false;
+    window.lavish && window.lavish.queuePrompt(label + ': ' + val, {
+      tag: 'feedback', text: label, element: form, queueKey: key,
+      data: { question: key, answer: val }
+    });
+    confirmQueued(form);
+    return false;
+  }
+</script>
+</body>
+</html>
