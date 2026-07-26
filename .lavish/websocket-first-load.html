@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Controllable sensors: slow first-load diagnosis & fix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+  :root {
+    --brand: #D4451A;
+    --brand-light: #ED5125;
+    --brand-dark: #B33612;
+    --bg: #F5F0EB;
+    --paper: #FFFFFF;
+    --ink: #1A1A1A;
+    --ink-2: #5C5C5C;
+    --divider: #D9D0C7;
+    --good: #2E7D32;
+    --warn: #B8860B;
+    --bad: #B3261E;
+    --shadow: 0 1px 3px rgba(26,26,26,0.08), 0 8px 24px rgba(26,26,26,0.06);
+    --radius: 14px;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 40px 24px 80px; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px;
+    font-weight: 700; color: var(--brand); margin: 0 0 8px;
+  }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0 0 12px; font-weight: 800; letter-spacing: -0.01em; }
+  h2 { font-size: 21px; margin: 0 0 14px; font-weight: 700; letter-spacing: -0.005em; }
+  h3 { font-size: 16px; margin: 0 0 8px; font-weight: 700; }
+  p { margin: 0 0 12px; }
+  .lede { font-size: 17px; color: var(--ink-2); max-width: 70ch; }
+  section { margin-top: 40px; }
+  .card {
+    background: var(--paper); border: 1px solid var(--divider);
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px;
+  }
+  .card + .card { margin-top: 16px; }
+  code, .mono { font-family: "Roboto Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+  code.inl { background: rgba(212,69,26,0.08); color: var(--brand-dark); padding: 1px 6px; border-radius: 5px; font-size: 0.88em; overflow-wrap: anywhere; }
+  pre {
+    background: #20140F; color: #F3E7DF; border-radius: 10px; padding: 16px 18px;
+    overflow-x: auto; font-size: 13px; line-height: 1.5; margin: 0 0 12px;
+  }
+  pre .c { color: #C99A86; }
+  pre .k { color: #ED9B7A; }
+  pre .hl { background: rgba(237,81,37,0.22); display: inline-block; width: 100%; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px; letter-spacing: 0.02em;
+  }
+  .pill.good { background: rgba(46,125,50,0.12); color: var(--good); }
+  .pill.warn { background: rgba(184,134,11,0.14); color: var(--warn); }
+  .pill.bad  { background: rgba(179,38,30,0.12); color: var(--bad); }
+  .pill.brand{ background: rgba(212,69,26,0.10); color: var(--brand-dark); }
+  .grid2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
+  @media (max-width: 760px) { .grid2, .grid3 { grid-template-columns: minmax(0,1fr); } }
+  .stat { background: var(--paper); border: 1px solid var(--divider); border-radius: var(--radius); padding: 18px 20px; }
+  .stat .big { font-size: 28px; font-weight: 800; letter-spacing: -0.01em; }
+  .stat .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); font-weight: 700; }
+  .stat .sub { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
+  .callout { border-left: 4px solid var(--brand); background: rgba(212,69,26,0.05); padding: 14px 18px; border-radius: 0 10px 10px 0; }
+  .callout.warn { border-left-color: var(--warn); background: rgba(184,134,11,0.07); }
+  .diagram-host { background: var(--paper); border: 1px solid var(--divider); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); overflow-x: auto; }
+  .mermaid { display: flex; justify-content: center; }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.cmp th, table.cmp td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--divider); vertical-align: top; }
+  table.cmp th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
+  table.cmp td.opt { font-weight: 700; white-space: nowrap; }
+  .rec-row { background: rgba(212,69,26,0.05); }
+  ul.tight { margin: 6px 0 0; padding-left: 18px; }
+  ul.tight li { margin-bottom: 4px; }
+  .opt-card { background: var(--paper); border: 1px solid var(--divider); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+  .opt-card.rec { border: 2px solid var(--brand); }
+  .opt-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .opt-head .tag { font-size: 12px; font-weight: 800; color: var(--ink-2); }
+  .ratings { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--ink-2); }
+  .ratings b { color: var(--ink); }
+  form.decide { background: var(--paper); border: 1px solid var(--divider); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; }
+  fieldset { border: none; margin: 0 0 18px; padding: 0; }
+  legend { font-weight: 700; font-size: 15px; margin-bottom: 10px; padding: 0; }
+  label.choice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--divider); border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
+  label.choice:hover { border-color: var(--brand-light); background: rgba(212,69,26,0.03); }
+  label.choice input { margin-top: 3px; accent-color: var(--brand); width: 16px; height: 16px; flex: none; }
+  label.choice .t { font-weight: 700; }
+  label.choice .d { font-size: 13px; color: var(--ink-2); }
+  textarea.notes { width: 100%; border: 1px solid var(--divider); border-radius: 10px; padding: 12px; font-family: inherit; font-size: 14px; resize: vertical; min-height: 70px; }
+  button.submit {
+    background: var(--brand); color: #fff; border: none; border-radius: 10px; padding: 12px 22px;
+    font-size: 15px; font-weight: 700; cursor: pointer; transition: background .15s;
+  }
+  button.submit:hover { background: var(--brand-dark); }
+  .muted { color: var(--ink-2); font-size: 13px; }
+  .filetag { font-size: 12px; color: var(--ink-2); }
+  :where(p, h1, h2, h3, li, td, th) { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">Sensor Hub · first-load investigation</p>
+  <h1>Why controllable toggles take 1&ndash;2s to become usable</h1>
+  <p class="lede">You asked me to investigate the WebSocket. The short version: <b>the WebSocket is mostly innocent</b>. It pushes the toggle's state the instant the connection registers. The 1&ndash;2s is a heavy SQLite query that produces that snapshot, queued behind the dashboard's chart-query burst.</p>
+
+  <section>
+    <div class="grid3">
+      <div class="stat">
+        <div class="lbl">Snapshot query · idle</div>
+        <div class="big" style="color:var(--good)">~23ms</div>
+        <div class="sub">A light request when the DB is quiet</div>
+      </div>
+      <div class="stat">
+        <div class="lbl">Snapshot query · under load</div>
+        <div class="big" style="color:var(--bad)">1.3&ndash;2.6s</div>
+        <div class="sub">Same request during the chart-query burst</div>
+      </div>
+      <div class="stat">
+        <div class="lbl">Source of the numbers</div>
+        <div class="big" style="font-size:18px; line-height:1.4">Your own commit</div>
+        <div class="sub mono">e9c0629 (the scheduler)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DIAGNOSIS ============ -->
+  <section>
+    <h2>What actually happens on first load</h2>
+    <div class="diagram-host">
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant B as Browser (React)
+    participant A as AuthProvider
+    participant WS as /readings/ws/current
+    participant H as Go handler
+    participant DB as SQLite (single-threaded)
+
+    Note over B,A: Page loads
+    A->>H: GET /auth/me
+    Note over B,WS: WS is gated: enabled = (user != null)<br/>so it cannot open yet
+    H-->>A: user
+    Note over B: every chart widget fires<br/>GET /readings/between (burst)
+    B-)DB: chart queries pile up
+    B->>WS: connect (now user != null)
+    WS->>H: SubscribeCurrentReadings
+    rect rgb(248, 224, 214)
+    H->>DB: ServiceGetLatest()  full-table window query
+    Note over H,DB: queues BEHIND the chart burst<br/>1.3 to 2.6s
+    DB-->>H: latest readings
+    end
+    H->>WS: upgrade + register
+    H-)B: snapshot pushed (immediate, once it has data)
+    Note over B: toggle resolves -> usable
+      </pre>
+    </div>
+    <p class="muted">Steps 8&ndash;9 (the shaded band) are the delay. Everything after is instant. The WebSocket "fires" correctly &mdash; it just has nothing to send until that contended query returns.</p>
+  </section>
+
+  <!-- ============ THE HANDLER ============ -->
+  <section>
+    <h2>The critical path, in one function</h2>
+    <div class="card">
+      <p class="filetag mono">sensor_hub/api/readings_api.go:69</p>
+      <pre><span class="k">func</span> (s *Server) SubscribeCurrentReadings(c *gin.Context) {
+<span class="hl">    currentReadings, err := s.readingsService.ServiceGetLatest(ctx)  <span class="c">// heavy query, runs BEFORE upgrade</span></span>
+    ...
+    createPushWebSocket(c, <span class="k">"current-readings"</span>)          <span class="c">// upgrade + register</span>
+    ws.BroadcastToTopic(<span class="k">"current-readings"</span>, currentReadings) <span class="c">// pushed immediately</span>
+}</pre>
+      <p style="margin-bottom:0"><code class="inl">ServiceGetLatest</code> is a <code class="inl">ROW_NUMBER() OVER (PARTITION BY sensor_id, measurement_type_id ...)</code> window scan over the whole <code class="inl">readings</code> table (<span class="mono">db/readings_repository.go:193</span>). Cheap when idle; serialized behind chart reads on the Pi's single-writer SQLite under load. And because it runs <i>before</i> the upgrade, it delays both the connection opening and the data.</p>
+    </div>
+  </section>
+
+  <!-- ============ WHY THE SCHEDULER DIDN'T WORK ============ -->
+  <section>
+    <h2>Why the request scheduler didn't fix it</h2>
+    <div class="grid2">
+      <div class="card">
+        <span class="pill bad">Structural miss #1</span>
+        <h3 style="margin-top:10px">The snapshot rides the WebSocket, not REST</h3>
+        <p style="margin-bottom:0">The scheduler only meters read-only <b>REST</b> calls. The toggle's state arrives over <code class="inl">/readings/ws/current</code>, which the scheduler never touches. So the one path that matters for the toggle was never governed.</p>
+      </div>
+      <div class="card">
+        <span class="pill bad">Structural miss #2</span>
+        <h3 style="margin-top:10px">The query still contends in SQLite</h3>
+        <p style="margin-bottom:0">Capping REST to 4 concurrent reduced the flood from "unbounded" to "throttled" &mdash; a real win &mdash; but <code class="inl">ServiceGetLatest</code> still competes for the same single-threaded DB, and still runs before the upgrade. The critical path was never on the table the scheduler controls.</p>
+      </div>
+    </div>
+    <div class="callout warn" style="margin-top:16px">
+      <b>Net:</b> the scheduler was a reasonable instinct (contention <i>is</i> the root cause) aimed one layer too high. It made commands more responsive once issued, but couldn't make the <i>initial snapshot</i> fast.
+    </div>
+  </section>
+
+  <!-- ============ THE FIX OPTIONS ============ -->
+  <section>
+    <h2>How to fix it</h2>
+    <p class="lede" style="margin-bottom:20px">You chose <b>server-confirmed state only</b> &mdash; no optimistic last-known render. So the fix must make the real snapshot fast, not paper over it. That points hard at one approach.</p>
+
+    <div class="opt-card rec" style="margin-bottom:16px">
+      <div class="opt-head">
+        <h3 style="margin:0">A · In-memory "latest readings" store, served on connect</h3>
+        <span class="pill brand">Recommended</span>
+      </div>
+      <p>Keep an in-process map <code class="inl">sensorName &rarr; measurementType &rarr; Reading</code>, updated every time a reading flows through (collection, command result). On WS connect, build the snapshot from <b>memory</b> instead of <code class="inl">ServiceGetLatest</code> &mdash; a microsecond read that never touches SQLite. Seed it once at startup from the existing query.</p>
+      <ul class="tight">
+        <li>Removes the toggle's critical-path query from SQLite <b>entirely</b> &mdash; immune to the chart burst by construction, not by throttling.</li>
+        <li>Natural home: wrap "update the store + broadcast" into one <code class="inl">Publish(readings)</code> call so the cache and the live stream can never drift. (Today there are 3 broadcast sites that would each update it.)</li>
+        <li>Memory cost is trivial: bounded by #sensors &times; #measurement-types, last-value-wins.</li>
+      </ul>
+      <div class="ratings">
+        <span>Robustness <b>High</b></span><span>Latency win <b>~1&ndash;2s &rarr; ~0</b></span><span>Effort <b>Medium</b></span><span>Touches <b>Go backend</b></span>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="opt-card">
+        <div class="opt-head"><h3 style="margin:0">B · Upgrade first, then fetch</h3><span class="pill warn">Partial</span></div>
+        <p>Reorder the handler: register the connection <i>before</i> running the query, then push when it returns. The socket opens instantly; the data still waits on the contended query.</p>
+        <p class="muted" style="margin-bottom:0">Cheap and correct, but alone it only fixes "connection opens late," not "controls usable late." Good as a companion to A, weak on its own.</p>
+      </div>
+      <div class="opt-card">
+        <div class="opt-head"><h3 style="margin:0">C · Make the query cheap</h3><span class="pill warn">Weaker</span></div>
+        <p>Add a covering index / dedicated latest-state table so <code class="inl">ServiceGetLatest</code> is fast. Reduces cost, but still hits SQLite and still serializes behind writes under load.</p>
+        <p class="muted" style="margin-bottom:0">Strictly dominated by A: more DB-coupling for less isolation.</p>
+      </div>
+      <div class="opt-card">
+        <div class="opt-head"><h3 style="margin:0">D · Throttle charts harder</h3><span class="pill bad">More of the same</span></div>
+        <p>Lower REST concurrency, defer chart loads until controls resolve, or finally use the unused <code class="inl">high</code> tier. Trades chart speed for control speed and stays on the REST layer.</p>
+        <p class="muted" style="margin-bottom:0">This is the road the scheduler already started down. Diminishing returns.</p>
+      </div>
+      <div class="opt-card">
+        <div class="opt-head"><h3 style="margin:0">+ Secondary · the auth gate</h3><span class="pill brand">Follow-up</span></div>
+        <p>Both sockets are gated on <code class="inl">enabled: user != null</code>, so they can't open until <code class="inl">GET /auth/me</code> resolves. That's a smaller, serial add-on to the delay &mdash; worth a look, but not the 1&ndash;2s.</p>
+        <p class="muted" style="margin-bottom:0">Note as a separate, lower-priority improvement.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DECIDED ============ -->
+  <section>
+    <h2>Decided so far</h2>
+    <div class="callout">
+      <b>Toggle latency fix &mdash; locked:</b> <span class="pill brand">A &middot; in-memory store</span> <span class="pill brand">+ B &middot; upgrade-before-query reorder</span> <span class="pill warn">auth gate: ignored</span><br>
+      And you added a second goal: <b>review the data pipeline / indexes</b> &mdash; "indexes are probably missing that really should be there." I measured and audited that next.
+    </div>
+  </section>
+
+  <!-- ============ PIPELINE / INDEX AUDIT ============ -->
+  <section>
+    <h2>Pipeline &amp; index audit &mdash; what I actually found</h2>
+    <p class="lede" style="margin-bottom:18px">I measured your live Pi and mapped every hot query against the existing indexes. The surprising result: the <code class="inl">readings</code> table isn't <i>missing</i> its key index &mdash; it already has the perfect one, but the chart query is written so SQLite <b>can't reach it</b>. Adding indexes is mostly the wrong move; one is redundant and actively slowing your writes.</p>
+
+    <div class="grid3" style="margin-bottom:18px">
+      <div class="stat"><div class="lbl">Live readings rows</div><div class="big">~250k</div><div class="sub">measured just now</div></div>
+      <div class="stat"><div class="lbl">Hottest stream</div><div class="big" style="font-size:20px">office-plug</div><div class="sub">161,181 rows &mdash; 65% of the table</div></div>
+      <div class="stat"><div class="lbl">Existing readings indexes</div><div class="big">4</div><div class="sub">1 redundant, 1 to verify</div></div>
+    </div>
+
+    <div class="opt-card rec" style="margin-bottom:16px">
+      <div class="opt-head"><h3 style="margin:0">Finding 1 &mdash; the composite index exists but is unreachable</h3><span class="pill brand">Biggest win</span></div>
+      <p>You already have <code class="inl">idx_readings_sensor_type_time (sensor_id, measurement_type_id, time DESC)</code> &mdash; exactly the right shape. But the chart query filters by <b>name</b>, after the join, so SQLite can never use it:</p>
+      <div class="grid2">
+        <div>
+          <span class="pill bad">Today &mdash; index unusable</span>
+          <pre><span class="c">-- range-scans ALL sensors in the window,</span>
+<span class="c">-- then discards by name</span>
+WHERE r.time BETWEEN ? AND ?
+  <span class="hl">AND LOWER(s.name) = LOWER(?)</span>
+  <span class="hl">AND LOWER(mt.name) = LOWER(?)</span>
+ORDER BY r.time ASC</pre>
+        </div>
+        <div>
+          <span class="pill good">Rewrite &mdash; composite kicks in</span>
+          <pre><span class="c">-- resolve name -&gt; id first (tiny lookups),</span>
+<span class="c">-- then a tight indexed range scan</span>
+WHERE <span class="hl">r.sensor_id = ?</span>
+  <span class="hl">AND r.measurement_type_id = ?</span>
+  AND r.time BETWEEN ? AND ?
+ORDER BY r.time</pre>
+        </div>
+      </div>
+      <p style="margin-bottom:0">A chart for office-plug power currently scans a time-slice across <i>every</i> sensor (including that 161k stream) and throws most of it away. Filtering by id lets the composite jump straight to the rows. Same fix applies to the aggregation window query (<span class="mono">readings_repository.go:144</span>), which partitions by <code class="inl">s.name, mt.name</code> too.</p>
+    </div>
+
+    <div class="grid2">
+      <div class="opt-card">
+        <div class="opt-head"><h3 style="margin:0">Finding 2 &mdash; drop a redundant index</h3><span class="pill good">Cheap win</span></div>
+        <p><code class="inl">idx_readings_sensor_id (sensor_id)</code> is fully covered by the leftmost column of the composite. It buys nothing on reads and adds write cost to <b>every insert</b> &mdash; worst on the office-plug hot path.</p>
+        <p class="muted" style="margin-bottom:0">Dropping it speeds ingest, which is part of the very contention causing the toggle delay. Reads + writes both win.</p>
+      </div>
+      <div class="opt-card">
+        <div class="opt-head"><h3 style="margin:0">Finding 3 &mdash; verify the ASC time index</h3><span class="pill warn">Confirm first</span></div>
+        <p><code class="inl">idx_readings_time_asc (time ASC)</code> (migration 16) overlaps <code class="inl">idx_readings_time (time DESC)</code> &mdash; SQLite can usually walk a DESC index backwards for ASC order. Likely a second redundant index.</p>
+        <p class="muted" style="margin-bottom:0">I'd confirm with <code class="inl">EXPLAIN QUERY PLAN</code> on the live DB before dropping &mdash; not assume.</p>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:16px">
+      <b>The synergy:</b> Finding 1 makes chart reads cheaper, Finding 2 makes ingest writes cheaper. Both shrink the SQLite contention window &mdash; the same root cause behind the toggle delay. The in-memory store (A) removes the toggle from that window entirely; the pipeline work shrinks the window for everything else.
+    </div>
+  </section>
+
+  <!-- ============ FINAL PLAN ============ -->
+  <section>
+    <h2>Final plan</h2>
+    <div class="callout" style="margin-bottom:18px">
+      <b>Scope settled.</b> One cohesive change, two reinforcing workstreams. Query rewrite is <b>in scope</b>; index hygiene = <b>drop redundant + verify-then-drop ASC</b>; audit limited to the <b>readings pipeline</b>.
+    </div>
+
+    <div class="grid2">
+      <div class="opt-card rec">
+        <div class="opt-head"><h3 style="margin:0">Workstream 1 &middot; Toggle first-load</h3><span class="pill brand">Go backend</span></div>
+        <ul class="tight">
+          <li><b>A &mdash; in-memory store.</b> Authoritative <code class="inl">sensorName &rarr; type &rarr; Reading</code> map, last-write-wins. Connect-snapshot reads from memory, not <code class="inl">ServiceGetLatest</code>. Seed once from the existing query at startup.</li>
+          <li><b>Single <code class="inl">Publish(readings)</code></b> that updates the store <i>and</i> broadcasts, so cache and live stream can't drift. Route the 3 existing broadcast sites (<span class="mono">sensor_service.go:298/358/635</span>) + the snapshot handler through it.</li>
+          <li><b>B &mdash; reorder.</b> Upgrade/register before producing the snapshot in <span class="mono">readings_api.go:69</span>.</li>
+          <li>Frontend unchanged; server-confirmed-only preserved.</li>
+        </ul>
+      </div>
+      <div class="opt-card rec">
+        <div class="opt-head"><h3 style="margin:0">Workstream 2 &middot; Readings pipeline</h3><span class="pill brand">SQL + migration</span></div>
+        <ul class="tight">
+          <li><b>F1 &mdash; rewrite by id.</b> Resolve name&rarr;id up front, filter <code class="inl">r.sensor_id = ? AND r.measurement_type_id = ? AND r.time BETWEEN ?</code> in raw + aggregated + last + window queries. Unlocks the composite index.</li>
+          <li><b>F2 &mdash; drop <code class="inl">idx_readings_sensor_id</code></b> (redundant; cuts insert cost).</li>
+          <li><b>F3 &mdash; verify <code class="inl">EXPLAIN QUERY PLAN</code>, then drop <code class="inl">idx_readings_time_asc</code></b> if confirmed redundant.</li>
+          <li>New migration <span class="mono">000020</span> for the index drops; rewrite is code-only.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout warn" style="margin-top:16px">
+      <b>Out of scope:</b> the WebSocket auth gate (<code class="inl">enabled: user != null</code> &rarr; /auth/me) and index audits of non-readings tables. <b>Validate:</b> first-load time-to-interactive before/after on the live Pi, <code class="inl">EXPLAIN QUERY PLAN</code> on rewritten queries, and the integration suite (<span class="mono">go test -tags integration ./integration/</span>) &mdash; keeping live-Pi load conservative.
+    </div>
+    <p class="muted" style="margin-top:14px">Captured as a <code class="inl">workflow:design</code> GitHub issue &mdash; link in the chat reply.</p>
+  </section>
+
+  <p class="muted" style="margin-top:32px; text-align:center">Design source: matched to the Sensor Hub UI's own MUI theme (brand orange <code class="inl">#D4451A</code>, paper, Roboto). All code claims verified against the repo.</p>
+
+</div>
+
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: "strict",
+    theme: "base",
+    themeVariables: {
+      primaryColor: "#FBEDE6",
+      primaryBorderColor: "#D4451A",
+      primaryTextColor: "#1A1A1A",
+      lineColor: "#B33612",
+      actorBkg: "#FFFFFF",
+      actorBorder: "#D4451A",
+      actorTextColor: "#1A1A1A",
+      signalColor: "#5C5C5C",
+      signalTextColor: "#1A1A1A",
+      noteBkgColor: "#F5F0EB",
+      noteBorderColor: "#D9D0C7",
+      noteTextColor: "#1A1A1A",
+      fontFamily: "Roboto, system-ui, sans-serif"
+    }
+  });
+</script>
+</body>
+</html>

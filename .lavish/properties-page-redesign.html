@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Properties page redesign - round 2</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --bg: #F5F0EB; --paper: #FFFFFF; --paper-2: #FAF7F4;
+    --primary: #D4451A; --primary-light: #ED5125; --primary-dark: #B33612; --on-primary: #FFFFFF;
+    --text: #1A1A1A; --text-2: #5C5C5C; --divider: #D9D0C7; --hover: rgba(212,69,26,0.06);
+    --shadow: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+    --ok: #2E7D32; --warn: #B26A00; --err: #C62828; --info: #1565C0; --code-bg: #F1ECE7;
+  }
+  :root[data-theme="dark"] {
+    --bg: #1A1A1A; --paper: #242424; --paper-2: #2C2C2C;
+    --primary: #ED5125; --primary-light: #F47A56; --primary-dark: #C43D18; --on-primary: #FFFFFF;
+    --text: #E8E8E8; --text-2: #A0A0A0; --divider: #333333; --hover: rgba(237,81,37,0.08);
+    --shadow: 0 1px 3px rgba(0,0,0,0.5);
+    --ok: #66BB6A; --warn: #FFB74D; --err: #EF5350; --info: #64B5F6; --code-bg: #1E1E1E;
+  }
+
+  html { background: var(--bg); }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: Roboto, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 20px 120px; }
+  section { margin-bottom: 56px; }
+  h1, h2, h3, h4 { line-height: 1.25; margin: 0; }
+  h1 { font-size: 33px; font-weight: 500; letter-spacing: -0.4px; }
+  h2 { font-size: 23px; font-weight: 500; letter-spacing: -0.2px; }
+  h3 { font-size: 18px; font-weight: 500; }
+  h4 { font-size: 15px; font-weight: 600; }
+  p { margin: 12px 0; }
+  :where(p, li, td, th, h1, h2, h3, h4, .badge) { overflow-wrap: anywhere; }
+  a { color: var(--primary); }
+
+  .eyebrow { text-transform: uppercase; letter-spacing: 1.4px; font-size: 11px; font-weight: 700; color: var(--primary); }
+  .lede { font-size: 17px; color: var(--text-2); max-width: 70ch; }
+  .muted { color: var(--text-2); }
+  .small { font-size: 13px; }
+  .tiny { font-size: 12px; }
+  .mono, .k { font-family: "SF Mono", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace; }
+
+  .rule { display: flex; align-items: center; gap: 14px; margin: 0 0 22px; }
+  .rule h2 { white-space: nowrap; }
+  .rule::after { content: ""; flex: 1; height: 1px; background: var(--divider); }
+
+  .paper { background: var(--paper); border: 1px solid var(--divider); border-radius: 6px; box-shadow: var(--shadow); }
+  .pad { padding: 20px 22px; }
+
+  .grid { display: grid; gap: 16px; }
+  .grid > * { min-width: 0; }
+  .g2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  @media (max-width: 900px) { .g2, .g3 { grid-template-columns: minmax(0,1fr); } }
+
+  code {
+    font-family: "SF Mono", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.86em; background: var(--code-bg); border-radius: 3px; padding: 1px 5px; color: var(--text);
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--divider); border-radius: 4px;
+    padding: 14px 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.65; margin: 12px 0;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+    padding: 2px 8px; border-radius: 11px; border: 1px solid currentColor; white-space: nowrap;
+  }
+  .b-ok { color: var(--ok); } .b-warn { color: var(--warn); } .b-err { color: var(--err); }
+  .b-info { color: var(--info); } .b-flat { color: var(--text-2); }
+  .b-rec { color: var(--on-primary); background: var(--primary); border-color: var(--primary); }
+
+  .callout {
+    border: 1px solid var(--divider); border-left: 4px solid var(--primary); background: var(--paper);
+    border-radius: 0 6px 6px 0; padding: 18px 22px; box-shadow: var(--shadow);
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.info { border-left-color: var(--info); }
+  .callout.ok { border-left-color: var(--ok); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  .tblwrap { overflow-x: auto; border: 1px solid var(--divider); border-radius: 6px; background: var(--paper); }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--divider); vertical-align: top; }
+  th { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-2); background: var(--paper-2); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--hover); }
+  td.st { white-space: nowrap; }
+
+  /* product mockups */
+  .mock { background: var(--bg); border: 1px solid var(--divider); border-radius: 6px; overflow: hidden; font-size: 13px; }
+  .mock-bar { background: var(--primary); color: var(--on-primary); padding: 8px 12px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+  .mock-body { padding: 14px; }
+  .mock-card { background: var(--paper); border: 1px solid var(--divider); border-radius: 4px; padding: 12px 14px; }
+  .mock-h2 { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .mock-row { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--divider); }
+  .mock-row:last-child { border-bottom: none; }
+  .mock-key { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 11.5px; }
+  .mock-input { border: 1px solid var(--divider); border-radius: 4px; background: var(--paper); padding: 5px 9px; font-size: 12px; color: var(--text); font-family: "SF Mono", ui-monospace, Menlo, monospace; display: inline-block; }
+  .mock-btn { background: var(--primary); color: var(--on-primary); border: none; border-radius: 4px; padding: 5px 13px; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+  .mock-btn.ghost { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+  .mock-label { font-size: 12.5px; font-weight: 500; display: block; }
+  .mock-desc { font-size: 11.5px; color: var(--text-2); line-height: 1.45; }
+  .mock-toggle { width: 32px; height: 18px; border-radius: 9px; background: var(--primary); position: relative; display: inline-block; flex: none; }
+  .mock-toggle::after { content: ""; position: absolute; right: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+  .mock-toggle.off { background: var(--divider); }
+  .mock-toggle.off::after { left: 2px; right: auto; }
+  .mock-search { border: 1px solid var(--divider); border-radius: 4px; background: var(--paper); padding: 6px 10px; font-size: 12px; color: var(--text-2); width: 100%; display: block; }
+  .mock-rail { font-size: 12px; }
+  .mock-rail div { padding: 5px 9px; border-radius: 4px; color: var(--text-2); display: flex; justify-content: space-between; gap: 6px; }
+  .mock-rail div.on { background: var(--hover); color: var(--primary); font-weight: 500; }
+  .mock-rail .n { opacity: .75; font-variant-numeric: tabular-nums; }
+  .mock-undo { color: var(--primary); font-size: 13px; cursor: default; }
+  .mod-row { border-left: 3px solid var(--primary); margin-left: -14px; padding-left: 11px; }
+  .badge-restart { display:inline-block; font-size:10px; font-weight:600; padding:1px 7px; border-radius:10px; border:1px solid var(--warn); color:var(--warn); white-space:nowrap; }
+
+  /* question forms */
+  .q { background: var(--paper); border: 1px solid var(--divider); border-left: 4px solid var(--primary); border-radius: 0 6px 6px 0; padding: 20px 22px; box-shadow: var(--shadow); margin-top: 20px; }
+  .q h3 { margin-bottom: 4px; }
+  .q .qsub { color: var(--text-2); font-size: 13.5px; margin: 0 0 14px; }
+  .opts { display: grid; gap: 8px; margin-bottom: 14px; }
+  .opt { display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 10px; align-items: start; padding: 11px 13px; border: 1px solid var(--divider); border-radius: 5px; cursor: pointer; background: var(--paper-2); }
+  .opt:hover { border-color: var(--primary); }
+  .opt input { margin: 3px 0 0; accent-color: var(--primary); width: 16px; height: 16px; }
+  .opt .ol { font-weight: 600; font-size: 14px; display: block; }
+  .opt .od { font-size: 12.5px; color: var(--text-2); margin-top: 2px; display: block; }
+  .qbtn { background: var(--primary); color: var(--on-primary); border: none; border-radius: 4px; padding: 8px 18px; font-size: 13px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; cursor: pointer; box-shadow: var(--shadow); }
+  .qbtn:hover { background: var(--primary-dark); }
+  .qnote { font-size: 12px; color: var(--text-2); margin-left: 12px; }
+  .qfree { width: 100%; border: 1px solid var(--divider); border-radius: 4px; background: var(--paper-2); padding: 9px 11px; color: var(--text); font: inherit; font-size: 13px; margin-bottom: 12px; resize: vertical; }
+
+  .themebtn { position: fixed; top: 14px; right: 14px; z-index: 50; background: var(--paper); color: var(--text); border: 1px solid var(--divider); border-radius: 20px; padding: 6px 14px; font-size: 12px; cursor: pointer; box-shadow: var(--shadow); }
+
+  ul.tight { margin: 8px 0; padding-left: 20px; }
+  ul.tight li { margin: 5px 0; }
+
+  .settled { display: grid; grid-template-columns: minmax(0,220px) minmax(0,1fr); gap: 0; font-size: 13.5px; }
+  .settled > div { padding: 10px 14px; border-bottom: 1px solid var(--divider); }
+  .settled > div:nth-child(odd) { font-weight: 600; background: var(--paper-2); }
+  @media (max-width: 720px) { .settled { grid-template-columns: minmax(0,1fr); } .settled > div:nth-child(odd) { border-bottom: none; padding-bottom: 0; background: none; } }
+
+  .statnum { font-size: 30px; font-weight: 500; line-height: 1.1; }
+  .statlbl { font-size: 12px; color: var(--text-2); }
+</style>
+</head>
+<body>
+
+<button class="themebtn" data-lavish-action onclick="toggleTheme()">Light / dark</button>
+
+<main>
+
+<header style="margin-bottom:40px">
+  <div class="eyebrow">Sensor Hub &middot; design interview &middot; round 2</div>
+  <h1 style="margin:10px 0 14px">Your restart challenge was the right one</h1>
+  <p class="lede">
+    You asked whether all this stuff <em>should</em> need a restart, and whether the fact it doesn't apply
+    live is actually a bug. I went and traced all 29 properties to their consumers. Short answer: yes,
+    mostly a bug - and for three of them the fix is smaller than the badge. That changes what we build.
+  </p>
+</header>
+
+<!-- ============ SETTLED ============ -->
+<section>
+  <div class="rule"><h2>Settled from round 1</h2></div>
+  <div class="paper" style="overflow:hidden">
+    <div class="settled">
+      <div>Framing</div>
+      <div>Metadata first now, disperse properties into feature pages as a later phase.</div>
+      <div>Layout</div>
+      <div>B - one grouped page, sticky category rail, global search. No chip overuse: no chip for the previous value, a chip is fine for "requires restart".</div>
+      <div>Metadata home</div>
+      <div>Struct tags on <code>ApplicationConfiguration</code> + a new <code>GET /properties/definitions</code>. <code>GET /properties</code> unchanged, so the CLI and the retention cards keep working.</div>
+      <div>Grouping</div>
+      <div>The seven proposed groups stand.</div>
+      <div><code>database.path</code></div>
+      <div>Not editable. Changing it breaks everything including the RPM upgrade - render it read-only.</div>
+      <div>Sensitive plumbing</div>
+      <div>Remove it. It existed for the MySQL password; nothing needs it under SQLite. <span class="muted">(Checked: no remaining property is a secret - <code>smtp.user</code> is an address and auth is via OAuth.)</span></div>
+      <div>Docs</div>
+      <div>Drop the property table from <code>configuration.md</code> and point users at the UI. Docs complement the code, they don't restate it.</div>
+      <div>Behaviours in scope</div>
+      <div>Typed controls &middot; descriptions &middot; honest apply-state badge &middot; modified marker + reset to default &middot; inline validation.</div>
+      <div>Slicing</div>
+      <div>Dropped. That was me jumping ahead, not the brainstorming skill - it only says to persist the design and offer a spec. No fix needed on your side.</div>
+    </div>
+  </div>
+
+  <div class="callout warn" style="margin-top:18px">
+    <h4>One caveat on deleting the docs table, then I'll stop</h4>
+    <p style="margin-bottom:0" class="small">
+      The docs are the only place someone can read what sensor-hub can be configured to do <em>before</em>
+      they install it - a Docusaurus page is public and indexable, a logged-in properties page is not.
+      Deleting the table removes that. Two ways to keep both: keep a short generated list in the docs
+      (still one source of truth, no hand-maintenance), or accept the loss because evaluation-before-install
+      is not a use case you care about. Your instruction stands either way - say which and I'll design it in.
+    </p>
+  </div>
+</section>
+
+<!-- ============ THE AUDIT ============ -->
+<section>
+  <div class="rule"><h2>The apply-state audit, all 29 properties</h2></div>
+  <p class="muted" style="margin-top:-6px;max-width:74ch">
+    Every property traced to the code that reads it. This is the fact you told me to go and find.
+  </p>
+
+  <div class="grid g3" style="margin:18px 0 4px">
+    <div class="paper pad" style="border-left:3px solid var(--ok)">
+      <div class="statnum" style="color:var(--ok)">18</div>
+      <div class="statlbl">already fully live - read from <code>AppConfig</code> at the point of use, so a PATCH takes effect on the next call</div>
+    </div>
+    <div class="paper pad" style="border-left:3px solid var(--warn)">
+      <div class="statnum" style="color:var(--warn)">10</div>
+      <div class="statlbl">not live - cached at boot in a constructor, a ticker, or a handler. The UI reports success anyway</div>
+    </div>
+    <div class="paper pad" style="border-left:3px solid var(--err)">
+      <div class="statnum" style="color:var(--err)">1</div>
+      <div class="statlbl"><code>database.path</code> - shouldn't be editable at all</div>
+    </div>
+  </div>
+
+  <div class="tblwrap" style="margin-top:16px">
+    <table>
+      <thead><tr><th style="width:38%">Property</th><th style="width:16%">State today</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td class="mono tiny">auth.session.cookie.name<br>auth.session.ttl.minutes<br>auth.bcrypt.cost<br>auth.login.backoff.window.minutes<br>auth.login.backoff.threshold<br>auth.login.backoff.base.seconds<br>auth.login.backoff.max.seconds</td>
+          <td class="st"><span class="badge b-ok">live</span></td>
+          <td class="small">Read from <code>AppConfig</code> on every login, session check and hash. <span class="mono tiny">auth_service.go:53,81-91,195 &middot; auth_api.go:47,56</span></td></tr>
+        <tr><td class="mono tiny">sensor.data.retention.days<br>health.history.retention.days<br>failed.login.retention.days<br>alert.history.retention.days</td>
+          <td class="st"><span class="badge b-ok">live</span></td>
+          <td class="small">Read at the top of each cleanup run, so the next run uses the new value. <span class="mono tiny">cleanup_service.go:71-74 &middot; sensor_api.go:23</span></td></tr>
+        <tr><td class="mono tiny">weather.latitude<br>weather.longitude<br>weather.location.name</td>
+          <td class="st"><span class="badge b-ok">live</span></td>
+          <td class="small">No Go consumer at all - the UI reads them straight from the properties websocket, so they update instantly in the browser. <span class="mono tiny">WeatherForecastCard.tsx:22-24</span></td></tr>
+        <tr><td class="mono tiny">sensor.discovery.skip<br>openapi.yaml.location</td>
+          <td class="st"><span class="badge b-ok">live</span></td>
+          <td class="small">Read each time discovery runs. <span class="mono tiny">sensor_service.go:396,403</span></td></tr>
+        <tr><td class="mono tiny">smtp.user</td>
+          <td class="st"><span class="badge b-ok">live</span></td>
+          <td class="small">Read per email send. <span class="mono tiny">smtp/smtp.go:34</span></td></tr>
+        <tr><td class="mono tiny">actuator.command.timeout_seconds</td>
+          <td class="st"><span class="badge b-ok">live</span></td>
+          <td class="small">Read per command. <span class="mono tiny">command_service.go:209</span></td></tr>
+
+        <tr style="border-top:2px solid var(--divider)"><td class="mono tiny">sensor.collection.interval<br>data.cleanup.interval.hours</td>
+          <td class="st"><span class="badge b-err">stale</span></td>
+          <td class="small">Both go into <code>time.NewTicker(cfg.Interval)</code> once, when the task starts. The ticker is never reset. <span class="mono tiny">periodic.go:74 &middot; sensor_service.go:445 &middot; cleanup_service.go:78</span></td></tr>
+        <tr><td class="mono tiny">log.level</td>
+          <td class="st"><span class="badge b-err">stale</span></td>
+          <td class="small">Baked into <code>slog.HandlerOptions{Level: level}</code> as a fixed <code>slog.Level</code> at boot. <span class="mono tiny">serve.go:54 &middot; telemetry/logger.go:76</span></td></tr>
+        <tr><td class="mono tiny">readings.aggregation.enabled<br>readings.aggregation.tiers</td>
+          <td class="st"><span class="badge b-err">stale</span></td>
+          <td class="small">Parsed once and passed to <code>NewReadingsService</code> as constructor arguments. <span class="mono tiny">serve.go:114,123</span></td></tr>
+        <tr><td class="mono tiny">mqtt.broker.enabled<br>mqtt.broker.port</td>
+          <td class="st"><span class="badge b-warn">needs action</span></td>
+          <td class="small">The broker binds its port and is started (or not) at boot. It does have <code>Start()</code>, <code>Stop()</code> and <code>IsRunning()</code>, so it <em>can</em> be bounced - but that drops every connected MQTT client. <span class="mono tiny">serve.go:71,74 &middot; mqtt/broker.go:40,78</span></td></tr>
+        <tr><td class="mono tiny">oauth.credentials.file.path<br>oauth.token.file.path<br>oauth.token.refresh.interval.minutes</td>
+          <td class="st"><span class="badge b-warn">needs action</span></td>
+          <td class="small">The paths are cached at startup, but the existing in-app <strong>Reload</strong> button already re-pulls them from <code>AppConfig</code> (added in the issue #44 recovery). The UI just never tells you to press it. The refresh interval is passed to the constructor and is <em>not</em> re-applied by Reload. <span class="mono tiny">oauth_adapter.go:66 &middot; oauth.go:69,91</span></td></tr>
+        <tr><td class="mono tiny">database.path</td>
+          <td class="st"><span class="badge b-err">read-only</span></td>
+          <td class="small">Opened once at boot. Per your annotation, changing it breaks the app and the RPM upgrade. <span class="mono tiny">db/db.go:24</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ FIX VS BADGE ============ -->
+<section>
+  <div class="rule"><h2>So: bug, or badge?</h2></div>
+
+  <div class="callout ok">
+    <h3 style="margin-bottom:8px">My answer: it's a bug for 5 of them, and a genuine lifecycle event for 5</h3>
+    <p style="margin-top:0">
+      A "requires restart" badge on <code>log.level</code> would be documenting a defect rather than fixing
+      it. The whole promise of this feature - PATCH, hot reload, broadcast - is that config applies without
+      a restart, and these properties quietly opt out of it. Where the fix is cheap, fix it. Where an
+      explicit action is genuinely correct, say so honestly and give the user the button.
+    </p>
+    <p style="margin-bottom:0">
+      <strong>Which means the badge is not "restart required".</strong> It's an apply-state, with four
+      values, and most properties never show one at all.
+    </p>
+  </div>
+
+  <div class="grid g2" style="margin-top:18px">
+    <div class="paper pad" style="border-left:3px solid var(--ok)">
+      <h4 style="color:var(--ok)">Fix it - these are bugs</h4>
+      <ul class="tight small">
+        <li>
+          <strong><code>log.level</code></strong> - swap the fixed <code>slog.Level</code> for a
+          <code>slog.LevelVar</code> and call <code>SetLevel</code> from <code>ReloadConfig</code>.
+          Roughly ten lines, no behaviour risk, and it turns the single most useful debugging property
+          into something you can flip from your phone while the fault is happening. That is a
+          <em>better</em> feature than the badge would have been.
+        </li>
+        <li>
+          <strong><code>sensor.collection.interval</code> and <code>data.cleanup.interval.hours</code></strong>
+          - one change to <code>periodic.TaskConfig</code>: take an interval <em>function</em> instead of a
+          value and reset the timer each iteration. Fixes both tasks at once, and any future one.
+          Honest caveat: the new interval takes effect from the next tick, so a change can take up to
+          the <em>old</em> interval to bite. That is "applies next cycle", not "live", and the UI should say so.
+        </li>
+        <li>
+          <strong><code>readings.aggregation.enabled</code> / <code>.tiers</code></strong> - have
+          <code>ReadingsService</code> read tiers from a provider rather than holding constructor args.
+          Bigger than the other two because it touches the aggregation path, and worth its own look at
+          whether re-tiering mid-flight is safe.
+        </li>
+      </ul>
+    </div>
+    <div class="paper pad" style="border-left:3px solid var(--warn)">
+      <h4 style="color:var(--warn)">Badge it - these really are lifecycle events</h4>
+      <ul class="tight small">
+        <li>
+          <strong>MQTT broker port / enabled.</strong> Rebinding a TCP port disconnects every sensor
+          publishing to it. Doing that silently because someone typed in a box would be worse than
+          requiring a restart. This is the one place a badge is the right answer - ideally as an explicit
+          "Apply and restart broker - this disconnects connected clients" action rather than a passive label.
+        </li>
+        <li>
+          <strong>OAuth paths.</strong> Not a restart - the Reload button already exists and already does
+          the right thing. The badge should say "needs OAuth reload" and, better, link straight to the
+          button. The <em>refresh interval</em> is the odd one out: Reload doesn't re-apply it, which is
+          a small genuine bug in the same family as the ticker one.
+        </li>
+        <li>
+          <strong><code>database.path</code>.</strong> Read-only field, with the value shown so it's still
+          discoverable. No badge, no input.
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="paper pad" style="margin-top:18px">
+    <h4>What that makes the metadata</h4>
+    <p class="small" style="margin-top:6px">
+      Four apply-states instead of one boolean. Only two of them ever render anything in the UI, which
+      keeps the page quiet - 18 of 29 properties would show no badge at all.
+    </p>
+<pre><code>MQTTBrokerPort int `prop:"mqtt.broker.port" default:"1883" file:"application"
+    validate:"positive" group:"mqtt" apply:"action:mqtt-restart"
+    desc:"TCP port the embedded MQTT broker listens on."`
+
+SensorCollectionInterval int `prop:"sensor.collection.interval" default:"300"
+    file:"application" validate:"positive" group:"sensors"
+    unit:"seconds" apply:"next-cycle"
+    desc:"How often every enabled sensor is polled."`
+
+DatabasePath string `prop:"database.path" default:"data/sensor_hub.db"
+    file:"database" validate:"non_empty" group:"advanced" readonly:"true"
+    desc:"SQLite database file. Set at install time."`</code></pre>
+    <div class="tblwrap" style="margin-top:6px">
+      <table>
+        <thead><tr><th style="width:150px">apply</th><th style="width:90px">Count</th><th>What the UI shows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono tiny">live</td><td>18</td><td class="small">Nothing. Silence is the correct signal - it just works.</td></tr>
+          <tr><td class="mono tiny">next-cycle</td><td>3</td><td class="small">Muted helper line under the field: "applies from the next collection cycle".</td></tr>
+          <tr><td class="mono tiny">action:&hellip;</td><td>5</td><td class="small">The one chip you allowed, plus a button that performs the action (restart broker / reload OAuth).</td></tr>
+          <tr><td class="mono tiny">readonly</td><td>1</td><td class="small">Value rendered as text, no input, one line of explanation.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted" style="margin-bottom:0">
+      Counts assume the fixes land. Without them: 18 live, 5 next-cycle-ish, 5 action, 1 read-only - and
+      the "stale" ones would all have to be badged as needing a full service restart.
+    </p>
+  </div>
+
+  <form class="q" data-lavish-question="apply" onsubmit="return queueAnswer(event,'apply','Apply-state scope')">
+    <h3>How much of the fixing is part of this work?</h3>
+    <p class="qsub">The metadata has to be honest either way - this is about whether we change the truth or just report it.</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="apply" value="fix the cheap ones (log.level, periodic intervals) in this work; badge the rest; aggregation and oauth refresh interval as follow-ups">
+        <span><span class="ol">Fix the cheap two, badge the rest <span class="badge b-rec">Recommended</span></span>
+        <span class="od"><code>log.level</code> and the periodic-interval change land here - both are small, contained and independently testable. Aggregation and the OAuth refresh interval get raised as their own issues rather than smuggled into a UI change.</span></span></label>
+      <label class="opt"><input type="radio" name="apply" value="fix everything that can be made live, including aggregation and oauth refresh interval, as part of this work">
+        <span><span class="ol">Fix everything fixable</span>
+        <span class="od">Including the aggregation service and the OAuth refresh interval. Only MQTT and <code>database.path</code> keep a badge. Largest scope; the aggregation change deserves its own thinking about mid-flight re-tiering.</span></span></label>
+      <label class="opt"><input type="radio" name="apply" value="badge only for now, raise the live-apply bugs as separate issues">
+        <span><span class="ol">Badge only, fix later</span>
+        <span class="od">Ship honest metadata now, raise every live-apply bug as its own issue. Keeps this piece of work purely about the page. Cost: we knowingly ship "requires restart" on things that shouldn't require one.</span></span></label>
+      <label class="opt"><input type="radio" name="apply" value="fix the live-apply bugs first as separate work, then design the page against a mostly-live config">
+        <span><span class="ol">Fix first, page second</span>
+        <span class="od">Invert it: the apply-state bugs become their own piece of work, and the page gets designed against a config that is mostly genuinely live. Slower to see anything visual.</span></span></label>
+    </div>
+    <textarea class="qfree" name="note" rows="2" placeholder="Optional: anything about the MQTT bounce-vs-restart call, or the aggregation risk"></textarea>
+    <button type="submit" class="qbtn">Queue this answer</button>
+  </form>
+</section>
+
+<!-- ============ NO-CHIPS LAYOUT ============ -->
+<section>
+  <div class="rule"><h2>Layout B, with the chips taken out</h2></div>
+  <p class="muted" style="margin-top:-6px;max-width:74ch">
+    You agreed on B but called out chip overuse. Here is B rebuilt with exactly one chip on the page -
+    the apply-state one you allowed - and everything else carried by weight, colour and plain text.
+  </p>
+
+  <div class="mock" style="margin-top:16px">
+    <div class="mock-bar"><span>&#9776;</span> Sensor Hub</div>
+    <div class="mock-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+        <div style="font-size:18px">Properties</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="mock-desc">2 unsaved changes</span>
+          <button class="mock-btn ghost">Discard</button>
+          <button class="mock-btn">Save</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px">
+        <div class="mock-rail">
+          <div style="padding-bottom:8px;display:block"><span class="mock-search">Search</span></div>
+          <div class="on"><span>Sensors</span><span class="n">1</span></div>
+          <div><span>Retention</span><span class="n">1</span></div>
+          <div><span>Security</span></div>
+          <div><span>MQTT</span></div>
+          <div><span>Email &amp; OAuth</span></div>
+          <div><span>Weather</span></div>
+          <div><span>Advanced</span></div>
+        </div>
+        <div style="display:grid;gap:10px">
+          <div class="mock-card">
+            <div class="mock-h2">Sensors &amp; collection</div>
+            <div class="mock-desc" style="margin-bottom:6px">How often sensors are polled and how they are discovered.</div>
+
+            <div class="mock-row mod-row">
+              <span>
+                <span class="mock-label" style="color:var(--primary)">Collection interval</span>
+                <span class="mock-desc">How often every enabled sensor is polled.</span>
+              </span>
+              <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <span class="mock-input" style="width:62px;border-color:var(--primary)">120</span>
+                <span class="mock-desc">seconds</span>
+                <span class="mock-undo" title="Reset">&#8630;</span>
+                <span class="mock-desc" style="flex-basis:100%">Saved value 300 &middot; default 300 &middot; applies from the next cycle</span>
+              </span>
+            </div>
+
+            <div class="mock-row">
+              <span>
+                <span class="mock-label">Skip sensor discovery</span>
+                <span class="mock-desc">Don't try to auto-discover sensors at startup.</span>
+              </span>
+              <span><span class="mock-toggle"></span></span>
+            </div>
+
+            <div class="mock-row">
+              <span>
+                <span class="mock-label">Actuator command timeout</span>
+                <span class="mock-desc">How long to wait for a device to acknowledge a command.</span>
+              </span>
+              <span style="display:flex;gap:8px;align-items:center">
+                <span class="mock-input" style="width:56px">10</span><span class="mock-desc">seconds</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="mock-card">
+            <div class="mock-h2">MQTT</div>
+            <div class="mock-row">
+              <span>
+                <span class="mock-label">Broker port <span class="badge-restart">restart broker</span></span>
+                <span class="mock-desc">TCP port the embedded broker listens on.</span>
+              </span>
+              <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <span class="mock-input" style="width:70px">1883</span>
+                <span class="mock-desc" style="flex-basis:100%">Changing this disconnects connected sensors.</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="mock-card">
+            <div class="mock-h2">Advanced</div>
+            <div class="mock-row">
+              <span>
+                <span class="mock-label">Log level</span>
+                <span class="mock-desc">Minimum severity written to the log.</span>
+              </span>
+              <span><span class="mock-input" style="padding-right:22px">info &#9662;</span></span>
+            </div>
+            <div class="mock-row">
+              <span>
+                <span class="mock-label">Database file</span>
+                <span class="mock-desc">Set at install time. Not changeable at runtime.</span>
+              </span>
+              <span class="mock-key muted">/var/lib/sensor-hub/sensor_hub.db</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="paper pad" style="margin-top:16px">
+    <h4>What replaced each chip</h4>
+    <div class="grid g2" style="margin-top:8px">
+      <ul class="tight small" style="margin:0">
+        <li><strong>"was 300" chip</strong> &rarr; an accent left-edge on the row, the label in accent colour, and one muted helper line: <em>Saved value 300 &middot; default 300</em>.</li>
+        <li><strong>"3 modified" chip</strong> &rarr; plain text in the header: <em>2 unsaved changes</em>, next to a Discard button that only appears when there are any.</li>
+      </ul>
+      <ul class="tight small" style="margin:0">
+        <li><strong>"default" chip</strong> &rarr; nothing at all. An unmodified property says nothing; the default only appears in the helper line once you've changed something, which is the only moment you care.</li>
+        <li><strong>Per-group counts</strong> &rarr; a right-aligned number in the rail, so you can see which collapsed groups hold your edits without a pill on every row.</li>
+      </ul>
+    </div>
+  </div>
+
+  <form class="q" data-lavish-question="modified" onsubmit="return queueAnswer(event,'modified','Modified-state treatment')">
+    <h3>Is that the right treatment for "you changed this"?</h3>
+    <p class="qsub">Three ways to signal it without a chip. The mock above shows the first.</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="modified" value="accent left-edge on the row + accent label + one muted helper line with saved and default values">
+        <span><span class="ol">Accent edge + helper line <span class="badge b-rec">as mocked</span></span>
+        <span class="od">Row gets a coloured left edge, the label turns accent, and one muted line carries saved value, default and apply-state. Reads at a glance, adds one line of height only to rows you touched.</span></span></label>
+      <label class="opt"><input type="radio" name="modified" value="undo icon only, with saved and default values in a tooltip">
+        <span><span class="ol">Undo icon only</span>
+        <span class="od">Quietest possible: a reset arrow appears at the end of a changed row, values live in its tooltip. No layout shift at all. Cost: the old value is hidden behind a hover, which is useless on a phone.</span></span></label>
+      <label class="opt"><input type="radio" name="modified" value="no per-row marker; a review-changes dialog on save lists every change as a diff">
+        <span><span class="ol">No per-row marker, diff on save</span>
+        <span class="od">Rows stay completely clean; pressing Save opens a list of every change as old &rarr; new before it commits. Strongest safety, but you can't see what you've touched while editing.</span></span></label>
+    </div>
+    <textarea class="qfree" name="note" rows="2" placeholder="Optional: or a combination"></textarea>
+    <button type="submit" class="qbtn">Queue this answer</button>
+  </form>
+</section>
+
+<!-- ============ SEARCH ============ -->
+<section>
+  <div class="rule"><h2>One thing your answers contradict</h2></div>
+  <div class="callout info">
+    <p style="margin-top:0">
+      You picked layout <strong>B</strong>, whose main advantage over tabs is that search filters across
+      every group at once - that was the argument that beat A. But <strong>search / filter</strong> wasn't
+      among the five behaviours you ticked. I've mocked it above because I think it was implied by the
+      layout choice rather than rejected, but I'm not going to quietly assume that.
+    </p>
+    <p style="margin-bottom:0" class="small">
+      If search is genuinely out, B loses most of its edge over A and you should probably have tabs. That
+      is the honest version - I'd rather re-open the layout question than build B with its best feature
+      removed.
+    </p>
+  </div>
+
+  <form class="q" data-lavish-question="search" onsubmit="return queueAnswer(event,'search','Search')">
+    <h3>Is global search in?</h3>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="search" value="yes - search is in, it was implied by choosing layout B"><span><span class="ol">In - it was implied by B <span class="badge b-rec">assumed</span></span><span class="od">A search box in the rail that filters rows across every group, matching on key, label and description.</span></span></label>
+      <label class="opt"><input type="radio" name="search" value="no - drop search, B without it is still worth it for the grouping and single-page view"><span><span class="ol">Out - B is still worth it without</span><span class="od">Grouping, the rail and one-page visibility carry it on their own. Ctrl-F still works because everything is on one page - which is a fair point I under-weighted.</span></span></label>
+      <label class="opt"><input type="radio" name="search" value="no search, and reconsider tabs since that was B's main advantage"><span><span class="ol">Out - and reconsider tabs</span><span class="od">If search is gone, revisit whether A was the better call.</span></span></label>
+    </div>
+    <button type="submit" class="qbtn">Queue this answer</button>
+  </form>
+</section>
+
+<section>
+  <div class="rule"><h2>Anything else</h2></div>
+  <form class="q" data-lavish-question="open2" onsubmit="return queueFree(event,'open2','Open feedback')">
+    <h3>Open feedback</h3>
+    <p class="qsub">Once these are answered I'll write the design up and put it in the tracker - which this project doesn't have configured yet, so I'll need to set that up first.</p>
+    <textarea class="qfree" name="open2" rows="4" placeholder="Anything on the audit, the fix-vs-badge call, or the docs caveat"></textarea>
+    <button type="submit" class="qbtn">Queue this answer</button>
+  </form>
+</section>
+
+</main>
+
+<script>
+  function toggleTheme() {
+    var r = document.documentElement;
+    r.setAttribute('data-theme', r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  }
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+  function confirmQueued(form) {
+    var btn = form.querySelector('button[type="submit"]');
+    var old = btn.textContent;
+    btn.textContent = 'Queued ✓';
+    setTimeout(function () { btn.textContent = old; }, 1600);
+  }
+  function queueAnswer(event, key, label) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    var fd = new FormData(form);
+    var choice = fd.get(key);
+    if (!choice) return false;
+    var note = (fd.get('note') || '').toString().trim();
+    var msg = label + ': ' + choice + (note ? '\nNote: ' + note : '');
+    window.lavish && window.lavish.queuePrompt(msg, {
+      tag: 'choice', text: label + ': ' + choice, element: form, queueKey: key,
+      data: { question: key, answer: choice, note: note }
+    });
+    confirmQueued(form);
+    return false;
+  }
+  function queueFree(event, key, label) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    var val = (new FormData(form).get(key) || '').toString().trim();
+    if (!val) return false;
+    window.lavish && window.lavish.queuePrompt(label + ': ' + val, {
+      tag: 'feedback', text: label, element: form, queueKey: key,
+      data: { question: key, answer: val }
+    });
+    confirmQueued(form);
+    return false;
+  }
+</script>
+</body>
+</html>

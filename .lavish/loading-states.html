@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Widget Loading States — the Incoming family</title>
+<style>
+  :root {
+    --bg: #F5F0EB; --paper: #FFFFFF; --text: #1A1A1A; --text2: #5C5C5C;
+    --primary: #D4451A; --primary-soft: rgba(212,69,26,0.16); --divider: #D9D0C7;
+    --nodata: #E6DDD3; --nodata-hi: #F3EDE6; --grid: #E3DAD0;
+    --shadow: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+  }
+  body.dark {
+    --bg: #1A1A1A; --paper: #242424; --text: #E8E8E8; --text2: #A0A0A0;
+    --primary: #ED5125; --primary-soft: rgba(237,81,37,0.22); --divider: #333333;
+    --nodata: #333333; --nodata-hi: #444444; --grid: #2E2E2E;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Open Sans", system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--text); transition: background .25s, color .25s; line-height: 1.5; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 90px; }
+  header.top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 26px; margin: 0 0 6px; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--text2); font-size: 15px; max-width: 780px; margin: 0; }
+  .themebtn { font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    background: var(--paper); color: var(--text); border: 1px solid var(--divider);
+    border-radius: 8px; padding: 8px 14px; box-shadow: var(--shadow); white-space: nowrap; }
+  .themebtn:hover { border-color: var(--primary); }
+
+  .locked { margin: 22px 0 8px; padding: 14px 16px; border-radius: 10px; background: var(--primary-soft);
+    border: 1px solid var(--divider); font-size: 14px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .locked .mini { width: 150px; height: 54px; flex: none; background: var(--paper); border: 1px solid var(--divider); border-radius: 8px; overflow: hidden; }
+  .locked b { color: var(--primary); }
+
+  .rules { display: flex; gap: 12px; flex-wrap: wrap; margin: 18px 0 4px; }
+  .rule { flex: 1; min-width: 220px; background: var(--paper); border: 1px solid var(--divider); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow); font-size: 13px; color: var(--text2); }
+  .rule b { color: var(--text); display: block; margin-bottom: 2px; font-size: 13.5px; }
+
+  h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--text2); margin: 34px 0 4px; font-weight: 700; }
+  h2.section .new { color: var(--primary); margin-left: 8px; font-size: 10px; border: 1px solid var(--primary); border-radius: 20px; padding: 1px 7px; vertical-align: middle; }
+
+  .shape { display: grid; grid-template-columns: minmax(0,240px) minmax(0,1fr); gap: 22px; align-items: start;
+    padding: 22px 0; border-top: 1px solid var(--divider); }
+  .shape-meta h3 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
+  .shape-meta .where { font-size: 11.5px; color: var(--text2); opacity: .85; margin: 0 0 8px; }
+  .shape-meta p { margin: 8px 0 0; font-size: 13px; color: var(--text2); }
+  .demos { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+  .demos.one { grid-template-columns: minmax(0,300px); }
+  @media (max-width: 880px) { .shape { grid-template-columns: 1fr; } .demos { grid-template-columns: 1fr; } }
+
+  .card { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .card-head { display: flex; align-items: center; padding: 10px 12px 0; }
+  .card-title { font-size: 12.5px; font-weight: 700; }
+  .card-body { padding: 12px; height: 150px; position: relative; overflow: hidden; min-width: 0; }
+  .variant-row { display: flex; align-items: center; gap: 8px; margin: 8px 2px 0; font-size: 12.5px; }
+  .variant-row input { accent-color: var(--primary); }
+  .vname { font-weight: 700; } .rec { color: var(--primary); font-weight: 700; }
+  .vdesc { color: var(--text2); font-size: 11.5px; margin: 2px 2px 0; }
+
+  /* shared */
+  .sk { background: var(--nodata); border-radius: 6px; }
+  .shimmer { background: linear-gradient(90deg, var(--nodata) 25%, var(--nodata-hi) 45%, var(--nodata) 65%);
+    background-size: 220% 100%; animation: shimmer 1.5s ease-in-out infinite; }
+  @keyframes shimmer { 0% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
+  .pulse { animation: skpulse 1.6s ease-in-out infinite; }
+  @keyframes skpulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+  .cascade { opacity: 0; animation: cascade 2.8s ease-in-out infinite; }
+  @keyframes cascade { 0% { opacity: 0; transform: translateY(8px); } 13% { opacity: 1; transform: none; } 74% { opacity: 1; } 92%,100% { opacity: 0; } }
+
+  /* signal trace (hero recap) */
+  .trace-svg { width: 100%; height: 100%; overflow: hidden; }
+  .trace-grid { stroke: var(--grid); stroke-width: 1; }
+  .trace-line { fill: none; stroke: var(--primary); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 320; animation: trace 2.6s linear infinite; }
+  @keyframes trace { 0% { stroke-dashoffset: 320; } 55% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -320; } }
+
+  /* big number — no real digits */
+  .numblock { display: flex; align-items: center; justify-content: center; gap: 8px; height: 100%; }
+  .numblock .blk { width: 130px; max-width: 64%; height: 44px; border-radius: 8px; }
+  .numblock .u { font-size: 22px; font-weight: 700; color: var(--text2); }
+  .dashes { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 46px; font-weight: 800; color: var(--text2); letter-spacing: 2px; }
+  .dashes .u { font-size: 22px; margin-left: 4px; }
+
+  /* circular draw (gauge + pie + donut + health) */
+  .cdraw { width: 110px; height: 110px; display: block; margin: 0 auto; }
+  .cd-track { fill: none; stroke: var(--nodata); stroke-width: 9; }
+  .cd-line { fill: none; stroke: var(--primary); stroke-width: 9; stroke-linecap: round; stroke-dasharray: 251.3;
+    animation: cdraw 2.4s ease-in-out infinite; }
+  @keyframes cdraw { 0% { stroke-dashoffset: 251.3; } 55% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -251.3; } }
+
+  /* heatmap ripple — 7 cols, 30 cells (matches real widget) */
+  .hgrid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr; gap: 4px; height: 100%; width: 100%; margin: 0 auto; }
+  .hcell { border-radius: 2px; background: var(--nodata); animation: ripple 2.6s ease-in-out infinite; }
+  @keyframes ripple { 0%,65%,100% { background: var(--nodata); } 32% { background: var(--primary); } }
+
+  /* table cascade / scan */
+  .rows { display: flex; flex-direction: column; gap: 9px; justify-content: center; height: 100%; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row .dot { width: 20px; height: 20px; border-radius: 50%; flex: none; }
+  .row .lines { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .row .l1 { height: 9px; border-radius: 5px; width: 70%; } .row .l2 { height: 8px; border-radius: 5px; width: 42%; }
+  .crow:nth-child(2) { animation-delay: .18s; } .crow:nth-child(3) { animation-delay: .36s; } .crow:nth-child(4) { animation-delay: .54s; }
+  .scan-host { position: relative; height: 100%; overflow: hidden; }
+  .scan { position: absolute; left: 0; right: 0; height: 26px; background: linear-gradient(var(--primary-soft), transparent);
+    border-top: 2px solid var(--primary); animation: scanmove 2.2s ease-in-out infinite; }
+  @keyframes scanmove { 0% { top: -26px; } 100% { top: 100%; } }
+
+  /* stat tiles — no numbers */
+  .sttrio { display: flex; gap: 10px; height: 100%; align-items: center; justify-content: center; }
+  .sttile { flex: 1; height: 86px; background: var(--bg); border: 1px solid var(--divider); border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; }
+  .sttile .lbl { width: 50%; height: 7px; border-radius: 4px; }
+  .sttile .val { width: 70%; height: 20px; border-radius: 6px; }
+
+  /* uptime — linear indeterminate bar */
+  .uptime { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; }
+  .uptime .cap { width: 130px; max-width: 70%; height: 12px; border-radius: 6px; }
+  .bar-track { position: relative; width: 80%; height: 10px; border-radius: 5px; background: var(--nodata); overflow: hidden; }
+  .bar-ind { position: absolute; top: 0; height: 100%; width: 38%; border-radius: 5px; background: var(--primary); animation: indeterminate 1.5s cubic-bezier(.65,.05,.36,1) infinite; }
+  @keyframes indeterminate { 0% { left: -40%; } 100% { left: 102%; } }
+  .uptime .sub { width: 96px; max-width: 55%; height: 8px; border-radius: 5px; }
+
+  /* weather — day columns cascading in */
+  .wx { display: flex; gap: 12px; height: 100%; align-items: center; justify-content: center; flex-wrap: nowrap; overflow: hidden; }
+  .wx-day { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .wx-lbl { width: 26px; height: 8px; border-radius: 4px; }
+  .wx-ico { width: 28px; height: 28px; border-radius: 50%; }
+  .wx-t1 { width: 24px; height: 9px; border-radius: 5px; } .wx-t2 { width: 18px; height: 8px; border-radius: 5px; }
+
+  /* sensor detail — grid of stat tiles cascading */
+  .sd { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; height: 100%; align-content: center; }
+  .sd-tile { border: 1px solid var(--divider); border-radius: 8px; padding: 9px 6px; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .sd-lbl { width: 64%; height: 7px; border-radius: 4px; } .sd-val { width: 84%; height: 14px; border-radius: 5px; }
+
+  /* form */
+  form.pick { margin-top: 34px; background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; padding: 22px 24px; box-shadow: var(--shadow); }
+  form.pick h3 { margin: 0 0 6px; font-size: 17px; }
+  form.pick .hint { font-size: 13px; color: var(--text2); margin: 0 0 10px; }
+  textarea { width: 100%; font-family: inherit; font-size: 13px; padding: 9px 11px; border: 1px solid var(--divider); border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical; min-height: 64px; }
+  .submit { margin-top: 16px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 11px 24px; box-shadow: var(--shadow); }
+  .submit:hover { filter: brightness(1.06); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>The "Incoming" loader family · v3</h1>
+      <p class="sub">Updated from your notes: gauge now matches the pie, no literal loading text anywhere, no fake numbers while loading, the heatmap matches the real 7-column / 30-day grid, and there are now loaders for uptime, weather and sensor detail. Toggle the theme to check dark mode.</p>
+    </div>
+    <button class="themebtn" onclick="document.body.classList.toggle('dark')">🌓 Toggle light / dark</button>
+  </header>
+
+  <div class="locked">
+    <div class="mini">
+      <svg class="trace-svg" viewBox="-6 -6 252 132" preserveAspectRatio="none">
+        <line class="trace-grid" x1="0" y1="40" x2="240" y2="40"/><line class="trace-grid" x1="0" y1="80" x2="240" y2="80"/>
+        <path class="trace-line" d="M0,80 L24,64 L48,72 L72,46 L96,56 L120,32 L144,48 L168,26 L192,40 L216,20 L240,16"/>
+      </svg>
+    </div>
+    <div><b>✓ Locked in:</b> line &amp; area charts use the live signal trace — the hero the rest of the family is built around.</div>
+  </div>
+
+  <div class="rules">
+    <div class="rule"><b>Rule 1 — visuals only</b>No "loading / receiving / streaming" text. The motion communicates state on its own.</div>
+    <div class="rule"><b>Rule 2 — never fake a value</b>No real or random numbers while loading. Placeholders show the <i>shape</i> of the data, not invented figures.</div>
+    <div class="rule"><b>Rule 3 — terracotta in motion</b>A calm grey skeleton base with a single terracotta element drawing, sweeping or rippling.</div>
+  </div>
+
+  <h2 class="section">Big number · current reading</h2>
+  <div class="shape">
+    <div class="shape-meta">
+      <h3>Value placeholder</h3>
+      <p class="where">current-reading, group-summary average</p>
+      <p>Good catch on the unit — never hardcoded. The unit comes from the widget's configured measurement type (sensor + type are in config, so it's known <i>before</i> the reading lands): °C, %, ppm, lux, hPa… Watch it cycle below.</p>
+      <p><b>Fallback (Rule 2):</b> if the unit can't be resolved from config yet, drop the unit and show the block / em-dashes alone — never guess a unit.</p>
+    </div>
+    <div class="demos">
+      <div>
+        <div class="card"><div class="card-head"><span class="card-title" id="bigtitle">Living room</span></div>
+          <div class="card-body"><div class="numblock"><div class="blk shimmer"></div><span class="u" id="bigunit">°C</span></div></div></div>
+        <label class="variant-row"><input type="radio" name="bignum" value="Shimmer value block" checked><span class="vname">Shimmer block</span> <span class="rec">★ rec</span></label>
+        <p class="vdesc">Unit (dynamic) anchored, value shimmering.</p>
+      </div>
+      <div>
+        <div class="card"><div class="card-head"><span class="card-title">Humidity</span></div>
+          <div class="card-body"><div class="dashes pulse">—.—<span class="u">%</span></div></div></div>
+        <label class="variant-row"><input type="radio" name="bignum" value="Em-dash placeholder"><span class="vname">Em-dashes</span></label>
+        <p class="vdesc">Mirrors the real "—" empty state.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">Radial · gauge, pie, donut, health</h2>
+  <div class="shape">
+    <div class="shape-meta">
+      <h3>Circular draw</h3>
+      <p class="where">gauge, uptime (radial), sensor-health-pie, sensor-type-pie</p>
+      <p>You were right — the real gauge is a full ring, so an arc-sweep looked off. Gauge and pie now share one loader: a terracotta ring that draws itself around and erases, a looped cousin of the chart trace. One radial motif everywhere.</p>
+    </div>
+    <div class="demos one">
+      <div>
+        <div class="card"><div class="card-head"><span class="card-title">Sensor health</span></div>
+          <div class="card-body"><svg class="cdraw" viewBox="0 0 100 100">
+            <g transform="rotate(-90 50 50)">
+              <circle class="cd-track" cx="50" cy="50" r="40"/>
+              <circle class="cd-line" cx="50" cy="50" r="40"/>
+            </g>
+          </svg></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">Heatmap</h2>
+  <div class="shape">
+    <div class="shape-meta">
+      <h3>Ripple populate</h3>
+      <p class="where">heatmap (7 cols × 30 days)</p>
+      <p>Now matches the real grid exactly — 7 columns, 30 square cells. A diagonal wave of warmth sweeps across as if the days are filling in. No day numbers shown (Rule 2).</p>
+    </div>
+    <div class="demos one">
+      <div>
+        <div class="card"><div class="card-head"><span class="card-title">Daily averages</span></div>
+          <div class="card-body"><div class="hgrid" id="hgrid"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">Table · list</h2>
+  <div class="shape">
+    <div class="shape-meta">
+      <h3>Cascade vs scan line</h3>
+      <p class="where">live-readings, reading-stats, alert-summary, notifications-feed</p>
+      <p>Cascade: skeleton rows stream in top-to-bottom on a loop, like records arriving. Scan: a terracotta line sweeps down static skeleton rows.</p>
+    </div>
+    <div class="demos">
+      <div>
+        <div class="card"><div class="card-head"><span class="card-title">Live readings</span></div>
+          <div class="card-body"><div class="rows">
+            <div class="row crow cascade"><div class="dot sk"></div><div class="lines"><div class="l1 sk"></div><div class="l2 sk"></div></div></div>
+            <div class="row crow cascade"><div class="dot sk"></div><div class="lines"><div class="l1 sk"></div><div class="l2 sk"></div></div></div>
+            <div class="row crow cascade"><div class="dot sk"></div><div class="lines"><div class="l1 sk"></div><div class="l2 sk"></div></div></div>
+            <div class="row crow cascade"><div class="dot sk"></div><div class="lines"><div class="l1 sk"></div><div class="l2 sk"></div></div></div>
+          </div></div></div>
+        <label class="variant-row"><input type="radio" name="table" value="Cascade rows" checked><span class="vname">Cascade rows</span> <span class="rec">★ rec</span></label>
+        <p class="vdesc">Feels like records landing.</p>
+      </div>
+      <div>
+        <div class="card"><div class="card-head"><span class="card-title">Live readings</span></div>
+          <div class="card-body"><div class="scan-host"><div class="scan"></div><div class="rows">
+            <div class="row"><div class="dot sk"></div><div class="lines"><div class="l1 sk"></div><div class="l2 sk"></div></div></div>
+            <div class="row"><div class="dot sk"></div><div class="lines"><div class="l1 sk"></div><div class="l2 sk"></div></div></div>
+            <div class="row"><div class="dot sk"></div><div class="lines"><div class="l1 sk"></div><div class="l2 sk"></div></div></div>
+            <div class="row"><div class="dot sk"></div><div class="lines"><div class="l1 sk"></div><div class="l2 sk"></div></div></div>
+          </div></div></div></div>
+        <label class="variant-row"><input type="radio" name="table" value="Scan line"><span class="vname">Scan line</span></label>
+        <p class="vdesc">Quieter, single moving element.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">Stat tiles<span class="new">redone</span></h2>
+  <div class="shape">
+    <div class="shape-meta">
+      <h3>Skeleton tiles</h3>
+      <p class="where">min-max-avg</p>
+      <p>Dropped the rolling numbers entirely (they faked values). Each tile now shows a calm label + value placeholder with a shimmer sweeping across the three in turn — alive, but honest about having no data yet.</p>
+    </div>
+    <div class="demos one">
+      <div>
+        <div class="card"><div class="card-head"><span class="card-title">Last 24h</span></div>
+          <div class="card-body"><div class="sttrio">
+            <div class="sttile"><div class="lbl sk"></div><div class="val shimmer" style="animation-delay:0s"></div></div>
+            <div class="sttile"><div class="lbl sk"></div><div class="val shimmer" style="animation-delay:.25s"></div></div>
+            <div class="sttile"><div class="lbl sk"></div><div class="val shimmer" style="animation-delay:.5s"></div></div>
+          </div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">Uptime<span class="new">new</span></h2>
+  <div class="shape">
+    <div class="shape-meta">
+      <h3>Indeterminate bar</h3>
+      <p class="where">uptime widget</p>
+      <p>The real widget is a horizontal progress bar, so the loader is the natural one: a terracotta segment sliding across the rounded track (MUI's indeterminate look), with calm placeholders for the percentage and caption above and below — no number shown.</p>
+    </div>
+    <div class="demos one">
+      <div>
+        <div class="card"><div class="card-head"><span class="card-title">Freezer sensor</span></div>
+          <div class="card-body"><div class="uptime">
+            <div class="cap sk pulse"></div>
+            <div class="bar-track"><div class="bar-ind"></div></div>
+            <div class="sub sk pulse"></div>
+          </div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">Weather forecast<span class="new">new</span></h2>
+  <div class="shape">
+    <div class="shape-meta">
+      <h3>Forecast filling in</h3>
+      <p class="where">weather-forecast</p>
+      <p>The real card is a row of day columns (label, icon, hi/lo). The loader cascades those columns in left-to-right — each a skeleton day with a pulsing icon disc — so the forecast visibly "arrives" day by day.</p>
+    </div>
+    <div class="demos one">
+      <div>
+        <div class="card"><div class="card-head"><span class="card-title">Weather — Home</span></div>
+          <div class="card-body"><div class="wx" id="wx"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">Sensor detail<span class="new">new</span></h2>
+  <div class="shape">
+    <div class="shape-meta">
+      <h3>Cascading stat tiles</h3>
+      <p class="where">sensor-detail</p>
+      <p>The real card is a responsive grid of small outlined stat papers (one per measurement type). The loader is that same grid as skeleton tiles cascading in — label + value placeholder, no values invented.</p>
+    </div>
+    <div class="demos one">
+      <div>
+        <div class="card"><div class="card-head"><span class="card-title">Greenhouse: Details</span></div>
+          <div class="card-body"><div class="sd" id="sd"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <form class="pick" data-lavish-question="incoming-family-v3"
+    onsubmit="event.preventDefault();
+      const f = new FormData(event.currentTarget);
+      const bignum=f.get('bignum'), table=f.get('table'), notes=f.get('notes');
+      window.lavish.queuePrompt(
+        'Incoming loader family v3 — picks: Big number = '+bignum+'; Table = '+table+'. Fixed: Radial(gauge/pie/donut/health)=Circular draw, Heatmap=Ripple(7x30), Stat tiles=Skeleton tiles, Uptime=Indeterminate bar, Weather=Cascading day columns, Sensor detail=Cascading stat tiles. Charts=Signal trace. Notes: '+(notes||'none'),
+        { tag:'decision', text:'v3 picks: '+bignum+' / '+table, element:event.currentTarget,
+          data:{ bignum, table, radial:'Circular draw', heatmap:'Ripple', statTiles:'Skeleton tiles', uptime:'Indeterminate bar', weather:'Cascading columns', sensorDetail:'Cascading tiles', notes } });
+      window.lavish.sendQueuedPrompts && window.lavish.sendQueuedPrompts();">
+    <h3>Lock in the family</h3>
+    <p class="hint">Two open choices left (big number, table). Everything else is settled per your notes. Add anything to push further and send.</p>
+    <textarea name="notes" placeholder="e.g. tweak speeds, the weather icon shape, ripple direction, or anything that still feels off…"></textarea>
+    <div><button type="submit" class="submit">Send my picks →</button></div>
+  </form>
+</div>
+
+<script>
+  // heatmap: 7 cols, 30 cells, diagonal wave
+  (function(){
+    var g=document.getElementById('hgrid'); if(!g) return;
+    var cols=7, total=30;
+    for(var i=0;i<total;i++){
+      var r=Math.floor(i/cols), c=i%cols;
+      var d=document.createElement('div'); d.className='hcell';
+      d.style.animationDelay=(((c+r)*0.10)).toFixed(2)+'s';
+      g.appendChild(d);
+    }
+  })();
+  // weather: 6 day columns cascading
+  (function(){
+    var w=document.getElementById('wx'); if(!w) return;
+    for(var i=0;i<6;i++){
+      var day=document.createElement('div'); day.className='wx-day cascade';
+      day.style.animationDelay=(i*0.14).toFixed(2)+'s';
+      day.innerHTML='<div class="wx-lbl sk"></div><div class="wx-ico sk"></div><div class="wx-t1 sk"></div><div class="wx-t2 sk"></div>';
+      w.appendChild(day);
+    }
+  })();
+  // sensor detail: 6 stat tiles cascading
+  (function(){
+    var s=document.getElementById('sd'); if(!s) return;
+    for(var i=0;i<6;i++){
+      var t=document.createElement('div'); t.className='sd-tile cascade';
+      t.style.animationDelay=(i*0.12).toFixed(2)+'s';
+      t.innerHTML='<div class="sd-lbl sk"></div><div class="sd-val sk"></div>';
+      s.appendChild(t);
+    }
+  })();
+  // big-number: demonstrate the unit is dynamic (driven by widget's measurement type)
+  (function(){
+    var u=document.getElementById('bigunit'), t=document.getElementById('bigtitle'); if(!u) return;
+    var examples=[['Living room','°C'],['Bathroom','%'],['Office CO₂','ppm'],['Desk lamp','lux'],['Study','hPa']];
+    var i=0;
+    setInterval(function(){
+      i=(i+1)%examples.length;
+      u.style.opacity=0;
+      setTimeout(function(){ if(t) t.textContent=examples[i][0]; u.textContent=examples[i][1]; u.style.opacity=1; }, 220);
+    }, 2200);
+    u.style.transition='opacity .25s';
+  })();
+</script>
+</body>
+</html>

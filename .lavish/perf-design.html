@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="luxury">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard perceived-performance: controllable-first loading</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/themes.css">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true, theme: "dark", securityLevel: "strict", flowchart: { useMaxWidth: true } });
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :where(.grid, .flex) > * { min-width: 0; }
+  :where(p, h1, h2, h3, h4, li, dd, td, th, .badge) { overflow-wrap: anywhere; }
+  :where(img, svg) { max-width: 100%; height: auto; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .lead-num { font-variant-numeric: tabular-nums; }
+  .mermaid { background: var(--color-base-200); border-radius: 1rem; padding: 1rem; }
+</style>
+</head>
+<body class="bg-base-200 text-base-content">
+<main class="mx-auto max-w-5xl p-5 lg:p-10 flex flex-col gap-10">
+
+  <!-- HERO -->
+  <header class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="badge badge-primary badge-soft">Design proposal</span>
+      <span class="badge badge-ghost">Frontend only</span>
+      <span class="badge badge-ghost">sensor-hub UI</span>
+    </div>
+    <h1 class="text-3xl lg:text-4xl font-bold leading-tight">Make the dashboard feel fast: controllable widgets first</h1>
+    <p class="text-base-content/70 max-w-3xl">
+      When a dashboard opens, the controllable toggles should settle into the correct state and respond to taps
+      as fast as possible - even while the read-only charts are still blank. This document proposes how, grounds it in
+      the current code, weighs alternatives, and ends with decisions for you to make.
+    </p>
+  </header>
+
+  <!-- GOAL / SYMPTOM -->
+  <section class="grid md:grid-cols-3 gap-4">
+    <div class="card card-border bg-base-100 md:col-span-2">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-xl">The symptom</h2>
+        <p class="text-base-content/80">
+          On the Raspberry Pi + SQLite deployment, opening a dashboard to flip a single switch feels sluggish:
+        </p>
+        <ul class="flex flex-col gap-2">
+          <li class="flex gap-3"><span class="badge badge-warning badge-soft mt-0.5">1</span>
+            <span><b>Settle delay</b> - the switch takes a few seconds to show the correct on/off position after load.</span></li>
+          <li class="flex gap-3"><span class="badge badge-warning badge-soft mt-0.5">2</span>
+            <span><b>Command lag</b> - flipping the switch takes ~a second to take effect, and gets worse the more widgets are on the dashboard.</span></li>
+        </ul>
+        <p class="text-base-content/60 text-sm">The "scales with widget count" clue is the key: this is resource contention, not a fixed cost.</p>
+      </div>
+    </div>
+    <div class="card card-border bg-base-100">
+      <div class="card-body gap-2">
+        <h2 class="card-title text-base">Diagnosis</h2>
+        <p class="text-sm text-base-content/80">Browser is snappy; render is fine. The wait is the <b>backend returning data</b>.</p>
+        <div class="divider my-1"></div>
+        <p class="text-sm">Every read-only chart fires <span class="mono text-xs">GET /readings/between</span> on mount and again every 30s. N charts &rArr; a burst of heavy SQLite aggregation queries that the single-threaded-ish Pi serializes.</p>
+        <p class="text-sm text-base-content/70">The toggle's data and command queue up <i>behind</i> that burst.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- MEASUREMENT -->
+  <section class="card card-border bg-base-100 border-success/40">
+    <div class="card-body gap-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="badge badge-success">Measured &bull; confirmed</span>
+        <h2 class="card-title text-xl">We proved the bottleneck on the live Pi</h2>
+      </div>
+      <p class="text-base-content/80 max-w-3xl text-sm">
+        Using the authenticated CLI against the real instance, we timed a small "probe" request (proxy for the toggle's
+        snapshot + command) while idle, then again while 6 concurrent chart-style aggregation queries hammered the Pi -
+        a simulated busy dashboard. Read-only, bounded, one-shot.
+      </p>
+      <div class="stats stats-vertical sm:stats-horizontal bg-base-200 w-full">
+        <div class="stat">
+          <div class="stat-title">Probe, Pi idle</div>
+          <div class="stat-value text-success lead-num">~23<span class="text-lg">ms</span></div>
+          <div class="stat-desc">warm baseline (median)</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Probe, under load</div>
+          <div class="stat-value text-error lead-num">1.3-2.6<span class="text-lg">s</span></div>
+          <div class="stat-desc">while charts query</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Amplification</div>
+          <div class="stat-value text-warning lead-num">55-115&times;</div>
+          <div class="stat-desc">snaps back to ~20ms when load clears</div>
+        </div>
+      </div>
+      <div role="alert" class="alert alert-success alert-soft">
+        <span>The probe recovered to baseline <b>the instant</b> the query burst drained - so this is pure contention, not a fixed cost.
+        Metering concurrency (the proposed scheduler) is exactly the right lever. A single aggregated chart query also costs <b>0.7-1.1s</b> on its own, so even a handful firing at once saturates the Pi.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE REFRAME -->
+  <section class="card card-border bg-base-100 border-primary/40">
+    <div class="card-body gap-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="badge badge-primary">Important reframe</span>
+        <h2 class="card-title text-xl">"Controllable first" really means "read-only out of the way"</h2>
+      </div>
+      <p class="text-base-content/80 max-w-3xl">
+        The natural framing is "send the controllable widget's request first." But the one controllable widget
+        (<span class="mono text-sm">sensor-toggle</span>) <b>makes no REST request to prioritize</b>. It reads from two shared
+        WebSockets and writes commands to a third endpoint:
+      </p>
+      <div class="grid sm:grid-cols-3 gap-3">
+        <div class="rounded-box bg-base-200 p-3">
+          <div class="mono text-xs text-success">/sensors/ws</div>
+          <p class="text-sm mt-1">Sensor list + capabilities = what makes a sensor controllable.</p>
+        </div>
+        <div class="rounded-box bg-base-200 p-3">
+          <div class="mono text-xs text-success">/readings/ws/current</div>
+          <p class="text-sm mt-1">Live current values = the toggle's on/off position (the "settle").</p>
+        </div>
+        <div class="rounded-box bg-base-200 p-3">
+          <div class="mono text-xs text-info">POST /sensors/{id}/command</div>
+          <p class="text-sm mt-1">The command itself (the "flip"). Already optimistic in the UI.</p>
+        </div>
+      </div>
+      <div role="alert" class="alert alert-info alert-soft">
+        <span>So the lever is <b>not</b> jumping a queue. It is <b>throttling the read-only REST flood</b> so the Pi keeps spare
+        capacity to answer the WebSocket snapshot and the command POST quickly. We get the controllable widget fast by getting everything else out of its way.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- CURRENT VS TARGET -->
+  <section class="flex flex-col gap-4">
+    <h2 class="text-2xl font-bold">Current behavior vs target behavior</h2>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="card card-border bg-base-100 border-error/30">
+        <div class="card-body gap-2">
+          <div class="flex items-center gap-2"><span class="badge badge-error badge-soft">Today</span><h3 class="card-title text-base">Thundering herd on load</h3></div>
+          <ul class="text-sm flex flex-col gap-1.5 text-base-content/80">
+            <li>&bull; All widgets mount at once; every chart fires its request immediately.</li>
+            <li>&bull; No concurrency limit - the Pi gets N+ heavy queries simultaneously.</li>
+            <li>&bull; No ordering - the toggle's WS snapshot competes with chart aggregation.</li>
+            <li>&bull; Background 30s polls keep firing; a command can land mid-burst.</li>
+            <li>&bull; <span class="mono text-xs">useReadingsData</span> calls <span class="mono text-xs">apiClient.GET</span> directly in a <span class="mono text-xs">useEffect</span>.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card card-border bg-base-100 border-success/30">
+        <div class="card-body gap-2">
+          <div class="flex items-center gap-2"><span class="badge badge-success badge-soft">Target</span><h3 class="card-title text-base">Metered, prioritized loading</h3></div>
+          <ul class="text-sm flex flex-col gap-1.5 text-base-content/80">
+            <li>&bull; A small client scheduler caps how many requests hit the Pi at once.</li>
+            <li>&bull; Controllable data is highest priority; read-only charts wait their turn.</li>
+            <li>&bull; The Pi always has headroom, so the WS snapshot settles quickly.</li>
+            <li>&bull; A command preempts background polls so the flip lands fast.</li>
+            <li>&bull; Read-only widgets fetch <i>through</i> the scheduler, not directly.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROPOSED ARCHITECTURE -->
+  <section class="flex flex-col gap-4">
+    <h2 class="text-2xl font-bold">Proposed approach: a small priority request scheduler</h2>
+    <p class="text-base-content/80 max-w-3xl">
+      Introduce one focused module - a <b>priority-aware concurrency limiter</b> (a priority semaphore, ~a hundred lines,
+      not a framework). Every read-only REST fetch goes through it. It admits at most <span class="mono text-sm">N</span> requests
+      to the Pi at a time and always admits the highest-priority waiter next.
+    </p>
+
+    <div class="mermaid">
+flowchart TD
+    L["Dashboard opens"] --> WS["Open WebSockets immediately<br/>(sensors + current readings)"]
+    L --> Q["Read-only widgets enqueue<br/>their REST fetches"]
+    WS -.->|"toggle settles from<br/>live snapshot"| T["Controllable widget<br/>interactive"]
+    Q --> S{{"Priority scheduler<br/>max N in flight"}}
+    S -->|"priority: high"| C["Controllable-related<br/>+ commands"]
+    S -->|"priority: normal"| V["Visible read-only<br/>charts"]
+    S -->|"priority: low"| B["Background 30s<br/>polls"]
+    C --> PI[("Raspberry Pi<br/>SQLite")]
+    V --> PI
+    B --> PI
+    CMD["User flips switch"] -->|"preempt: pause low polls"| S
+    CMD --> C
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="card card-border bg-base-100">
+        <div class="card-body gap-2">
+          <div class="flex items-center gap-2"><span class="badge badge-primary badge-soft">Mechanism 1</span></div>
+          <h3 class="card-title text-base">Concurrency cap</h3>
+          <p class="text-sm text-base-content/80">At most <span class="mono">N</span> REST requests in flight to the Pi (a <b>tunable setting</b>, default 4). Stops the thundering herd, leaving CPU/SQLite headroom for the WS snapshot and commands.</p>
+        </div>
+      </div>
+      <div class="card card-border bg-base-100">
+        <div class="card-body gap-2">
+          <div class="flex items-center gap-2"><span class="badge badge-primary badge-soft">Mechanism 2</span></div>
+          <h3 class="card-title text-base">Priority ordering</h3>
+          <p class="text-sm text-base-content/80">When a slot frees, the scheduler runs the highest-priority waiter. Controllable-related work first, then visible charts, then background polls.</p>
+        </div>
+      </div>
+      <div class="card card-border bg-base-100">
+        <div class="card-body gap-2">
+          <div class="flex items-center gap-2"><span class="badge badge-primary badge-soft">Mechanism 3</span></div>
+          <h3 class="card-title text-base">Command preemption</h3>
+          <p class="text-sm text-base-content/80">While a command POST is in flight, the scheduler stops admitting <i>new</i> low-priority polls, so the Pi drains and the flip confirms quickly.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INJECTION POINTS -->
+  <section class="flex flex-col gap-4">
+    <h2 class="text-2xl font-bold">Where this plugs into the existing code</h2>
+    <div class="overflow-x-auto rounded-box border border-base-content/10 bg-base-100">
+      <table class="table table-sm">
+        <thead><tr><th>File</th><th>Today</th><th>Change</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono text-xs">hooks/useReadingsData.ts</td>
+            <td class="text-sm">Calls <span class="mono text-xs">apiClient.GET('/readings/between')</span> directly on mount + 30s interval.</td>
+            <td class="text-sm">Route the call through the scheduler at <b>normal</b> priority; the 30s poll at <b>low</b>.</td>
+          </tr>
+          <tr>
+            <td class="mono text-xs">widgets/MinMaxAvgWidget.tsx<br>widgets/HeatmapWidget.tsx<br>widgets/AlertSummaryWidget.tsx</td>
+            <td class="text-sm">One-shot <span class="mono text-xs">apiClient.GET</span> in a <span class="mono text-xs">useEffect</span>.</td>
+            <td class="text-sm">Same: enqueue through the scheduler at <b>normal</b> priority.</td>
+          </tr>
+          <tr>
+            <td class="mono text-xs">widgets/SensorToggleWidget.tsx</td>
+            <td class="text-sm">Reads WS cache; <span class="mono text-xs">POST /sensors/{id}/command</span> on flip.</td>
+            <td class="text-sm">Wrap the command in a <b>preempt</b> signal (pause low-priority admits) for its duration.</td>
+          </tr>
+          <tr>
+            <td class="mono text-xs">scheduler/requestScheduler.ts <span class="badge badge-success badge-xs">new</span></td>
+            <td class="text-sm">-</td>
+            <td class="text-sm">The priority semaphore: <span class="mono text-xs">schedule(priority, fn)</span>, a cap, and a preempt latch.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div role="alert" class="alert alert-warning alert-soft">
+      <span><b>Note on the WebSockets:</b> they already connect on widget mount, so no per-request scheduling applies to them. Their speedup comes for free from capping the REST flood. If we want extra insurance, we can hoist the current-readings WS to connect at dashboard load whenever a controllable widget is present (a small, optional addition - flagged as Decision 3).</span>
+    </div>
+  </section>
+
+  <!-- ALTERNATIVES -->
+  <section class="flex flex-col gap-4">
+    <h2 class="text-2xl font-bold">Alternatives considered</h2>
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="card card-border bg-base-100 border-success/40">
+        <div class="card-body gap-2">
+          <div class="flex items-center justify-between"><h3 class="card-title text-base">A. Priority scheduler</h3><span class="badge badge-success">Recommended</span></div>
+          <p class="text-sm text-base-content/80">Central concurrency cap + priority + preempt.</p>
+          <div class="text-sm"><b class="text-success">Wins:</b> fixes settle <i>and</i> command lag; scales as widgets are added; one clear home for priority.</div>
+          <div class="text-sm"><b class="text-error">Cost:</b> route every read-only fetch through it (~4 call sites today).</div>
+        </div>
+      </div>
+      <div class="card card-border bg-base-100">
+        <div class="card-body gap-2">
+          <h3 class="card-title text-base">B. Load-order only</h3>
+          <p class="text-sm text-base-content/80">Render controllable widgets first; delay/stagger read-only mounts a tick later.</p>
+          <div class="text-sm"><b class="text-success">Wins:</b> tiny change; helps the settle.</div>
+          <div class="text-sm"><b class="text-error">Cost:</b> does <b>not</b> fix steady-state command lag (30s polls still collide); ordering is implicit and fragile.</div>
+        </div>
+      </div>
+      <div class="card card-border bg-base-100">
+        <div class="card-body gap-2">
+          <h3 class="card-title text-base">C. Request coalescing</h3>
+          <p class="text-sm text-base-content/80">Dedupe identical <span class="mono text-xs">/readings/between</span> queries so charts share one request.</p>
+          <div class="text-sm"><b class="text-success">Wins:</b> cuts total load; good complement.</div>
+          <div class="text-sm"><b class="text-error">Cost:</b> only helps when widgets overlap; no prioritization or preemption. Orthogonal - can add later.</div>
+        </div>
+      </div>
+    </div>
+    <p class="text-sm text-base-content/60">A and C compose well; B is effectively a weaker subset of A. The recommendation is A, optionally folding in C as a later enhancement.</p>
+  </section>
+
+  <!-- RISKS -->
+  <section class="flex flex-col gap-3">
+    <h2 class="text-2xl font-bold">Risks &amp; things to verify</h2>
+    <div class="grid sm:grid-cols-2 gap-3">
+      <div class="rounded-box bg-base-100 border border-success/30 p-4">
+        <h3 class="font-semibold text-sm mb-1 text-success">Root cause confirmed (measured)</h3>
+        <p class="text-sm text-base-content/70">Backend contention is now <b>proven</b> on the live Pi: probe latency rose from ~23ms to 1.3-2.6s under chart load and recovered instantly. No longer a risk - it's the validated premise. Remaining tuning: pick the right cap against this same Pi.</p>
+      </div>
+      <div class="rounded-box bg-base-100 border border-base-content/10 p-4">
+        <h3 class="font-semibold text-sm mb-1">Cap too low = sluggish charts</h3>
+        <p class="text-sm text-base-content/70">If the concurrency cap is too aggressive, read-only charts feel slow to fill in. The cap needs tuning against the real Pi (Decision 1).</p>
+      </div>
+      <div class="rounded-box bg-base-100 border border-base-content/10 p-4">
+        <h3 class="font-semibold text-sm mb-1">Stale-response guards</h3>
+        <p class="text-sm text-base-content/70"><span class="mono text-xs">useReadingsData</span> already guards stale responses via <span class="mono text-xs">requestIdRef</span>. Queueing must not break that ordering or its cleanup on unmount.</p>
+      </div>
+      <div class="rounded-box bg-base-100 border border-base-content/10 p-4">
+        <h3 class="font-semibold text-sm mb-1">Preempt starvation</h3>
+        <p class="text-sm text-base-content/70">Pausing low-priority polls during commands must be bounded (e.g. only for the in-flight command, with a timeout) so polls can't be starved indefinitely.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- DECISIONS -->
+  <section class="flex flex-col gap-5">
+    <div class="flex items-center gap-3 flex-wrap">
+      <span class="badge badge-success">Locked</span>
+      <h2 class="text-2xl font-bold">Decisions</h2>
+    </div>
+    <div class="overflow-x-auto rounded-box border border-success/30 bg-base-100">
+      <table class="table table-sm">
+        <tbody>
+          <tr><td class="font-semibold">Approach</td><td>A - priority request scheduler (cap + priority + preempt)</td></tr>
+          <tr><td class="font-semibold">Concurrency cap</td><td>Tunable setting (default 4)</td></tr>
+          <tr><td class="font-semibold">Command preemption</td><td>Yes - pause low-priority polls while a command is in flight (bounded)</td></tr>
+          <tr><td class="font-semibold">WS hoist</td><td>No - keep existing on-mount connection (smaller scope)</td></tr>
+          <tr><td class="font-semibold">Measure first</td><td>Done - contention confirmed on the live Pi (see evidence above)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-base-content/60 max-w-3xl text-sm">Locked in from your answers. Want to change one? Use the controls below or annotate this table.</p>
+
+    <!-- D0 -->
+    <form class="card card-border bg-base-100" data-lavish-question="approach"
+      onsubmit="event.preventDefault(); const v=new FormData(event.currentTarget).get('approach'); if(v) window.lavish.queuePrompt('Decision - overall approach: '+v, {tag:'choice', text:'Approach: '+v, element:event.currentTarget});">
+      <div class="card-body gap-3">
+        <h3 class="card-title text-base">0. Overall approach</h3>
+        <label class="flex gap-3 items-start cursor-pointer"><input type="radio" name="approach" value="A: priority scheduler (recommended)" class="radio radio-primary radio-sm mt-1" checked><span class="text-sm"><b>A - Priority scheduler.</b> Cap + priority + command preempt. Fixes both symptoms.</span></label>
+        <label class="flex gap-3 items-start cursor-pointer"><input type="radio" name="approach" value="A + C: scheduler with request coalescing" class="radio radio-primary radio-sm mt-1"><span class="text-sm"><b>A + C.</b> Scheduler now, also dedupe identical chart queries.</span></label>
+        <label class="flex gap-3 items-start cursor-pointer"><input type="radio" name="approach" value="B: load-order only (minimal)" class="radio radio-primary radio-sm mt-1"><span class="text-sm"><b>B - Load-order only.</b> Minimal; settle only, leaves command lag.</span></label>
+        <div class="card-actions justify-end"><button type="submit" class="btn btn-primary btn-sm">Queue answer</button></div>
+      </div>
+    </form>
+
+    <!-- D1 -->
+    <form class="card card-border bg-base-100" data-lavish-question="cap"
+      onsubmit="event.preventDefault(); const v=new FormData(event.currentTarget).get('cap'); if(v) window.lavish.queuePrompt('Decision - concurrency cap: '+v, {tag:'choice', text:'Cap: '+v, element:event.currentTarget});">
+      <div class="card-body gap-3">
+        <h3 class="card-title text-base">1. Concurrency cap (max REST in flight to the Pi)</h3>
+        <p class="text-sm text-base-content/60">Browsers allow ~6 per host; the Pi is the real limit. Lower = more headroom for the toggle, slower charts.</p>
+        <div class="flex flex-wrap gap-4">
+          <label class="flex gap-2 items-center cursor-pointer"><input type="radio" name="cap" value="3" class="radio radio-primary radio-sm"><span class="text-sm">3</span></label>
+          <label class="flex gap-2 items-center cursor-pointer"><input type="radio" name="cap" value="4 (recommended starting point)" class="radio radio-primary radio-sm" checked><span class="text-sm">4 (recommended)</span></label>
+          <label class="flex gap-2 items-center cursor-pointer"><input type="radio" name="cap" value="6" class="radio radio-primary radio-sm"><span class="text-sm">6</span></label>
+          <label class="flex gap-2 items-center cursor-pointer"><input type="radio" name="cap" value="make it a tunable setting" class="radio radio-primary radio-sm"><span class="text-sm">Make it tunable</span></label>
+        </div>
+        <div class="card-actions justify-end"><button type="submit" class="btn btn-primary btn-sm">Queue answer</button></div>
+      </div>
+    </form>
+
+    <!-- D2 -->
+    <form class="card card-border bg-base-100" data-lavish-question="preempt"
+      onsubmit="event.preventDefault(); const v=new FormData(event.currentTarget).get('preempt'); if(v) window.lavish.queuePrompt('Decision - command preemption: '+v, {tag:'choice', text:'Preempt: '+v, element:event.currentTarget});">
+      <div class="card-body gap-3">
+        <h3 class="card-title text-base">2. Command preemption</h3>
+        <label class="flex gap-3 items-start cursor-pointer"><input type="radio" name="preempt" value="yes - pause low-priority polls during a command (recommended)" class="radio radio-primary radio-sm mt-1" checked><span class="text-sm"><b>Yes.</b> Pause background polls while a command is in flight so the flip lands fast. (Bounded with a timeout.)</span></label>
+        <label class="flex gap-3 items-start cursor-pointer"><input type="radio" name="preempt" value="no - just make commands highest priority" class="radio radio-primary radio-sm mt-1"><span class="text-sm"><b>No.</b> Simpler: commands are just highest priority, no pausing.</span></label>
+        <div class="card-actions justify-end"><button type="submit" class="btn btn-primary btn-sm">Queue answer</button></div>
+      </div>
+    </form>
+
+    <!-- D3 -->
+    <form class="card card-border bg-base-100" data-lavish-question="wshoist"
+      onsubmit="event.preventDefault(); const v=new FormData(event.currentTarget).get('wshoist'); if(v) window.lavish.queuePrompt('Decision - WS hoist: '+v, {tag:'choice', text:'WS hoist: '+v, element:event.currentTarget});">
+      <div class="card-body gap-3">
+        <h3 class="card-title text-base">3. Hoist the current-readings WebSocket to connect at dashboard load?</h3>
+        <label class="flex gap-3 items-start cursor-pointer"><input type="radio" name="wshoist" value="yes - connect WS as soon as the dashboard has a controllable widget" class="radio radio-primary radio-sm mt-1"><span class="text-sm"><b>Yes.</b> Extra insurance the toggle warms early, even if it renders below the fold.</span></label>
+        <label class="flex gap-3 items-start cursor-pointer"><input type="radio" name="wshoist" value="no - keep existing on-mount connection (recommended, less scope)" class="radio radio-primary radio-sm mt-1" checked><span class="text-sm"><b>No.</b> Keep current on-mount behavior; the cap alone should suffice. Smaller scope.</span></label>
+        <div class="card-actions justify-end"><button type="submit" class="btn btn-primary btn-sm">Queue answer</button></div>
+      </div>
+    </form>
+
+    <!-- D4 -->
+    <form class="card card-border bg-base-100" data-lavish-question="measure"
+      onsubmit="event.preventDefault(); const v=new FormData(event.currentTarget).get('measure'); if(v) window.lavish.queuePrompt('Decision - measurement first: '+v, {tag:'choice', text:'Measure: '+v, element:event.currentTarget});">
+      <div class="card-body gap-3">
+        <h3 class="card-title text-base">4. Confirm the bottleneck with a quick measurement first?</h3>
+        <label class="flex gap-3 items-start cursor-pointer"><input type="radio" name="measure" value="yes - add a small before/after timing step before building" class="radio radio-primary radio-sm mt-1"><span class="text-sm"><b>Yes.</b> Capture request timings on the Pi before building, so we know we hit the real bottleneck.</span></label>
+        <label class="flex gap-3 items-start cursor-pointer"><input type="radio" name="measure" value="no - the diagnosis is good enough, just build it" class="radio radio-primary radio-sm mt-1" checked><span class="text-sm"><b>No.</b> Diagnosis is convincing; the scheduler helps regardless. Build it.</span></label>
+        <div class="card-actions justify-end"><button type="submit" class="btn btn-primary btn-sm">Queue answer</button></div>
+      </div>
+    </form>
+
+    <div role="alert" class="alert">
+      <span class="text-sm">Queue each answer, add any annotations, then press <b>Send to Agent</b>. Disagree with the framing anywhere? Annotate that section directly.</span>
+    </div>
+  </section>
+
+  <footer class="text-center text-xs text-base-content/40 pt-4">sensor-hub &bull; perceived-performance design &bull; brainstorming stage</footer>
+</main>
+</body>
+</html>
