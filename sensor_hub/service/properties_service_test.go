@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -59,22 +60,18 @@ func TestPropertiesService_ServiceGetProperties_Success(t *testing.T) {
 	assert.Contains(t, result, "auth.session.ttl.minutes")
 }
 
-func TestPropertiesService_ServiceGetProperties_MasksSensitiveData(t *testing.T) {
+func TestPropertiesService_ServiceGetProperties_ReturnsTheStoredValue(t *testing.T) {
 	cleanup := setupPropertiesServiceTestConfig()
 	defer cleanup()
+
+	appProps.AppConfig.SMTPUser = "admin@example.com"
 
 	service := NewPropertiesService(slog.Default())
 
 	result, err := service.ServiceGetProperties(context.Background())
 
 	assert.NoError(t, err)
-
-	// Verify sensitive properties are masked
-	for _, key := range appProps.SensitiveKeys() {
-		if val, ok := result[key]; ok {
-			assert.Equal(t, "*****", val, "Sensitive key %s should be masked", key)
-		}
-	}
+	assert.Equal(t, "admin@example.com", result["smtp.user"])
 }
 
 func TestPropertiesService_ServiceGetProperties_IncludesAllPropertyTypes(t *testing.T) {
@@ -123,27 +120,26 @@ func TestPropertiesService_ServiceUpdateProperties_Success(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 }
 
-func TestPropertiesService_ServiceUpdateProperties_SkipsMaskedSensitive(t *testing.T) {
-	cleanup := setupPropertiesServiceTestConfig()
-	defer cleanup()
+func TestPropertiesService_ServiceUpdateProperties_StoresTheSuppliedValue(t *testing.T) {
+	values := []string{"admin@example.com", "*****", "", "  spaced  "}
 
-	originalPath := appProps.AppConfig.DatabasePath
+	for _, value := range values {
+		t.Run(fmt.Sprintf("%q", value), func(t *testing.T) {
+			cleanup := setupPropertiesServiceTestConfig()
+			defer cleanup()
 
-	service := NewPropertiesService(slog.Default())
+			service := NewPropertiesService(slog.Default())
 
-	// No sensitive properties exist, so "*****" for a non-sensitive key will update it
-	properties := map[string]string{
-		"database.path": "*****",
+			err := service.ServiceUpdateProperties(context.Background(), map[string]string{
+				"smtp.user": value,
+			})
+
+			assert.NoError(t, err)
+			assert.Equal(t, value, appProps.AppConfig.SMTPUser)
+
+			time.Sleep(50 * time.Millisecond)
+		})
 	}
-
-	err := service.ServiceUpdateProperties(context.Background(), properties)
-
-	assert.NoError(t, err)
-	// DatabasePath is not sensitive, so it gets updated to the literal value
-	assert.NotEqual(t, originalPath, appProps.AppConfig.DatabasePath)
-	assert.Equal(t, "*****", appProps.AppConfig.DatabasePath)
-
-	time.Sleep(50 * time.Millisecond)
 }
 
 func TestPropertiesService_ServiceUpdateProperties_UpdatesDatabasePath(t *testing.T) {

@@ -20,21 +20,6 @@ func (ps *PropertiesService) ServiceUpdateProperties(ctx context.Context, proper
 	appProperties, smtpProperties, dbProperties := appProps.ConvertConfigurationToMaps(appProps.AppConfig)
 
 	for key, value := range properties {
-		if value == "*****" {
-			sensitiveKeys := appProps.SensitiveKeys()
-			isSensitive := false
-			for _, sensitiveKey := range sensitiveKeys {
-				if key == sensitiveKey {
-					isSensitive = true
-					break
-				}
-			}
-			if isSensitive {
-				continue
-				// unchanged sensitive property, skip updating
-			}
-		}
-
 		if _, ok := appProperties[key]; ok {
 			appProperties[key] = value
 		} else if _, ok := dbProperties[key]; ok {
@@ -86,14 +71,6 @@ func (ps *PropertiesService) ServiceGetProperties(ctx context.Context) (map[stri
 	}
 	for key, value := range smtpProperties {
 		propertiesMap[key] = value
-	}
-
-	for key := range propertiesMap {
-		for _, sensitiveKey := range appProps.SensitiveKeys() {
-			if key == sensitiveKey {
-				propertiesMap[key] = "*****"
-			}
-		}
 	}
 
 	return propertiesMap, nil
