@@ -681,10 +681,6 @@ func TestReloadConfig_InvalidConfig(t *testing.T) {
 	assert.Equal(t, 100, AppConfig.SensorCollectionInterval)
 }
 
-func TestSensitivePropertiesKeys(t *testing.T) {
-	assert.Empty(t, SensitiveKeys())
-}
-
 func TestApplicationPropertiesDefaults_HasExpectedKeys(t *testing.T) {
 	appDefaults, _, _ := BuildDefaults()
 

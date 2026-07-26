@@ -1177,9 +1177,7 @@ paths:
       summary: Get current application properties
       description: >-
         Returns a flat object mapping property keys to their current values.
-        Sensitive properties (such as OAuth secrets) are masked in
-        responses as `"*****"` to avoid leaking secrets. Values are returned
-        as strings.
+        Values are returned as strings.
       operationId: getProperties
       x-required-permission: view_properties
       responses:
@@ -1201,10 +1199,7 @@ paths:
       summary: Update application properties
       description: >-
         Update one or more properties. Pass a JSON object where keys are the
-        property names and values are the desired string values. To keep
-        sensitive properties secret when you don't want to change them, pass
-        the literal string `"*****"` as the value; the server will treat this
-        as "do not change" for known sensitive keys.
+        property names and values are the desired string values.
 
         The update will be validated, applied to the in-memory configuration,
         and persisted to configuration files asynchronously. A broadcast is
@@ -4070,7 +4065,6 @@ components:
       type: object
       description: |
         Flat map of configuration keys to values (all values as strings).
-        Sensitive values are masked ("*****") in responses.
       additionalProperties:
         type: string
       example:
@@ -4081,12 +4075,12 @@ components:
 
     UpdatePropertiesRequest:
       type: object
-      description: Map of properties to update. Use the literal string "*****" to indicate no change for sensitive keys.
+      description: Map of properties to update. Every value is written through as supplied.
       additionalProperties:
         type: string
       example:
         smtp.user: "new-user@example.com"
-        oauth.client_secret: "*****"
+        sensor.collection.interval: "300"
 
     PropertiesWebSocketMessage:
       type: object

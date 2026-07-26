@@ -30,7 +30,7 @@ The struct tags define the behaviour for this new property:
 - **Default value** — written to the property file if absent on first load
 - **Loading** — parsed from the correct file and typed into the struct field
 - **Saving** — serialised back to the correct file when the API writes changes
-- **Logging** — printed on startup and reload (unless marked `sensitive`)
+- **Logging** — printed on startup and reload
 - **Validation** — checked during loading according to the `validate` tag
 
 ### Struct Tags Reference
@@ -41,7 +41,6 @@ The struct tags define the behaviour for this new property:
 | `default`   | yes      | String representation of the default value    | Written to file if absent; used as fallback           |
 | `file`      | yes      | `application`, `smtp`, or `database`          | Which property file this setting belongs to           |
 | `validate`  | no       | `positive`, `non_negative`, or `non_empty` | Per-field validation applied during loading          |
-| `sensitive` | no       | `true`                                        | Masks value in API responses and log output           |
 
 ### Cross-Field Validation
 

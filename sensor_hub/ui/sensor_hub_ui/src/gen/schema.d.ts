@@ -547,7 +547,7 @@ export interface paths {
         };
         /**
          * Get current application properties
-         * @description Returns a flat object mapping property keys to their current values. Sensitive properties (such as OAuth secrets) are masked in responses as `"*****"` to avoid leaking secrets. Values are returned as strings.
+         * @description Returns a flat object mapping property keys to their current values. Values are returned as strings.
          */
         get: operations["getProperties"];
         put?: never;
@@ -557,7 +557,7 @@ export interface paths {
         head?: never;
         /**
          * Update application properties
-         * @description Update one or more properties. Pass a JSON object where keys are the property names and values are the desired string values. To keep sensitive properties secret when you don't want to change them, pass the literal string `"*****"` as the value; the server will treat this as "do not change" for known sensitive keys.
+         * @description Update one or more properties. Pass a JSON object where keys are the property names and values are the desired string values.
          *     The update will be validated, applied to the in-memory configuration, and persisted to configuration files asynchronously. A broadcast is sent to the properties WebSocket topic after the update. Note: there is no separate endpoint for editing `smtp.properties` or `database.properties` — they are updated by key through this same API.
          */
         patch: operations["updateProperties"];
@@ -2087,7 +2087,6 @@ export interface components {
         SensorHealthStatus: "bad" | "good" | "unknown";
         /**
          * @description Flat map of configuration keys to values (all values as strings).
-         *     Sensitive values are masked ("*****") in responses.
          * @example {
          *       "smtp.user": "admin@example.com",
          *       "smtp.recipient": "alerts@example.com",
@@ -2099,10 +2098,10 @@ export interface components {
             [key: string]: string;
         };
         /**
-         * @description Map of properties to update. Use the literal string "*****" to indicate no change for sensitive keys.
+         * @description Map of properties to update. Every value is written through as supplied.
          * @example {
          *       "smtp.user": "new-user@example.com",
-         *       "oauth.client_secret": "*****"
+         *       "sensor.collection.interval": "300"
          *     }
          */
         UpdatePropertiesRequest: {

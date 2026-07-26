@@ -21,7 +21,6 @@ type PropertyDef struct {
 	Default    string // default value from `default` tag
 	File       string // "application", "smtp", or "database"
 	Validate   string // "positive", "non_negative", or ""
-	Sensitive  bool   // if true, mask in logs and API responses
 }
 
 var registry []PropertyDef
@@ -49,7 +48,6 @@ func buildRegistry() []PropertyDef {
 			Default:    field.Tag.Get("default"),
 			File:       field.Tag.Get("file"),
 			Validate:   field.Tag.Get("validate"),
-			Sensitive:  field.Tag.Get("sensitive") == "true",
 		})
 	}
 
@@ -203,31 +201,17 @@ func ConvertToMaps(cfg *ApplicationConfiguration) (application map[string]string
 	return application, smtp, database
 }
 
-// LogConfig logs all non-sensitive configuration values.
+// LogConfig logs all configuration values.
 func LogConfig(cfg *ApplicationConfiguration) {
 	val := reflect.ValueOf(cfg).Elem()
 	args := make([]any, 0, len(registry)*2)
 
 	for _, def := range registry {
-		if def.Sensitive {
-			continue
-		}
 		field := val.Field(def.FieldIndex)
 		args = append(args, toSnakeCase(def.FieldName), field.Interface())
 	}
 
 	slog.Info("configuration reloaded", args...)
-}
-
-// SensitiveKeys returns the property keys marked as sensitive.
-func SensitiveKeys() []string {
-	var keys []string
-	for _, def := range registry {
-		if def.Sensitive {
-			keys = append(keys, def.Key)
-		}
-	}
-	return keys
 }
 
 // SaveToFiles writes the current configuration to the property files.

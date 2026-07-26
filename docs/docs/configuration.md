@@ -110,7 +110,3 @@ Environment variables are defined in `/etc/sensor-hub/environment` and loaded by
 |-----------------------------|----------------------------------------------------------------------------------------|
 | `SENSOR_HUB_INITIAL_ADMIN`  | Creates an initial admin user on first startup; format is `username:password`          |
 | `SENSOR_HUB_ALLOWED_ORIGIN` | The allowed CORS origin for the web UI (e.g., `https://sensor-hub.example.com`)        |
-
-## Sensitive properties
-
-There are currently no sensitive database properties. When updating properties through the API, all values are stored as provided.

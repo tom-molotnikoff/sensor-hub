@@ -838,7 +838,6 @@ type PermissionInfo struct {
 }
 
 // PropertiesMap Flat map of configuration keys to values (all values as strings).
-// Sensitive values are masked ("*****") in responses.
 type PropertiesMap map[string]string
 
 // RateLimitResponse Rate limit exceeded response
@@ -1010,7 +1009,7 @@ type UpdateDashboardRequest struct {
 	Name   *string          `json:"name,omitempty"`
 }
 
-// UpdatePropertiesRequest Map of properties to update. Use the literal string "*****" to indicate no change for sensitive keys.
+// UpdatePropertiesRequest Map of properties to update. Every value is written through as supplied.
 type UpdatePropertiesRequest map[string]string
 
 // User User information
