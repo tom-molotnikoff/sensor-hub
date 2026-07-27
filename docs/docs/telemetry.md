@@ -22,7 +22,9 @@ Set the log level in `application.properties`:
 log.level=info
 ```
 
-Supported values: `debug`, `info`, `warn`, `error`. Default: `info`.
+Supported values: `debug`, `info`, `warn`, `error`. Default: `info`. An
+unrecognised value logs at `info`. The level applies to the running process as
+soon as the change is saved, with no restart.
 
 ### OpenTelemetry Collector
 

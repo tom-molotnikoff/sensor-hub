@@ -11,16 +11,24 @@ import (
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 )
 
-// multiHandler fans out log records to multiple slog handlers.
+// multiHandler fans out log records to multiple slog handlers, filtering on
+// the process log level first. The filter belongs here rather than in each
+// handler because the OTel bridge accepts every level it is offered, so
+// without it a record below the configured level would still be built and
+// shipped to the collector.
 type multiHandler struct {
+	level    slog.Leveler
 	handlers []slog.Handler
 }
 
-func newMultiHandler(handlers ...slog.Handler) *multiHandler {
-	return &multiHandler{handlers: handlers}
+func newMultiHandler(level slog.Leveler, handlers ...slog.Handler) *multiHandler {
+	return &multiHandler{level: level, handlers: handlers}
 }
 
 func (m *multiHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	if level < m.level.Level() {
+		return false
+	}
 	for _, h := range m.handlers {
 		if h.Enabled(ctx, level) {
 			return true
@@ -45,7 +53,7 @@ func (m *multiHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	for i, h := range m.handlers {
 		handlers[i] = h.WithAttrs(attrs)
 	}
-	return newMultiHandler(handlers...)
+	return newMultiHandler(m.level, handlers...)
 }
 
 func (m *multiHandler) WithGroup(name string) slog.Handler {
@@ -53,11 +61,22 @@ func (m *multiHandler) WithGroup(name string) slog.Handler {
 	for i, h := range m.handlers {
 		handlers[i] = h.WithGroup(name)
 	}
-	return newMultiHandler(handlers...)
+	return newMultiHandler(m.level, handlers...)
 }
 
-// ParseLogLevel converts a string log level to slog.Level.
-func ParseLogLevel(level string) slog.Level {
+// logLevel is the level every logger built by [NewLogger] consults per record,
+// so a configuration reload can change what the running process logs at
+// without a restart. It reads as info until something sets it.
+var logLevel = new(slog.LevelVar)
+
+// SetLogLevel points every logger in the process at the named level.
+// An unrecognised name falls back to info.
+func SetLogLevel(level string) {
+	logLevel.Set(parseLogLevel(level))
+}
+
+// parseLogLevel converts a string log level to slog.Level.
+func parseLogLevel(level string) slog.Level {
 	switch strings.ToLower(strings.TrimSpace(level)) {
 	case "debug":
 		return slog.LevelDebug
@@ -72,9 +91,11 @@ func ParseLogLevel(level string) slog.Level {
 
 // NewLogger creates a structured slog.Logger.
 // It writes JSON to the provided writer and optionally bridges to an OTel LoggerProvider.
-func NewLogger(level slog.Level, writer io.Writer, logProvider *sdklog.LoggerProvider) *slog.Logger {
+// The logger filters on the process log level, which [SetLogLevel] can change
+// at any point in its life.
+func NewLogger(writer io.Writer, logProvider *sdklog.LoggerProvider) *slog.Logger {
 	opts := &slog.HandlerOptions{
-		Level:     level,
+		Level:     logLevel,
 		AddSource: true,
 	}
 
@@ -83,7 +104,7 @@ func NewLogger(level slog.Level, writer io.Writer, logProvider *sdklog.LoggerPro
 	var handler slog.Handler
 	if logProvider != nil {
 		otelHandler := otelslog.NewHandler("sensor-hub", otelslog.WithLoggerProvider(logProvider))
-		handler = newMultiHandler(jsonHandler, otelHandler)
+		handler = newMultiHandler(logLevel, jsonHandler, otelHandler)
 	} else {
 		handler = jsonHandler
 	}
