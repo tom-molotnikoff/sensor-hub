@@ -159,7 +159,8 @@ function SensorHealthHistoryChart({sensor}: SensorHealthHistoryChartProps) {
                   return [value, name];
                 }}
                 labelFormatter={(label) => {
-                  if (!label) return '';
+                  // recharts types the label as ReactNode; the recorded_at dataKey is a timestamp string
+                  if (!label || (typeof label !== 'string' && typeof label !== 'number')) return '';
                   return new Date(label).toLocaleString();
                 }}
               />
