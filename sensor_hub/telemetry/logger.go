@@ -56,8 +56,19 @@ func (m *multiHandler) WithGroup(name string) slog.Handler {
 	return newMultiHandler(handlers...)
 }
 
-// ParseLogLevel converts a string log level to slog.Level.
-func ParseLogLevel(level string) slog.Level {
+// logLevel is the level every logger built by [NewLogger] consults per record,
+// so a configuration reload can change what the running process logs at
+// without a restart. It reads as info until something sets it.
+var logLevel = new(slog.LevelVar)
+
+// SetLogLevel points every logger in the process at the named level.
+// An unrecognised name falls back to info.
+func SetLogLevel(level string) {
+	logLevel.Set(parseLogLevel(level))
+}
+
+// parseLogLevel converts a string log level to slog.Level.
+func parseLogLevel(level string) slog.Level {
 	switch strings.ToLower(strings.TrimSpace(level)) {
 	case "debug":
 		return slog.LevelDebug
@@ -72,9 +83,11 @@ func ParseLogLevel(level string) slog.Level {
 
 // NewLogger creates a structured slog.Logger.
 // It writes JSON to the provided writer and optionally bridges to an OTel LoggerProvider.
-func NewLogger(level slog.Level, writer io.Writer, logProvider *sdklog.LoggerProvider) *slog.Logger {
+// The logger filters on the process log level, which [SetLogLevel] can change
+// at any point in its life.
+func NewLogger(writer io.Writer, logProvider *sdklog.LoggerProvider) *slog.Logger {
 	opts := &slog.HandlerOptions{
-		Level:     level,
+		Level:     logLevel,
 		AddSource: true,
 	}
 

@@ -30,18 +30,16 @@ tail -f /var/log/sensor-hub/sensor-hub.log
 
 ### Debug Logging
 
-Temporarily enable debug logging by updating `log.level` in
+Temporarily enable debug logging by setting `log.level` to `debug` on the
+properties page, or by updating it in
 `/etc/sensor-hub/application.properties`:
 
 ```
 log.level=debug
 ```
 
-Then restart the service:
-
-```bash
-systemctl restart sensor-hub
-```
+The running process picks the new level up without a restart, either
+immediately on save or within a couple of seconds of an external file edit.
 
 Debug logging produces detailed output for every database operation, HTTP
 request, WebSocket event, and periodic task execution.

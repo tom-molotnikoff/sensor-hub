@@ -3,6 +3,8 @@ package appProps
 import (
 	"log/slog"
 	"path/filepath"
+
+	"example/sensorHub/telemetry"
 )
 
 type ApplicationConfiguration struct {
@@ -98,6 +100,8 @@ func ReloadConfig(appProps, smtpProps, dbProps map[string]string) {
 	}
 
 	AppConfig = cfg
+
+	telemetry.SetLogLevel(cfg.LogLevel)
 
 	LogConfig(cfg)
 }

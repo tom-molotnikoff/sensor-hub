@@ -10,9 +10,9 @@ import (
 
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
-	"go.opentelemetry.io/otel/sdk/resource"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
@@ -31,7 +31,6 @@ type Telemetry struct {
 type Config struct {
 	ServiceName string
 	Version     string
-	LogLevel    slog.Level
 	LogFilePath string
 }
 
@@ -75,7 +74,7 @@ func Init(ctx context.Context, cfg Config) (*Telemetry, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger := NewLogger(cfg.LogLevel, writer, logProvider)
+	logger := NewLogger(writer, logProvider)
 
 	// Tracer
 	tp, err := initTracerProvider(ctx, res, exportEnabled)
@@ -97,7 +96,7 @@ func Init(ctx context.Context, cfg Config) (*Telemetry, error) {
 	logger.Info("telemetry initialised",
 		"service", serviceName,
 		"version", cfg.Version,
-		"log_level", cfg.LogLevel.String(),
+		"log_level", logLevel.Level().String(),
 		"otel_export", exportEnabled,
 	)
 

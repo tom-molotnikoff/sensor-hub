@@ -51,12 +51,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	appProps.WatchConfigFiles(ctx)
 
-	logLevel := telemetry.ParseLogLevel(appProps.AppConfig.LogLevel)
-
 	tel, err := telemetry.Init(context.Background(), telemetry.Config{
 		ServiceName: "sensor-hub",
 		Version:     Version,
-		LogLevel:    logLevel,
 		LogFilePath: logFile,
 	})
 	if err != nil {

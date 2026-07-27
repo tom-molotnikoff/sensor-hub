@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	appProps "example/sensorHub/application_properties"
+	"example/sensorHub/telemetry"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -236,6 +238,89 @@ func TestPropertiesService_ServiceUpdateProperties_UnknownKey(t *testing.T) {
 	assert.Equal(t, 45, appProps.AppConfig.SensorCollectionInterval)
 
 	// Give async goroutines time to complete
+	time.Sleep(50 * time.Millisecond)
+}
+
+// ============================================================================
+// Log level tests
+// ============================================================================
+
+func TestPropertiesService_ServiceUpdateProperties_LogLevelTakesEffectOnSave(t *testing.T) {
+	cleanup := setupPropertiesServiceTestConfig()
+	defer cleanup()
+
+	appProps.AppConfig.LogLevel = "info"
+	telemetry.SetLogLevel("info")
+
+	var logs bytes.Buffer
+	logger := telemetry.NewLogger(&logs, nil)
+
+	service := NewPropertiesService(slog.Default())
+
+	err := service.ServiceUpdateProperties(context.Background(), map[string]string{
+		"log.level": "debug",
+	})
+
+	assert.NoError(t, err)
+
+	logger.Debug("a line only debug emits")
+	assert.Contains(t, logs.String(), "a line only debug emits")
+
+	time.Sleep(50 * time.Millisecond)
+}
+
+func TestPropertiesService_ServiceUpdateProperties_LogLevelStopsDebugAgainOnSave(t *testing.T) {
+	cleanup := setupPropertiesServiceTestConfig()
+	defer cleanup()
+
+	appProps.AppConfig.LogLevel = "debug"
+	telemetry.SetLogLevel("debug")
+
+	var logs bytes.Buffer
+	logger := telemetry.NewLogger(&logs, nil)
+
+	service := NewPropertiesService(slog.Default())
+
+	err := service.ServiceUpdateProperties(context.Background(), map[string]string{
+		"log.level": "info",
+	})
+
+	assert.NoError(t, err)
+
+	logger.Debug("a line only debug emits")
+	logger.Info("a line info emits")
+
+	assert.NotContains(t, logs.String(), "a line only debug emits")
+	assert.Contains(t, logs.String(), "a line info emits")
+
+	time.Sleep(50 * time.Millisecond)
+}
+
+func TestPropertiesService_ServiceUpdateProperties_UnrecognisedLogLevelSavesAndLogsAtInfo(t *testing.T) {
+	cleanup := setupPropertiesServiceTestConfig()
+	defer cleanup()
+
+	appProps.AppConfig.LogLevel = "debug"
+	telemetry.SetLogLevel("debug")
+
+	var logs bytes.Buffer
+	logger := telemetry.NewLogger(&logs, nil)
+
+	service := NewPropertiesService(slog.Default())
+
+	err := service.ServiceUpdateProperties(context.Background(), map[string]string{
+		"log.level": "loud",
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "loud", appProps.AppConfig.LogLevel)
+
+	logger.Debug("a line only debug emits")
+	logger.Info("a line info emits")
+
+	assert.NotContains(t, logs.String(), "a line only debug emits")
+	assert.Contains(t, logs.String(), "a line info emits")
+
 	time.Sleep(50 * time.Millisecond)
 }
 
