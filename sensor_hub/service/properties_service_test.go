@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"testing"
-	"time"
 
 	appProps "example/sensorHub/application_properties"
 	"example/sensorHub/telemetry"
@@ -119,7 +118,7 @@ func TestPropertiesService_ServiceUpdateProperties_Success(t *testing.T) {
 	assert.Equal(t, 60, appProps.AppConfig.SensorCollectionInterval)
 	assert.Equal(t, 120, appProps.AppConfig.AuthSessionTTLMinutes)
 
-	time.Sleep(50 * time.Millisecond)
+	service.waitForBackgroundWork()
 }
 
 func TestPropertiesService_ServiceUpdateProperties_StoresTheSuppliedValue(t *testing.T) {
@@ -139,7 +138,7 @@ func TestPropertiesService_ServiceUpdateProperties_StoresTheSuppliedValue(t *tes
 			assert.NoError(t, err)
 			assert.Equal(t, value, appProps.AppConfig.SMTPUser)
 
-			time.Sleep(50 * time.Millisecond)
+			service.waitForBackgroundWork()
 		})
 	}
 }
@@ -159,7 +158,7 @@ func TestPropertiesService_ServiceUpdateProperties_UpdatesDatabasePath(t *testin
 	assert.NoError(t, err)
 	assert.Equal(t, "new/path/sensor_hub.db", appProps.AppConfig.DatabasePath)
 
-	time.Sleep(50 * time.Millisecond)
+	service.waitForBackgroundWork()
 }
 
 func TestPropertiesService_ServiceUpdateProperties_InvalidValue(t *testing.T) {
@@ -178,7 +177,7 @@ func TestPropertiesService_ServiceUpdateProperties_InvalidValue(t *testing.T) {
 	// Should return error for invalid values
 	assert.Error(t, err)
 
-	time.Sleep(50 * time.Millisecond)
+	service.waitForBackgroundWork()
 }
 
 func TestPropertiesService_ServiceUpdateProperties_PartialUpdate(t *testing.T) {
@@ -201,7 +200,7 @@ func TestPropertiesService_ServiceUpdateProperties_PartialUpdate(t *testing.T) {
 	// Other properties should remain unchanged
 	assert.Equal(t, originalSessionTTL, appProps.AppConfig.AuthSessionTTLMinutes)
 
-	time.Sleep(50 * time.Millisecond)
+	service.waitForBackgroundWork()
 }
 
 func TestPropertiesService_ServiceUpdateProperties_EmptyMap(t *testing.T) {
@@ -216,7 +215,7 @@ func TestPropertiesService_ServiceUpdateProperties_EmptyMap(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	time.Sleep(50 * time.Millisecond)
+	service.waitForBackgroundWork()
 }
 
 func TestPropertiesService_ServiceUpdateProperties_UnknownKey(t *testing.T) {
@@ -237,8 +236,7 @@ func TestPropertiesService_ServiceUpdateProperties_UnknownKey(t *testing.T) {
 	// Known property should still be updated
 	assert.Equal(t, 45, appProps.AppConfig.SensorCollectionInterval)
 
-	// Give async goroutines time to complete
-	time.Sleep(50 * time.Millisecond)
+	service.waitForBackgroundWork()
 }
 
 // ============================================================================
@@ -251,6 +249,7 @@ func TestPropertiesService_ServiceUpdateProperties_LogLevelTakesEffectOnSave(t *
 
 	appProps.AppConfig.LogLevel = "info"
 	telemetry.SetLogLevel("info")
+	defer telemetry.SetLogLevel("info")
 
 	var logs bytes.Buffer
 	logger := telemetry.NewLogger(&logs, nil)
@@ -266,7 +265,7 @@ func TestPropertiesService_ServiceUpdateProperties_LogLevelTakesEffectOnSave(t *
 	logger.Debug("a line only debug emits")
 	assert.Contains(t, logs.String(), "a line only debug emits")
 
-	time.Sleep(50 * time.Millisecond)
+	service.waitForBackgroundWork()
 }
 
 func TestPropertiesService_ServiceUpdateProperties_LogLevelStopsDebugAgainOnSave(t *testing.T) {
@@ -275,6 +274,7 @@ func TestPropertiesService_ServiceUpdateProperties_LogLevelStopsDebugAgainOnSave
 
 	appProps.AppConfig.LogLevel = "debug"
 	telemetry.SetLogLevel("debug")
+	defer telemetry.SetLogLevel("info")
 
 	var logs bytes.Buffer
 	logger := telemetry.NewLogger(&logs, nil)
@@ -293,7 +293,7 @@ func TestPropertiesService_ServiceUpdateProperties_LogLevelStopsDebugAgainOnSave
 	assert.NotContains(t, logs.String(), "a line only debug emits")
 	assert.Contains(t, logs.String(), "a line info emits")
 
-	time.Sleep(50 * time.Millisecond)
+	service.waitForBackgroundWork()
 }
 
 func TestPropertiesService_ServiceUpdateProperties_UnrecognisedLogLevelSavesAndLogsAtInfo(t *testing.T) {
@@ -302,6 +302,7 @@ func TestPropertiesService_ServiceUpdateProperties_UnrecognisedLogLevelSavesAndL
 
 	appProps.AppConfig.LogLevel = "debug"
 	telemetry.SetLogLevel("debug")
+	defer telemetry.SetLogLevel("info")
 
 	var logs bytes.Buffer
 	logger := telemetry.NewLogger(&logs, nil)
@@ -321,7 +322,7 @@ func TestPropertiesService_ServiceUpdateProperties_UnrecognisedLogLevelSavesAndL
 	assert.NotContains(t, logs.String(), "a line only debug emits")
 	assert.Contains(t, logs.String(), "a line info emits")
 
-	time.Sleep(50 * time.Millisecond)
+	service.waitForBackgroundWork()
 }
 
 // ============================================================================
