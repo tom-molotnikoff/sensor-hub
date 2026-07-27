@@ -11,16 +11,24 @@ import (
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 )
 
-// multiHandler fans out log records to multiple slog handlers.
+// multiHandler fans out log records to multiple slog handlers, filtering on
+// the process log level first. The filter belongs here rather than in each
+// handler because the OTel bridge accepts every level it is offered, so
+// without it a record below the configured level would still be built and
+// shipped to the collector.
 type multiHandler struct {
+	level    slog.Leveler
 	handlers []slog.Handler
 }
 
-func newMultiHandler(handlers ...slog.Handler) *multiHandler {
-	return &multiHandler{handlers: handlers}
+func newMultiHandler(level slog.Leveler, handlers ...slog.Handler) *multiHandler {
+	return &multiHandler{level: level, handlers: handlers}
 }
 
 func (m *multiHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	if level < m.level.Level() {
+		return false
+	}
 	for _, h := range m.handlers {
 		if h.Enabled(ctx, level) {
 			return true
@@ -45,7 +53,7 @@ func (m *multiHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	for i, h := range m.handlers {
 		handlers[i] = h.WithAttrs(attrs)
 	}
-	return newMultiHandler(handlers...)
+	return newMultiHandler(m.level, handlers...)
 }
 
 func (m *multiHandler) WithGroup(name string) slog.Handler {
@@ -53,7 +61,7 @@ func (m *multiHandler) WithGroup(name string) slog.Handler {
 	for i, h := range m.handlers {
 		handlers[i] = h.WithGroup(name)
 	}
-	return newMultiHandler(handlers...)
+	return newMultiHandler(m.level, handlers...)
 }
 
 // logLevel is the level every logger built by [NewLogger] consults per record,
@@ -96,7 +104,7 @@ func NewLogger(writer io.Writer, logProvider *sdklog.LoggerProvider) *slog.Logge
 	var handler slog.Handler
 	if logProvider != nil {
 		otelHandler := otelslog.NewHandler("sensor-hub", otelslog.WithLoggerProvider(logProvider))
-		handler = newMultiHandler(jsonHandler, otelHandler)
+		handler = newMultiHandler(logLevel, jsonHandler, otelHandler)
 	} else {
 		handler = jsonHandler
 	}

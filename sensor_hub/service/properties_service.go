@@ -20,9 +20,10 @@ func NewPropertiesService(logger *slog.Logger) *PropertiesService {
 
 // inBackground runs work the caller is deliberately not made to wait for: a
 // save has already taken effect in memory by the time it starts, so the file
-// write and the broadcast follow behind it. The service tracks them so that
-// anything which does need them settled can join rather than guess at how
-// long they take.
+// write and the broadcast follow behind it. The service tracks them only so
+// that tests can join the work rather than guess at how long it takes.
+// Nothing in production waits, and nothing should: a join running alongside
+// an in-flight save would race the counter back up from zero.
 func (ps *PropertiesService) inBackground(work func()) {
 	ps.background.Add(1)
 	go func() {
