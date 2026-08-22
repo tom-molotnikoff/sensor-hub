@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-const watchInterval = 2 * time.Second
+// watchInterval is a var so tests can shorten it.
+var watchInterval = 2 * time.Second
 
 // cooldownAfterWrite is extra time to ignore file changes after the application
 // finishes writing config files. This prevents the watcher from reloading
@@ -17,9 +18,10 @@ const cooldownAfterWrite = 3 * time.Second
 // WatchConfigFiles polls the three property files for modification-time changes
 // and reloads configuration when an external change is detected. It is aware of
 // the application's own writes (via SaveConfigurationToFiles) and ignores them.
+// onReload, if non-nil, is called after each successful reload.
 //
 // The goroutine exits when ctx is cancelled.
-func WatchConfigFiles(ctx context.Context) {
+func WatchConfigFiles(ctx context.Context, onReload func()) {
 	modTimes := snapshotModTimes()
 
 	go func() {
@@ -86,8 +88,12 @@ func WatchConfigFiles(ctx context.Context) {
 					continue
 				}
 
-				ReloadConfig(appProps, smtpProps, dbProps)
+				reloadErr := ReloadConfig(appProps, smtpProps, dbProps)
 				modTimes = current
+
+				if reloadErr == nil && onReload != nil {
+					onReload()
+				}
 			}
 		}
 	}()

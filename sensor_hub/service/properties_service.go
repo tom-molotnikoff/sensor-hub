@@ -52,9 +52,10 @@ func (ps *PropertiesService) ServiceUpdateProperties(ctx context.Context, proper
 	}
 
 	// Pre-flight validation: LoadConfigurationFromMaps surfaces parse/validation
-	// errors so the API can return them to the caller. ReloadConfig only logs
-	// errors and updates AppConfig on success. Running both is now safe — the
-	// load step no longer mutates the configuration (issue #44).
+	// errors so the API can return them to the caller. ReloadConfig's error is
+	// ignored below because the same maps were just validated here. Running
+	// both is safe — the load step no longer mutates the configuration
+	// (issue #44).
 	if _, err := appProps.LoadConfigurationFromMaps(appProperties, smtpProperties, dbProperties); err != nil {
 		return err
 	}
@@ -69,15 +70,22 @@ func (ps *PropertiesService) ServiceUpdateProperties(ctx context.Context, proper
 	})
 
 	ps.inBackground(func() {
-		properties, err := ps.ServiceGetProperties(context.Background())
-		if err != nil {
-			ps.logger.Error("error fetching updated properties for broadcast", "error", err)
-			return
-		}
-		ws.BroadcastToTopic("properties", properties)
+		ps.BroadcastProperties(context.Background())
 	})
 
 	return nil
+}
+
+// BroadcastProperties sends the current property values to every properties
+// websocket subscriber. It runs after a PATCH and after the config watcher
+// reloads an external file edit, so both paths broadcast identically.
+func (ps *PropertiesService) BroadcastProperties(ctx context.Context) {
+	properties, err := ps.ServiceGetProperties(ctx)
+	if err != nil {
+		ps.logger.Error("error fetching updated properties for broadcast", "error", err)
+		return
+	}
+	ws.BroadcastToTopic("properties", properties)
 }
 
 func (ps *PropertiesService) ServiceGetProperties(ctx context.Context) (map[string]interface{}, error) {

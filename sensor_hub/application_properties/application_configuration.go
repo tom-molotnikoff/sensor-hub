@@ -94,23 +94,22 @@ func InitialiseConfig(dir string) error {
 		return err
 	}
 
-	ReloadConfig(appProps, smtpProps, dbProps)
-
-	return nil
+	return ReloadConfig(appProps, smtpProps, dbProps)
 }
 
 // ReloadConfig replaces the global AppConfig from the supplied raw property
-// maps. Relative OAuth file paths are stored as-is on the returned struct;
-// callers obtain a config-dir-resolved absolute path via
+// maps, returning an error and leaving the config untouched when the maps do
+// not parse. Relative OAuth file paths are stored as-is on the returned
+// struct; callers obtain a config-dir-resolved absolute path via
 // [ApplicationConfiguration.ResolvedOAuthCredentialsPath] /
 // [ApplicationConfiguration.ResolvedOAuthTokenPath]. Resolving on demand
 // (rather than mutating the struct on load) keeps reloads idempotent — see
 // issue #44.
-func ReloadConfig(appProps, smtpProps, dbProps map[string]string) {
+func ReloadConfig(appProps, smtpProps, dbProps map[string]string) error {
 	cfg, err := LoadConfigurationFromMaps(appProps, smtpProps, dbProps)
 	if err != nil {
 		slog.Error("failed to reload configuration", "error", err)
-		return
+		return err
 	}
 
 	SetAppConfig(cfg)
@@ -118,6 +117,8 @@ func ReloadConfig(appProps, smtpProps, dbProps map[string]string) {
 	telemetry.SetLogLevel(cfg.LogLevel)
 
 	LogConfig(cfg)
+
+	return nil
 }
 
 // ResolvedOAuthCredentialsPath returns the OAuth credentials file path

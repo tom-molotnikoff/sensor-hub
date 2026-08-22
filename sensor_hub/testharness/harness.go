@@ -36,6 +36,7 @@ type Env struct {
 	ServerURL         string
 	AdminUser         string
 	AdminPass         string
+	ConfigDir         string
 	DB                *sql.DB
 	ConnectionManager *mqttpkg.ConnectionManager
 	WSCapture         *RecordingWSNotifier
@@ -205,9 +206,17 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 	srv := &http.Server{Handler: router}
 	go srv.Serve(listener)
 
+	// Mirror cmd/serve.go: watch for external config edits and broadcast
+	// reloads to properties websocket subscribers.
+	watcherCtx, stopWatcher := context.WithCancel(context.Background())
+	appProps.WatchConfigFiles(watcherCtx, func() {
+		propertiesService.BroadcastProperties(context.Background())
+	})
+
 	cleanup := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		stopWatcher()
 		connManager.Stop()
 		srv.Shutdown(ctx)
 		db.Close()
@@ -229,6 +238,7 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 		ServerURL:         serverURL,
 		AdminUser:         DefaultAdminUser,
 		AdminPass:         DefaultAdminPass,
+		ConfigDir:         configDir,
 		DB:                db,
 		ConnectionManager: connManager,
 		WSCapture:         wsCapture,

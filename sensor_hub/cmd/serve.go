@@ -49,8 +49,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialise application configuration: %w", err)
 	}
 
-	appProps.WatchConfigFiles(ctx)
-
 	tel, err := telemetry.Init(context.Background(), telemetry.Config{
 		ServiceName: "sensor-hub",
 		Version:     Version,
@@ -128,6 +126,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 		ws.SeedReadings(latest)
 	}
 	propertiesService := service.NewPropertiesService(logger)
+
+	// External config file edits must reach open browsers: broadcast after
+	// each successful watcher reload, the same call a PATCH makes.
+	appProps.WatchConfigFiles(ctx, func() {
+		propertiesService.BroadcastProperties(context.Background())
+	})
 	cleanupService := service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, maintenanceRepo, logger)
 
 	userService := service.NewUserService(userRepo, notificationService, logger)
