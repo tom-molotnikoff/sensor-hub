@@ -17,11 +17,12 @@ import (
 )
 
 func InitialiseDatabase(logger *slog.Logger) (*sql.DB, error) {
-	if appProps.AppConfig() == nil {
+	cfg := appProps.AppConfig()
+	if cfg == nil {
 		return nil, fmt.Errorf("application configuration not loaded")
 	}
 
-	dbPath := appProps.AppConfig().DatabasePath
+	dbPath := cfg.DatabasePath
 
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		return nil, fmt.Errorf("could not create database directory: %w", err)

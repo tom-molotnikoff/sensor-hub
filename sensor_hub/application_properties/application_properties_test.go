@@ -662,7 +662,7 @@ func TestReloadConfig_Success(t *testing.T) {
 
 	ReloadConfig(appProps, smtpProps, dbProps)
 
-	assert.NotNil(t, AppConfig)
+	assert.NotNil(t, AppConfig())
 	assert.Equal(t, 300, AppConfig().SensorCollectionInterval)
 	assert.Equal(t, "test/sensor_hub.db", AppConfig().DatabasePath)
 }

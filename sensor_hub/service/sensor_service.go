@@ -393,14 +393,14 @@ func (s *SensorService) ServiceCollectReadingToValidateSensor(ctx context.Contex
 }
 
 func (s *SensorService) ServiceDiscoverSensors(ctx context.Context) error {
-	shouldSkipDiscovery := appProps.AppConfig().SensorDiscoverySkip
+	cfg := appProps.AppConfig()
 
-	if shouldSkipDiscovery {
+	if cfg.SensorDiscoverySkip {
 		s.logger.Info("skipping sensor discovery as per configuration")
 		return nil
 	}
 
-	fileData, err := os.ReadFile(appProps.AppConfig().OpenAPILocation)
+	fileData, err := os.ReadFile(cfg.OpenAPILocation)
 	if err != nil {
 		return fmt.Errorf("cannot find the openapi.yaml file for the temperature sensors: %w", err)
 	}
@@ -503,8 +503,8 @@ func (s *SensorService) ServiceGetSensorHealthHistoryByName(ctx context.Context,
 	}
 
 	retentionDays := 0
-	if appProps.AppConfig() != nil {
-		retentionDays = appProps.AppConfig().HealthHistoryRetentionDays
+	if cfg := appProps.AppConfig(); cfg != nil {
+		retentionDays = cfg.HealthHistoryRetentionDays
 	}
 	since := time.Now().AddDate(0, 0, -retentionDays)
 

@@ -50,8 +50,8 @@ func (a *AuthService) generateToken(nBytes int) (string, error) {
 
 func (a *AuthService) bcryptHash(password string) (string, error) {
 	cost := 12
-	if appProps.AppConfig() != nil && appProps.AppConfig().AuthBcryptCost > 0 {
-		cost = appProps.AppConfig().AuthBcryptCost
+	if cfg := appProps.AppConfig(); cfg != nil && cfg.AuthBcryptCost > 0 {
+		cost = cfg.AuthBcryptCost
 	}
 	b, err := bcrypt.GenerateFromPassword([]byte(password), cost)
 	if err != nil {
@@ -77,18 +77,18 @@ func (a *AuthService) Login(ctx context.Context, username, password, ip, userAge
 	threshold := 5
 	baseSeconds := 2
 	maxSeconds := 300
-	if appProps.AppConfig() != nil {
-		if appProps.AppConfig().AuthLoginBackoffWindowMinutes > 0 {
-			windowMinutes = appProps.AppConfig().AuthLoginBackoffWindowMinutes
+	if cfg := appProps.AppConfig(); cfg != nil {
+		if cfg.AuthLoginBackoffWindowMinutes > 0 {
+			windowMinutes = cfg.AuthLoginBackoffWindowMinutes
 		}
-		if appProps.AppConfig().AuthLoginBackoffThreshold > 0 {
-			threshold = appProps.AppConfig().AuthLoginBackoffThreshold
+		if cfg.AuthLoginBackoffThreshold > 0 {
+			threshold = cfg.AuthLoginBackoffThreshold
 		}
-		if appProps.AppConfig().AuthLoginBackoffBaseSeconds > 0 {
-			baseSeconds = appProps.AppConfig().AuthLoginBackoffBaseSeconds
+		if cfg.AuthLoginBackoffBaseSeconds > 0 {
+			baseSeconds = cfg.AuthLoginBackoffBaseSeconds
 		}
-		if appProps.AppConfig().AuthLoginBackoffMaxSeconds > 0 {
-			maxSeconds = appProps.AppConfig().AuthLoginBackoffMaxSeconds
+		if cfg.AuthLoginBackoffMaxSeconds > 0 {
+			maxSeconds = cfg.AuthLoginBackoffMaxSeconds
 		}
 	}
 
@@ -192,8 +192,8 @@ func (a *AuthService) Login(ctx context.Context, username, password, ip, userAge
 	}
 
 	ttlMinutes := 60 * 24 * 30 // 30 days default
-	if appProps.AppConfig() != nil && appProps.AppConfig().AuthSessionTTLMinutes > 0 {
-		ttlMinutes = appProps.AppConfig().AuthSessionTTLMinutes
+	if cfg := appProps.AppConfig(); cfg != nil && cfg.AuthSessionTTLMinutes > 0 {
+		ttlMinutes = cfg.AuthSessionTTLMinutes
 	}
 	expires := time.Now().Add(time.Duration(ttlMinutes) * time.Minute)
 	csrf, err := a.sessionRepo.CreateSession(ctx, user.Id, token, expires, ip, userAgent)
@@ -205,8 +205,8 @@ func (a *AuthService) Login(ctx context.Context, username, password, ip, userAge
 	ipBlocker.forceClearAllowOnce("ip:" + ip)
 	userBlocker.forceClearAllowOnce("user:" + username)
 
-	if appProps.AppConfig() != nil {
-		windowMinutes := appProps.AppConfig().AuthLoginBackoffWindowMinutes
+	if cfg := appProps.AppConfig(); cfg != nil {
+		windowMinutes := cfg.AuthLoginBackoffWindowMinutes
 		if windowMinutes <= 0 {
 			windowMinutes = 15
 		}

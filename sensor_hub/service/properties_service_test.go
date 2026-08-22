@@ -65,7 +65,9 @@ func TestPropertiesService_ServiceGetProperties_ReturnsTheStoredValue(t *testing
 	cleanup := setupPropertiesServiceTestConfig()
 	defer cleanup()
 
-	appProps.AppConfig().SMTPUser = "admin@example.com"
+	cfgCopy := *appProps.AppConfig()
+	cfgCopy.SMTPUser = "admin@example.com"
+	appProps.SetAppConfig(&cfgCopy)
 
 	service := NewPropertiesService(slog.Default())
 
@@ -247,7 +249,9 @@ func TestPropertiesService_ServiceUpdateProperties_LogLevelTakesEffectOnSave(t *
 	cleanup := setupPropertiesServiceTestConfig()
 	defer cleanup()
 
-	appProps.AppConfig().LogLevel = "info"
+	cfgCopy := *appProps.AppConfig()
+	cfgCopy.LogLevel = "info"
+	appProps.SetAppConfig(&cfgCopy)
 	telemetry.SetLogLevel("info")
 	defer telemetry.SetLogLevel("info")
 
@@ -272,7 +276,9 @@ func TestPropertiesService_ServiceUpdateProperties_LogLevelStopsDebugAgainOnSave
 	cleanup := setupPropertiesServiceTestConfig()
 	defer cleanup()
 
-	appProps.AppConfig().LogLevel = "debug"
+	cfgCopy := *appProps.AppConfig()
+	cfgCopy.LogLevel = "debug"
+	appProps.SetAppConfig(&cfgCopy)
 	telemetry.SetLogLevel("debug")
 	defer telemetry.SetLogLevel("info")
 
@@ -300,7 +306,9 @@ func TestPropertiesService_ServiceUpdateProperties_UnrecognisedLogLevelSavesAndL
 	cleanup := setupPropertiesServiceTestConfig()
 	defer cleanup()
 
-	appProps.AppConfig().LogLevel = "debug"
+	cfgCopy := *appProps.AppConfig()
+	cfgCopy.LogLevel = "debug"
+	appProps.SetAppConfig(&cfgCopy)
 	telemetry.SetLogLevel("debug")
 	defer telemetry.SetLogLevel("info")
 

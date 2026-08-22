@@ -52,8 +52,8 @@ func (s *UserService) CreateUser(ctx context.Context, user gen.User, plainPasswo
 		return 0, fmt.Errorf("password cannot be empty")
 	}
 	cost := 12
-	if appProps.AppConfig() != nil && appProps.AppConfig().AuthBcryptCost > 0 {
-		cost = appProps.AppConfig().AuthBcryptCost
+	if cfg := appProps.AppConfig(); cfg != nil && cfg.AuthBcryptCost > 0 {
+		cost = cfg.AuthBcryptCost
 	}
 	hashBytes, err := bcrypt.GenerateFromPassword([]byte(plainPassword), cost)
 	if err != nil {
@@ -88,8 +88,8 @@ func (s *UserService) ChangePassword(ctx context.Context, userId int, newPasswor
 		return fmt.Errorf("password cannot be empty")
 	}
 	cost := 12
-	if appProps.AppConfig() != nil && appProps.AppConfig().AuthBcryptCost > 0 {
-		cost = appProps.AppConfig().AuthBcryptCost
+	if cfg := appProps.AppConfig(); cfg != nil && cfg.AuthBcryptCost > 0 {
+		cost = cfg.AuthBcryptCost
 	}
 	hashBytes, err := bcrypt.GenerateFromPassword([]byte(newPassword), cost)
 	if err != nil {

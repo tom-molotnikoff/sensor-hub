@@ -23,8 +23,8 @@ func CSRFMiddleware() gin.HandlerFunc {
 				return
 			}
 			cookieName := "sensor_hub_session"
-			if appProps.AppConfig() != nil && appProps.AppConfig().AuthSessionCookieName != "" {
-				cookieName = appProps.AppConfig().AuthSessionCookieName
+			if cfg := appProps.AppConfig(); cfg != nil && cfg.AuthSessionCookieName != "" {
+				cookieName = cfg.AuthSessionCookieName
 			}
 			token, err := c.Cookie(cookieName)
 			if err != nil || token == "" {

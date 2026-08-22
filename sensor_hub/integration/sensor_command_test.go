@@ -440,9 +440,11 @@ func readCommandStatusMessage(t *testing.T, conn *websocket.Conn) actuation.Comm
 func overrideCommandTimeout(t *testing.T, seconds int) func() {
 	t.Helper()
 
-	original := appProps.AppConfig().ActuatorCommandTimeoutSeconds
-	appProps.AppConfig().ActuatorCommandTimeoutSeconds = seconds
+	original := appProps.AppConfig()
+	override := *original
+	override.ActuatorCommandTimeoutSeconds = seconds
+	appProps.SetAppConfig(&override)
 	return func() {
-		appProps.AppConfig().ActuatorCommandTimeoutSeconds = original
+		appProps.SetAppConfig(original)
 	}
 }
