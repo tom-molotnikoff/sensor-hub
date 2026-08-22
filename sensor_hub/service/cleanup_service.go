@@ -68,18 +68,17 @@ func NewCleanupService(sensorRepo database.SensorRepositoryInterface[gen.Sensor]
 }
 
 func (cs *cleanupService) StartPeriodicCleanup(ctx context.Context) {
-	healthHistoryRetentionDays := appProps.AppConfig.HealthHistoryRetentionDays
-	sensorDataRetentionDays := appProps.AppConfig.SensorDataRetentionDays
-	failedLoginRetentionDays := appProps.AppConfig.FailedLoginRetentionDays
-	alertHistoryRetentionDays := appProps.AppConfig.AlertHistoryRetentionDays
-
 	periodic.RunTask(ctx, periodic.TaskConfig{
-		Name:           "data_cleanup",
-		Interval:       time.Duration(appProps.AppConfig.DataCleanupIntervalHours) * time.Hour,
+		Name: "data_cleanup",
+		Interval: func() time.Duration {
+			return time.Duration(appProps.AppConfig.DataCleanupIntervalHours) * time.Hour
+		},
 		Logger:         cs.logger,
 		RunImmediately: true,
 	}, func(ctx context.Context) error {
-		return cs.performCleanup(ctx, healthHistoryRetentionDays, sensorDataRetentionDays, failedLoginRetentionDays, alertHistoryRetentionDays)
+		// read at each run so retention changes apply without a restart
+		cfg := appProps.AppConfig
+		return cs.performCleanup(ctx, cfg.HealthHistoryRetentionDays, cfg.SensorDataRetentionDays, cfg.FailedLoginRetentionDays, cfg.AlertHistoryRetentionDays)
 	})
 }
 

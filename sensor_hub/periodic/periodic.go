@@ -12,7 +12,7 @@ import (
 // TaskConfig configures a supervised periodic task.
 type TaskConfig struct {
 	Name           string
-	Interval       time.Duration
+	Interval       func() time.Duration // read before each wait, so changes apply from the next cycle
 	Logger         *slog.Logger
 	RunImmediately bool // if true, run the task once before waiting for the first tick
 }
@@ -20,6 +20,10 @@ type TaskConfig struct {
 const (
 	initialBackoff = 5 * time.Second
 	maxBackoff     = 5 * time.Minute
+
+	// fallbackInterval is used when the interval function returns a
+	// non-positive duration, which would otherwise spin the loop.
+	fallbackInterval = time.Minute
 )
 
 // RunTask launches a supervised goroutine that executes task on every tick.
@@ -71,24 +75,38 @@ func runLoop(ctx context.Context, cfg TaskConfig, task func(ctx context.Context)
 		}
 	}()
 
-	ticker := time.NewTicker(cfg.Interval)
-	defer ticker.Stop()
-
-	cfg.Logger.Info("periodic task started", "task", cfg.Name, "interval", cfg.Interval.String())
+	cfg.Logger.Info("periodic task started", "task", cfg.Name, "interval", cfg.Interval().String())
 
 	if cfg.RunImmediately {
 		executeTask(ctx, cfg, task, consecutivePanics)
 	}
 
 	for {
+		timer := time.NewTimer(interval(cfg))
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			cfg.Logger.Info("periodic task stopping", "task", cfg.Name, "reason", ctx.Err())
 			return true
-		case <-ticker.C:
+		case <-timer.C:
 			executeTask(ctx, cfg, task, consecutivePanics)
 		}
 	}
+}
+
+// interval reads the configured interval, clamping a non-positive value to
+// fallbackInterval so a bad runtime read cannot spin or stall the loop.
+func interval(cfg TaskConfig) time.Duration {
+	d := cfg.Interval()
+	if d <= 0 {
+		cfg.Logger.Error("periodic task interval is not positive, using fallback",
+			"task", cfg.Name,
+			"interval", d.String(),
+			"fallback", fallbackInterval.String(),
+		)
+		return fallbackInterval
+	}
+	return d
 }
 
 func executeTask(ctx context.Context, cfg TaskConfig, task func(ctx context.Context) error, consecutivePanics *int) {
@@ -97,6 +115,6 @@ func executeTask(ctx context.Context, cfg TaskConfig, task func(ctx context.Cont
 		cfg.Logger.Error("periodic task error", "task", cfg.Name, "error", err)
 	} else {
 		*consecutivePanics = 0
-		cfg.Logger.Info("periodic task completed", "task", cfg.Name, "next_in", cfg.Interval.String())
+		cfg.Logger.Info("periodic task completed", "task", cfg.Name, "next_in", cfg.Interval().String())
 	}
 }

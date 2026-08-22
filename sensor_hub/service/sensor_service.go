@@ -442,11 +442,11 @@ func (s *SensorService) ServiceDiscoverSensors(ctx context.Context) error {
 }
 
 func (s *SensorService) ServiceStartPeriodicSensorCollection(ctx context.Context) {
-	intervalSec := appProps.AppConfig.SensorCollectionInterval
-
 	periodic.RunTask(ctx, periodic.TaskConfig{
-		Name:           "sensor_collection",
-		Interval:       time.Duration(intervalSec) * time.Second,
+		Name: "sensor_collection",
+		Interval: func() time.Duration {
+			return time.Duration(appProps.AppConfig.SensorCollectionInterval) * time.Second
+		},
 		Logger:         s.logger,
 		RunImmediately: true,
 	}, func(ctx context.Context) error {
