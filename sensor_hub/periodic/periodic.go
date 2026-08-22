@@ -27,6 +27,9 @@ const (
 )
 
 // RunTask launches a supervised goroutine that executes task on every tick.
+// Ticks are fixed-delay: the next wait is armed after the task returns, so the
+// effective period is the interval plus the task's run time, and a long run
+// never causes back-to-back catch-up executions.
 // On panic the goroutine logs the stack trace, backs off exponentially, and restarts.
 // The goroutine exits cleanly when ctx is cancelled.
 func RunTask(ctx context.Context, cfg TaskConfig, task func(ctx context.Context) error) {
@@ -75,7 +78,7 @@ func runLoop(ctx context.Context, cfg TaskConfig, task func(ctx context.Context)
 		}
 	}()
 
-	cfg.Logger.Info("periodic task started", "task", cfg.Name, "interval", cfg.Interval().String())
+	cfg.Logger.Info("periodic task started", "task", cfg.Name, "interval", clamped(cfg.Interval()).String())
 
 	if cfg.RunImmediately {
 		executeTask(ctx, cfg, task, consecutivePanics)
@@ -104,6 +107,14 @@ func interval(cfg TaskConfig) time.Duration {
 			"interval", d.String(),
 			"fallback", fallbackInterval.String(),
 		)
+	}
+	return clamped(d)
+}
+
+// clamped is the clamp without the error log, for log lines that report the
+// wait without owning it.
+func clamped(d time.Duration) time.Duration {
+	if d <= 0 {
 		return fallbackInterval
 	}
 	return d
@@ -115,6 +126,6 @@ func executeTask(ctx context.Context, cfg TaskConfig, task func(ctx context.Cont
 		cfg.Logger.Error("periodic task error", "task", cfg.Name, "error", err)
 	} else {
 		*consecutivePanics = 0
-		cfg.Logger.Info("periodic task completed", "task", cfg.Name, "next_in", cfg.Interval().String())
+		cfg.Logger.Info("periodic task completed", "task", cfg.Name, "next_in", clamped(cfg.Interval()).String())
 	}
 }

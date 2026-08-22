@@ -39,8 +39,8 @@ func AuthRequired() gin.HandlerFunc {
 
 		// Fall back to cookie auth
 		cookieName := "sensor_hub_session"
-		if appProps.AppConfig != nil && appProps.AppConfig.AuthSessionCookieName != "" {
-			cookieName = appProps.AppConfig.AuthSessionCookieName
+		if appProps.AppConfig() != nil && appProps.AppConfig().AuthSessionCookieName != "" {
+			cookieName = appProps.AppConfig().AuthSessionCookieName
 		}
 		token, err := ctx.Cookie(cookieName)
 		if err != nil || token == "" {

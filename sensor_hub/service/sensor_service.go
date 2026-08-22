@@ -393,14 +393,14 @@ func (s *SensorService) ServiceCollectReadingToValidateSensor(ctx context.Contex
 }
 
 func (s *SensorService) ServiceDiscoverSensors(ctx context.Context) error {
-	shouldSkipDiscovery := appProps.AppConfig.SensorDiscoverySkip
+	shouldSkipDiscovery := appProps.AppConfig().SensorDiscoverySkip
 
 	if shouldSkipDiscovery {
 		s.logger.Info("skipping sensor discovery as per configuration")
 		return nil
 	}
 
-	fileData, err := os.ReadFile(appProps.AppConfig.OpenAPILocation)
+	fileData, err := os.ReadFile(appProps.AppConfig().OpenAPILocation)
 	if err != nil {
 		return fmt.Errorf("cannot find the openapi.yaml file for the temperature sensors: %w", err)
 	}
@@ -445,7 +445,7 @@ func (s *SensorService) ServiceStartPeriodicSensorCollection(ctx context.Context
 	periodic.RunTask(ctx, periodic.TaskConfig{
 		Name: "sensor_collection",
 		Interval: func() time.Duration {
-			return time.Duration(appProps.AppConfig.SensorCollectionInterval) * time.Second
+			return time.Duration(appProps.AppConfig().SensorCollectionInterval) * time.Second
 		},
 		Logger:         s.logger,
 		RunImmediately: true,
@@ -503,8 +503,8 @@ func (s *SensorService) ServiceGetSensorHealthHistoryByName(ctx context.Context,
 	}
 
 	retentionDays := 0
-	if appProps.AppConfig != nil {
-		retentionDays = appProps.AppConfig.HealthHistoryRetentionDays
+	if appProps.AppConfig() != nil {
+		retentionDays = appProps.AppConfig().HealthHistoryRetentionDays
 	}
 	since := time.Now().AddDate(0, 0, -retentionDays)
 

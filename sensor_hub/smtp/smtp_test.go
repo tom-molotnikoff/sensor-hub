@@ -30,20 +30,20 @@ func TestSMTPNotifier_SendNotification_OAuthNotSet(t *testing.T) {
 func TestSMTPNotifier_SendNotification_WithOAuth(t *testing.T) {
 	originalOauthSet := oauth.OauthSet
 	originalToken := oauth.OauthToken
-	originalConfig := appProps.AppConfig
+	originalConfig := appProps.AppConfig()
 	defer func() {
 		oauth.OauthSet = originalOauthSet
 		oauth.OauthToken = originalToken
-		appProps.AppConfig = originalConfig
+		appProps.SetAppConfig(originalConfig)
 	}()
 
 	oauth.OauthSet = true
 	oauth.OauthToken = &oauth2.Token{
 		AccessToken: "test-token",
 	}
-	appProps.AppConfig = &appProps.ApplicationConfiguration{
+	appProps.SetAppConfig(&appProps.ApplicationConfiguration{
 		SMTPUser: "test@example.com",
-	}
+	})
 
 	notifier := NewSMTPNotifier(slog.Default())
 	err := notifier.SendNotification("recipient@example.com", "Alert: TestSensor", "value 35.00 is above threshold", "threshold_alert")

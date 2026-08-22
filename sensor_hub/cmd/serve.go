@@ -65,10 +65,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	// Start embedded MQTT broker if enabled
 	embeddedBroker := mqttBrokerPkg.NewEmbeddedBroker(mqttBrokerPkg.BrokerConfig{
-		TCPAddress: fmt.Sprintf(":%d", appProps.AppConfig.MQTTBrokerPort),
+		TCPAddress: fmt.Sprintf(":%d", appProps.AppConfig().MQTTBrokerPort),
 	}, logger)
 
-	if appProps.AppConfig.MQTTBrokerEnabled {
+	if appProps.AppConfig().MQTTBrokerEnabled {
 		if err := embeddedBroker.Start(); err != nil {
 			return fmt.Errorf("failed to start embedded MQTT broker: %w", err)
 		}
@@ -108,7 +108,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	thresholdProcessor := alerting.NewThresholdAlertProcessor(alertRepo, &notifRepoAdapter{notificationRepo}, wsBroadcaster, smtpNotifier, logger)
 	sensorService := service.NewSensorService(sensorRepo, readingsRepo, mtRepo, thresholdProcessor, notificationService, logger)
 
-	aggregationTiers, err := service.ParseAggregationTiers(appProps.AppConfig.ReadingsAggregationTiers)
+	aggregationTiers, err := service.ParseAggregationTiers(appProps.AppConfig().ReadingsAggregationTiers)
 	if err != nil {
 		return fmt.Errorf("failed to parse aggregation tiers: %w", err)
 	}
@@ -117,7 +117,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 	maintenanceRepo := database.NewMaintenanceRepository(db)
 
-	readingsService := service.NewReadingsService(readingsRepo, mtRepo, aggregationTiers, appProps.AppConfig.ReadingsAggregationEnabled, logger)
+	readingsService := service.NewReadingsService(readingsRepo, mtRepo, aggregationTiers, appProps.AppConfig().ReadingsAggregationEnabled, logger)
 
 	// Seed the in-memory current-readings store so a freshly started server serves
 	// correct toggle/sensor state on connect without a database query.

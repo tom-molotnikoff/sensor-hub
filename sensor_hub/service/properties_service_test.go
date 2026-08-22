@@ -19,10 +19,10 @@ import (
 
 func setupPropertiesServiceTestConfig() func() {
 	// Save original config
-	originalConfig := appProps.AppConfig
+	originalConfig := appProps.AppConfig()
 
 	// Set up minimal test config with actual field names
-	appProps.AppConfig = &appProps.ApplicationConfiguration{
+	appProps.SetAppConfig(&appProps.ApplicationConfiguration{
 		SensorCollectionInterval:      30,
 		AuthSessionTTLMinutes:         60,
 		AuthBcryptCost:                4,
@@ -34,10 +34,10 @@ func setupPropertiesServiceTestConfig() func() {
 		DatabasePath:                  "data/sensor_hub.db",
 		MQTTBrokerPort:                1883,
 		ActuatorCommandTimeoutSeconds: 10,
-	}
+	})
 
 	return func() {
-		appProps.AppConfig = originalConfig
+		appProps.SetAppConfig(originalConfig)
 	}
 }
 
@@ -65,7 +65,7 @@ func TestPropertiesService_ServiceGetProperties_ReturnsTheStoredValue(t *testing
 	cleanup := setupPropertiesServiceTestConfig()
 	defer cleanup()
 
-	appProps.AppConfig.SMTPUser = "admin@example.com"
+	appProps.AppConfig().SMTPUser = "admin@example.com"
 
 	service := NewPropertiesService(slog.Default())
 
@@ -115,8 +115,8 @@ func TestPropertiesService_ServiceUpdateProperties_Success(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify values were updated
-	assert.Equal(t, 60, appProps.AppConfig.SensorCollectionInterval)
-	assert.Equal(t, 120, appProps.AppConfig.AuthSessionTTLMinutes)
+	assert.Equal(t, 60, appProps.AppConfig().SensorCollectionInterval)
+	assert.Equal(t, 120, appProps.AppConfig().AuthSessionTTLMinutes)
 
 	service.waitForBackgroundWork()
 }
@@ -136,7 +136,7 @@ func TestPropertiesService_ServiceUpdateProperties_StoresTheSuppliedValue(t *tes
 			})
 
 			assert.NoError(t, err)
-			assert.Equal(t, value, appProps.AppConfig.SMTPUser)
+			assert.Equal(t, value, appProps.AppConfig().SMTPUser)
 
 			service.waitForBackgroundWork()
 		})
@@ -156,7 +156,7 @@ func TestPropertiesService_ServiceUpdateProperties_UpdatesDatabasePath(t *testin
 	err := service.ServiceUpdateProperties(context.Background(), properties)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "new/path/sensor_hub.db", appProps.AppConfig.DatabasePath)
+	assert.Equal(t, "new/path/sensor_hub.db", appProps.AppConfig().DatabasePath)
 
 	service.waitForBackgroundWork()
 }
@@ -184,7 +184,7 @@ func TestPropertiesService_ServiceUpdateProperties_PartialUpdate(t *testing.T) {
 	cleanup := setupPropertiesServiceTestConfig()
 	defer cleanup()
 
-	originalSessionTTL := appProps.AppConfig.AuthSessionTTLMinutes
+	originalSessionTTL := appProps.AppConfig().AuthSessionTTLMinutes
 
 	service := NewPropertiesService(slog.Default())
 
@@ -196,9 +196,9 @@ func TestPropertiesService_ServiceUpdateProperties_PartialUpdate(t *testing.T) {
 	err := service.ServiceUpdateProperties(context.Background(), properties)
 
 	assert.NoError(t, err)
-	assert.Equal(t, 45, appProps.AppConfig.SensorCollectionInterval)
+	assert.Equal(t, 45, appProps.AppConfig().SensorCollectionInterval)
 	// Other properties should remain unchanged
-	assert.Equal(t, originalSessionTTL, appProps.AppConfig.AuthSessionTTLMinutes)
+	assert.Equal(t, originalSessionTTL, appProps.AppConfig().AuthSessionTTLMinutes)
 
 	service.waitForBackgroundWork()
 }
@@ -234,7 +234,7 @@ func TestPropertiesService_ServiceUpdateProperties_UnknownKey(t *testing.T) {
 
 	assert.NoError(t, err)
 	// Known property should still be updated
-	assert.Equal(t, 45, appProps.AppConfig.SensorCollectionInterval)
+	assert.Equal(t, 45, appProps.AppConfig().SensorCollectionInterval)
 
 	service.waitForBackgroundWork()
 }
@@ -247,7 +247,7 @@ func TestPropertiesService_ServiceUpdateProperties_LogLevelTakesEffectOnSave(t *
 	cleanup := setupPropertiesServiceTestConfig()
 	defer cleanup()
 
-	appProps.AppConfig.LogLevel = "info"
+	appProps.AppConfig().LogLevel = "info"
 	telemetry.SetLogLevel("info")
 	defer telemetry.SetLogLevel("info")
 
@@ -272,7 +272,7 @@ func TestPropertiesService_ServiceUpdateProperties_LogLevelStopsDebugAgainOnSave
 	cleanup := setupPropertiesServiceTestConfig()
 	defer cleanup()
 
-	appProps.AppConfig.LogLevel = "debug"
+	appProps.AppConfig().LogLevel = "debug"
 	telemetry.SetLogLevel("debug")
 	defer telemetry.SetLogLevel("info")
 
@@ -300,7 +300,7 @@ func TestPropertiesService_ServiceUpdateProperties_UnrecognisedLogLevelSavesAndL
 	cleanup := setupPropertiesServiceTestConfig()
 	defer cleanup()
 
-	appProps.AppConfig.LogLevel = "debug"
+	appProps.AppConfig().LogLevel = "debug"
 	telemetry.SetLogLevel("debug")
 	defer telemetry.SetLogLevel("info")
 
@@ -314,7 +314,7 @@ func TestPropertiesService_ServiceUpdateProperties_UnrecognisedLogLevelSavesAndL
 	})
 
 	assert.NoError(t, err)
-	assert.Equal(t, "loud", appProps.AppConfig.LogLevel)
+	assert.Equal(t, "loud", appProps.AppConfig().LogLevel)
 
 	logger.Debug("a line only debug emits")
 	logger.Info("a line info emits")

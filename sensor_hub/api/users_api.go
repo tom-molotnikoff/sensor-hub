@@ -79,8 +79,8 @@ func (s *Server) ChangePassword(c *gin.Context) {
 	keepToken := ""
 	if currentUser.Id == targetUserId {
 		cookieName := "sensor_hub_session"
-		if appProps.AppConfig != nil && appProps.AppConfig.AuthSessionCookieName != "" {
-			cookieName = appProps.AppConfig.AuthSessionCookieName
+		if appProps.AppConfig() != nil && appProps.AppConfig().AuthSessionCookieName != "" {
+			cookieName = appProps.AppConfig().AuthSessionCookieName
 		}
 		if t, err := c.Cookie(cookieName); err == nil {
 			keepToken = t

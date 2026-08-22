@@ -44,8 +44,8 @@ func (s *Server) Login(c *gin.Context) {
 		}
 	}
 	cookieName := "sensor_hub_session"
-	if appProps.AppConfig != nil && appProps.AppConfig.AuthSessionCookieName != "" {
-		cookieName = appProps.AppConfig.AuthSessionCookieName
+	if appProps.AppConfig() != nil && appProps.AppConfig().AuthSessionCookieName != "" {
+		cookieName = appProps.AppConfig().AuthSessionCookieName
 	}
 	secure := false
 	if os.Getenv("SENSOR_HUB_PRODUCTION") == "true" || c.Request.TLS != nil {
@@ -53,8 +53,8 @@ func (s *Server) Login(c *gin.Context) {
 	}
 
 	ttlMinutes := 60 * 24 * 30
-	if appProps.AppConfig != nil && appProps.AppConfig.AuthSessionTTLMinutes > 0 {
-		ttlMinutes = appProps.AppConfig.AuthSessionTTLMinutes
+	if appProps.AppConfig() != nil && appProps.AppConfig().AuthSessionTTLMinutes > 0 {
+		ttlMinutes = appProps.AppConfig().AuthSessionTTLMinutes
 	}
 	expires := time.Now().Add(time.Duration(ttlMinutes) * time.Minute)
 	http.SetCookie(c.Writer, &http.Cookie{
@@ -72,8 +72,8 @@ func (s *Server) Login(c *gin.Context) {
 func (s *Server) Logout(c *gin.Context) {
 	ctx := c.Request.Context()
 	cookieName := "sensor_hub_session"
-	if appProps.AppConfig != nil && appProps.AppConfig.AuthSessionCookieName != "" {
-		cookieName = appProps.AppConfig.AuthSessionCookieName
+	if appProps.AppConfig() != nil && appProps.AppConfig().AuthSessionCookieName != "" {
+		cookieName = appProps.AppConfig().AuthSessionCookieName
 	}
 	token, err := c.Cookie(cookieName)
 	secure := false
@@ -101,8 +101,8 @@ func (s *Server) GetCurrentUser(c *gin.Context) {
 	}
 
 	cookieName := "sensor_hub_session"
-	if appProps.AppConfig != nil && appProps.AppConfig.AuthSessionCookieName != "" {
-		cookieName = appProps.AppConfig.AuthSessionCookieName
+	if appProps.AppConfig() != nil && appProps.AppConfig().AuthSessionCookieName != "" {
+		cookieName = appProps.AppConfig().AuthSessionCookieName
 	}
 	token, _ := c.Cookie(cookieName)
 	var csrfPtr *string
@@ -124,8 +124,8 @@ func (s *Server) ListSessions(c *gin.Context) {
 		return
 	}
 	cookieName := "sensor_hub_session"
-	if appProps.AppConfig != nil && appProps.AppConfig.AuthSessionCookieName != "" {
-		cookieName = appProps.AppConfig.AuthSessionCookieName
+	if appProps.AppConfig() != nil && appProps.AppConfig().AuthSessionCookieName != "" {
+		cookieName = appProps.AppConfig().AuthSessionCookieName
 	}
 	currentToken, _ := c.Cookie(cookieName)
 	var currentSessionId int64

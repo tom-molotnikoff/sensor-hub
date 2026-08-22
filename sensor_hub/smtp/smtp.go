@@ -31,17 +31,17 @@ func (n *SMTPNotifier) SendNotification(recipient, title, message, category stri
 	}
 
 	auth := &oauth.XOauth2Auth{
-		Username:    appProps.AppConfig.SMTPUser,
+		Username:    appProps.AppConfig().SMTPUser,
 		AccessToken: token.AccessToken,
 	}
 
 	subject := fmt.Sprintf("[%s] %s", category, title)
-	msg := "From: " + appProps.AppConfig.SMTPUser + "\n" +
+	msg := "From: " + appProps.AppConfig().SMTPUser + "\n" +
 		"To: " + recipient + "\n" +
 		"Subject: " + subject + "\n\n" +
 		message
 
-	err := smtp.SendMail("smtp.gmail.com:587", auth, appProps.AppConfig.SMTPUser, []string{recipient}, []byte(msg))
+	err := smtp.SendMail("smtp.gmail.com:587", auth, appProps.AppConfig().SMTPUser, []string{recipient}, []byte(msg))
 	if err != nil {
 		return fmt.Errorf("failed to send notification email via SMTP: %w", err)
 	}

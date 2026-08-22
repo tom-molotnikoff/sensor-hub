@@ -6,9 +6,9 @@ import (
 
 	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
+	gen "example/sensorHub/gen"
 	"example/sensorHub/periodic"
 	"example/sensorHub/telemetry"
-	gen "example/sensorHub/gen"
 	"log/slog"
 	"time"
 
@@ -71,13 +71,13 @@ func (cs *cleanupService) StartPeriodicCleanup(ctx context.Context) {
 	periodic.RunTask(ctx, periodic.TaskConfig{
 		Name: "data_cleanup",
 		Interval: func() time.Duration {
-			return time.Duration(appProps.AppConfig.DataCleanupIntervalHours) * time.Hour
+			return time.Duration(appProps.AppConfig().DataCleanupIntervalHours) * time.Hour
 		},
 		Logger:         cs.logger,
 		RunImmediately: true,
 	}, func(ctx context.Context) error {
 		// read at each run so retention changes apply without a restart
-		cfg := appProps.AppConfig
+		cfg := appProps.AppConfig()
 		return cs.performCleanup(ctx, cfg.HealthHistoryRetentionDays, cfg.SensorDataRetentionDays, cfg.FailedLoginRetentionDays, cfg.AlertHistoryRetentionDays)
 	})
 }

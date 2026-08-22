@@ -30,16 +30,16 @@ func setupAuthService() (*AuthService, *MockUserRepository, *MockSessionReposito
 }
 
 func setupTestConfig() func() {
-	origConfig := appProps.AppConfig
-	appProps.AppConfig = &appProps.ApplicationConfiguration{
+	origConfig := appProps.AppConfig()
+	appProps.SetAppConfig(&appProps.ApplicationConfiguration{
 		AuthBcryptCost:                4, // Low cost for fast tests
 		AuthSessionTTLMinutes:         60,
 		AuthLoginBackoffWindowMinutes: 15,
 		AuthLoginBackoffThreshold:     5,
 		AuthLoginBackoffBaseSeconds:   2,
 		AuthLoginBackoffMaxSeconds:    300,
-	}
-	return func() { appProps.AppConfig = origConfig }
+	})
+	return func() { appProps.SetAppConfig(origConfig) }
 }
 
 func resetBlockers() {

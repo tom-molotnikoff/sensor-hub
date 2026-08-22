@@ -3,6 +3,7 @@ package appProps
 import (
 	"log/slog"
 	"path/filepath"
+	"sync/atomic"
 
 	"example/sensorHub/telemetry"
 )
@@ -48,7 +49,20 @@ type ApplicationConfiguration struct {
 	ReadingsAggregationTiers   string `prop:"readings.aggregation.tiers" default:"PT15M:raw,PT1H:PT10S,PT6H:PT1M,P1D:PT5M,P7D:PT15M,P30D:PT1H" file:"application"`
 }
 
-var AppConfig *ApplicationConfiguration
+var appConfigPtr atomic.Pointer[ApplicationConfiguration]
+
+// AppConfig returns the current configuration snapshot. Nil until
+// InitialiseConfig or SetAppConfig has run. Callers that read several fields
+// should hold the returned pointer so all reads come from one snapshot.
+func AppConfig() *ApplicationConfiguration {
+	return appConfigPtr.Load()
+}
+
+// SetAppConfig atomically replaces the configuration. Production code goes
+// through ReloadConfig; tests set snapshots directly.
+func SetAppConfig(cfg *ApplicationConfiguration) {
+	appConfigPtr.Store(cfg)
+}
 
 func ConvertConfigurationToMaps(cfg *ApplicationConfiguration) (map[string]string, map[string]string, map[string]string) {
 	return ConvertToMaps(cfg)
@@ -99,7 +113,7 @@ func ReloadConfig(appProps, smtpProps, dbProps map[string]string) {
 		return
 	}
 
-	AppConfig = cfg
+	SetAppConfig(cfg)
 
 	telemetry.SetLogLevel(cfg.LogLevel)
 

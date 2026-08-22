@@ -112,7 +112,7 @@ func ReadSMTPPropertiesFile() (map[string]string, error) {
 }
 
 func SaveConfigurationToFiles() error {
-	if AppConfig == nil {
+	if AppConfig() == nil {
 		slog.Warn("no application configuration loaded; cannot save")
 		return fmt.Errorf("no application configuration loaded; cannot save")
 	}
@@ -120,7 +120,7 @@ func SaveConfigurationToFiles() error {
 	markWriteInProgress()
 	defer clearWriteInProgress()
 
-	return SaveToFiles(AppConfig)
+	return SaveToFiles(AppConfig())
 }
 
 // ConfigFilePaths returns the paths of all property files.
