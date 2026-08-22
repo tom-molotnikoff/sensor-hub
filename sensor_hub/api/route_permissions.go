@@ -71,9 +71,10 @@ var routePermissions = map[string]string{
 	"POST /api/oauth/reload":      "manage_oauth",
 
 	// Properties
-	"PATCH /api/properties":  "manage_properties",
-	"GET /api/properties":    "view_properties",
-	"GET /api/properties/ws": "view_properties",
+	"PATCH /api/properties":           "manage_properties",
+	"GET /api/properties":             "view_properties",
+	"GET /api/properties/ws":          "view_properties",
+	"GET /api/properties/definitions": "view_properties",
 
 	// Readings
 	"GET /api/readings/between":    "view_readings",

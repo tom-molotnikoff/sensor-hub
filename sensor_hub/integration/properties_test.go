@@ -127,6 +127,35 @@ func propertyArrivesOverWebSocket(t *testing.T, key, value string, timeout time.
 	return false
 }
 
+// The definitions endpoint and the values endpoint are two sources of truth
+// for the same page; on a real instance they must agree on the key set.
+func TestProperties_DefinitionsCoverEveryValue(t *testing.T) {
+	defs, status := client.GetPropertyDefinitions()
+	require.Equal(t, http.StatusOK, status)
+
+	assert.Len(t, defs.Definitions, 29)
+	assert.Len(t, defs.Groups, 7)
+
+	resp, status := client.GetProperties()
+	require.Equal(t, http.StatusOK, status)
+
+	var values map[string]string
+	require.NoError(t, json.Unmarshal(resp, &values))
+
+	defKeys := make(map[string]bool)
+	for _, d := range defs.Definitions {
+		defKeys[d.Key] = true
+	}
+
+	for key := range values {
+		assert.True(t, defKeys[key], "value %q has no definition", key)
+	}
+	for key := range defKeys {
+		_, ok := values[key]
+		assert.True(t, ok, "definition %q has no value", key)
+	}
+}
+
 func readProperty(t *testing.T, key string) string {
 	t.Helper()
 

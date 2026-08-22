@@ -214,6 +214,27 @@ func (e NotificationSeverity) Valid() bool {
 	}
 }
 
+// Defines values for PropertyDefinitionType.
+const (
+	Bool   PropertyDefinitionType = "bool"
+	Int    PropertyDefinitionType = "int"
+	String PropertyDefinitionType = "string"
+)
+
+// Valid indicates whether the value is a known member of the PropertyDefinitionType enum.
+func (e PropertyDefinitionType) Valid() bool {
+	switch e {
+	case Bool:
+		return true
+	case Int:
+		return true
+	case String:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SensorStatus.
 const (
 	SensorStatusActive    SensorStatus = "active"
@@ -839,6 +860,61 @@ type PermissionInfo struct {
 
 // PropertiesMap Flat map of configuration keys to values (all values as strings).
 type PropertiesMap map[string]string
+
+// PropertyDefinition Metadata for one registered configuration property.
+type PropertyDefinition struct {
+	// Apply How a saved change takes effect: "live", "next-cycle", "readonly", or "action:<id>" naming a required user action ("action:service-restart" or "action:oauth-reload").
+	Apply string `json:"apply"`
+
+	// Default Default value, as a string like every property value.
+	Default string `json:"default"`
+
+	// Description One-sentence explanation of what the property does.
+	Description string `json:"description"`
+
+	// Enum When present, the only values the property accepts; render a select.
+	Enum *[]string `json:"enum,omitempty"`
+
+	// Group Id of the group the property belongs to.
+	Group string `json:"group"`
+
+	// Key Dotted property key, e.g. "sensor.collection.interval".
+	Key string `json:"key"`
+
+	// Label Human-readable name for the property.
+	Label string `json:"label"`
+
+	// ReadOnly True when the property is not editable at runtime.
+	ReadOnly bool `json:"readOnly"`
+
+	// Type Value type the control should collect.
+	Type PropertyDefinitionType `json:"type"`
+
+	// Unit Unit shown as an input suffix, e.g. "seconds".
+	Unit *string `json:"unit,omitempty"`
+
+	// Validate Client-side validation rule ("positive", "non_negative" or "non_empty").
+	Validate *string `json:"validate,omitempty"`
+}
+
+// PropertyDefinitionType Value type the control should collect.
+type PropertyDefinitionType string
+
+// PropertyDefinitionsResponse All property definitions plus the ordered group list.
+type PropertyDefinitionsResponse struct {
+	Definitions []PropertyDefinition `json:"definitions"`
+	Groups      []PropertyGroup      `json:"groups"`
+}
+
+// PropertyGroup One section of the properties page.
+type PropertyGroup struct {
+	Description string `json:"description"`
+	Id          string `json:"id"`
+	Label       string `json:"label"`
+
+	// Order Display position, ascending from 1.
+	Order int `json:"order"`
+}
 
 // RateLimitResponse Rate limit exceeded response
 type RateLimitResponse struct {

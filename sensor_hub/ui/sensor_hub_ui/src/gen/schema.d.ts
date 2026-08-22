@@ -583,6 +583,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/properties/definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get property definitions
+         * @description Returns the metadata for every registered property — label, description, type, default, group, unit, enum, apply state and read-only flag — along with the ordered list of groups the page is laid out in. Definitions are static for the lifetime of the process; values come from `GET /properties`.
+         */
+        get: operations["getPropertyDefinitions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -2089,7 +2109,6 @@ export interface components {
          * @description Flat map of configuration keys to values (all values as strings).
          * @example {
          *       "smtp.user": "admin@example.com",
-         *       "smtp.recipient": "alerts@example.com",
          *       "database.path": "data/sensor_hub.db",
          *       "sensor.collection.interval": "300"
          *     }
@@ -2117,6 +2136,47 @@ export interface components {
         };
         OperationAccepted: {
             message: string;
+        };
+        /** @description Metadata for one registered configuration property. */
+        PropertyDefinition: {
+            /** @description Dotted property key, e.g. "sensor.collection.interval". */
+            key: string;
+            /** @description Human-readable name for the property. */
+            label: string;
+            /** @description One-sentence explanation of what the property does. */
+            description: string;
+            /**
+             * @description Value type the control should collect.
+             * @enum {string}
+             */
+            type: "int" | "bool" | "string";
+            /** @description Default value, as a string like every property value. */
+            default: string;
+            /** @description Id of the group the property belongs to. */
+            group: string;
+            /** @description Unit shown as an input suffix, e.g. "seconds". */
+            unit?: string;
+            /** @description When present, the only values the property accepts; render a select. */
+            enum?: string[];
+            /** @description How a saved change takes effect: "live", "next-cycle", "readonly", or "action:<id>" naming a required user action ("action:service-restart" or "action:oauth-reload"). */
+            apply: string;
+            /** @description Client-side validation rule ("positive", "non_negative" or "non_empty"). */
+            validate?: string;
+            /** @description True when the property is not editable at runtime. */
+            readOnly: boolean;
+        };
+        /** @description One section of the properties page. */
+        PropertyGroup: {
+            id: string;
+            label: string;
+            description: string;
+            /** @description Display position, ascending from 1. */
+            order: number;
+        };
+        /** @description All property definitions plus the ordered group list. */
+        PropertyDefinitionsResponse: {
+            definitions: components["schemas"]["PropertyDefinition"][];
+            groups: components["schemas"]["PropertyGroup"][];
         };
         /** @description Login request body */
         LoginRequest: {
@@ -3630,6 +3690,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getPropertyDefinitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Property definitions and groups */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyDefinitionsResponse"];
                 };
             };
         };

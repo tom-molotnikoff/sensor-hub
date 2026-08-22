@@ -175,6 +175,9 @@ type ServerInterface interface {
 	// Update application properties
 	// (PATCH /properties)
 	UpdateProperties(c *gin.Context)
+	// Get property definitions
+	// (GET /properties/definitions)
+	GetPropertyDefinitions(c *gin.Context)
 	// WebSocket endpoint — subscribe to properties updates
 	// (GET /properties/ws)
 	PropertiesWebSocket(c *gin.Context)
@@ -1617,6 +1620,25 @@ func (siw *ServerInterfaceWrapper) UpdateProperties(c *gin.Context) {
 	siw.Handler.UpdateProperties(c)
 }
 
+// GetPropertyDefinitions operation middleware
+func (siw *ServerInterfaceWrapper) GetPropertyDefinitions(c *gin.Context) {
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetPropertyDefinitions(c)
+}
+
 // PropertiesWebSocket operation middleware
 func (siw *ServerInterfaceWrapper) PropertiesWebSocket(c *gin.Context) {
 
@@ -2711,6 +2733,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/openapi.yaml", wrapper.GetOpenApiSpec)
 	router.GET(options.BaseURL+"/properties", wrapper.GetProperties)
 	router.PATCH(options.BaseURL+"/properties", wrapper.UpdateProperties)
+	router.GET(options.BaseURL+"/properties/definitions", wrapper.GetPropertyDefinitions)
 	router.GET(options.BaseURL+"/properties/ws", wrapper.PropertiesWebSocket)
 	router.GET(options.BaseURL+"/readings/between", wrapper.GetReadingsBetweenDates)
 	router.GET(options.BaseURL+"/readings/ws/current", wrapper.SubscribeCurrentReadings)
