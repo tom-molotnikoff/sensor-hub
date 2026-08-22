@@ -367,6 +367,13 @@ func (c *Client) SetProperty(key, value string) int {
 	return c.statusOnly(c.gen.UpdateProperties(c.ctx(), gen.UpdatePropertiesJSONRequestBody{key: value}))
 }
 
+func (c *Client) GetPropertyDefinitions() (gen.PropertyDefinitionsResponse, int) {
+	var out gen.PropertyDefinitionsResponse
+	resp, err := c.gen.GetPropertyDefinitions(c.ctx())
+	status := c.decodeInto(resp, err, &out)
+	return out, status
+}
+
 // --- API Keys ---
 
 func (c *Client) CreateApiKey(name string) (json.RawMessage, int) {

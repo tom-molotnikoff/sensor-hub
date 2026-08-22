@@ -12,15 +12,50 @@ import (
 	"unicode"
 )
 
+// ApplyState says whether a saved change takes effect in the running process:
+// live, next-cycle, readonly, or "action:<id>" naming a required user action.
+type ApplyState string
+
+const (
+	ApplyLive      ApplyState = "live"
+	ApplyNextCycle ApplyState = "next-cycle"
+	ApplyReadOnly  ApplyState = "readonly"
+)
+
+// applyActionIDs are the action ids the UI knows how to describe.
+var applyActionIDs = map[string]bool{
+	"service-restart": true,
+	"oauth-reload":    true,
+}
+
+// Valid reports whether the state is one the UI can render.
+func (a ApplyState) Valid() bool {
+	switch a {
+	case ApplyLive, ApplyNextCycle, ApplyReadOnly:
+		return true
+	}
+	if id, ok := strings.CutPrefix(string(a), "action:"); ok {
+		return applyActionIDs[id]
+	}
+	return false
+}
+
 // PropertyDef holds metadata for a single configuration property, derived from struct tags.
 type PropertyDef struct {
-	FieldName  string // Go struct field name, e.g. "SensorCollectionInterval"
-	FieldIndex int    // index in the struct for reflect access
-	Key        string // dotted property key, e.g. "sensor.collection.interval"
-	Kind       reflect.Kind
-	Default    string // default value from `default` tag
-	File       string // "application", "smtp", or "database"
-	Validate   string // "positive", "non_negative", or ""
+	FieldName   string // Go struct field name, e.g. "SensorCollectionInterval"
+	FieldIndex  int    // index in the struct for reflect access
+	Key         string // dotted property key, e.g. "sensor.collection.interval"
+	Kind        reflect.Kind
+	Default     string     // default value from `default` tag
+	File        string     // "application", "smtp", or "database"
+	Validate    string     // "positive", "non_negative", or ""
+	Label       string     // label - falls back to the field name split into words
+	Description string     // desc - one sentence, shown under the label
+	Group       string     // group - sensors|retention|security|mqtt|email|weather|advanced
+	Unit        string     // unit - "seconds", "days", "hours", "minutes"
+	Enum        []string   // enum - comma-separated in the tag
+	Apply       ApplyState // apply - defaults to live; readonly tag forces readonly
+	ReadOnly    bool       // readonly
 }
 
 var registry []PropertyDef
@@ -29,8 +64,45 @@ func init() {
 	registry = buildRegistry()
 }
 
+// PropertyGroup describes one section of the properties page.
+type PropertyGroup struct {
+	ID          string
+	Label       string
+	Description string
+	Order       int
+}
+
+// propertyGroups is the authoritative group list; ordering and descriptions
+// live here so the UI holds no hardcoded knowledge of what a group is.
+var propertyGroups = []PropertyGroup{
+	{ID: "sensors", Label: "Sensors & collection", Description: "How often sensors are polled and how they are discovered.", Order: 1},
+	{ID: "retention", Label: "Data retention", Description: "How long readings, history and logs are kept before cleanup.", Order: 2},
+	{ID: "security", Label: "Security & sessions", Description: "Password hashing, session lifetime and login backoff.", Order: 3},
+	{ID: "mqtt", Label: "MQTT broker", Description: "The embedded MQTT broker sensors publish to.", Order: 4},
+	{ID: "email", Label: "Email & OAuth", Description: "How alert emails are sent and authenticated.", Order: 5},
+	{ID: "weather", Label: "Weather", Description: "The location the weather forecast is fetched for.", Order: 6},
+	{ID: "advanced", Label: "Advanced", Description: "Logging, aggregation and instance internals.", Order: 7},
+}
+
+// Definitions returns the registered property definitions in struct order.
+func Definitions() []PropertyDef {
+	out := make([]PropertyDef, len(registry))
+	copy(out, registry)
+	return out
+}
+
+// PropertyGroups returns the property groups in display order.
+func PropertyGroups() []PropertyGroup {
+	out := make([]PropertyGroup, len(propertyGroups))
+	copy(out, propertyGroups)
+	return out
+}
+
 func buildRegistry() []PropertyDef {
-	t := reflect.TypeOf(ApplicationConfiguration{})
+	return buildRegistryFrom(reflect.TypeOf(ApplicationConfiguration{}))
+}
+
+func buildRegistryFrom(t reflect.Type) []PropertyDef {
 	defs := make([]PropertyDef, 0, t.NumField())
 
 	for i := 0; i < t.NumField(); i++ {
@@ -40,14 +112,40 @@ func buildRegistry() []PropertyDef {
 			continue
 		}
 
+		var enum []string
+		if raw := field.Tag.Get("enum"); raw != "" {
+			enum = strings.Split(raw, ",")
+		}
+
+		label := field.Tag.Get("label")
+		if label == "" {
+			label = labelFromFieldName(field.Name)
+		}
+
+		readOnly := field.Tag.Get("readonly") == "true"
+
+		apply := ApplyState(field.Tag.Get("apply"))
+		if readOnly {
+			apply = ApplyReadOnly
+		} else if apply == "" {
+			apply = ApplyLive
+		}
+
 		defs = append(defs, PropertyDef{
-			FieldName:  field.Name,
-			FieldIndex: i,
-			Key:        key,
-			Kind:       field.Type.Kind(),
-			Default:    field.Tag.Get("default"),
-			File:       field.Tag.Get("file"),
-			Validate:   field.Tag.Get("validate"),
+			FieldName:   field.Name,
+			FieldIndex:  i,
+			Key:         key,
+			Kind:        field.Type.Kind(),
+			Default:     field.Tag.Get("default"),
+			File:        field.Tag.Get("file"),
+			Validate:    field.Tag.Get("validate"),
+			Label:       label,
+			Description: field.Tag.Get("desc"),
+			Group:       field.Tag.Get("group"),
+			Unit:        field.Tag.Get("unit"),
+			Enum:        enum,
+			Apply:       apply,
+			ReadOnly:    readOnly,
 		})
 	}
 
@@ -261,6 +359,35 @@ func SaveToFiles(cfg *ApplicationConfiguration) error {
 	}
 
 	return nil
+}
+
+// labelFromFieldName turns a PascalCase field name into words, keeping
+// acronym runs intact: "DataCleanupIntervalHours" -> "Data cleanup interval
+// hours", "SMTPUser" -> "SMTP user".
+func labelFromFieldName(name string) string {
+	runes := []rune(name)
+	var words []string
+	start := 0
+
+	for i := 1; i < len(runes); i++ {
+		prevUpper := unicode.IsUpper(runes[i-1])
+		currUpper := unicode.IsUpper(runes[i])
+		nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
+
+		if (currUpper && !prevUpper) || (currUpper && prevUpper && nextLower) {
+			words = append(words, string(runes[start:i]))
+			start = i
+		}
+	}
+	words = append(words, string(runes[start:]))
+
+	for i, w := range words {
+		if i > 0 && w != strings.ToUpper(w) {
+			words[i] = strings.ToLower(w)
+		}
+	}
+
+	return strings.Join(words, " ")
 }
 
 // toSnakeCase converts a PascalCase field name to snake_case for log keys.

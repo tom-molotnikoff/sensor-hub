@@ -1266,8 +1266,28 @@ paths:
               timestamp: "2026-01-10T12:00:00Z"
               properties:
                 smtp.user: "admin@example.com"
-                smtp.recipient: "alerts@example.com"
                 sensor.collection.interval: "300"
+
+  /properties/definitions:
+    get:
+      tags:
+        - properties
+      summary: Get property definitions
+      description: >-
+        Returns the metadata for every registered property — label,
+        description, type, default, group, unit, enum, apply state and
+        read-only flag — along with the ordered list of groups the page is
+        laid out in. Definitions are static for the lifetime of the process;
+        values come from `GET /properties`.
+      operationId: getPropertyDefinitions
+      x-required-permission: view_properties
+      responses:
+        '200':
+          description: Property definitions and groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PropertyDefinitionsResponse'
 
   # ============================================================================
   # Auth Endpoints
@@ -4069,7 +4089,6 @@ components:
         type: string
       example:
         smtp.user: "admin@example.com"
-        smtp.recipient: "alerts@example.com"
         database.path: "data/sensor_hub.db"
         sensor.collection.interval: "300"
 
@@ -4102,6 +4121,97 @@ components:
           type: string
       required:
         - message
+
+    PropertyDefinition:
+      type: object
+      description: Metadata for one registered configuration property.
+      properties:
+        key:
+          type: string
+          description: Dotted property key, e.g. "sensor.collection.interval".
+        label:
+          type: string
+          description: Human-readable name for the property.
+        description:
+          type: string
+          description: One-sentence explanation of what the property does.
+        type:
+          type: string
+          description: Value type the control should collect.
+          enum:
+            - int
+            - bool
+            - string
+        default:
+          type: string
+          description: Default value, as a string like every property value.
+        group:
+          type: string
+          description: Id of the group the property belongs to.
+        unit:
+          type: string
+          description: Unit shown as an input suffix, e.g. "seconds".
+        enum:
+          type: array
+          description: When present, the only values the property accepts; render a select.
+          items:
+            type: string
+        apply:
+          type: string
+          description: >-
+            How a saved change takes effect: "live", "next-cycle", "readonly",
+            or "action:<id>" naming a required user action
+            ("action:service-restart" or "action:oauth-reload").
+        validate:
+          type: string
+          description: Client-side validation rule ("positive", "non_negative" or "non_empty").
+        readOnly:
+          type: boolean
+          description: True when the property is not editable at runtime.
+      required:
+        - key
+        - label
+        - description
+        - type
+        - default
+        - group
+        - apply
+        - readOnly
+
+    PropertyGroup:
+      type: object
+      description: One section of the properties page.
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        order:
+          type: integer
+          description: Display position, ascending from 1.
+      required:
+        - id
+        - label
+        - description
+        - order
+
+    PropertyDefinitionsResponse:
+      type: object
+      description: All property definitions plus the ordered group list.
+      properties:
+        definitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PropertyDefinition'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PropertyGroup'
+      required:
+        - definitions
+        - groups
 
     # =========================================================================
     # Auth Schemas

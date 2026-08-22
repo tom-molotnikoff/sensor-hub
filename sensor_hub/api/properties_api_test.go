@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	gen "example/sensorHub/gen"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -49,6 +51,60 @@ func TestGetProperties(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "value")
+}
+
+func TestGetPropertyDefinitions_Shape(t *testing.T) {
+	router, api, s, _ := setupPropertiesRouter()
+	api.GET("/properties/definitions", s.GetPropertyDefinitions)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/properties/definitions", nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp gen.PropertyDefinitionsResponse
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+
+	assert.Len(t, resp.Definitions, 29)
+	assert.Len(t, resp.Groups, 7)
+
+	for i, g := range resp.Groups {
+		assert.NotEmpty(t, g.Id)
+		assert.NotEmpty(t, g.Label)
+		assert.NotEmpty(t, g.Description)
+		assert.Equal(t, i+1, g.Order)
+	}
+
+	byKey := make(map[string]gen.PropertyDefinition)
+	for _, d := range resp.Definitions {
+		assert.NotEmpty(t, d.Key)
+		assert.NotEmpty(t, d.Label)
+		assert.NotEmpty(t, d.Description)
+		assert.NotEmpty(t, d.Group)
+		assert.NotEmpty(t, d.Apply)
+		byKey[d.Key] = d
+	}
+
+	interval := byKey["sensor.collection.interval"]
+	assert.Equal(t, "Collection interval", interval.Label)
+	assert.Equal(t, gen.Int, interval.Type)
+	assert.Equal(t, "300", interval.Default)
+	assert.Equal(t, "sensors", interval.Group)
+	assert.NotNil(t, interval.Unit)
+	assert.Equal(t, "seconds", *interval.Unit)
+	assert.Equal(t, "next-cycle", interval.Apply)
+	assert.NotNil(t, interval.Validate)
+	assert.Equal(t, "positive", *interval.Validate)
+	assert.False(t, interval.ReadOnly)
+
+	logLevel := byKey["log.level"]
+	assert.NotNil(t, logLevel.Enum)
+	assert.Equal(t, []string{"debug", "info", "warn", "error"}, *logLevel.Enum)
+
+	dbPath := byKey["database.path"]
+	assert.True(t, dbPath.ReadOnly)
+	assert.Equal(t, "readonly", dbPath.Apply)
 }
 
 func TestUpdateProperties_InvalidJSON(t *testing.T) {
