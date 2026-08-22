@@ -18,9 +18,9 @@ import (
 )
 
 func init() {
-	appProps.AppConfig = &appProps.ApplicationConfiguration{
+	appProps.SetAppConfig(&appProps.ApplicationConfiguration{
 		SensorDataRetentionDays: 30,
-	}
+	})
 }
 
 func setupSensorRouter() (*gin.Engine, *gin.RouterGroup, *Server, *MockSensorService) {

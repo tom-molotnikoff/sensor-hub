@@ -277,13 +277,13 @@ func TestHub_BroadcastToTopic_FullBuffer(t *testing.T) {
 	sendChan <- "msg2"
 
 	initialCount := hub.Count()
-	
+
 	defer func() {
 		if r := recover(); r != nil {
 			t.Logf("Expected panic when closing mock connection: %v", r)
 		}
 	}()
-	
+
 	hub.BroadcastToTopic("test-topic", "msg3")
 
 	assert.Equal(t, initialCount-1, hub.Count())

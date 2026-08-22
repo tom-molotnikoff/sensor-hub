@@ -682,10 +682,10 @@ func TestSensorService_ServiceGetTotalReadingsForEachSensor_Error(t *testing.T) 
 
 func TestSensorService_ServiceGetSensorHealthHistoryByName_Success(t *testing.T) {
 	service, sensorRepo, _, _, _ := setupSensorService()
-	originalConfig := appProps.AppConfig
-	appProps.AppConfig = &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30}
+	originalConfig := appProps.AppConfig()
+	appProps.SetAppConfig(&appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30})
 	defer func() {
-		appProps.AppConfig = originalConfig
+		appProps.SetAppConfig(originalConfig)
 	}()
 
 	history := []gen.SensorHealthHistory{

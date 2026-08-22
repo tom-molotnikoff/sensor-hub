@@ -362,9 +362,9 @@ func TestUserService_SetUserRoles_Error(t *testing.T) {
 
 func TestUserService_CreateUser_NilConfig(t *testing.T) {
 	// Test with nil AppConfig (should use default bcrypt cost)
-	origConfig := appProps.AppConfig
-	appProps.AppConfig = nil
-	defer func() { appProps.AppConfig = origConfig }()
+	origConfig := appProps.AppConfig()
+	appProps.SetAppConfig(nil)
+	defer func() { appProps.SetAppConfig(origConfig) }()
 
 	service, userRepo := setupUserService()
 

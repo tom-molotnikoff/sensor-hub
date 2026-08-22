@@ -206,8 +206,8 @@ func hasPermission(permissions []string, required string) bool {
 }
 
 func resolveCommandTimeoutSeconds() int {
-	if appProps.AppConfig != nil && appProps.AppConfig.ActuatorCommandTimeoutSeconds > 0 {
-		return appProps.AppConfig.ActuatorCommandTimeoutSeconds
+	if cfg := appProps.AppConfig(); cfg != nil && cfg.ActuatorCommandTimeoutSeconds > 0 {
+		return cfg.ActuatorCommandTimeoutSeconds
 	}
 	return defaultCommandTimeoutSeconds
 }

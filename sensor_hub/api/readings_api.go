@@ -2,10 +2,10 @@ package api
 
 import (
 	"errors"
+	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
 	"example/sensorHub/utils"
 	"example/sensorHub/ws"
-	gen "example/sensorHub/gen"
 	"log/slog"
 	"net/http"
 

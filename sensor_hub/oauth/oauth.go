@@ -53,7 +53,7 @@ func GetService() *OAuthService {
 
 // InitialiseOauth initializes the global OAuth service using application config
 func InitialiseOauth() error {
-	cfg := appProps.AppConfig
+	cfg := appProps.AppConfig()
 	if cfg == nil {
 		return fmt.Errorf("application config not initialized")
 	}

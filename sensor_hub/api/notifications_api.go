@@ -146,5 +146,3 @@ func (s *Server) NotificationsWebSocket(ctx *gin.Context) {
 	topic := ws.UserNotificationTopic(userID)
 	createPushWebSocket(ctx, topic)
 }
-
-

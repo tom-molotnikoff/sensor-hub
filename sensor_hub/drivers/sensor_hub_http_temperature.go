@@ -31,7 +31,7 @@ type SensorHubHTTPTemperature struct {
 var _ PullDriver = (*SensorHubHTTPTemperature)(nil)
 
 func (d *SensorHubHTTPTemperature) Type() string        { return "sensor-hub-http-temperature" }
-func (d *SensorHubHTTPTemperature) DisplayName() string  { return "Sensor Hub HTTP Temperature" }
+func (d *SensorHubHTTPTemperature) DisplayName() string { return "Sensor Hub HTTP Temperature" }
 func (d *SensorHubHTTPTemperature) Description() string {
 	return "Built-in HTTP temperature sensor using the Sensor Hub protocol"
 }

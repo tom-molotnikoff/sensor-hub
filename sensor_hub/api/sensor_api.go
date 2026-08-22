@@ -20,7 +20,7 @@ func computeEffectiveRetentionHours(sensor gen.Sensor) int {
 	if sensor.RetentionHours != nil {
 		return *sensor.RetentionHours
 	}
-	return appProps.AppConfig.SensorDataRetentionDays * 24
+	return appProps.AppConfig().SensorDataRetentionDays * 24
 }
 
 func (s *Server) AddSensor(c *gin.Context) {

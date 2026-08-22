@@ -130,7 +130,7 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 	sensorService := service.NewSensorService(sensorRepo, readingsRepo, mtRepo, thresholdProcessor, notificationService, logger)
 
 	tiers := service.DefaultAggregationTiers
-	readingsService := service.NewReadingsService(readingsRepo, mtRepo, tiers, appProps.AppConfig.ReadingsAggregationEnabled, logger)
+	readingsService := service.NewReadingsService(readingsRepo, mtRepo, tiers, appProps.AppConfig().ReadingsAggregationEnabled, logger)
 	propertiesService := service.NewPropertiesService(logger)
 	maintenanceRepo := database.NewMaintenanceRepository(db)
 	_ = service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, maintenanceRepo, logger)
@@ -294,7 +294,6 @@ func (r *RecordingEmailNotifier) Reset() {
 	defer r.mu.Unlock()
 	r.recipients = nil
 }
-
 
 type harnessNotifRepoAdapter struct {
 	repo database.NotificationRepository

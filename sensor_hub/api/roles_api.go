@@ -74,4 +74,3 @@ func convertPermissions(perms []db.PermissionInfo) []gen.PermissionInfo {
 	}
 	return result
 }
-

@@ -570,10 +570,10 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 	smtpPropertiesFilePath = filepath.Join(tempDir, "smtp.properties")
 	databasePropertiesFilePath = filepath.Join(tempDir, "database.properties")
 
-	origConfig := AppConfig
-	defer func() { AppConfig = origConfig }()
+	origConfig := AppConfig()
+	defer func() { SetAppConfig(origConfig) }()
 
-	AppConfig = &ApplicationConfiguration{
+	SetAppConfig(&ApplicationConfiguration{
 		SensorCollectionInterval:      120,
 		SensorDiscoverySkip:           false,
 		OpenAPILocation:               "/test/openapi.yaml",
@@ -591,7 +591,7 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 		SMTPUser:                      "test@smtp.com",
 		DatabasePath:                  "test/save.db",
 		ActuatorCommandTimeoutSeconds: 9,
-	}
+	})
 
 	err = SaveConfigurationToFiles()
 
@@ -619,10 +619,10 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 }
 
 func TestSaveConfigurationToFiles_NilAppConfig(t *testing.T) {
-	origConfig := AppConfig
-	defer func() { AppConfig = origConfig }()
+	origConfig := AppConfig()
+	defer func() { SetAppConfig(origConfig) }()
 
-	AppConfig = nil
+	SetAppConfig(nil)
 
 	err := SaveConfigurationToFiles()
 
@@ -636,12 +636,12 @@ func TestSaveConfigurationToFiles_InvalidPath(t *testing.T) {
 
 	applicationPropertiesFilePath = "/nonexistent/dir/application.properties"
 
-	origConfig := AppConfig
-	defer func() { AppConfig = origConfig }()
+	origConfig := AppConfig()
+	defer func() { SetAppConfig(origConfig) }()
 
-	AppConfig = &ApplicationConfiguration{
+	SetAppConfig(&ApplicationConfiguration{
 		SensorCollectionInterval: 300,
-	}
+	})
 
 	err := SaveConfigurationToFiles()
 
@@ -653,8 +653,8 @@ func TestSaveConfigurationToFiles_InvalidPath(t *testing.T) {
 // ============================================================================
 
 func TestReloadConfig_Success(t *testing.T) {
-	origConfig := AppConfig
-	defer func() { AppConfig = origConfig }()
+	origConfig := AppConfig()
+	defer func() { SetAppConfig(origConfig) }()
 
 	appProps := validAppPropsMap()
 	smtpProps := validSmtpPropsMap()
@@ -662,23 +662,23 @@ func TestReloadConfig_Success(t *testing.T) {
 
 	ReloadConfig(appProps, smtpProps, dbProps)
 
-	assert.NotNil(t, AppConfig)
-	assert.Equal(t, 300, AppConfig.SensorCollectionInterval)
-	assert.Equal(t, "test/sensor_hub.db", AppConfig.DatabasePath)
+	assert.NotNil(t, AppConfig())
+	assert.Equal(t, 300, AppConfig().SensorCollectionInterval)
+	assert.Equal(t, "test/sensor_hub.db", AppConfig().DatabasePath)
 }
 
 func TestReloadConfig_InvalidConfig(t *testing.T) {
-	origConfig := AppConfig
-	defer func() { AppConfig = origConfig }()
+	origConfig := AppConfig()
+	defer func() { SetAppConfig(origConfig) }()
 
-	AppConfig = &ApplicationConfiguration{SensorCollectionInterval: 100}
+	SetAppConfig(&ApplicationConfiguration{SensorCollectionInterval: 100})
 
 	appProps := validAppPropsMap()
 	appProps["sensor.collection.interval"] = "invalid"
 
 	ReloadConfig(appProps, validSmtpPropsMap(), validDbPropsMap())
 
-	assert.Equal(t, 100, AppConfig.SensorCollectionInterval)
+	assert.Equal(t, 100, AppConfig().SensorCollectionInterval)
 }
 
 func TestApplicationPropertiesDefaults_HasExpectedKeys(t *testing.T) {

@@ -7,4 +7,3 @@ var version = "dev"
 func main() {
 	cmd.Execute(version)
 }
-

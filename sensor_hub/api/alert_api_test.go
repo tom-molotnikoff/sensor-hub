@@ -367,13 +367,13 @@ func TestCreateAlertRule_InvalidAlertType(t *testing.T) {
 	router.Group("/api").POST("/alerts", s.CreateAlertRule)
 
 	invalidRule := gen.AlertRule{
-		SensorID:         1,
+		SensorID:          1,
 		MeasurementTypeID: 1,
-		AlertType:        "invalid_type",
-		HighThreshold:    30.0,
-		LowThreshold:     10.0,
-		RateLimitSeconds: 1,
-		Enabled:          true,
+		AlertType:         "invalid_type",
+		HighThreshold:     30.0,
+		LowThreshold:      10.0,
+		RateLimitSeconds:  1,
+		Enabled:           true,
 	}
 
 	body, _ := json.Marshal(invalidRule)
@@ -711,4 +711,3 @@ func TestGetAlertHistory_ServiceError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	mockService.AssertExpectations(t)
 }
-

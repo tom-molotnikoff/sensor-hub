@@ -8,15 +8,15 @@ import (
 
 // BrokerStats holds runtime statistics for a single MQTT broker connection.
 type BrokerStats struct {
-	BrokerID         int       `json:"broker_id"`
-	BrokerName       string    `json:"broker_name"`
-	Connected        bool      `json:"connected"`
-	MessagesReceived int64     `json:"messages_received"`
-	ParseErrors      int64     `json:"parse_errors"`
-	ProcessingErrors int64     `json:"processing_errors"`
-	DevicesDiscovered int64    `json:"devices_discovered"`
-	LastMessageAt    *time.Time `json:"last_message_at"`
-	ConnectedSince   *time.Time `json:"connected_since"`
+	BrokerID          int        `json:"broker_id"`
+	BrokerName        string     `json:"broker_name"`
+	Connected         bool       `json:"connected"`
+	MessagesReceived  int64      `json:"messages_received"`
+	ParseErrors       int64      `json:"parse_errors"`
+	ProcessingErrors  int64      `json:"processing_errors"`
+	DevicesDiscovered int64      `json:"devices_discovered"`
+	LastMessageAt     *time.Time `json:"last_message_at"`
+	ConnectedSince    *time.Time `json:"connected_since"`
 }
 
 // brokerCounters holds atomic counters for one broker. Thread-safe via atomics.
@@ -31,9 +31,9 @@ type brokerCounters struct {
 
 // StatsTracker tracks per-broker runtime statistics.
 type StatsTracker struct {
-	mu       sync.RWMutex
-	brokers  map[int]*brokerCounters
-	names    map[int]string
+	mu      sync.RWMutex
+	brokers map[int]*brokerCounters
+	names   map[int]string
 }
 
 // NewStatsTracker creates a new stats tracker.

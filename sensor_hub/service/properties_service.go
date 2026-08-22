@@ -39,7 +39,7 @@ func (ps *PropertiesService) waitForBackgroundWork() {
 }
 
 func (ps *PropertiesService) ServiceUpdateProperties(ctx context.Context, properties map[string]string) error {
-	appProperties, smtpProperties, dbProperties := appProps.ConvertConfigurationToMaps(appProps.AppConfig)
+	appProperties, smtpProperties, dbProperties := appProps.ConvertConfigurationToMaps(appProps.AppConfig())
 
 	for key, value := range properties {
 		if _, ok := appProperties[key]; ok {
@@ -83,7 +83,7 @@ func (ps *PropertiesService) ServiceUpdateProperties(ctx context.Context, proper
 func (ps *PropertiesService) ServiceGetProperties(ctx context.Context) (map[string]interface{}, error) {
 	propertiesMap := make(map[string]interface{})
 
-	appProperties, smtpProperties, dbProperties := appProps.ConvertConfigurationToMaps(appProps.AppConfig)
+	appProperties, smtpProperties, dbProperties := appProps.ConvertConfigurationToMaps(appProps.AppConfig())
 
 	for key, value := range appProperties {
 		propertiesMap[key] = value

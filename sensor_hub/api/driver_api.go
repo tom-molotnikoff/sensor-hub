@@ -63,5 +63,3 @@ func convertConfigFieldSpec(f drivers.ConfigFieldSpec) gen.ConfigFieldSpec {
 	}
 	return spec
 }
-
-

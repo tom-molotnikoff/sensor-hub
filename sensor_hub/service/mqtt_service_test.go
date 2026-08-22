@@ -112,14 +112,14 @@ func init() {
 
 type stubPushDriver struct{}
 
-func (d *stubPushDriver) Type() string        { return "mqtt-test-driver" }
-func (d *stubPushDriver) DisplayName() string  { return "Test MQTT Driver" }
-func (d *stubPushDriver) Description() string  { return "A stub MQTT push driver" }
-func (d *stubPushDriver) ConfigFields() []drivers.ConfigFieldSpec { return nil }
-func (d *stubPushDriver) SupportedMeasurementTypes() []gen.MeasurementType { return nil }
-func (d *stubPushDriver) ValidateSensor(_ context.Context, _ gen.Sensor) error { return nil }
+func (d *stubPushDriver) Type() string                                           { return "mqtt-test-driver" }
+func (d *stubPushDriver) DisplayName() string                                    { return "Test MQTT Driver" }
+func (d *stubPushDriver) Description() string                                    { return "A stub MQTT push driver" }
+func (d *stubPushDriver) ConfigFields() []drivers.ConfigFieldSpec                { return nil }
+func (d *stubPushDriver) SupportedMeasurementTypes() []gen.MeasurementType       { return nil }
+func (d *stubPushDriver) ValidateSensor(_ context.Context, _ gen.Sensor) error   { return nil }
 func (d *stubPushDriver) ParseMessage(_ string, _ []byte) ([]gen.Reading, error) { return nil, nil }
-func (d *stubPushDriver) IdentifyDevice(_ string, _ []byte) (string, error) { return "", nil }
+func (d *stubPushDriver) IdentifyDevice(_ string, _ []byte) (string, error)      { return "", nil }
 
 func setupMQTTService() (*MQTTService, *MockMQTTBrokerRepo, *MockMQTTSubRepo) {
 	brokerRepo := new(MockMQTTBrokerRepo)
@@ -576,11 +576,11 @@ func TestMQTTService_UpdateSubscription_OverlapSkipsSelf(t *testing.T) {
 
 type stubNonPushDriver struct{}
 
-func (d *stubNonPushDriver) Type() string        { return "non-push-driver" }
-func (d *stubNonPushDriver) DisplayName() string  { return "Non Push" }
-func (d *stubNonPushDriver) Description() string  { return "Not a push driver" }
-func (d *stubNonPushDriver) ConfigFields() []drivers.ConfigFieldSpec { return nil }
-func (d *stubNonPushDriver) SupportedMeasurementTypes() []gen.MeasurementType { return nil }
+func (d *stubNonPushDriver) Type() string                                         { return "non-push-driver" }
+func (d *stubNonPushDriver) DisplayName() string                                  { return "Non Push" }
+func (d *stubNonPushDriver) Description() string                                  { return "Not a push driver" }
+func (d *stubNonPushDriver) ConfigFields() []drivers.ConfigFieldSpec              { return nil }
+func (d *stubNonPushDriver) SupportedMeasurementTypes() []gen.MeasurementType     { return nil }
 func (d *stubNonPushDriver) ValidateSensor(_ context.Context, _ gen.Sensor) error { return nil }
 
 // ============================================================================

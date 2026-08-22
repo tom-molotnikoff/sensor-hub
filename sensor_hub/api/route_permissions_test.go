@@ -9,8 +9,8 @@ import (
 	gen "example/sensorHub/gen"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 // setupGenRouter builds a router using gen.RegisterHandlersWithOptions, which is

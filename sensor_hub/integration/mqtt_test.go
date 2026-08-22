@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"testing"
 
-	"example/sensorHub/testharness"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/testharness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,7 +80,7 @@ func TestMQTTBroker_Update(t *testing.T) {
 	json.Unmarshal(resp, &created)
 
 	updated := gen.MQTTBroker{
-		Id: &created.ID,
+		Id:       &created.ID,
 		Name:     "update-test-broker-renamed",
 		Host:     "10.0.0.1",
 		Port:     8883,
@@ -193,7 +193,9 @@ func TestMQTTSubscription_GetByID(t *testing.T) {
 		Name: "sub-get-broker", Host: "sub-get-host.example.com", Port: 1883, Type: "external",
 	}
 	bResp, _ := client.CreateMQTTBroker(broker)
-	var b struct{ ID int `json:"id"` }
+	var b struct {
+		ID int `json:"id"`
+	}
 	json.Unmarshal(bResp, &b)
 
 	sub := gen.MQTTSubscription{
@@ -205,7 +207,9 @@ func TestMQTTSubscription_GetByID(t *testing.T) {
 	resp, status := client.CreateMQTTSubscription(sub)
 	require.Equal(t, http.StatusCreated, status)
 
-	var created struct{ ID int `json:"id"` }
+	var created struct {
+		ID int `json:"id"`
+	}
 	json.Unmarshal(resp, &created)
 
 	detail, status := client.GetMQTTSubscription(created.ID)
@@ -218,7 +222,9 @@ func TestMQTTSubscription_Update(t *testing.T) {
 		Name: "sub-update-broker", Host: "sub-update-host.example.com", Port: 1883, Type: "external",
 	}
 	bResp, _ := client.CreateMQTTBroker(broker)
-	var b struct{ ID int `json:"id"` }
+	var b struct {
+		ID int `json:"id"`
+	}
 	json.Unmarshal(bResp, &b)
 
 	sub := gen.MQTTSubscription{
@@ -230,11 +236,13 @@ func TestMQTTSubscription_Update(t *testing.T) {
 	resp, status := client.CreateMQTTSubscription(sub)
 	require.Equal(t, http.StatusCreated, status)
 
-	var created struct{ ID int `json:"id"` }
+	var created struct {
+		ID int `json:"id"`
+	}
 	json.Unmarshal(resp, &created)
 
 	updated := gen.MQTTSubscription{
-		Id: &created.ID,
+		Id:           &created.ID,
 		BrokerId:     b.ID,
 		TopicPattern: "new/topic/#",
 		DriverType:   "mqtt-zigbee2mqtt",
@@ -253,7 +261,9 @@ func TestMQTTSubscription_Delete(t *testing.T) {
 		Name: "sub-delete-broker", Host: "sub-delete-host.example.com", Port: 1883, Type: "external",
 	}
 	bResp, _ := client.CreateMQTTBroker(broker)
-	var b struct{ ID int `json:"id"` }
+	var b struct {
+		ID int `json:"id"`
+	}
 	json.Unmarshal(bResp, &b)
 
 	sub := gen.MQTTSubscription{
@@ -265,7 +275,9 @@ func TestMQTTSubscription_Delete(t *testing.T) {
 	resp, status := client.CreateMQTTSubscription(sub)
 	require.Equal(t, http.StatusCreated, status)
 
-	var created struct{ ID int `json:"id"` }
+	var created struct {
+		ID int `json:"id"`
+	}
 	json.Unmarshal(resp, &created)
 
 	status = client.DeleteMQTTSubscription(created.ID)

@@ -366,7 +366,7 @@ func TestAlertRepository_CreateAlertRule_Success(t *testing.T) {
 		AlertType:         alerting.AlertTypeNumericRange,
 		HighThreshold:     30.0,
 		LowThreshold:      10.0,
-		RateLimitSeconds:    1,
+		RateLimitSeconds:  1,
 		Enabled:           true,
 	}
 
@@ -389,7 +389,7 @@ func TestAlertRepository_CreateAlertRule_StatusBased(t *testing.T) {
 		MeasurementTypeId: 1,
 		AlertType:         alerting.AlertTypeStatusBased,
 		TriggerStatus:     "bad",
-		RateLimitSeconds:    2,
+		RateLimitSeconds:  2,
 		Enabled:           true,
 	}
 
@@ -433,13 +433,13 @@ func TestAlertRepository_UpdateAlertRule_Success(t *testing.T) {
 	repo := NewAlertRepository(db, slog.Default())
 
 	rule := &alerting.AlertRule{
-		ID:             1,
-		SensorID:       1,
-		AlertType:      alerting.AlertTypeNumericRange,
-		HighThreshold:  35.0,
-		LowThreshold:   12.0,
+		ID:               1,
+		SensorID:         1,
+		AlertType:        alerting.AlertTypeNumericRange,
+		HighThreshold:    35.0,
+		LowThreshold:     12.0,
 		RateLimitSeconds: 2,
-		Enabled:        false,
+		Enabled:          false,
 	}
 
 	dbMock.ExpectExec("UPDATE sensor_alert_rules").
