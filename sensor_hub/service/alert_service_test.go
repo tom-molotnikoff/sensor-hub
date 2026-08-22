@@ -144,12 +144,12 @@ func TestServiceCreateAlertRule(t *testing.T) {
 	service := NewAlertManagementService(mockRepo, slog.Default())
 
 	newRule := &alerting.AlertRule{
-		SensorID:       1,
-		AlertType:      alerting.AlertTypeNumericRange,
-		HighThreshold:  30.0,
-		LowThreshold:   10.0,
+		SensorID:         1,
+		AlertType:        alerting.AlertTypeNumericRange,
+		HighThreshold:    30.0,
+		LowThreshold:     10.0,
 		RateLimitSeconds: 1,
-		Enabled:        true,
+		Enabled:          true,
 	}
 
 	mockRepo.On("CreateAlertRule", mock.Anything, newRule).Return(nil)
@@ -165,12 +165,12 @@ func TestServiceUpdateAlertRule(t *testing.T) {
 	service := NewAlertManagementService(mockRepo, slog.Default())
 
 	updatedRule := &alerting.AlertRule{
-		SensorID:       1,
-		AlertType:      alerting.AlertTypeNumericRange,
-		HighThreshold:  35.0,
-		LowThreshold:   12.0,
+		SensorID:         1,
+		AlertType:        alerting.AlertTypeNumericRange,
+		HighThreshold:    35.0,
+		LowThreshold:     12.0,
 		RateLimitSeconds: 2,
-		Enabled:        false,
+		Enabled:          false,
 	}
 
 	mockRepo.On("UpdateAlertRule", mock.Anything, updatedRule).Return(nil)

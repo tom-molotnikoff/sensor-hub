@@ -384,4 +384,3 @@ func TestRevokeSessionHandler_RevokeError(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
-

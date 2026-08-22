@@ -295,7 +295,6 @@ func (r *RecordingEmailNotifier) Reset() {
 	r.recipients = nil
 }
 
-
 type harnessNotifRepoAdapter struct {
 	repo database.NotificationRepository
 }

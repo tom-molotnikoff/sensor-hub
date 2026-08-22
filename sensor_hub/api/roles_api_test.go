@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	db "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -286,4 +286,3 @@ func TestRemovePermission_ServiceError(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
-

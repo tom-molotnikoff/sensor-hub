@@ -10,14 +10,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
 // MQTTStatsProvider is the subset of ConnectionManager the API layer needs.
 type MQTTStatsProvider interface {
 	Stats() map[int]mqttpkg.BrokerStats
 	IsConnected(brokerID int) bool
 }
-
-
 
 // isValidationError returns true if the error is a validation error from the
 // service layer rather than an infrastructure failure. This is used to return

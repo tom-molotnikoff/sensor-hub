@@ -16,7 +16,7 @@ func TestAlertRule_ValidateNumericRange(t *testing.T) {
 		HighThreshold:     30.0,
 		LowThreshold:      10.0,
 		Enabled:           true,
-		RateLimitSeconds:    1,
+		RateLimitSeconds:  1,
 	}
 
 	err := rule.Validate()
@@ -46,7 +46,7 @@ func TestAlertRule_ValidateStatusBased(t *testing.T) {
 		AlertType:         AlertTypeStatusBased,
 		TriggerStatus:     "open",
 		Enabled:           true,
-		RateLimitSeconds:    0,
+		RateLimitSeconds:  0,
 	}
 
 	err := rule.Validate()
@@ -60,7 +60,7 @@ func TestAlertRule_ValidateNegativeRateLimit(t *testing.T) {
 		AlertType:         AlertTypeNumericRange,
 		HighThreshold:     30.0,
 		LowThreshold:      10.0,
-		RateLimitSeconds:    -1,
+		RateLimitSeconds:  -1,
 		Enabled:           true,
 	}
 
@@ -71,12 +71,12 @@ func TestAlertRule_ValidateNegativeRateLimit(t *testing.T) {
 
 func TestAlertRule_ValidateZeroSensorID(t *testing.T) {
 	rule := AlertRule{
-		SensorID:       0,
-		AlertType:      AlertTypeNumericRange,
-		HighThreshold:  30.0,
-		LowThreshold:   10.0,
+		SensorID:         0,
+		AlertType:        AlertTypeNumericRange,
+		HighThreshold:    30.0,
+		LowThreshold:     10.0,
 		RateLimitSeconds: 1,
-		Enabled:        true,
+		Enabled:          true,
 	}
 
 	err := rule.Validate()
@@ -86,12 +86,12 @@ func TestAlertRule_ValidateZeroSensorID(t *testing.T) {
 
 func TestAlertRule_ValidateNegativeSensorID(t *testing.T) {
 	rule := AlertRule{
-		SensorID:       -5,
-		AlertType:      AlertTypeNumericRange,
-		HighThreshold:  30.0,
-		LowThreshold:   10.0,
+		SensorID:         -5,
+		AlertType:        AlertTypeNumericRange,
+		HighThreshold:    30.0,
+		LowThreshold:     10.0,
 		RateLimitSeconds: 1,
-		Enabled:        true,
+		Enabled:          true,
 	}
 
 	err := rule.Validate()
@@ -106,7 +106,7 @@ func TestAlertRule_ValidateInvalidAlertType(t *testing.T) {
 		AlertType:         "invalid_type",
 		HighThreshold:     30.0,
 		LowThreshold:      10.0,
-		RateLimitSeconds:    1,
+		RateLimitSeconds:  1,
 		Enabled:           true,
 	}
 
@@ -186,8 +186,8 @@ func TestAlertRule_IsRateLimited_NoLimit(t *testing.T) {
 
 func TestAlertRule_IsRateLimited_NeverSent(t *testing.T) {
 	rule := AlertRule{
-		RateLimitSeconds:  1,
-		LastAlertSentAt: nil,
+		RateLimitSeconds: 1,
+		LastAlertSentAt:  nil,
 	}
 
 	assert.False(t, rule.IsRateLimited())
@@ -197,8 +197,8 @@ func TestAlertRule_IsRateLimited_RecentlySent(t *testing.T) {
 	thirtyMinutesAgo := time.Now().Add(-30 * time.Minute)
 
 	rule := AlertRule{
-		RateLimitSeconds:  3600, // 1 hour
-		LastAlertSentAt: &thirtyMinutesAgo,
+		RateLimitSeconds: 3600, // 1 hour
+		LastAlertSentAt:  &thirtyMinutesAgo,
 	}
 
 	assert.True(t, rule.IsRateLimited())
@@ -208,8 +208,8 @@ func TestAlertRule_IsRateLimited_OldEnough(t *testing.T) {
 	twoHoursAgo := time.Now().Add(-2 * time.Hour)
 
 	rule := AlertRule{
-		RateLimitSeconds:  3600, // 1 hour
-		LastAlertSentAt: &twoHoursAgo,
+		RateLimitSeconds: 3600, // 1 hour
+		LastAlertSentAt:  &twoHoursAgo,
 	}
 
 	assert.False(t, rule.IsRateLimited())

@@ -327,4 +327,3 @@ func TestGetReadingsBetweenDates_TypedAggregationParams(t *testing.T) {
 	assert.Equal(t, "PT1H", capturedInterval)
 	assert.Equal(t, "count", capturedFunction)
 }
-

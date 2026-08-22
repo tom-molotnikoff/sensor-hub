@@ -9,9 +9,9 @@ import (
 
 // OAuthStatus represents the current state of OAuth authentication
 type OAuthStatus struct {
-	Configured      bool      `json:"configured"`       // true if credentials.json exists and is valid
-	NeedsAuth       bool      `json:"needs_auth"`       // true if configured but no token (needs authorization)
-	TokenValid      bool      `json:"token_valid"`      // true if token exists and is not expired
+	Configured      bool      `json:"configured"`  // true if credentials.json exists and is valid
+	NeedsAuth       bool      `json:"needs_auth"`  // true if configured but no token (needs authorization)
+	TokenValid      bool      `json:"token_valid"` // true if token exists and is not expired
 	TokenExpiry     time.Time `json:"token_expiry,omitempty"`
 	RefresherActive bool      `json:"refresher_active"`
 	LastRefreshAt   time.Time `json:"last_refresh_at,omitempty"`

@@ -32,7 +32,7 @@ func InitialiseAndListen(ctx context.Context, logger *slog.Logger, prometheusHan
 	router.Use(gin.Recovery())
 	router.Use(otelgin.Middleware("sensor-hub"))
 	router.Use(telemetry.GinLoggerMiddleware(logger))
-	
+
 	// CORS is only needed when the UI is served from a different origin (e.g. Vite dev server)
 	allowedOrigin := os.Getenv("SENSOR_HUB_ALLOWED_ORIGIN")
 	if allowedOrigin != "" {
@@ -117,4 +117,3 @@ func InitialiseAndListen(ctx context.Context, logger *slog.Logger, prometheusHan
 		return nil
 	}
 }
-

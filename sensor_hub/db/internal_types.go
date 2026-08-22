@@ -7,13 +7,13 @@ import "time"
 // ============================================================================
 
 const (
-	TableReadings               = "readings"
-	TableSensorHealthHistory    = "sensor_health_history"
-	TableSensorCommandHistory   = "sensor_command_history"
-	TableMeasurementTypes       = "measurement_types"
-	TableSensorMeasurementTypes = "sensor_measurement_types"
-	TableMQTTBrokers            = "mqtt_brokers"
-	TableMQTTSubscriptions      = "mqtt_subscriptions"
+	TableReadings                    = "readings"
+	TableSensorHealthHistory         = "sensor_health_history"
+	TableSensorCommandHistory        = "sensor_command_history"
+	TableMeasurementTypes            = "measurement_types"
+	TableSensorMeasurementTypes      = "sensor_measurement_types"
+	TableMQTTBrokers                 = "mqtt_brokers"
+	TableMQTTSubscriptions           = "mqtt_subscriptions"
 	TableMeasurementTypeAggregations = "measurement_type_aggregations"
 )
 

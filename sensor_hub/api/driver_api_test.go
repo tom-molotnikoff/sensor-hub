@@ -71,4 +71,3 @@ func TestListDrivers_ResponseShape(t *testing.T) {
 	assert.Contains(t, first, "supported_measurement_types")
 	assert.Contains(t, first, "config_fields")
 }
-

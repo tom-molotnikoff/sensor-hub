@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"testing"
 
-	"example/sensorHub/testharness"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/testharness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

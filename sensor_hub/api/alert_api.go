@@ -150,4 +150,3 @@ func (s *Server) GetAlertHistory(c *gin.Context, sensorId int, params gen.GetAle
 
 	c.IndentedJSON(http.StatusOK, history)
 }
-

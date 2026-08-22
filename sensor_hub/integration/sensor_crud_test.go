@@ -14,9 +14,9 @@ import (
 
 func TestSensor_AddAndList(t *testing.T) {
 	sensor := gen.Sensor{
-		Name: "Integration Test Sensor",
+		Name:         "Integration Test Sensor",
 		SensorDriver: "sensor-hub-http-temperature",
-		Config:  map[string]string{"url": mockSensorURLs[0]},
+		Config:       map[string]string{"url": mockSensorURLs[0]},
 	}
 	_, status := client.AddSensor(sensor)
 	require.Equal(t, http.StatusCreated, status)
@@ -63,9 +63,9 @@ func TestSensor_DisableAndEnable(t *testing.T) {
 
 func TestSensor_DeleteAndVerifyGone(t *testing.T) {
 	sensor := gen.Sensor{
-		Name: "Temp Sensor To Delete",
+		Name:         "Temp Sensor To Delete",
 		SensorDriver: "sensor-hub-http-temperature",
-		Config:  map[string]string{"url": mockSensorURLs[1]},
+		Config:       map[string]string{"url": mockSensorURLs[1]},
 	}
 	_, status := client.AddSensor(sensor)
 	require.Equal(t, http.StatusCreated, status)

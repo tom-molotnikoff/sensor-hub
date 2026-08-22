@@ -58,4 +58,3 @@ func (s *Server) PropertiesWebSocket(c *gin.Context) {
 	}
 	ws.BroadcastToTopic("properties", result)
 }
-

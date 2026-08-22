@@ -21,7 +21,6 @@ type OAuthAPIServiceInterface interface {
 	Reload(ctx context.Context) error
 }
 
-
 // pendingStates stores CSRF states for OAuth flow
 var pendingStates = struct {
 	sync.RWMutex
