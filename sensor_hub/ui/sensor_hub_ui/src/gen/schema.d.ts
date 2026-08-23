@@ -2126,6 +2126,13 @@ export interface components {
         UpdatePropertiesRequest: {
             [key: string]: string;
         };
+        /** @description Error response for property updates. When the failure is a validation failure, `key` names the property whose value was rejected. */
+        PropertiesErrorResponse: {
+            /** @description Human-readable error message. */
+            message: string;
+            /** @description Dotted key of the property that failed validation. Absent when the failure is not tied to a single property. */
+            key?: string;
+        };
         PropertiesWebSocketMessage: {
             /**
              * Format: date-time
@@ -3647,13 +3654,13 @@ export interface operations {
                     "application/json": components["schemas"]["OperationAccepted"];
                 };
             };
-            /** @description Invalid request */
+            /** @description Invalid request. A validation failure rejects the whole batch and names the property that failed in `key`. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["PropertiesErrorResponse"];
                 };
             };
             /** @description Server error */

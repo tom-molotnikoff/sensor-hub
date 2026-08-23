@@ -6683,7 +6683,7 @@ type UpdatePropertiesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON202      *OperationAccepted
-	JSON400      *ErrorResponse
+	JSON400      *PropertiesErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -10270,7 +10270,7 @@ func ParseUpdatePropertiesResp(rsp *http.Response) (*UpdatePropertiesResp, error
 		response.JSON202 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest ErrorResponse
+		var dest PropertiesErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

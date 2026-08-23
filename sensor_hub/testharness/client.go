@@ -367,6 +367,10 @@ func (c *Client) SetProperty(key, value string) int {
 	return c.statusOnly(c.gen.UpdateProperties(c.ctx(), gen.UpdatePropertiesJSONRequestBody{key: value}))
 }
 
+func (c *Client) UpdateProperties(props gen.UpdatePropertiesJSONRequestBody) (json.RawMessage, int) {
+	return c.consume(c.gen.UpdateProperties(c.ctx(), props))
+}
+
 func (c *Client) GetPropertyDefinitions() (gen.PropertyDefinitionsResponse, int) {
 	var out gen.PropertyDefinitionsResponse
 	resp, err := c.gen.GetPropertyDefinitions(c.ctx())

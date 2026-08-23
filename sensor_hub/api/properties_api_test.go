@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	appProps "example/sensorHub/application_properties"
 	gen "example/sensorHub/gen"
 
 	"github.com/gin-gonic/gin"
@@ -116,6 +117,31 @@ func TestUpdateProperties_InvalidJSON(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestUpdateProperties_ValidationFailureIs400NamingTheKey(t *testing.T) {
+	router, api, s, mockService := setupPropertiesRouter()
+	api.PATCH("/properties", s.UpdateProperties)
+
+	props := map[string]string{"sensor.collection.interval": "abc"}
+	jsonBody, _ := json.Marshal(props)
+
+	mockService.On("ServiceUpdateProperties", mock.Anything, props).Return(
+		&appProps.ValidationError{Key: "sensor.collection.interval", Message: "invalid sensor.collection.interval value: abc"})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/properties", bytes.NewBuffer(jsonBody))
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var body struct {
+		Message string `json:"message"`
+		Key     string `json:"key"`
+	}
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Equal(t, "invalid sensor.collection.interval value: abc", body.Message)
+	assert.Equal(t, "sensor.collection.interval", body.Key)
 }
 
 func TestUpdateProperties_ServiceError(t *testing.T) {
