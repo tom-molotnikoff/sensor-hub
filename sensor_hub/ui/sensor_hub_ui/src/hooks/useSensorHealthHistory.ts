@@ -6,24 +6,32 @@ import { logger } from '../tools/logger';
 
 function useSensorHealthHistory(sensorName: string): [SensorHealthHistory[], () => Promise<void>, boolean] {
   const [healthHistory, setHealthHistory] = useState<SensorHealthHistory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [fetching, setFetching] = useState(true);
+
+  // Reset the fetching flag when the sensor changes, so stale data never reads as loaded.
+  const [prevName, setPrevName] = useState(sensorName);
+  if (prevName !== sensorName) {
+    setPrevName(sensorName);
+    setFetching(true);
+  }
 
   const load = useCallback(() => {
-    if (!sensorName) {
-      return Promise.resolve().then(() => setIsLoading(false));
-    }
+    if (!sensorName) return Promise.resolve();
     return apiClient.GET('/sensors/health/{name}', {
       params: { path: { name: sensorName } },
     })
       .then(({ data }) => setHealthHistory(data ?? []))
       .catch((err) => logger.error("Failed to load sensor health history", err))
-      .finally(() => setIsLoading(false));
+      .finally(() => setFetching(false));
   }, [sensorName]);
 
   const fetchHistory = useCallback(() => {
-    setIsLoading(true);
+    setFetching(true);
     return load();
   }, [load]);
+
+  // With no sensor there is nothing to load.
+  const isLoading = !!sensorName && fetching;
 
   const { user } = useAuth();
 

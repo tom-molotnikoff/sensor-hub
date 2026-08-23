@@ -95,17 +95,20 @@ function SensorHealthHistoryChart({sensor}: SensorHealthHistoryChartProps) {
     return "unknown";
   };
 
+  // The label depends on the wall clock, which render must not read, so it is
+  // computed once per model change in this effect. The synchronous setState is
+  // deliberate, not an oversight.
   const [lastChangeLabel, setLastChangeLabel] = useState<string | null>(null);
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    void Promise.resolve().then(() => {
-      if (!model?.lastTransitionAt) {
-        setLastChangeLabel(null);
-        return;
-      }
-      const elapsedMs = Math.max(0, Date.now() - new Date(model.lastTransitionAt).getTime());
-      setLastChangeLabel(`${formatDurationShort(elapsedMs)} ago`);
-    });
+    if (!model?.lastTransitionAt) {
+      setLastChangeLabel(null);
+      return;
+    }
+    const elapsedMs = Math.max(0, Date.now() - new Date(model.lastTransitionAt).getTime());
+    setLastChangeLabel(`${formatDurationShort(elapsedMs)} ago`);
   }, [model]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <div data-testid="sensor-health-history-chart" style={graphContainerStyle}>

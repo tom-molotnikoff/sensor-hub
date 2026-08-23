@@ -24,16 +24,12 @@ export default function UserManagementCard() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
-  const load = async () => {
-    try {
-      const { data } = await apiClient.GET('/users');
-      setUsers(data ?? []);
-    } catch (e) {
-      logger.error(e);
-    }
-  };
+  const load = () =>
+    apiClient.GET('/users')
+      .then(({ data }) => setUsers(data ?? []))
+      .catch((e) => logger.error(e));
 
-  useEffect(() => { void Promise.resolve().then(load); }, []);
+  useEffect(() => { void load(); }, []);
 
   const handleRowClick = (params: GridRowParams, event: React.MouseEvent) => {
     const id = typeof params.id === 'number' ? params.id : Number(params.id);

@@ -30,16 +30,12 @@ export default function AlertRulesCard() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
-  const load = async () => {
-    try {
-      const { data } = await apiClient.GET('/alerts');
-      setAlertRules(data ?? []);
-    } catch (e) {
-      logger.error('Failed to load alert rules', e);
-    }
-  };
+  const load = () =>
+    apiClient.GET('/alerts')
+      .then(({ data }) => setAlertRules(data ?? []))
+      .catch((e) => logger.error('Failed to load alert rules', e));
 
-  useEffect(() => { void Promise.resolve().then(load); }, []);
+  useEffect(() => { void load(); }, []);
 
   const handleRowClick = (params: GridRowParams, event: React.MouseEvent) => {
     const id = typeof params.id === 'number' ? params.id : Number(params.id);

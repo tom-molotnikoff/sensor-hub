@@ -75,10 +75,17 @@ export default function HeatmapWidget({ config }: WidgetProps) {
     const sensorId = config.sensorId as number | undefined;
     const sensor = sensorId ? sensors.find((s) => s.id === sensorId) : undefined;
 
+    // Show the loader again when the query changes (adjust-during-render).
+    const loadKey = `${sensor?.id ?? ''}|${measurementType ?? ''}`;
+    const [prevLoadKey, setPrevLoadKey] = useState(loadKey);
+    if (prevLoadKey !== loadKey) {
+        setPrevLoadKey(loadKey);
+        setLoading(true);
+    }
+
     useEffect(() => {
         if (!sensor) return;
 
-        void Promise.resolve().then(() => setLoading(true));
         const now = new Date();
         const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 

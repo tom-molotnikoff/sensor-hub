@@ -17,8 +17,14 @@ export default function SensorDetailCard({ sensor, onDataUpdate }: SensorDetailC
     const [loading, setLoading] = useState(true);
     const readings = useCurrentReadings({ onDataUpdate });
 
+    // Show the loader again when the sensor changes (adjust-during-render).
+    const [prevSensorId, setPrevSensorId] = useState(sensor.id);
+    if (prevSensorId !== sensor.id) {
+        setPrevSensorId(sensor.id);
+        setLoading(true);
+    }
+
     useEffect(() => {
-        void Promise.resolve().then(() => setLoading(true));
         apiClient.GET('/sensors/by-id/{id}/measurement-types', { params: { path: { id: sensor.id } } })
             .then(({ data }) => setMeasurementTypes(data ?? []))
             .finally(() => setLoading(false));

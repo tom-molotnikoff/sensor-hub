@@ -59,14 +59,13 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
     );
     const globalMT = useMeasurementTypesWithReadings();
 
-    // Multi-sensor intersection: fetch types for each selected sensor
+    // Multi-sensor intersection: fetch types for each selected sensor. The
+    // fetched list only shows while the multi-sensor selection is active.
     const selectedSensorIdsKey = selectedSensorIds.join(',');
+    const showIntersection = hasMultiSensorSelect && hasMeasurementTypeSelect && selectedSensorIds.length > 0;
     useEffect(() => {
         const ids = selectedSensorIdsKey ? selectedSensorIdsKey.split(',').map(Number) : [];
-        if (!hasMultiSensorSelect || !hasMeasurementTypeSelect || ids.length === 0) {
-            void Promise.resolve().then(() => setIntersectedTypes([]));
-            return;
-        }
+        if (!hasMultiSensorSelect || !hasMeasurementTypeSelect || ids.length === 0) return;
         Promise.all(ids.map(id => apiClient.GET('/sensors/by-id/{id}/measurement-types', { params: { path: { id } } }).then(({ data }) => (data as MeasurementTypeInfo[] | null) ?? [])))
             .then(results => {
                 if (results.length === 0) { setIntersectedTypes([]); return; }
@@ -80,42 +79,37 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
     // Determine which measurement type list to display
     const filteredMeasurementTypes =
         (hasSensorSelect || hasControllableSensorSelect) && selectedSensorId ? sensorMT.measurementTypes
-        : hasMultiSensorSelect && selectedSensorIds.length > 0 ? intersectedTypes
+        : showIntersection ? intersectedTypes
         : hasMeasurementTypeSelect ? globalMT.measurementTypes
         : NO_MEASUREMENT_TYPES;
 
-    // Auto-clear measurement type when it's no longer valid after sensor change
-    useEffect(() => {
-        const currentMT = localConfig.measurementType as string | undefined;
-        if (currentMT && filteredMeasurementTypes.length > 0) {
-            const stillValid = filteredMeasurementTypes.some(mt => mt.name === currentMT);
-            if (!stillValid) {
-                void Promise.resolve().then(() => setLocalConfig(prev => ({ ...prev, measurementType: '' })));
-            }
-        }
-    }, [filteredMeasurementTypes, localConfig.measurementType]);
+    // Clear a measurement type that is no longer offered (adjust-during-render).
+    const currentMT = localConfig.measurementType as string | undefined;
+    if (currentMT && filteredMeasurementTypes.length > 0 && !filteredMeasurementTypes.some(mt => mt.name === currentMT)) {
+        setLocalConfig(prev => ({ ...prev, measurementType: '' }));
+    }
 
-    useEffect(() => {
-        if (!hasBinaryCapabilitySelect) return;
-
+    // Keep the binary property aligned with the selected sensor's capabilities
+    // (adjust-during-render).
+    if (hasBinaryCapabilitySelect) {
         if (binaryCapabilities.length === 0) {
             if (localConfig.property) {
-                void Promise.resolve().then(() => setLocalConfig(prev => ({ ...prev, property: '' })));
+                setLocalConfig(prev => ({ ...prev, property: '' }));
             }
-            return;
+        } else {
+            const normalizedProperty = normalizeSensorToggleProperty(localConfig.property, binaryCapabilities);
+            if (normalizedProperty !== localConfig.property) {
+                setLocalConfig(prev => ({ ...prev, property: normalizedProperty }));
+            }
         }
+    }
 
-        const normalizedProperty = normalizeSensorToggleProperty(localConfig.property, binaryCapabilities);
-        if (normalizedProperty !== localConfig.property) {
-            void Promise.resolve().then(() => setLocalConfig(prev => ({ ...prev, property: normalizedProperty })));
-        }
-    }, [binaryCapabilities, hasBinaryCapabilitySelect, localConfig.property]);
-
-    useEffect(() => {
-        if (widget) {
-            void Promise.resolve().then(() => setLocalConfig({ ...widget.config }));
-        }
-    }, [widget]);
+    // Re-seed the editable copy when a different widget is opened (adjust-during-render).
+    const [prevWidget, setPrevWidget] = useState(widget);
+    if (prevWidget !== widget) {
+        setPrevWidget(widget);
+        if (widget) setLocalConfig({ ...widget.config });
+    }
 
     if (!widget || !definition?.configFields?.length) return null;
 

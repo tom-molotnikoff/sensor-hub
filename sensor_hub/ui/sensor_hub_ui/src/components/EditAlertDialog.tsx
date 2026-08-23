@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import type {AlertRule} from "../gen/aliases";
 import { apiClient } from "../gen/client";
 import {
@@ -45,20 +45,23 @@ export default function EditAlertDialog({open, onClose, onSaved, selectedAlert}:
   const [editRateLimitUnit, setEditRateLimitUnit] = useState<RateLimitUnit>('hours');
   const [editEnabled, setEditEnabled] = useState<boolean>(true);
 
-  useEffect(() => {
+  // Re-seed the form whenever the dialog opens for an alert (adjust-during-render).
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevAlert, setPrevAlert] = useState(selectedAlert);
+  if (prevOpen !== open || prevAlert !== selectedAlert) {
+    setPrevOpen(open);
+    setPrevAlert(selectedAlert);
     if (open && selectedAlert) {
-      void Promise.resolve().then(() => {
-        setEditAlertType(selectedAlert.AlertType);
-        setEditHighThreshold(selectedAlert.HighThreshold?.toString() || '');
-        setEditLowThreshold(selectedAlert.LowThreshold?.toString() || '');
-        setEditTriggerStatus(selectedAlert.TriggerStatus || '');
-        const { value, unit } = fromSeconds(selectedAlert.RateLimitSeconds);
-        setEditRateLimit(value.toString());
-        setEditRateLimitUnit(unit);
-        setEditEnabled(selectedAlert.Enabled);
-      });
+      setEditAlertType(selectedAlert.AlertType);
+      setEditHighThreshold(selectedAlert.HighThreshold?.toString() || '');
+      setEditLowThreshold(selectedAlert.LowThreshold?.toString() || '');
+      setEditTriggerStatus(selectedAlert.TriggerStatus || '');
+      const { value, unit } = fromSeconds(selectedAlert.RateLimitSeconds);
+      setEditRateLimit(value.toString());
+      setEditRateLimitUnit(unit);
+      setEditEnabled(selectedAlert.Enabled);
     }
-  }, [open, selectedAlert]);
+  }
 
   const handleEdit = async () => {
     if (!selectedAlert) return;

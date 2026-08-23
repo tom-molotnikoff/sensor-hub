@@ -37,20 +37,21 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    const refreshDashboards = useCallback(async () => {
-        try {
-            const { data: list } = await apiClient.GET('/dashboards');
-            const dbs = (list as Dashboard[] | null) ?? [];
-            setDashboards(dbs);
-            return dbs;
-        } catch (err) {
-            logger.error('[Dashboard] Failed to load dashboards', err);
-            return [];
-        }
-    }, []);
+    const refreshDashboards = useCallback((): Promise<Dashboard[]> =>
+        apiClient.GET('/dashboards')
+            .then(({ data: list }) => {
+                const dbs = (list as Dashboard[] | null) ?? [];
+                setDashboards(dbs);
+                return dbs;
+            })
+            .catch((err) => {
+                logger.error('[Dashboard] Failed to load dashboards', err);
+                return [];
+            }),
+    []);
 
     useEffect(() => {
-        void Promise.resolve().then(() => refreshDashboards()).then((list) => {
+        void refreshDashboards().then((list) => {
             if (list.length > 0) {
                 const persistedId = getPersistedDashboardId();
                 const persisted = persistedId != null ? list.find((d) => d.id === persistedId) : null;

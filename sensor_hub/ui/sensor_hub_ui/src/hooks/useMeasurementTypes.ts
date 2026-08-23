@@ -49,33 +49,41 @@ export function useMeasurementTypesWithReadings() {
   return { measurementTypes, loaded, refresh };
 }
 
+const NO_MEASUREMENT_TYPES: MeasurementTypeInfo[] = [];
+
 export function useSensorMeasurementTypes(sensorId: number | null) {
-  const [measurementTypes, setMeasurementTypes] = useState<MeasurementTypeInfo[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [fetchedTypes, setFetchedTypes] = useState<MeasurementTypeInfo[]>([]);
+  const [fetchDone, setFetchDone] = useState(false);
+
+  // Reset the loaded flag when the sensor changes, so a stale list never reads as loaded.
+  const [prevSensorId, setPrevSensorId] = useState(sensorId);
+  if (prevSensorId !== sensorId) {
+    setPrevSensorId(sensorId);
+    setFetchDone(false);
+  }
 
   const load = useCallback(() => {
-    if (sensorId === null) {
-      return Promise.resolve().then(() => {
-        setMeasurementTypes([]);
-        setLoaded(true);
-      });
-    }
+    if (sensorId === null) return Promise.resolve();
     return apiClient.GET('/sensors/by-id/{id}/measurement-types', {
       params: { path: { id: sensorId } },
     })
-      .then(({ data }) => setMeasurementTypes(data ?? []))
+      .then(({ data }) => setFetchedTypes(data ?? []))
       .catch((err) => logger.error('Failed to fetch sensor measurement types:', err))
-      .finally(() => setLoaded(true));
+      .finally(() => setFetchDone(true));
   }, [sensorId]);
 
   const refresh = useCallback(() => {
-    setLoaded(false);
+    if (sensorId !== null) setFetchDone(false);
     return load();
-  }, [load]);
+  }, [load, sensorId]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // With no sensor there is nothing to fetch: an empty, already-loaded list.
+  const measurementTypes = sensorId === null ? NO_MEASUREMENT_TYPES : fetchedTypes;
+  const loaded = sensorId === null ? true : fetchDone;
 
   return { measurementTypes, loaded, refresh };
 }

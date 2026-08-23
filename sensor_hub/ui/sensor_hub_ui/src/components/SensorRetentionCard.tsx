@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Box,
   TextField,
@@ -30,27 +30,32 @@ function SensorRetentionCard({ sensor }: SensorRetentionCardProps) {
   const globalRetentionHours = globalRetentionDays * 24;
 
   const [useCustom, setUseCustom] = useState(sensor.retention_hours !== null);
-  const [unit, setUnit] = useState<RetentionUnit>('days');
-  const [value, setValue] = useState('');
+  const [unit, setUnit] = useState<RetentionUnit>(() =>
+    sensor.retention_hours != null ? bestUnit(sensor.retention_hours) : 'days');
+  const [value, setValue] = useState(() =>
+    sensor.retention_hours != null
+      ? String(hoursToUnit(sensor.retention_hours, bestUnit(sensor.retention_hours)))
+      : '');
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    void Promise.resolve().then(() => {
-      const hasCustom = sensor.retention_hours != null;
-      setUseCustom(hasCustom);
-      if (hasCustom && sensor.retention_hours != null) {
-        const h = sensor.retention_hours;
-        const u = bestUnit(h);
-        setUnit(u);
-        setValue(String(hoursToUnit(h, u)));
-      } else {
-        setUnit('days');
-        setValue('');
-      }
-    });
-  }, [sensor.retention_hours]);
+  // Re-seed the form when the sensor's stored retention changes (adjust-during-render).
+  const [prevRetentionHours, setPrevRetentionHours] = useState(sensor.retention_hours);
+  if (prevRetentionHours !== sensor.retention_hours) {
+    setPrevRetentionHours(sensor.retention_hours);
+    const hasCustom = sensor.retention_hours != null;
+    setUseCustom(hasCustom);
+    if (hasCustom && sensor.retention_hours != null) {
+      const h = sensor.retention_hours;
+      const u = bestUnit(h);
+      setUnit(u);
+      setValue(String(hoursToUnit(h, u)));
+    } else {
+      setUnit('days');
+      setValue('');
+    }
+  }
 
   const fieldsDisabled = !user || !hasPerm(user, 'manage_sensors');
 

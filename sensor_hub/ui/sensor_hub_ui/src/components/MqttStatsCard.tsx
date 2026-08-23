@@ -140,15 +140,14 @@ export default function MqttStatsCard() {
   const [stats, setStats] = useState<MQTTBrokerStats[]>([]);
   const [, setTick] = useState(0);
 
-  const load = useCallback(async () => {
-    try {
-      const { data: s } = await apiClient.GET('/mqtt/stats');
-      setStats((s as MQTTBrokerStats[] | null) ?? []);
-    } catch (e) { logger.error(e); }
-  }, []);
+  const load = useCallback(() =>
+    apiClient.GET('/mqtt/stats')
+      .then(({ data: s }) => setStats((s as MQTTBrokerStats[] | null) ?? []))
+      .catch((e) => logger.error(e)),
+  []);
 
   useEffect(() => {
-    void Promise.resolve().then(load);
+    void load();
     const interval = setInterval(() => {
       load();
       setTick(t => t + 1);

@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sensor, SensorHealthHistory } from '../gen/aliases';
 import SensorHealthHistoryChart from './SensorHealthHistoryChart';
@@ -106,7 +106,7 @@ describe('SensorHealthHistoryChart', () => {
     expect(screen.getByTestId('area-chart')).toHaveAttribute('data-last-recorded-at', '2026-05-09T12:00:00.000Z');
   });
 
-  it('shows retained-window context and duration summary above the chart', async () => {
+  it('shows retained-window context and duration summary above the chart', () => {
     properties['health.history.retention.days'] = '1';
     useSensorHealthHistoryMock.mockReturnValue([[
       makeHistory({
@@ -121,7 +121,6 @@ describe('SensorHealthHistoryChart', () => {
     ], vi.fn()]);
 
     render(<SensorHealthHistoryChart sensor={makeSensor()} />);
-    await act(async () => { await Promise.resolve(); });
 
     expect(screen.getByText('Window 24h')).toBeInTheDocument();
     expect(screen.getByText('Current bad')).toBeInTheDocument();

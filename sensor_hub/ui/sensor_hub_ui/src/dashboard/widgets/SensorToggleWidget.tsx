@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Alert, Box, Snackbar } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { WidgetProps } from '../types';
@@ -129,6 +129,15 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
   const readings = useCurrentReadings({ onDataUpdate: reportUpdate, onCommandStatus: handleCommandStatus });
   const reading = sensor && property ? readings[sensor.name]?.[property] : undefined;
 
+  // Drop the optimistic value once the server confirms it (adjust-during-render).
+  if (
+    optimisticValue != null
+    && resolveCheckedState(optimisticValue, valueOn, valueOff) != null
+    && resolveCheckedState(optimisticValue, valueOn, valueOff) === resolveCheckedState(reading?.text_state, valueOn, valueOff)
+  ) {
+    setOptimisticValue(null);
+  }
+
   const effectiveValue = optimisticValue ?? reading?.text_state ?? null;
   const resolvedCheckedState = resolveCheckedState(effectiveValue, valueOn, valueOff);
   const hasResolvedValue = resolvedCheckedState != null;
@@ -153,16 +162,6 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
     onOpacity: !hasResolvedValue ? 0.55 : visualChecked ? 1 : 0.35,
     offOpacity: !hasResolvedValue ? 0.55 : visualChecked ? 0.35 : 1,
   }), [canControl, hasResolvedValue, visualChecked, theme.palette.common.white, theme.palette.primary.main, theme.palette.text.secondary]);
-
-  useEffect(() => {
-    if (
-      optimisticValue != null
-      && resolveCheckedState(optimisticValue, valueOn, valueOff) != null
-      && resolveCheckedState(optimisticValue, valueOn, valueOff) === resolveCheckedState(reading?.text_state, valueOn, valueOff)
-    ) {
-      void Promise.resolve().then(() => setOptimisticValue(null));
-    }
-  }, [optimisticValue, reading?.text_state, valueOff, valueOn]);
 
   if (!sensor || !property || !capability) {
     return <NeedsConfiguration message="Select a controllable sensor and binary property" />;

@@ -12,7 +12,7 @@ import {
   TextField
 } from "@mui/material";
 import { apiClient } from "../gen/client";
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import {useSensorContext} from "../hooks/useSensorContext.ts";
 import {useSensorMeasurementTypes} from "../hooks/useMeasurementTypes.ts";
 import { logger } from '../tools/logger';
@@ -35,20 +35,6 @@ export default function CreateAlertDialog({open, onClose, onCreated}: CreateAler
   const [createEnabled, setCreateEnabled] = useState<boolean>(true);
   const { sensors } = useSensorContext();
   const { measurementTypes } = useSensorMeasurementTypes(createSensorId || null);
-
-  useEffect(() => {
-    void Promise.resolve().then(() => setCreateMeasurementTypeId(0));
-  }, [createSensorId]);
-
-  useEffect(() => {
-    if (createMeasurementTypeId && measurementTypes.length > 0) {
-      const mt = measurementTypes.find(m => m.id === createMeasurementTypeId);
-      if (mt) {
-        void Promise.resolve().then(() =>
-          setCreateAlertType(mt.category === 'binary' ? 'status_based' : 'numeric_range'));
-      }
-    }
-  }, [createMeasurementTypeId, measurementTypes]);
 
   const resetForm = () => {
     setCreateSensorId(0);
@@ -106,7 +92,10 @@ export default function CreateAlertDialog({open, onClose, onCreated}: CreateAler
             labelId="create-sensor-label"
             value={createSensorId}
             label="Sensor"
-            onChange={(e) => setCreateSensorId(Number(e.target.value))}
+            onChange={(e) => {
+              setCreateSensorId(Number(e.target.value));
+              setCreateMeasurementTypeId(0);
+            }}
           >
             {sensors.map(s => (
               <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
@@ -121,7 +110,12 @@ export default function CreateAlertDialog({open, onClose, onCreated}: CreateAler
               labelId="create-mt-label"
               value={createMeasurementTypeId}
               label="Measurement Type"
-              onChange={(e) => setCreateMeasurementTypeId(Number(e.target.value))}
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                setCreateMeasurementTypeId(id);
+                const mt = measurementTypes.find(m => m.id === id);
+                if (mt) setCreateAlertType(mt.category === 'binary' ? 'status_based' : 'numeric_range');
+              }}
             >
               {measurementTypes.map(mt => (
                 <MenuItem key={mt.id} value={mt.id}>{mt.display_name} ({mt.unit || mt.category})</MenuItem>

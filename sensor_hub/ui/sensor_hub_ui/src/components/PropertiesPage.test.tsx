@@ -1,12 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PropertyDefinitionsResponse } from '../gen/aliases';
+import { FakeWebSocket, installFakeWebSocket } from '../test/fakeWebSocket';
 
-const { getMock, patchMock, useAuthMock, usePropertiesMock } = vi.hoisted(() => ({
+const { getMock, patchMock } = vi.hoisted(() => ({
   getMock: vi.fn(),
   patchMock: vi.fn(),
-  useAuthMock: vi.fn(),
-  usePropertiesMock: vi.fn(),
 }));
 
 vi.mock('../gen/client', () => ({
@@ -14,14 +13,6 @@ vi.mock('../gen/client', () => ({
     GET: getMock,
     PATCH: patchMock,
   },
-}));
-
-vi.mock('../providers/AuthContext', () => ({
-  useAuth: useAuthMock,
-}));
-
-vi.mock('../hooks/useProperties', () => ({
-  useProperties: usePropertiesMock,
 }));
 
 const definitionsResponse: PropertyDefinitionsResponse = {
@@ -70,9 +61,24 @@ const serverValues: Record<string, string> = {
   'database.path': '/var/lib/sensor-hub/sensor_hub.db',
 };
 
-async function renderPage() {
+let restoreWebSocket: () => void;
+
+async function renderPage(permissions: string[]) {
+  // Fresh imports per test so the session cache in usePropertyDefinitions is empty,
+  // and so the AuthContext instance matches the one the page imports.
   const { default: PropertiesPage } = await import('./PropertiesPage');
-  render(<PropertiesPage />);
+  const { AuthContext } = await import('../providers/AuthContext');
+
+  render(
+    <AuthContext.Provider value={{ user: { id: 1, username: 'owner', roles: [], permissions }, refresh: async () => {} }}>
+      <PropertiesPage />
+    </AuthContext.Provider>,
+  );
+
+  await waitFor(() => expect(FakeWebSocket.instances.length).toBe(1));
+  act(() => {
+    FakeWebSocket.instances[0].serverSends(JSON.stringify(serverValues));
+  });
   await waitFor(() => expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument());
 }
 
@@ -80,19 +86,18 @@ describe('PropertiesPage', () => {
   beforeEach(() => {
     getMock.mockReset();
     patchMock.mockReset();
-    useAuthMock.mockReset();
-    usePropertiesMock.mockReset();
     vi.resetModules();
+    restoreWebSocket = installFakeWebSocket();
     getMock.mockResolvedValue({ data: definitionsResponse });
     patchMock.mockResolvedValue({ data: { message: 'ok' } });
-    usePropertiesMock.mockReturnValue(serverValues);
-    useAuthMock.mockReturnValue({
-      user: { id: 1, username: 'owner', roles: [], permissions: ['view_properties', 'manage_properties'] },
-    });
+  });
+
+  afterEach(() => {
+    restoreWebSocket();
   });
 
   it('renders a field for each definition carrying the current value from the value feed', async () => {
-    await renderPage();
+    await renderPage(['view_properties', 'manage_properties']);
 
     expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeChecked();
     expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(300);
@@ -100,7 +105,7 @@ describe('PropertiesPage', () => {
   });
 
   it('saves edits through PATCH /properties with database.path excluded from the payload', async () => {
-    await renderPage();
+    await renderPage(['view_properties', 'manage_properties']);
 
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
       target: { value: '120' },
@@ -117,11 +122,7 @@ describe('PropertiesPage', () => {
   });
 
   it('disables every control and shows no save control for a user without manage_properties', async () => {
-    useAuthMock.mockReturnValue({
-      user: { id: 2, username: 'viewer', roles: [], permissions: ['view_properties'] },
-    });
-
-    await renderPage();
+    await renderPage(['view_properties']);
 
     expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeDisabled();
     expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toBeDisabled();

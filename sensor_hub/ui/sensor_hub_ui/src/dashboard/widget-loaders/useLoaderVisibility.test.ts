@@ -51,9 +51,6 @@ describe('useLoaderVisibility', () => {
       vi.advanceTimersByTime(500);
     });
     rerender({ l: false });
-    act(() => {
-      vi.advanceTimersByTime(0);
-    });
     expect(result.current).toBe(false);
   });
 });

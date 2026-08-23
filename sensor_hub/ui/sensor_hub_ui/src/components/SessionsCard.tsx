@@ -27,14 +27,12 @@ export default function SessionsCard() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const isMobile = useIsMobile();
 
-  const load = async () => {
-    try {
-      const { data: s } = await apiClient.GET('/auth/sessions');
-      setSessions((s as Session[] | null) ?? []);
-    } catch (e) { logger.error(e); }
-  };
+  const load = () =>
+    apiClient.GET('/auth/sessions')
+      .then(({ data: s }) => setSessions((s as Session[] | null) ?? []))
+      .catch((e) => logger.error(e));
 
-  useEffect(() => { void Promise.resolve().then(load); }, []);
+  useEffect(() => { void load(); }, []);
 
   const revoke = async (id: number) => {
     try {

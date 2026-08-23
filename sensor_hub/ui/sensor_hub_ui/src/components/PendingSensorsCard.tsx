@@ -21,18 +21,19 @@ export default function PendingSensorsCard() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
-  const load = useCallback(async () => {
-    try {
-      const [pRes, dRes] = await Promise.all([
-        apiClient.GET('/sensors/status/{status}', { params: { path: { status: 'pending' } } }),
-        apiClient.GET('/sensors/status/{status}', { params: { path: { status: 'dismissed' } } }),
-      ]);
-      setPending(pRes.data || []);
-      setDismissed(dRes.data || []);
-    } catch (e) { logger.error(e); }
-  }, []);
+  const load = useCallback(() =>
+    Promise.all([
+      apiClient.GET('/sensors/status/{status}', { params: { path: { status: 'pending' } } }),
+      apiClient.GET('/sensors/status/{status}', { params: { path: { status: 'dismissed' } } }),
+    ])
+      .then(([pRes, dRes]) => {
+        setPending(pRes.data || []);
+        setDismissed(dRes.data || []);
+      })
+      .catch((e) => logger.error(e)),
+  []);
 
-  useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const handleApprove = async (id: number) => {
     try {
