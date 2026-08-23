@@ -84,6 +84,39 @@ func TestLoadConfigurationFromMaps_EmptyMaps(t *testing.T) {
 	assert.Equal(t, 0, cfg.SensorCollectionInterval)
 }
 
+func TestLoadConfigurationFromMaps_RuleFailureNamesTheKey(t *testing.T) {
+	appProps := validAppPropsMap()
+	appProps["sensor.collection.interval"] = "-5"
+
+	_, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+
+	var vErr *ValidationError
+	assert.ErrorAs(t, err, &vErr)
+	assert.Equal(t, "sensor.collection.interval", vErr.Key)
+}
+
+func TestLoadConfigurationFromMaps_ParseFailureNamesTheKey(t *testing.T) {
+	appProps := validAppPropsMap()
+	appProps["sensor.collection.interval"] = "abc"
+
+	_, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+
+	var vErr *ValidationError
+	assert.ErrorAs(t, err, &vErr)
+	assert.Equal(t, "sensor.collection.interval", vErr.Key)
+}
+
+func TestLoadConfigurationFromMaps_EmptyStringRuleFailureNamesTheKey(t *testing.T) {
+	dbProps := validDbPropsMap()
+	dbProps["database.path"] = ""
+
+	_, err := LoadConfigurationFromMaps(validAppPropsMap(), validSmtpPropsMap(), dbProps)
+
+	var vErr *ValidationError
+	assert.ErrorAs(t, err, &vErr)
+	assert.Equal(t, "database.path", vErr.Key)
+}
+
 func TestLoadConfigurationFromMaps_InvalidSensorCollectionInterval(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["sensor.collection.interval"] = "abc"

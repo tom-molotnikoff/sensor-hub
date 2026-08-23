@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	gen "example/sensorHub/gen"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -154,6 +156,30 @@ func TestProperties_DefinitionsCoverEveryValue(t *testing.T) {
 		_, ok := values[key]
 		assert.True(t, ok, "definition %q has no value", key)
 	}
+}
+
+// A validation failure rejects the whole batch and the 400 body names the
+// offending key, so a client can attach the error to the right field.
+func TestProperties_ValidationFailureNamesKeyAndRejectsBatch(t *testing.T) {
+	originalInterval := readProperty(t, "sensor.collection.interval")
+	originalUser := readProperty(t, "smtp.user")
+	defer client.SetProperty("sensor.collection.interval", originalInterval)
+	defer client.SetProperty("smtp.user", originalUser)
+
+	body, status := client.UpdateProperties(map[string]string{
+		"sensor.collection.interval": "not-a-number",
+		"smtp.user":                  "batch-probe@example.com",
+	})
+	require.Equal(t, http.StatusBadRequest, status)
+
+	var errResp gen.PropertiesErrorResponse
+	require.NoError(t, json.Unmarshal(body, &errResp))
+	require.NotNil(t, errResp.Key)
+	assert.Equal(t, "sensor.collection.interval", *errResp.Key)
+	assert.NotEmpty(t, errResp.Message)
+
+	assert.Equal(t, originalInterval, readProperty(t, "sensor.collection.interval"))
+	assert.Equal(t, originalUser, readProperty(t, "smtp.user"))
 }
 
 func readProperty(t *testing.T, key string) string {

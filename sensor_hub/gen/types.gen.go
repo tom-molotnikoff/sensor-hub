@@ -858,6 +858,15 @@ type PermissionInfo struct {
 	Name        string  `json:"name"`
 }
 
+// PropertiesErrorResponse Error response for property updates. When the failure is a validation failure, `key` names the property whose value was rejected.
+type PropertiesErrorResponse struct {
+	// Key Dotted key of the property that failed validation. Absent when the failure is not tied to a single property.
+	Key *string `json:"key,omitempty"`
+
+	// Message Human-readable error message.
+	Message string `json:"message"`
+}
+
 // PropertiesMap Flat map of configuration keys to values (all values as strings).
 type PropertiesMap map[string]string
 

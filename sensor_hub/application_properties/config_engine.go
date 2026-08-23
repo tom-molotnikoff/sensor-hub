@@ -212,7 +212,7 @@ func LoadFromMaps(appProps, smtpProps, dbProps map[string]string) (*ApplicationC
 			i, err := strconv.Atoi(raw)
 			if err != nil {
 				slog.Error("invalid config value", "key", def.Key, "value", raw, "error", err)
-				return nil, err
+				return nil, errInvalidValue(def, raw)
 			}
 			if err := validateInt(def, i, raw); err != nil {
 				return nil, err
@@ -226,7 +226,7 @@ func LoadFromMaps(appProps, smtpProps, dbProps map[string]string) (*ApplicationC
 			b, err := strconv.ParseBool(raw)
 			if err != nil {
 				slog.Error("invalid config value", "key", def.Key, "value", raw, "error", err)
-				return nil, err
+				return nil, errInvalidValue(def, raw)
 			}
 			field.SetBool(b)
 
@@ -241,15 +241,28 @@ func LoadFromMaps(appProps, smtpProps, dbProps map[string]string) (*ApplicationC
 	return cfg, nil
 }
 
+// ValidationError reports a property value that failed parsing or a validate
+// rule, carrying the key so callers can attach the failure to a field.
+type ValidationError struct {
+	Key     string
+	Message string
+}
+
+func (e *ValidationError) Error() string { return e.Message }
+
+func errInvalidValue(def PropertyDef, raw string) *ValidationError {
+	return &ValidationError{Key: def.Key, Message: fmt.Sprintf("invalid %s value: %s", def.Key, raw)}
+}
+
 func validateInt(def PropertyDef, value int, raw string) error {
 	switch def.Validate {
 	case "positive":
 		if value <= 0 {
-			return fmt.Errorf("invalid %s value: %s", def.Key, raw)
+			return errInvalidValue(def, raw)
 		}
 	case "non_negative":
 		if value < 0 {
-			return fmt.Errorf("invalid %s value: %s", def.Key, raw)
+			return errInvalidValue(def, raw)
 		}
 	}
 	return nil
@@ -259,7 +272,7 @@ func validateString(def PropertyDef, value string) error {
 	switch def.Validate {
 	case "non_empty":
 		if value == "" {
-			return fmt.Errorf("%s must not be empty", def.Key)
+			return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must not be empty", def.Key)}
 		}
 	}
 	return nil

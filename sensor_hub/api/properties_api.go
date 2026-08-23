@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	appProps "example/sensorHub/application_properties"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/ws"
@@ -22,6 +23,11 @@ func (s *Server) UpdateProperties(c *gin.Context) {
 
 	err := s.propertiesService.ServiceUpdateProperties(ctx, requestBody)
 	if err != nil {
+		var vErr *appProps.ValidationError
+		if errors.As(err, &vErr) {
+			c.IndentedJSON(http.StatusBadRequest, gen.PropertiesErrorResponse{Message: vErr.Message, Key: &vErr.Key})
+			return
+		}
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error updating properties", "error": err.Error()})
 		return
 	}

@@ -1222,11 +1222,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/OperationAccepted'
         '400':
-          description: Invalid request
+          description: >-
+            Invalid request. A validation failure rejects the whole batch and
+            names the property that failed in `key`.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/PropertiesErrorResponse'
         '500':
           description: Server error
           content:
@@ -4100,6 +4102,23 @@ components:
       example:
         smtp.user: "new-user@example.com"
         sensor.collection.interval: "300"
+
+    PropertiesErrorResponse:
+      type: object
+      description: >-
+        Error response for property updates. When the failure is a validation
+        failure, `key` names the property whose value was rejected.
+      properties:
+        message:
+          type: string
+          description: Human-readable error message.
+        key:
+          type: string
+          description: >-
+            Dotted key of the property that failed validation. Absent when
+            the failure is not tied to a single property.
+      required:
+        - message
 
     PropertiesWebSocketMessage:
       type: object
