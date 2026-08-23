@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Typography, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Alert } from '@mui/material';
 import LayoutCard from '../tools/LayoutCard';
 import { useNotifications } from '../providers/NotificationContext';
@@ -17,20 +17,27 @@ const CATEGORIES: CategoryConfig[] = [
   { category: 'config_change', label: 'Configuration Changes', description: 'Notifications when sensors are added, updated, or removed' },
 ];
 
+function buildPrefMap(preferences: ChannelPreference[]): Record<NotificationCategory, ChannelPreference> {
+  const prefMap = {} as Record<NotificationCategory, ChannelPreference>;
+  CATEGORIES.forEach(({ category }) => {
+    const existing = preferences.find(p => p.category === category);
+    prefMap[category] = existing || { category, email_enabled: true, inapp_enabled: true };
+  });
+  return prefMap;
+}
+
 export default function NotificationPreferencesCard() {
   const { preferences, updatePreference } = useNotifications();
-  const [localPrefs, setLocalPrefs] = useState<Record<NotificationCategory, ChannelPreference>>({} as Record<NotificationCategory, ChannelPreference>);
+  const [localPrefs, setLocalPrefs] = useState<Record<NotificationCategory, ChannelPreference>>(() => buildPrefMap(preferences));
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const prefMap: Record<NotificationCategory, ChannelPreference> = {} as Record<NotificationCategory, ChannelPreference>;
-    CATEGORIES.forEach(({ category }) => {
-      const existing = preferences.find(p => p.category === category);
-      prefMap[category] = existing || { category, email_enabled: true, inapp_enabled: true };
-    });
-    setLocalPrefs(prefMap);
-  }, [preferences]);
+  // Re-sync the editable copy when the server preferences change (adjust-during-render).
+  const [prevPreferences, setPrevPreferences] = useState(preferences);
+  if (prevPreferences !== preferences) {
+    setPrevPreferences(preferences);
+    setLocalPrefs(buildPrefMap(preferences));
+  }
 
   const handleToggle = async (category: NotificationCategory, channel: 'email' | 'inapp', value: boolean) => {
     const currentPref = localPrefs[category];

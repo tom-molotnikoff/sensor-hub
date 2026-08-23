@@ -25,10 +25,17 @@ export default function MinMaxAvgWidget({ config }: WidgetProps) {
     const startIso = startDate.toISODate() ?? '';
     const endIso = endDate.toISODate() ?? '';
 
+    // Show the loader again when the query changes (adjust-during-render).
+    const loadKey = `${sensor?.id ?? ''}|${startIso}|${endIso}|${measurementType ?? ''}`;
+    const [prevLoadKey, setPrevLoadKey] = useState(loadKey);
+    if (prevLoadKey !== loadKey) {
+        setPrevLoadKey(loadKey);
+        setLoading(true);
+    }
+
     useEffect(() => {
         if (!sensor) return;
 
-        setLoading(true);
         requestScheduler.schedule('normal', () => apiClient.GET('/readings/between', { params: { query: { start: startIso, end: endIso, measurement_type: measurementType } } })).then(({ data: response }) => {
             const sensorReadings = (response?.readings ?? []).filter((r) => r.sensor_name === sensor.name);
             if (sensorReadings.length === 0) {
@@ -43,7 +50,7 @@ export default function MinMaxAvgWidget({ config }: WidgetProps) {
             setStats({ min, max, avg, unit });
             reportUpdate(new Date());
         }).finally(() => setLoading(false));
-    }, [sensor, startIso, endIso, measurementType]);
+    }, [sensor, startIso, endIso, measurementType, reportUpdate]);
 
     if (!sensor || !measurementType) {
         return <NeedsConfiguration message="Select a sensor and measurement type" />;

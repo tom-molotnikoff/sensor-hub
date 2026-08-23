@@ -31,7 +31,7 @@ export default function CreateSubscriptionDialog({ open, onClose, onCreated }: P
       .then(({ data: b }) => {
         const bList = (b as MQTTBroker[] | null) ?? [];
         setBrokers(bList);
-        if (bList.length > 0 && brokerId === 0) setBrokerId(bList[0].id);
+        if (bList.length > 0) setBrokerId(prev => (prev === 0 ? bList[0].id : prev));
       })
       .catch(e => logger.error('Failed to load brokers', e));
   }, [open]);

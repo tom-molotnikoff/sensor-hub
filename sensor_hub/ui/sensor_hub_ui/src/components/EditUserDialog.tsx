@@ -26,13 +26,19 @@ export default function EditUserDialog({open, onClose, onSaved, selectedUser}: E
   const [role, setRole] = useState('user');
   const [availableRoles, setAvailableRoles] = useState<RoleInfo[]>([]);
 
+  // Re-seed the role whenever the dialog opens for a user (adjust-during-render).
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevUser, setPrevUser] = useState(selectedUser);
+  if (prevOpen !== open || prevUser !== selectedUser) {
+    setPrevOpen(open);
+    setPrevUser(selectedUser);
+    if (open) {
+      setRole(selectedUser?.roles && selectedUser.roles.length > 0 ? selectedUser.roles[0] : 'user');
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
-    if (selectedUser?.roles && selectedUser.roles.length > 0) {
-      setRole(selectedUser.roles[0]);
-    } else {
-      setRole('user');
-    }
     apiClient.GET('/roles').then(({ data: r }) => {
       setAvailableRoles(r || []);
     }).catch(e => logger.error('Failed to load roles', e));

@@ -11,26 +11,26 @@ export default function NotificationProvider({ children }: { children: React.Rea
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [preferences, setPreferences] = useState<ChannelPreference[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [fetched, setFetched] = useState(false);
 
   const hasPermission = user?.permissions?.includes('view_notifications');
+  // Loading until the user is known; a user who cannot view notifications has nothing to load.
+  const loading = user === undefined || (!!user && !!hasPermission && !fetched);
 
-  const refresh = useCallback(async () => {
-    if (!user || !hasPermission) return;
-    try {
-      const [notifsRes, countRes, prefsRes] = await Promise.all([
-        apiClient.GET('/notifications', { params: { query: { limit: 50, offset: 0, unread_only: false } } }),
-        apiClient.GET('/notifications/unread-count'),
-        apiClient.GET('/notifications/preferences'),
-      ]);
-      setNotifications(notifsRes.data ?? []);
-      setUnreadCount(countRes.data?.count ?? 0);
-      setPreferences(prefsRes.data ?? []);
-    } catch (err) {
-      logger.error('Failed to load notifications:', err);
-    } finally {
-      setLoading(false);
-    }
+  const refresh = useCallback((): Promise<void> => {
+    if (!user || !hasPermission) return Promise.resolve();
+    return Promise.all([
+      apiClient.GET('/notifications', { params: { query: { limit: 50, offset: 0, unread_only: false } } }),
+      apiClient.GET('/notifications/unread-count'),
+      apiClient.GET('/notifications/preferences'),
+    ])
+      .then(([notifsRes, countRes, prefsRes]) => {
+        setNotifications(notifsRes.data ?? []);
+        setUnreadCount(countRes.data?.count ?? 0);
+        setPreferences(prefsRes.data ?? []);
+      })
+      .catch((err) => logger.error('Failed to load notifications:', err))
+      .finally(() => setFetched(true));
   }, [user, hasPermission]);
 
   const markAsRead = useCallback(async (notificationId: number) => {
@@ -76,12 +76,8 @@ export default function NotificationProvider({ children }: { children: React.Rea
 
   // Initial load
   useEffect(() => {
-    if (user === undefined) return;
-    if (!user || !hasPermission) {
-      setLoading(false);
-      return;
-    }
-    refresh();
+    if (!user || !hasPermission) return;
+    void refresh();
   }, [user, hasPermission, refresh]);
 
   // WebSocket subscription for real-time updates

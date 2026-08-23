@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Button,
@@ -53,7 +53,12 @@ export default function EditRetentionDialog({ open, onClose, onSaved, sensor, gl
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Re-seed the form whenever the dialog opens for a sensor (adjust-during-render).
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevSensor, setPrevSensor] = useState(sensor);
+  if (prevOpen !== open || prevSensor !== sensor) {
+    setPrevOpen(open);
+    setPrevSensor(sensor);
     if (open && sensor) {
       const hasCustom = sensor.retention_hours != null;
       setUseCustom(hasCustom);
@@ -67,7 +72,7 @@ export default function EditRetentionDialog({ open, onClose, onSaved, sensor, gl
         setValue('');
       }
     }
-  }, [open, sensor]);
+  }
 
   const pendingEffectiveHours = useCustom && value
     ? unitToHours(parseFloat(value), unit)

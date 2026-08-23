@@ -35,6 +35,9 @@ export type PermissionInfo            = components['schemas']['PermissionInfo'];
 export type ApiKey                    = components['schemas']['ApiKey'];
 export type OAuthStatus               = components['schemas']['OAuthStatus'];
 export type LoginResponse             = components['schemas']['LoginResponse'];
+export type PropertyDefinition        = components['schemas']['PropertyDefinition'];
+export type PropertyGroup             = components['schemas']['PropertyGroup'];
+export type PropertyDefinitionsResponse = components['schemas']['PropertyDefinitionsResponse'];
 export type MeResponse                = components['schemas']['MeResponse'];
 
 export type NotificationSeverity = Notification['severity'];

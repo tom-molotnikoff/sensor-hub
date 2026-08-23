@@ -11,6 +11,26 @@ interface WidgetPickerDialogProps {
     onClose: () => void;
 }
 
+type WidgetDefinitionLike = {
+    type: string;
+    defaultConfig: Record<string, unknown>;
+    defaultLayout: { w: number; h: number };
+};
+
+function buildWidget(definition: WidgetDefinitionLike): DashboardWidget {
+    return {
+        id: `${definition.type}-${Date.now()}`,
+        type: definition.type,
+        config: { ...definition.defaultConfig },
+        layout: {
+            x: 0,
+            y: Infinity,
+            w: definition.defaultLayout.w,
+            h: definition.defaultLayout.h,
+        },
+    };
+}
+
 export default function WidgetPickerDialog({ open, onClose }: WidgetPickerDialogProps) {
     const { addWidget } = useDashboard();
     const widgets = getAllWidgets();
@@ -19,19 +39,7 @@ export default function WidgetPickerDialog({ open, onClose }: WidgetPickerDialog
         const definition = widgets.find((w) => w.type === type);
         if (!definition) return;
 
-        const newWidget: DashboardWidget = {
-            id: `${type}-${Date.now()}`,
-            type,
-            config: { ...definition.defaultConfig },
-            layout: {
-                x: 0,
-                y: Infinity,
-                w: definition.defaultLayout.w,
-                h: definition.defaultLayout.h,
-            },
-        };
-
-        addWidget(newWidget);
+        addWidget(buildWidget(definition));
         onClose();
     };
 

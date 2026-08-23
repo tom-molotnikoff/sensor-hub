@@ -11,6 +11,7 @@ export default function ReadingsChartWidget({ config }: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
     const measurementType = config.measurementType as string | undefined;
     const aggregationFunction = config.aggregationFunction as string | undefined;
+    const resolveRange = useCallback(() => resolveTimeRange(config), [config]);
 
     if (!measurementType) {
         return <NeedsConfiguration message="Select a measurement type to display" />;
@@ -18,7 +19,6 @@ export default function ReadingsChartWidget({ config }: WidgetProps) {
 
     const pollIntervalMs = typeof config.refreshInterval === 'number' && config.refreshInterval > 0
         ? config.refreshInterval * 1000 : undefined;
-    const resolveRange = useCallback(() => resolveTimeRange(config), [config]);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, width: '100%' }}>

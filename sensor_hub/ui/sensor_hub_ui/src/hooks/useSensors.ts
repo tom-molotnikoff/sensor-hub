@@ -30,6 +30,13 @@ export function useSensors() {
   const sensorsRef = useRef<Sensor[]>([]);
   const { user } = useAuth();
 
+  // A different user gets a fresh connection, so its list is not loaded yet.
+  const [prevUser, setPrevUser] = useState(user);
+  if (prevUser !== user) {
+    setPrevUser(user);
+    setLoaded(false);
+  }
+
   useEffect(() => {
     sensorsRef.current = sensors;
   }, [sensors]);
@@ -37,8 +44,6 @@ export function useSensors() {
   useEffect(() => {
     if (user === undefined) return;
     if (user === null) return;
-
-    setLoaded(false);
 
     const ws = new WebSocket(`${WEBSOCKET_BASE}/sensors/ws`);
     ws.onmessage = (event) => {

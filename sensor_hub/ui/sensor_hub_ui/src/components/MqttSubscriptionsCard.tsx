@@ -21,20 +21,20 @@ export default function MqttSubscriptionsCard() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
-  const load = async () => {
-    try {
-      const [{ data: subs }, { data: brokers }] = await Promise.all([
-        apiClient.GET('/mqtt/subscriptions'),
-        apiClient.GET('/mqtt/brokers'),
-      ]);
-      setSubscriptions((subs as MQTTSubscription[] | null) ?? []);
-      const map: Record<number, string> = {};
-      ((brokers as MQTTBroker[] | null) ?? []).forEach((b: MQTTBroker) => { map[b.id] = b.name; });
-      setBrokerMap(map);
-    } catch (e) { logger.error(e); }
-  };
+  const load = () =>
+    Promise.all([
+      apiClient.GET('/mqtt/subscriptions'),
+      apiClient.GET('/mqtt/brokers'),
+    ])
+      .then(([{ data: subs }, { data: brokers }]) => {
+        setSubscriptions((subs as MQTTSubscription[] | null) ?? []);
+        const map: Record<number, string> = {};
+        ((brokers as MQTTBroker[] | null) ?? []).forEach((b: MQTTBroker) => { map[b.id] = b.name; });
+        setBrokerMap(map);
+      })
+      .catch((e) => logger.error(e));
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, []);
 
   const handleRowClick = (params: GridRowParams, event: React.MouseEvent) => {
     const id = typeof params.id === 'number' ? params.id : Number(params.id);

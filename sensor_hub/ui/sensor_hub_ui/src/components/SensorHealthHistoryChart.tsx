@@ -1,6 +1,6 @@
 import useSensorHealthHistory from "../hooks/useSensorHealthHistory.ts";
 import type {Sensor} from "../gen/aliases";
-import {type CSSProperties, useMemo} from "react";
+import {type CSSProperties, useEffect, useMemo, useState} from "react";
 import {
   CartesianGrid,
   Legend,
@@ -95,11 +95,20 @@ function SensorHealthHistoryChart({sensor}: SensorHealthHistoryChartProps) {
     return "unknown";
   };
 
-  const lastChangeLabel = useMemo(() => {
-    if (!model?.lastTransitionAt) return null;
+  // The label depends on the wall clock, which render must not read, so it is
+  // computed once per model change in this effect. The synchronous setState is
+  // deliberate, not an oversight.
+  const [lastChangeLabel, setLastChangeLabel] = useState<string | null>(null);
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!model?.lastTransitionAt) {
+      setLastChangeLabel(null);
+      return;
+    }
     const elapsedMs = Math.max(0, Date.now() - new Date(model.lastTransitionAt).getTime());
-    return `${formatDurationShort(elapsedMs)} ago`;
+    setLastChangeLabel(`${formatDurationShort(elapsedMs)} ago`);
   }, [model]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <div data-testid="sensor-health-history-chart" style={graphContainerStyle}>

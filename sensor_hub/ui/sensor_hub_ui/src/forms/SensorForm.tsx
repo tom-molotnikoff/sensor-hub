@@ -6,7 +6,6 @@ import {useDrivers} from "../hooks/useDrivers.ts";
 import * as Yup from 'yup';
 import type {AuthUser} from "../providers/AuthContext.tsx";
 import {hasPerm} from "../tools/Utils.ts";
-import {useMemo} from "react";
 import {TypographyH2} from "../tools/Typography.tsx";
 import {useProperties} from "../hooks/useProperties.ts";
 import {formatRetention, unitToHours, hoursToUnit, type RetentionUnit} from "../tools/retention.ts";
@@ -78,10 +77,7 @@ function SensorForm ({ sensor, mode = 'edit', onSuccess, user } : SensorFormProp
         {(formik: FormikProps<SensorFormValues>) => {
           const { isSubmitting: formikSubmitting, dirty, errors, touched, values, setFieldValue } = formik;
 
-          const selectedDriver = useMemo(
-            () => drivers.find(d => d.type === values.sensorDriver),
-            [drivers, values.sensorDriver]
-          );
+          const selectedDriver = drivers.find(d => d.type === values.sensorDriver);
 
           const pendingEffectiveHours = values.retentionEnabled && values.retentionValue
             ? unitToHours(parseFloat(values.retentionValue), values.retentionUnit)

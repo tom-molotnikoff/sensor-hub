@@ -8,14 +8,11 @@ function useTotalReadingsForEachSensor(): [Record<string, number>, () => Promise
   const [totalReadingsPerSensor, setTotalReadingsPerSensor] = useState<Record<string, number>>({});
   const {user} = useAuth();
 
-  const fetchTotalReadings = useCallback(async () => {
-    try {
-      const { data } = await apiClient.GET('/sensors/stats/total-readings');
-      setTotalReadingsPerSensor((data as Record<string, number>) ?? {});
-    } catch (err) {
-      logger.error("Failed to load total readings for each sensor", err);
-    }
-  }, []);
+  const fetchTotalReadings = useCallback(() =>
+    apiClient.GET('/sensors/stats/total-readings')
+      .then(({ data }) => setTotalReadingsPerSensor((data as Record<string, number>) ?? {}))
+      .catch((err) => logger.error("Failed to load total readings for each sensor", err)),
+  []);
 
   useEffect(() => {
     if (user === undefined) return;

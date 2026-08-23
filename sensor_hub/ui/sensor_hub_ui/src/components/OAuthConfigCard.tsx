@@ -36,21 +36,23 @@ export default function OAuthConfigCard() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
-  const loadStatus = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const { data: s } = await apiClient.GET('/oauth/status');
-      setStatus(s as unknown as OAuthStatus ?? null);
-    } catch (err: unknown) {
-      const e = err as { message?: string };
-      setError(e.message || 'Failed to load OAuth status');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchStatus = useCallback(() =>
+    apiClient.GET('/oauth/status')
+      .then(({ data: s }) => setStatus(s as unknown as OAuthStatus ?? null))
+      .catch((err: unknown) => {
+        const e = err as { message?: string };
+        setError(e.message || 'Failed to load OAuth status');
+      })
+      .finally(() => setLoading(false)),
+  []);
 
-  useEffect(() => { loadStatus(); }, [loadStatus]);
+  const loadStatus = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    return fetchStatus();
+  }, [fetchStatus]);
+
+  useEffect(() => { void fetchStatus(); }, [fetchStatus]);
 
   const handleStartAuthorize = async () => {
     try {

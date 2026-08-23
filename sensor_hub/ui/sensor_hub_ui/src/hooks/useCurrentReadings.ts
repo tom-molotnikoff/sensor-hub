@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CommandStatusMessage, Reading } from "../gen/aliases";
 import { WEBSOCKET_BASE } from "../environment/Environment";
 import { useAuth } from "../providers/AuthContext.tsx";
@@ -60,9 +60,11 @@ export function useCurrentReadings(options?: UseCurrentReadingsOptions): Current
   const { user } = useAuth();
 
   const onDataUpdateRef = useRef(options?.onDataUpdate);
-  onDataUpdateRef.current = options?.onDataUpdate;
   const onCommandStatusRef = useRef(options?.onCommandStatus);
-  onCommandStatusRef.current = options?.onCommandStatus;
+  useEffect(() => {
+    onDataUpdateRef.current = options?.onDataUpdate;
+    onCommandStatusRef.current = options?.onCommandStatus;
+  });
 
   const handleMessage = useCallback((event: MessageEvent) => {
       if (!event.data || event.data === "null") return;

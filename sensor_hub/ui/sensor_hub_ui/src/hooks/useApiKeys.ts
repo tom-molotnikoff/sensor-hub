@@ -9,23 +9,25 @@ export function useApiKeys() {
   const [loaded, setLoaded] = useState(false);
   const { user } = useAuth();
 
-  const refresh = useCallback(async () => {
+  const load = useCallback(() =>
+    apiClient.GET('/api-keys')
+      .then(({ data }) => setApiKeys(data ?? []))
+      .catch((err) => {
+        logger.error('Failed to load API keys', err);
+        setApiKeys([]);
+      })
+      .finally(() => setLoaded(true)),
+  []);
+
+  const refresh = useCallback(() => {
     setLoaded(false);
-    try {
-      const { data } = await apiClient.GET('/api-keys');
-      setApiKeys(data ?? []);
-    } catch (err) {
-      logger.error('Failed to load API keys', err);
-      setApiKeys([]);
-    } finally {
-      setLoaded(true);
-    }
-  }, []);
+    return load();
+  }, [load]);
 
   useEffect(() => {
     if (user === undefined || user === null) return;
-    refresh();
-  }, [user, refresh]);
+    void load();
+  }, [user, load]);
 
   return { apiKeys, loaded, refresh };
 }

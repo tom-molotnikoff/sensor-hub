@@ -13,21 +13,20 @@ export default function RolePermissionsCard() {
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [rolePermissions, setRolePermissions] = useState<number[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<number[]>([]);
   const [snack, setSnack] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
   const { user } = useAuth();
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const { data: r } = await apiClient.GET('/roles');
-      setRoles(r ?? []);
-      const { data: p } = await apiClient.GET('/roles/permissions');
-      setPermissions((p as Permission[] | null) ?? []);
-    } catch (e) { logger.error(e); }
-    setLoading(false);
-  };
+  const load = () =>
+    apiClient.GET('/roles')
+      .then(async ({ data: r }) => {
+        setRoles(r ?? []);
+        const { data: p } = await apiClient.GET('/roles/permissions');
+        setPermissions((p as Permission[] | null) ?? []);
+      })
+      .catch((e) => logger.error(e))
+      .finally(() => setLoading(false));
 
   const loadRolePerms = async (roleId: number) => {
     try {
@@ -36,7 +35,7 @@ export default function RolePermissionsCard() {
     } catch (e) { logger.error(e); setRolePermissions([]); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, []);
 
   const onRoleSelect = (r: Role) => { setSelectedRole(r); loadRolePerms(r.id); };
 

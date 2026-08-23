@@ -16,13 +16,20 @@ interface Options {
 export function useLoaderVisibility(isLoading: boolean, options: Options = {}): boolean {
   const minVisibleMs = options.minVisibleMs ?? DEFAULT_MIN_VISIBLE_MS;
   const [showLoader, setShowLoader] = useState(isLoading);
-  const shownAtRef = useRef<number | null>(isLoading ? Date.now() : null);
+  const shownAtRef = useRef<number | null>(null);
 
+  // The gate is inherently clock-coupled: the shown-at stamp and the show/hide
+  // flips must read Date.now(), which render cannot, so they live here. The
+  // synchronous setState calls are deliberate, not an oversight.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isLoading) {
       if (!showLoader) {
         shownAtRef.current = Date.now();
         setShowLoader(true);
+      } else if (shownAtRef.current === null) {
+        // First render started with the loader already visible.
+        shownAtRef.current = Date.now();
       }
       return;
     }
@@ -38,6 +45,7 @@ export function useLoaderVisibility(isLoading: boolean, options: Options = {}): 
     const timer = setTimeout(() => setShowLoader(false), remaining);
     return () => clearTimeout(timer);
   }, [isLoading, showLoader, minVisibleMs]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return showLoader;
 }

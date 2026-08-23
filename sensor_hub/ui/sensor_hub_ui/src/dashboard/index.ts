@@ -1,4 +1,5 @@
-export { DashboardProvider, useDashboard } from './DashboardContext';
+export { useDashboard } from './DashboardContext';
+export { DashboardProvider } from './DashboardProvider';
 export { default as DashboardEngine } from './DashboardEngine';
 export { default as DashboardPage } from './DashboardPage';
 export { default as DashboardToolbar } from './DashboardToolbar';

@@ -20,14 +20,12 @@ export default function MqttBrokersCard() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
-  const load = async () => {
-    try {
-      const { data: b } = await apiClient.GET('/mqtt/brokers');
-      setBrokers((b as MQTTBroker[] | null) ?? []);
-    } catch (e) { logger.error(e); }
-  };
+  const load = () =>
+    apiClient.GET('/mqtt/brokers')
+      .then(({ data: b }) => setBrokers((b as MQTTBroker[] | null) ?? []))
+      .catch((e) => logger.error(e));
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, []);
 
   const handleRowClick = (params: GridRowParams, event: React.MouseEvent) => {
     const id = typeof params.id === 'number' ? params.id : Number(params.id);
