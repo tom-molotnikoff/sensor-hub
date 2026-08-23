@@ -7,21 +7,21 @@ export function useDrivers(type?: 'pull' | 'push') {
   const [drivers, setDrivers] = useState<DriverInfo[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const load = useCallback(() =>
+    apiClient.GET('/drivers', { params: { query: type ? { type } : undefined } })
+      .then(({ data }) => setDrivers(data ?? []))
+      .catch((err) => logger.error('Failed to fetch drivers:', err))
+      .finally(() => setLoaded(true)),
+  [type]);
+
+  const refresh = useCallback(() => {
     setLoaded(false);
-    try {
-      const { data } = await apiClient.GET('/drivers', { params: { query: type ? { type } : undefined } });
-      setDrivers(data ?? []);
-    } catch (err) {
-      logger.error('Failed to fetch drivers:', err);
-    } finally {
-      setLoaded(true);
-    }
-  }, [type]);
+    return load();
+  }, [load]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void load();
+  }, [load]);
 
   return { drivers, loaded, refresh };
 }

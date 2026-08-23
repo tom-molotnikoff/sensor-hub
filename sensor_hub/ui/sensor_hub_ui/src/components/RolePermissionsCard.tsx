@@ -36,7 +36,7 @@ export default function RolePermissionsCard() {
     } catch (e) { logger.error(e); setRolePermissions([]); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void Promise.resolve().then(load); }, []);
 
   const onRoleSelect = (r: Role) => { setSelectedRole(r); loadRolePerms(r.id); };
 

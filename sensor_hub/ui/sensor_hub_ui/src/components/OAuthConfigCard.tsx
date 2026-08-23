@@ -50,7 +50,7 @@ export default function OAuthConfigCard() {
     }
   }, []);
 
-  useEffect(() => { loadStatus(); }, [loadStatus]);
+  useEffect(() => { void Promise.resolve().then(loadStatus); }, [loadStatus]);
 
   const handleStartAuthorize = async () => {
     try {

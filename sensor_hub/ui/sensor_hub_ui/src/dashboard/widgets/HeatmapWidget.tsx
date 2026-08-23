@@ -78,7 +78,7 @@ export default function HeatmapWidget({ config }: WidgetProps) {
     useEffect(() => {
         if (!sensor) return;
 
-        setLoading(true);
+        void Promise.resolve().then(() => setLoading(true));
         const now = new Date();
         const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -105,7 +105,7 @@ export default function HeatmapWidget({ config }: WidgetProps) {
             setDays(result);
             reportUpdate(new Date());
         }).finally(() => setLoading(false));
-    }, [sensor, measurementType]);
+    }, [sensor, measurementType, reportUpdate]);
 
     if (!sensor || !measurementType) {
         return <NeedsConfiguration message="Select a sensor and measurement type" />;

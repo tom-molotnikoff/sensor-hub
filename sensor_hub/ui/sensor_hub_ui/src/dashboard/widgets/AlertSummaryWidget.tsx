@@ -20,7 +20,7 @@ export default function AlertSummaryWidget(_props: WidgetProps) {
         }).catch(() => {
             setLoaded(true);
         });
-    }, []);
+    }, [reportUpdate]);
 
     return (
         <WidgetSwap loading={!loaded} loader={<CascadeRowsLoader />}>

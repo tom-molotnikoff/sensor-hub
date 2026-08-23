@@ -37,14 +37,15 @@ export default function CreateAlertDialog({open, onClose, onCreated}: CreateAler
   const { measurementTypes } = useSensorMeasurementTypes(createSensorId || null);
 
   useEffect(() => {
-    setCreateMeasurementTypeId(0);
+    void Promise.resolve().then(() => setCreateMeasurementTypeId(0));
   }, [createSensorId]);
 
   useEffect(() => {
     if (createMeasurementTypeId && measurementTypes.length > 0) {
       const mt = measurementTypes.find(m => m.id === createMeasurementTypeId);
       if (mt) {
-        setCreateAlertType(mt.category === 'binary' ? 'status_based' : 'numeric_range');
+        void Promise.resolve().then(() =>
+          setCreateAlertType(mt.category === 'binary' ? 'status_based' : 'numeric_range'));
       }
     }
   }, [createMeasurementTypeId, measurementTypes]);

@@ -8,31 +8,30 @@ function useSensorHealthHistory(sensorName: string): [SensorHealthHistory[], () 
   const [healthHistory, setHealthHistory] = useState<SensorHealthHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchHistory = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const { data } = await apiClient.GET('/sensors/health/{name}', {
-        params: { path: { name: sensorName } },
-      });
-      setHealthHistory(data ?? []);
-    } catch (err) {
-      logger.error("Failed to load sensor health history", err);
-    } finally {
-      setIsLoading(false);
+  const load = useCallback(() => {
+    if (!sensorName) {
+      return Promise.resolve().then(() => setIsLoading(false));
     }
+    return apiClient.GET('/sensors/health/{name}', {
+      params: { path: { name: sensorName } },
+    })
+      .then(({ data }) => setHealthHistory(data ?? []))
+      .catch((err) => logger.error("Failed to load sensor health history", err))
+      .finally(() => setIsLoading(false));
   }, [sensorName]);
+
+  const fetchHistory = useCallback(() => {
+    setIsLoading(true);
+    return load();
+  }, [load]);
 
   const { user } = useAuth();
 
   useEffect(() => {
     if (user === undefined) return;
     if (user === null) return;
-    if (!sensorName) {
-      setIsLoading(false);
-      return;
-    }
-    void fetchHistory();
-  }, [fetchHistory, user, sensorName]);
+    void load();
+  }, [user, load]);
 
   return [healthHistory, fetchHistory, isLoading];
 }

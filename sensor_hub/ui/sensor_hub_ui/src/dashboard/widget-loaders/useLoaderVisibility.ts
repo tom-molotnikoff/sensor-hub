@@ -16,13 +16,21 @@ interface Options {
 export function useLoaderVisibility(isLoading: boolean, options: Options = {}): boolean {
   const minVisibleMs = options.minVisibleMs ?? DEFAULT_MIN_VISIBLE_MS;
   const [showLoader, setShowLoader] = useState(isLoading);
-  const shownAtRef = useRef<number | null>(isLoading ? Date.now() : null);
+  const shownAtRef = useRef<number | null>(null);
+
+  // Stamp when the loader became visible, without touching Date.now() in render.
+  useEffect(() => {
+    if (showLoader && shownAtRef.current === null) {
+      shownAtRef.current = Date.now();
+    } else if (!showLoader) {
+      shownAtRef.current = null;
+    }
+  }, [showLoader]);
 
   useEffect(() => {
     if (isLoading) {
       if (!showLoader) {
-        shownAtRef.current = Date.now();
-        setShowLoader(true);
+        void Promise.resolve().then(() => setShowLoader(true));
       }
       return;
     }
@@ -31,11 +39,7 @@ export function useLoaderVisibility(isLoading: boolean, options: Options = {}): 
     if (!showLoader) return;
     const shownAt = shownAtRef.current ?? Date.now();
     const remaining = minVisibleMs - (Date.now() - shownAt);
-    if (remaining <= 0) {
-      setShowLoader(false);
-      return;
-    }
-    const timer = setTimeout(() => setShowLoader(false), remaining);
+    const timer = setTimeout(() => setShowLoader(false), Math.max(0, remaining));
     return () => clearTimeout(timer);
   }, [isLoading, showLoader, minVisibleMs]);
 

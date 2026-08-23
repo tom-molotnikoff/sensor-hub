@@ -34,7 +34,7 @@ export default function MqttSubscriptionsCard() {
     } catch (e) { logger.error(e); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void Promise.resolve().then(load); }, []);
 
   const handleRowClick = (params: GridRowParams, event: React.MouseEvent) => {
     const id = typeof params.id === 'number' ? params.id : Number(params.id);

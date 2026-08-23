@@ -34,7 +34,7 @@ export default function SessionsCard() {
     } catch (e) { logger.error(e); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void Promise.resolve().then(load); }, []);
 
   const revoke = async (id: number) => {
     try {

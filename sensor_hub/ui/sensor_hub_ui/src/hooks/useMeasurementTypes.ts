@@ -7,21 +7,21 @@ export function useMeasurementTypes() {
   const [measurementTypes, setMeasurementTypes] = useState<MeasurementTypeInfo[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const load = useCallback(() =>
+    apiClient.GET('/measurement-types')
+      .then(({ data }) => setMeasurementTypes(data ?? []))
+      .catch((err) => logger.error('Failed to fetch measurement types:', err))
+      .finally(() => setLoaded(true)),
+  []);
+
+  const refresh = useCallback(() => {
     setLoaded(false);
-    try {
-      const { data } = await apiClient.GET('/measurement-types');
-      setMeasurementTypes(data ?? []);
-    } catch (err) {
-      logger.error('Failed to fetch measurement types:', err);
-    } finally {
-      setLoaded(true);
-    }
-  }, []);
+    return load();
+  }, [load]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void load();
+  }, [load]);
 
   return { measurementTypes, loaded, refresh };
 }
@@ -30,21 +30,21 @@ export function useMeasurementTypesWithReadings() {
   const [measurementTypes, setMeasurementTypes] = useState<MeasurementTypeInfo[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const load = useCallback(() =>
+    apiClient.GET('/measurement-types', { params: { query: { has_readings: true } } })
+      .then(({ data }) => setMeasurementTypes(data ?? []))
+      .catch((err) => logger.error('Failed to fetch measurement types with readings:', err))
+      .finally(() => setLoaded(true)),
+  []);
+
+  const refresh = useCallback(() => {
     setLoaded(false);
-    try {
-      const { data } = await apiClient.GET('/measurement-types', { params: { query: { has_readings: true } } });
-      setMeasurementTypes(data ?? []);
-    } catch (err) {
-      logger.error('Failed to fetch measurement types with readings:', err);
-    } finally {
-      setLoaded(true);
-    }
-  }, []);
+    return load();
+  }, [load]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void load();
+  }, [load]);
 
   return { measurementTypes, loaded, refresh };
 }
@@ -53,28 +53,29 @@ export function useSensorMeasurementTypes(sensorId: number | null) {
   const [measurementTypes, setMeasurementTypes] = useState<MeasurementTypeInfo[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const load = useCallback(() => {
     if (sensorId === null) {
-      setMeasurementTypes([]);
-      setLoaded(true);
-      return;
-    }
-    setLoaded(false);
-    try {
-      const { data } = await apiClient.GET('/sensors/by-id/{id}/measurement-types', {
-        params: { path: { id: sensorId } },
+      return Promise.resolve().then(() => {
+        setMeasurementTypes([]);
+        setLoaded(true);
       });
-      setMeasurementTypes(data ?? []);
-    } catch (err) {
-      logger.error('Failed to fetch sensor measurement types:', err);
-    } finally {
-      setLoaded(true);
     }
+    return apiClient.GET('/sensors/by-id/{id}/measurement-types', {
+      params: { path: { id: sensorId } },
+    })
+      .then(({ data }) => setMeasurementTypes(data ?? []))
+      .catch((err) => logger.error('Failed to fetch sensor measurement types:', err))
+      .finally(() => setLoaded(true));
   }, [sensorId]);
 
+  const refresh = useCallback(() => {
+    setLoaded(false);
+    return load();
+  }, [load]);
+
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void load();
+  }, [load]);
 
   return { measurementTypes, loaded, refresh };
 }

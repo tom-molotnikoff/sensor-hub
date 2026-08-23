@@ -1,6 +1,6 @@
 import type {Sensor} from "../gen/aliases";
 import useSensorHealthHistory from "../hooks/useSensorHealthHistory.ts";
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import {DataGrid, type GridColDef} from "@mui/x-data-grid";
 import LayoutCard from "../tools/LayoutCard.tsx";
 import {TypographyH2} from "../tools/Typography.tsx";
@@ -13,16 +13,9 @@ interface SensorHealthHistoryProps {
 }
 
 function SensorHealthHistory({sensor}: SensorHealthHistoryProps) {
-  const [healthHistory, refresh] = useSensorHealthHistory(sensor.name);
-  const [isLoading, setIsLoading] = useState(true);
+  const [healthHistory, refresh, isLoading] = useSensorHealthHistory(sensor.name);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const isMobile = useIsMobile();
-
-  useEffect(() => {
-    if (healthHistory.length > 0) {
-      setIsLoading(false);
-    }
-  }, [healthHistory]);
 
   const rows = healthHistory.map((entry) => ({
     id: entry.id,
@@ -76,9 +69,7 @@ function SensorHealthHistory({sensor}: SensorHealthHistoryProps) {
         }}>
           <Button
             onClick={() => {
-              setIsLoading(true);
               refresh().then(() => {
-                setIsLoading(false);
                 setSnackbarOpen(true);
               });
             }}

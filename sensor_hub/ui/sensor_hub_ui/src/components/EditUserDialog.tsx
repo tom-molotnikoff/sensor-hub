@@ -28,11 +28,13 @@ export default function EditUserDialog({open, onClose, onSaved, selectedUser}: E
 
   useEffect(() => {
     if (!open) return;
-    if (selectedUser?.roles && selectedUser.roles.length > 0) {
-      setRole(selectedUser.roles[0]);
-    } else {
-      setRole('user');
-    }
+    void Promise.resolve().then(() => {
+      if (selectedUser?.roles && selectedUser.roles.length > 0) {
+        setRole(selectedUser.roles[0]);
+      } else {
+        setRole('user');
+      }
+    });
     apiClient.GET('/roles').then(({ data: r }) => {
       setAvailableRoles(r || []);
     }).catch(e => logger.error('Failed to load roles', e));

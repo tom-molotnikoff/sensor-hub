@@ -1,6 +1,6 @@
 import useSensorHealthHistory from "../hooks/useSensorHealthHistory.ts";
 import type {Sensor} from "../gen/aliases";
-import {type CSSProperties, useMemo} from "react";
+import {type CSSProperties, useEffect, useMemo, useState} from "react";
 import {
   CartesianGrid,
   Legend,
@@ -95,10 +95,16 @@ function SensorHealthHistoryChart({sensor}: SensorHealthHistoryChartProps) {
     return "unknown";
   };
 
-  const lastChangeLabel = useMemo(() => {
-    if (!model?.lastTransitionAt) return null;
-    const elapsedMs = Math.max(0, Date.now() - new Date(model.lastTransitionAt).getTime());
-    return `${formatDurationShort(elapsedMs)} ago`;
+  const [lastChangeLabel, setLastChangeLabel] = useState<string | null>(null);
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      if (!model?.lastTransitionAt) {
+        setLastChangeLabel(null);
+        return;
+      }
+      const elapsedMs = Math.max(0, Date.now() - new Date(model.lastTransitionAt).getTime());
+      setLastChangeLabel(`${formatDurationShort(elapsedMs)} ago`);
+    });
   }, [model]);
 
   return (

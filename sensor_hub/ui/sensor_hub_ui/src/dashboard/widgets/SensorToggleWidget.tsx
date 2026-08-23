@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Box, Snackbar } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { WidgetProps } from '../types';
@@ -106,12 +106,13 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
   const [dragProgress, setDragProgress] = useState<number | null>(null);
   const dragOriginXRef = useRef(0);
   const dragStartProgressRef = useRef(0);
-  const dragStartCheckedRef = useRef(false);
+  const [dragStartChecked, setDragStartChecked] = useState(false);
   const dragMovedRef = useRef(false);
   const suppressClickRef = useRef(false);
   const controlRef = useRef<HTMLDivElement | null>(null);
 
-  const handleCommandStatus = useCallback((message: CommandStatusMessage) => {
+  // useCurrentReadings keeps callbacks in refs, so this needs no memoization.
+  const handleCommandStatus = (message: CommandStatusMessage) => {
     const pendingCommand = pendingCommandRef.current;
     if (!pendingCommand || !sensor || !property) return;
     if (message.id !== pendingCommand.id || message.sensor_id !== sensor.id || message.property !== property) return;
@@ -123,7 +124,7 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
     }
 
     pendingCommandRef.current = null;
-  }, [property, reportUpdate, sensor]);
+  };
 
   const readings = useCurrentReadings({ onDataUpdate: reportUpdate, onCommandStatus: handleCommandStatus });
   const reading = sensor && property ? readings[sensor.name]?.[property] : undefined;
@@ -136,7 +137,6 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
   const canInteract = canControl && hasResolvedValue;
   const rawProgress = dragProgress ?? (hasResolvedValue ? (checked ? 1 : 0) : 0.5);
   const isDragging = dragProgress !== null;
-  const dragStartChecked = dragStartCheckedRef.current;
   const visualChecked = isDragging
     ? (hasCrossedLateLatch(rawProgress, dragStartChecked) ? !dragStartChecked : dragStartChecked)
     : checked;
@@ -160,7 +160,7 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
       && resolveCheckedState(optimisticValue, valueOn, valueOff) != null
       && resolveCheckedState(optimisticValue, valueOn, valueOff) === resolveCheckedState(reading?.text_state, valueOn, valueOff)
     ) {
-      setOptimisticValue(null);
+      void Promise.resolve().then(() => setOptimisticValue(null));
     }
   }, [optimisticValue, reading?.text_state, valueOff, valueOn]);
 
@@ -200,7 +200,7 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
     if (!canInteract) return;
 
     dragOriginXRef.current = event.clientX;
-    dragStartCheckedRef.current = checked;
+    setDragStartChecked(checked);
     dragStartProgressRef.current = checked ? 1 : 0;
     dragMovedRef.current = false;
     setDragProgress(dragStartProgressRef.current);
@@ -235,9 +235,9 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
 
     suppressClickRef.current = true;
     void commitCheckedState(
-      hasCrossedLateLatch(finalProgress, dragStartCheckedRef.current)
-        ? !dragStartCheckedRef.current
-        : dragStartCheckedRef.current,
+      hasCrossedLateLatch(finalProgress, dragStartChecked)
+        ? !dragStartChecked
+        : dragStartChecked,
     );
   };
 

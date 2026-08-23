@@ -11,9 +11,11 @@ export default function NotificationProvider({ children }: { children: React.Rea
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [preferences, setPreferences] = useState<ChannelPreference[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [fetched, setFetched] = useState(false);
 
   const hasPermission = user?.permissions?.includes('view_notifications');
+  // Loading until the user is known; a user who cannot view notifications has nothing to load.
+  const loading = user === undefined || (!!user && !!hasPermission && !fetched);
 
   const refresh = useCallback(async () => {
     if (!user || !hasPermission) return;
@@ -29,7 +31,7 @@ export default function NotificationProvider({ children }: { children: React.Rea
     } catch (err) {
       logger.error('Failed to load notifications:', err);
     } finally {
-      setLoading(false);
+      setFetched(true);
     }
   }, [user, hasPermission]);
 
@@ -76,12 +78,8 @@ export default function NotificationProvider({ children }: { children: React.Rea
 
   // Initial load
   useEffect(() => {
-    if (user === undefined) return;
-    if (!user || !hasPermission) {
-      setLoading(false);
-      return;
-    }
-    refresh();
+    if (!user || !hasPermission) return;
+    void Promise.resolve().then(() => refresh());
   }, [user, hasPermission, refresh]);
 
   // WebSocket subscription for real-time updates

@@ -38,8 +38,6 @@ export function useSensors() {
     if (user === undefined) return;
     if (user === null) return;
 
-    setLoaded(false);
-
     const ws = new WebSocket(`${WEBSOCKET_BASE}/sensors/ws`);
     ws.onmessage = (event) => {
       try {

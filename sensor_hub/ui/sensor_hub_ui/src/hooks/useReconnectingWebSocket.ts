@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { logger } from '../tools/logger';
 
 interface UseReconnectingWebSocketOptions {
@@ -30,39 +30,42 @@ export function useReconnectingWebSocket({
 
     // Keep callbacks in refs to avoid effect dependency churn
     const onMessageRef = useRef(onMessage);
-    onMessageRef.current = onMessage;
-
-    const connect = useCallback(() => {
-        if (!mountedRef.current) return;
-
-        const ws = new WebSocket(url);
-        wsRef.current = ws;
-
-        ws.onmessage = (event) => {
-            // Reset backoff on successful data
-            delayRef.current = BASE_DELAY;
-            onMessageRef.current(event);
-        };
-
-        ws.onerror = (err) => {
-            logger.error(`WebSocket error (${url}):`, err);
-        };
-
-        ws.onclose = () => {
-            if (!mountedRef.current) return;
-            logger.debug(`WebSocket closed (${url}), reconnecting in ${delayRef.current}ms`);
-            reconnectTimerRef.current = setTimeout(() => {
-                delayRef.current = Math.min(delayRef.current * 2, maxDelay);
-                connect();
-            }, delayRef.current);
-        };
-    }, [url, maxDelay]);
+    useEffect(() => {
+        onMessageRef.current = onMessage;
+    });
 
     useEffect(() => {
         mountedRef.current = true;
         if (!enabled) return;
 
         delayRef.current = BASE_DELAY;
+
+        function connect() {
+            if (!mountedRef.current) return;
+
+            const ws = new WebSocket(url);
+            wsRef.current = ws;
+
+            ws.onmessage = (event) => {
+                // Reset backoff on successful data
+                delayRef.current = BASE_DELAY;
+                onMessageRef.current(event);
+            };
+
+            ws.onerror = (err) => {
+                logger.error(`WebSocket error (${url}):`, err);
+            };
+
+            ws.onclose = () => {
+                if (!mountedRef.current) return;
+                logger.debug(`WebSocket closed (${url}), reconnecting in ${delayRef.current}ms`);
+                reconnectTimerRef.current = setTimeout(() => {
+                    delayRef.current = Math.min(delayRef.current * 2, maxDelay);
+                    connect();
+                }, delayRef.current);
+            };
+        }
+
         connect();
 
         return () => {
@@ -70,5 +73,5 @@ export function useReconnectingWebSocket({
             clearTimeout(reconnectTimerRef.current);
             wsRef.current?.close();
         };
-    }, [connect, enabled]);
+    }, [url, maxDelay, enabled]);
 }

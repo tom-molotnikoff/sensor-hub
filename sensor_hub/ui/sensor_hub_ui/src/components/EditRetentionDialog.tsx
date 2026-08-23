@@ -55,17 +55,19 @@ export default function EditRetentionDialog({ open, onClose, onSaved, sensor, gl
 
   useEffect(() => {
     if (open && sensor) {
-      const hasCustom = sensor.retention_hours != null;
-      setUseCustom(hasCustom);
-      setError(null);
-      if (hasCustom && sensor.retention_hours != null) {
-        const u = bestUnit(sensor.retention_hours);
-        setUnit(u);
-        setValue(String(hoursToUnit(sensor.retention_hours, u)));
-      } else {
-        setUnit('days');
-        setValue('');
-      }
+      void Promise.resolve().then(() => {
+        const hasCustom = sensor.retention_hours != null;
+        setUseCustom(hasCustom);
+        setError(null);
+        if (hasCustom && sensor.retention_hours != null) {
+          const u = bestUnit(sensor.retention_hours);
+          setUnit(u);
+          setValue(String(hoursToUnit(sensor.retention_hours, u)));
+        } else {
+          setUnit('days');
+          setValue('');
+        }
+      });
     }
   }, [open, sensor]);
 

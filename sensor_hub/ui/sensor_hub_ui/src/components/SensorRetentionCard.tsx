@@ -17,37 +17,10 @@ import { apiClient } from '../gen/client';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';
 import { useProperties } from '../hooks/useProperties';
+import { bestUnit, formatRetention, hoursToUnit, unitToHours, type RetentionUnit } from '../tools/retention';
 
 interface SensorRetentionCardProps {
   sensor: Sensor;
-}
-
-type RetentionUnit = 'hours' | 'days' | 'weeks';
-
-const unitMultipliers: Record<RetentionUnit, number> = {
-  hours: 1,
-  days: 24,
-  weeks: 168,
-};
-
-function unitToHours(value: number, unit: RetentionUnit): number {
-  return Math.round(value * unitMultipliers[unit]);
-}
-
-function hoursToUnit(hours: number, unit: RetentionUnit): number {
-  return Math.round((hours / unitMultipliers[unit]) * 100) / 100;
-}
-
-export function formatRetention(hours: number): string {
-  if (hours >= 168 && hours % 168 === 0) return `${hours / 168} week${hours / 168 !== 1 ? 's' : ''}`;
-  if (hours >= 24 && hours % 24 === 0) return `${hours / 24} day${hours / 24 !== 1 ? 's' : ''}`;
-  return `${hours} hour${hours !== 1 ? 's' : ''}`;
-}
-
-function bestUnit(hours: number): RetentionUnit {
-  if (hours >= 168 && hours % 168 === 0) return 'weeks';
-  if (hours >= 24 && hours % 24 === 0) return 'days';
-  return 'hours';
 }
 
 function SensorRetentionCard({ sensor }: SensorRetentionCardProps) {
@@ -64,17 +37,19 @@ function SensorRetentionCard({ sensor }: SensorRetentionCardProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const hasCustom = sensor.retention_hours != null;
-    setUseCustom(hasCustom);
-    if (hasCustom && sensor.retention_hours != null) {
-      const h = sensor.retention_hours;
-      const u = bestUnit(h);
-      setUnit(u);
-      setValue(String(hoursToUnit(h, u)));
-    } else {
-      setUnit('days');
-      setValue('');
-    }
+    void Promise.resolve().then(() => {
+      const hasCustom = sensor.retention_hours != null;
+      setUseCustom(hasCustom);
+      if (hasCustom && sensor.retention_hours != null) {
+        const h = sensor.retention_hours;
+        const u = bestUnit(h);
+        setUnit(u);
+        setValue(String(hoursToUnit(h, u)));
+      } else {
+        setUnit('days');
+        setValue('');
+      }
+    });
   }, [sensor.retention_hours]);
 
   const fieldsDisabled = !user || !hasPerm(user, 'manage_sensors');

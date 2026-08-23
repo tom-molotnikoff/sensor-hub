@@ -52,13 +52,13 @@ export function useReadingsData({
 
   // Keep mutable values in refs to avoid effect dependency churn
   const sensorsRef = useRef(sensors);
-  sensorsRef.current = sensors;
-
   const resolveTimeRangeRef = useRef(resolveTimeRange);
-  resolveTimeRangeRef.current = resolveTimeRange;
-
   const onDataUpdateRef = useRef(onDataUpdate);
-  onDataUpdateRef.current = onDataUpdate;
+  useEffect(() => {
+    sensorsRef.current = sensors;
+    resolveTimeRangeRef.current = resolveTimeRange;
+    onDataUpdateRef.current = onDataUpdate;
+  });
 
   // When a resolver is provided, don't use rendered dates as effect deps
   // (DateTime.now() changes every render, causing infinite re-runs).

@@ -148,7 +148,7 @@ export default function MqttStatsCard() {
   }, []);
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(load);
     const interval = setInterval(() => {
       load();
       setTick(t => t + 1);

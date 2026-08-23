@@ -32,7 +32,7 @@ export default function PendingSensorsCard() {
     } catch (e) { logger.error(e); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const handleApprove = async (id: number) => {
     try {

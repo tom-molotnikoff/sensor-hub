@@ -18,7 +18,7 @@ export default function SensorDetailCard({ sensor, onDataUpdate }: SensorDetailC
     const readings = useCurrentReadings({ onDataUpdate });
 
     useEffect(() => {
-        setLoading(true);
+        void Promise.resolve().then(() => setLoading(true));
         apiClient.GET('/sensors/by-id/{id}/measurement-types', { params: { path: { id: sensor.id } } })
             .then(({ data }) => setMeasurementTypes(data ?? []))
             .finally(() => setLoading(false));

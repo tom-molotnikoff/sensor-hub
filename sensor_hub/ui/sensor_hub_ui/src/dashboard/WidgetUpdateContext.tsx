@@ -1,22 +1,9 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext } from 'react';
 
 // Two separate contexts prevent widgets from re-rendering when only the timestamp changes.
 // Widgets read ReportContext (stable), only the badge reads ValueContext (changes on updates).
-const ReportContext = createContext<(date: Date) => void>(() => {});
-const ValueContext = createContext<Date | null>(null);
-
-export function WidgetUpdateProvider({ children }: { children: ReactNode }) {
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-    const reportUpdate = useCallback((date: Date) => setLastUpdated(date), []);
-
-    return (
-        <ReportContext.Provider value={reportUpdate}>
-            <ValueContext.Provider value={lastUpdated}>
-                {children}
-            </ValueContext.Provider>
-        </ReportContext.Provider>
-    );
-}
+export const ReportContext = createContext<(date: Date) => void>(() => {});
+export const ValueContext = createContext<Date | null>(null);
 
 /** Returns the reportUpdate function. Safe to call outside a provider (returns no-op). */
 export function useReportWidgetUpdate(): (date: Date) => void {

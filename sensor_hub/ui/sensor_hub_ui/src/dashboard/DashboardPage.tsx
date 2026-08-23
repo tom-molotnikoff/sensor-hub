@@ -3,7 +3,8 @@ import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextFie
 import AddIcon from '@mui/icons-material/Add';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PageContainer from '../tools/PageContainer';
-import { DashboardProvider, useDashboard } from './DashboardContext';
+import { useDashboard } from './DashboardContext';
+import { DashboardProvider } from './DashboardProvider';
 import DashboardEngine from './DashboardEngine';
 import DashboardToolbar from './DashboardToolbar';
 import WidgetPickerDialog from './WidgetPickerDialog';

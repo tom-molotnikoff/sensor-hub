@@ -33,8 +33,8 @@ export default function CreateUserDialog({open, onClose, onCreated}: CreateUserD
     apiClient.GET('/roles').then(({ data: r }) => {
       const roles = r || [];
       setAvailableRoles(roles);
-      if (roles.length > 0 && !roles.find(x => x.name === role)) {
-        setRole(roles[0].name);
+      if (roles.length > 0) {
+        setRole(prev => (roles.find(x => x.name === prev) ? prev : roles[0].name));
       }
     }).catch(e => logger.error('Failed to load roles', e));
   }, [open]);

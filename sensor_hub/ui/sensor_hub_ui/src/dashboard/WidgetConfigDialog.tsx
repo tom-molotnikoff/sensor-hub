@@ -15,6 +15,8 @@ import type { MeasurementTypeInfo } from '../gen/aliases';
 import { TIME_RANGE_PRESETS } from './timeRange';
 import { getBinaryCapabilities, getControllableSensors, normalizeSensorToggleProperty } from './sensorToggleConfig';
 
+const NO_MEASUREMENT_TYPES: MeasurementTypeInfo[] = [];
+
 interface WidgetConfigDialogProps {
     open: boolean;
     widgetId: string | null;
@@ -58,12 +60,14 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
     const globalMT = useMeasurementTypesWithReadings();
 
     // Multi-sensor intersection: fetch types for each selected sensor
+    const selectedSensorIdsKey = selectedSensorIds.join(',');
     useEffect(() => {
-        if (!hasMultiSensorSelect || !hasMeasurementTypeSelect || selectedSensorIds.length === 0) {
-            setIntersectedTypes([]);
+        const ids = selectedSensorIdsKey ? selectedSensorIdsKey.split(',').map(Number) : [];
+        if (!hasMultiSensorSelect || !hasMeasurementTypeSelect || ids.length === 0) {
+            void Promise.resolve().then(() => setIntersectedTypes([]));
             return;
         }
-        Promise.all(selectedSensorIds.map(id => apiClient.GET('/sensors/by-id/{id}/measurement-types', { params: { path: { id } } }).then(({ data }) => (data as MeasurementTypeInfo[] | null) ?? [])))
+        Promise.all(ids.map(id => apiClient.GET('/sensors/by-id/{id}/measurement-types', { params: { path: { id } } }).then(({ data }) => (data as MeasurementTypeInfo[] | null) ?? [])))
             .then(results => {
                 if (results.length === 0) { setIntersectedTypes([]); return; }
                 const sets = results.map(r => new Set(r.map(mt => mt.name)));
@@ -71,17 +75,14 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
                 setIntersectedTypes(common);
             })
             .catch(() => setIntersectedTypes([]));
-    }, [hasMultiSensorSelect, hasMeasurementTypeSelect, JSON.stringify(selectedSensorIds)]);
+    }, [hasMultiSensorSelect, hasMeasurementTypeSelect, selectedSensorIdsKey]);
 
     // Determine which measurement type list to display
-    const filteredMeasurementTypes = useMemo(() => {
-        if ((hasSensorSelect || hasControllableSensorSelect) && selectedSensorId) return sensorMT.measurementTypes;
-        if (hasMultiSensorSelect && selectedSensorIds.length > 0) return intersectedTypes;
-        if (hasMeasurementTypeSelect) return globalMT.measurementTypes;
-        return [];
-    }, [hasSensorSelect, hasControllableSensorSelect, selectedSensorId, sensorMT.measurementTypes,
-        hasMultiSensorSelect, selectedSensorIds.length, intersectedTypes,
-        hasMeasurementTypeSelect, globalMT.measurementTypes]);
+    const filteredMeasurementTypes =
+        (hasSensorSelect || hasControllableSensorSelect) && selectedSensorId ? sensorMT.measurementTypes
+        : hasMultiSensorSelect && selectedSensorIds.length > 0 ? intersectedTypes
+        : hasMeasurementTypeSelect ? globalMT.measurementTypes
+        : NO_MEASUREMENT_TYPES;
 
     // Auto-clear measurement type when it's no longer valid after sensor change
     useEffect(() => {
@@ -89,29 +90,31 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
         if (currentMT && filteredMeasurementTypes.length > 0) {
             const stillValid = filteredMeasurementTypes.some(mt => mt.name === currentMT);
             if (!stillValid) {
-                setLocalConfig(prev => ({ ...prev, measurementType: '' }));
+                void Promise.resolve().then(() => setLocalConfig(prev => ({ ...prev, measurementType: '' })));
             }
         }
-    }, [filteredMeasurementTypes]);
+    }, [filteredMeasurementTypes, localConfig.measurementType]);
 
     useEffect(() => {
         if (!hasBinaryCapabilitySelect) return;
 
         if (binaryCapabilities.length === 0) {
             if (localConfig.property) {
-                setLocalConfig(prev => ({ ...prev, property: '' }));
+                void Promise.resolve().then(() => setLocalConfig(prev => ({ ...prev, property: '' })));
             }
             return;
         }
 
         const normalizedProperty = normalizeSensorToggleProperty(localConfig.property, binaryCapabilities);
         if (normalizedProperty !== localConfig.property) {
-            setLocalConfig(prev => ({ ...prev, property: normalizedProperty }));
+            void Promise.resolve().then(() => setLocalConfig(prev => ({ ...prev, property: normalizedProperty })));
         }
     }, [binaryCapabilities, hasBinaryCapabilitySelect, localConfig.property]);
 
     useEffect(() => {
-        if (widget) setLocalConfig({ ...widget.config });
+        if (widget) {
+            void Promise.resolve().then(() => setLocalConfig({ ...widget.config }));
+        }
     }, [widget]);
 
     if (!widget || !definition?.configFields?.length) return null;

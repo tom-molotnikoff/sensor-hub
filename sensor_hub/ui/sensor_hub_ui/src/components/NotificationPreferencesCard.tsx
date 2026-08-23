@@ -29,7 +29,7 @@ export default function NotificationPreferencesCard() {
       const existing = preferences.find(p => p.category === category);
       prefMap[category] = existing || { category, email_enabled: true, inapp_enabled: true };
     });
-    setLocalPrefs(prefMap);
+    void Promise.resolve().then(() => setLocalPrefs(prefMap));
   }, [preferences]);
 
   const handleToggle = async (category: NotificationCategory, channel: 'email' | 'inapp', value: boolean) => {

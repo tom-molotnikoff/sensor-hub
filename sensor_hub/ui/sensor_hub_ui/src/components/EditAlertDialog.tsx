@@ -47,14 +47,16 @@ export default function EditAlertDialog({open, onClose, onSaved, selectedAlert}:
 
   useEffect(() => {
     if (open && selectedAlert) {
-      setEditAlertType(selectedAlert.AlertType);
-      setEditHighThreshold(selectedAlert.HighThreshold?.toString() || '');
-      setEditLowThreshold(selectedAlert.LowThreshold?.toString() || '');
-      setEditTriggerStatus(selectedAlert.TriggerStatus || '');
-      const { value, unit } = fromSeconds(selectedAlert.RateLimitSeconds);
-      setEditRateLimit(value.toString());
-      setEditRateLimitUnit(unit);
-      setEditEnabled(selectedAlert.Enabled);
+      void Promise.resolve().then(() => {
+        setEditAlertType(selectedAlert.AlertType);
+        setEditHighThreshold(selectedAlert.HighThreshold?.toString() || '');
+        setEditLowThreshold(selectedAlert.LowThreshold?.toString() || '');
+        setEditTriggerStatus(selectedAlert.TriggerStatus || '');
+        const { value, unit } = fromSeconds(selectedAlert.RateLimitSeconds);
+        setEditRateLimit(value.toString());
+        setEditRateLimitUnit(unit);
+        setEditEnabled(selectedAlert.Enabled);
+      });
     }
   }, [open, selectedAlert]);
 
