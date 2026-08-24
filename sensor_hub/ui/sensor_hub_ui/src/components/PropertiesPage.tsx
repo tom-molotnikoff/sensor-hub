@@ -70,8 +70,27 @@ export default function PropertiesPage() {
             <PropertyField
               key={definition.key}
               definition={definition}
-              value={editedValues[definition.key] ?? serverValues[definition.key] ?? ''}
-              onChange={(value) => setEditedValues((prev) => ({ ...prev, [definition.key]: value }))}
+              serverValue={serverValues[definition.key]}
+              editedValue={editedValues[definition.key]}
+              onChange={(value) =>
+                setEditedValues((prev) => {
+                  // An edit landing back on the saved value is no edit at all - a stale
+                  // entry would resurrect as modified when the server value moves.
+                  if (value === serverValues[definition.key]) {
+                    const next = { ...prev };
+                    delete next[definition.key];
+                    return next;
+                  }
+                  return { ...prev, [definition.key]: value };
+                })
+              }
+              onUndo={() =>
+                setEditedValues((prev) => {
+                  const next = { ...prev };
+                  delete next[definition.key];
+                  return next;
+                })
+              }
               disabled={!canManage}
             />
           ))}

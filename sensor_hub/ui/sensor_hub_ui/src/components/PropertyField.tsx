@@ -1,15 +1,27 @@
-import { Box, MenuItem, Select, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Box, IconButton, MenuItem, Select, Stack, Switch, TextField, Typography } from '@mui/material';
+import UndoIcon from '@mui/icons-material/Undo';
 import type { PropertyDefinition } from '../gen/aliases';
 import { useIsMobile } from '../hooks/useMobile';
+import { ApplyChip, ApplyNote } from './PropertyApplyNotice';
+import { applySegment } from './propertyApplyCopy';
 
 interface PropertyFieldProps {
+  definition: PropertyDefinition;
+  serverValue?: string;
+  editedValue?: string;
+  onChange: (value: string) => void;
+  onUndo?: () => void;
+  disabled?: boolean;
+}
+
+interface PropertyControlProps {
   definition: PropertyDefinition;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
 }
 
-function PropertyControl({ definition, value, onChange, disabled }: PropertyFieldProps) {
+function PropertyControl({ definition, value, onChange, disabled }: PropertyControlProps) {
   if (definition.readOnly) {
     return <Typography sx={{ fontFamily: 'monospace' }} color="text.secondary">{value}</Typography>;
   }
@@ -56,9 +68,21 @@ function PropertyControl({ definition, value, onChange, disabled }: PropertyFiel
   );
 }
 
-export default function PropertyField(props: PropertyFieldProps) {
-  const { definition } = props;
+function shown(value: string): string {
+  return value === '' ? '(empty)' : value;
+}
+
+function helperLine(definition: PropertyDefinition, serverValue: string): string {
+  const parts = [`Saved value ${shown(serverValue)}`, `default ${shown(definition.default)}`];
+  const apply = applySegment(definition, serverValue);
+  if (apply) parts.push(apply);
+  return parts.join(' · ');
+}
+
+export default function PropertyField({ definition, serverValue, editedValue, onChange, onUndo, disabled }: PropertyFieldProps) {
   const isMobile = useIsMobile();
+  const value = editedValue ?? serverValue ?? '';
+  const modified = editedValue !== undefined && editedValue !== serverValue;
 
   return (
     <Box
@@ -68,10 +92,19 @@ export default function PropertyField(props: PropertyFieldProps) {
         alignItems: isMobile ? 'stretch' : 'center',
         gap: 2,
         py: 1.5,
+        ...(modified && { borderLeft: 3, borderColor: 'primary.main', pl: 2, ml: -2 }),
       }}
     >
       <Box sx={{ flex: isMobile ? '0 0 auto' : '0 0 420px', minWidth: 160 }}>
-        <Typography sx={{ fontWeight: 500 }}>{definition.label}</Typography>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Typography sx={{ fontWeight: 500 }} color={modified ? 'primary' : 'textPrimary'}>
+            {definition.label}
+          </Typography>
+          <ApplyChip definition={definition} />
+        </Stack>
+        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+          {definition.key}
+        </Typography>
         <Typography variant="body2" color="text.secondary">{definition.description}</Typography>
         {definition.readOnly && (
           <Typography variant="body2" color="text.secondary">
@@ -80,7 +113,20 @@ export default function PropertyField(props: PropertyFieldProps) {
         )}
       </Box>
       <Box sx={{ flex: '1 1 auto' }}>
-        <PropertyControl {...props} />
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <PropertyControl definition={definition} value={value} onChange={onChange} disabled={disabled} />
+          {modified && onUndo && (
+            <IconButton size="small" aria-label={`Undo changes to ${definition.label}`} onClick={onUndo}>
+              <UndoIcon fontSize="small" />
+            </IconButton>
+          )}
+        </Stack>
+        <ApplyNote definition={definition} />
+        {modified && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {helperLine(definition, serverValue ?? '')}
+          </Typography>
+        )}
       </Box>
     </Box>
   );
