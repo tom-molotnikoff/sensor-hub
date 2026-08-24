@@ -121,6 +121,21 @@ describe('PropertiesPage', () => {
     });
   });
 
+  it('undoes one modified field back to the saved value, leaving other edits untouched', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+      target: { value: '120' },
+    });
+    fireEvent.click(screen.getByRole('switch', { name: 'Skip sensor discovery' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo changes to Collection interval' }));
+
+    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(300);
+    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
+    expect(screen.queryByRole('button', { name: 'Undo changes to Collection interval' })).not.toBeInTheDocument();
+  });
+
   it('disables every control and shows no save control for a user without manage_properties', async () => {
     await renderPage(['view_properties']);
 

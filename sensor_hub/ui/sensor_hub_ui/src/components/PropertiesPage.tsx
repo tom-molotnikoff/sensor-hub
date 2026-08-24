@@ -70,8 +70,16 @@ export default function PropertiesPage() {
             <PropertyField
               key={definition.key}
               definition={definition}
-              value={editedValues[definition.key] ?? serverValues[definition.key] ?? ''}
+              serverValue={serverValues[definition.key]}
+              editedValue={editedValues[definition.key]}
               onChange={(value) => setEditedValues((prev) => ({ ...prev, [definition.key]: value }))}
+              onUndo={() =>
+                setEditedValues((prev) => {
+                  const next = { ...prev };
+                  delete next[definition.key];
+                  return next;
+                })
+              }
               disabled={!canManage}
             />
           ))}

@@ -19,7 +19,7 @@ function makeDefinition(overrides: Partial<PropertyDefinition> = {}): PropertyDe
 
 describe('PropertyField', () => {
   it('renders a bool property as a switch whose state matches the current value', () => {
-    render(<PropertyField definition={makeDefinition()} value="true" onChange={() => {}} />);
+    render(<PropertyField definition={makeDefinition()} serverValue="true" onChange={() => {}} />);
 
     const control = screen.getByRole('switch', { name: 'Skip sensor discovery' });
     expect(control).toBeChecked();
@@ -36,7 +36,7 @@ describe('PropertyField', () => {
           unit: 'seconds',
           default: '300',
         })}
-        value="300"
+        serverValue="300"
         onChange={() => {}}
       />,
     );
@@ -57,7 +57,7 @@ describe('PropertyField', () => {
           enum: ['debug', 'info', 'warn', 'error'],
           default: 'info',
         })}
-        value="warn"
+        serverValue="warn"
         onChange={() => {}}
       />,
     );
@@ -80,7 +80,7 @@ describe('PropertyField', () => {
           type: 'string',
           default: '',
         })}
-        value="Manchester"
+        serverValue="Manchester"
         onChange={() => {}}
       />,
     );
@@ -100,7 +100,7 @@ describe('PropertyField', () => {
           readOnly: true,
           default: 'data/sensor_hub.db',
         })}
-        value="/var/lib/sensor-hub/sensor_hub.db"
+        serverValue="/var/lib/sensor-hub/sensor_hub.db"
         onChange={() => {}}
       />,
     );
@@ -112,8 +112,165 @@ describe('PropertyField', () => {
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
+  it('shows a helper line with saved value and default only once the property is modified', () => {
+    const definition = makeDefinition({
+      key: 'auth.bcrypt.cost',
+      label: 'Bcrypt cost',
+      description: 'Work factor for password hashing.',
+      type: 'int',
+      default: '12',
+      group: 'security',
+      apply: 'live',
+    });
+
+    const { rerender } = render(
+      <PropertyField definition={definition} serverValue="12" onChange={() => {}} />,
+    );
+    expect(screen.queryByText(/saved value/i)).not.toBeInTheDocument();
+
+    rerender(<PropertyField definition={definition} serverValue="12" editedValue="14" onChange={() => {}} />);
+    expect(screen.getByRole('spinbutton', { name: 'Bcrypt cost' })).toHaveValue(14);
+    expect(screen.getByText('Saved value 12 · default 12')).toBeInTheDocument();
+
+    // An edit typed back to the saved value leaves the row unmodified.
+    rerender(<PropertyField definition={definition} serverValue="12" editedValue="12" onChange={() => {}} />);
+    expect(screen.queryByText(/saved value/i)).not.toBeInTheDocument();
+  });
+
+  it('states in the helper line that a modified next-cycle property applies from the next cycle, naming the cycle length', () => {
+    render(
+      <PropertyField
+        definition={makeDefinition({
+          key: 'sensor.collection.interval',
+          label: 'Collection interval',
+          description: 'How often every enabled sensor is polled.',
+          type: 'int',
+          unit: 'seconds',
+          default: '300',
+          apply: 'next-cycle',
+        })}
+        serverValue="300"
+        editedValue="120"
+        onChange={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText('Saved value 300 · default 300 · applies from the next cycle (currently 300 seconds)'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows one non-interactive chip naming what an action property requires, and none for a live property', () => {
+    const { rerender } = render(
+      <PropertyField
+        definition={makeDefinition({
+          key: 'mqtt.broker.port',
+          label: 'Broker port',
+          description: 'TCP port the embedded broker listens on.',
+          type: 'int',
+          default: '1883',
+          group: 'mqtt',
+          apply: 'action:service-restart',
+        })}
+        serverValue="1883"
+        onChange={() => {}}
+      />,
+    );
+    const restartChip = screen.getByText('Service restart required');
+    expect(restartChip).toBeInTheDocument();
+    expect(restartChip.closest('button')).toBeNull();
+
+    rerender(
+      <PropertyField
+        definition={makeDefinition({
+          key: 'oauth.credentials.file.path',
+          label: 'OAuth credentials file',
+          description: 'Path to the OAuth client credentials file.',
+          type: 'string',
+          default: '',
+          group: 'email',
+          apply: 'action:oauth-reload',
+        })}
+        serverValue="/etc/sensor-hub/credentials.json"
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByText('OAuth reload required')).toBeInTheDocument();
+    expect(screen.queryByText('Service restart required')).not.toBeInTheDocument();
+
+    rerender(<PropertyField definition={makeDefinition()} serverValue="false" onChange={() => {}} />);
+    expect(screen.queryByText(/required/)).not.toBeInTheDocument();
+  });
+
+  it('carries a muted consequence line on the MQTT properties and a Notifications pointer on the OAuth file paths', () => {
+    const { rerender } = render(
+      <PropertyField
+        definition={makeDefinition({
+          key: 'mqtt.broker.enabled',
+          label: 'Broker enabled',
+          description: 'Whether the embedded MQTT broker runs.',
+          type: 'bool',
+          default: 'true',
+          group: 'mqtt',
+          apply: 'action:service-restart',
+        })}
+        serverValue="true"
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByText('Changing this disconnects connected sensors.')).toBeInTheDocument();
+
+    rerender(
+      <PropertyField
+        definition={makeDefinition({
+          key: 'oauth.token.file.path',
+          label: 'OAuth token file',
+          description: 'Path to the stored OAuth token.',
+          type: 'string',
+          default: '',
+          group: 'email',
+          apply: 'action:oauth-reload',
+        })}
+        serverValue="/etc/sensor-hub/token.json"
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.queryByText('Changing this disconnects connected sensors.')).not.toBeInTheDocument();
+    expect(screen.getByText(/reload oauth on the notifications page/i)).toBeInTheDocument();
+  });
+
+  it('carries the required action as the apply state in a modified action property helper line', () => {
+    render(
+      <PropertyField
+        definition={makeDefinition({
+          key: 'mqtt.broker.port',
+          label: 'Broker port',
+          description: 'TCP port the embedded broker listens on.',
+          type: 'int',
+          default: '1883',
+          group: 'mqtt',
+          apply: 'action:service-restart',
+        })}
+        serverValue="1883"
+        editedValue="8883"
+        onChange={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText('Saved value 1883 · default 1883 · applies after a service restart'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the raw key alongside the label', () => {
+    render(<PropertyField definition={makeDefinition()} serverValue="false" onChange={() => {}} />);
+
+    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
+    expect(screen.getByText('sensor.discovery.skip')).toBeInTheDocument();
+  });
+
   it('shows the visible label with its description alongside the control', () => {
-    render(<PropertyField definition={makeDefinition()} value="false" onChange={() => {}} />);
+    render(<PropertyField definition={makeDefinition()} serverValue="false" onChange={() => {}} />);
 
     expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
     expect(screen.getByText("Don't try to auto-discover sensors at startup.")).toBeInTheDocument();
