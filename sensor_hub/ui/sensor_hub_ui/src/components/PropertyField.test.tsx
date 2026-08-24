@@ -239,6 +239,53 @@ describe('PropertyField', () => {
     expect(screen.getByText(/reload oauth on the notifications page/i)).toBeInTheDocument();
   });
 
+  it('singularizes the cycle length unit when the saved interval is 1', () => {
+    render(
+      <PropertyField
+        definition={makeDefinition({
+          key: 'data.cleanup.interval.hours',
+          label: 'Cleanup interval',
+          description: 'How often old data is cleaned up.',
+          type: 'int',
+          unit: 'hours',
+          default: '1',
+          apply: 'next-cycle',
+        })}
+        serverValue="1"
+        editedValue="2"
+        onChange={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText('Saved value 1 · default 1 · applies from the next cycle (currently 1 hour)'),
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to the raw action id so an unrecognised action never renders as live', () => {
+    render(
+      <PropertyField
+        definition={makeDefinition({
+          key: 'mqtt.broker.port',
+          label: 'Broker port',
+          description: 'TCP port the embedded broker listens on.',
+          type: 'int',
+          default: '1883',
+          group: 'mqtt',
+          apply: 'action:broker-bounce',
+        })}
+        serverValue="1883"
+        editedValue="8883"
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Requires: broker-bounce')).toBeInTheDocument();
+    expect(
+      screen.getByText('Saved value 1883 · default 1883 · applies after broker-bounce'),
+    ).toBeInTheDocument();
+  });
+
   it('carries the required action as the apply state in a modified action property helper line', () => {
     render(
       <PropertyField
