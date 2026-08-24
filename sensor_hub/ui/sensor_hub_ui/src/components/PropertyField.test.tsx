@@ -236,7 +236,28 @@ describe('PropertyField', () => {
       />,
     );
     expect(screen.queryByText('Changing this disconnects connected sensors.')).not.toBeInTheDocument();
-    expect(screen.getByText(/reload oauth on the notifications page/i)).toBeInTheDocument();
+    expect(screen.getByText(/reload config on the notifications page/i)).toBeInTheDocument();
+  });
+
+  it('renders an empty saved value or default as "(empty)" in the helper line', () => {
+    const definition = makeDefinition({
+      key: 'smtp.user',
+      label: 'SMTP user',
+      description: 'Address mail is sent from.',
+      type: 'string',
+      default: '',
+      group: 'email',
+      apply: 'live',
+    });
+
+    const { rerender } = render(
+      <PropertyField definition={definition} serverValue="old@example.com" editedValue="new@example.com" onChange={() => {}} />,
+    );
+    expect(screen.getByText('Saved value old@example.com · default (empty)')).toBeInTheDocument();
+
+    // Edited before the value feed has delivered anything.
+    rerender(<PropertyField definition={definition} editedValue="new@example.com" onChange={() => {}} />);
+    expect(screen.getByText('Saved value (empty) · default (empty)')).toBeInTheDocument();
   });
 
   it('singularizes the cycle length unit when the saved interval is 1', () => {

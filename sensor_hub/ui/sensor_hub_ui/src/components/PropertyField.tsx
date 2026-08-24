@@ -68,8 +68,12 @@ function PropertyControl({ definition, value, onChange, disabled }: PropertyCont
   );
 }
 
+function shown(value: string): string {
+  return value === '' ? '(empty)' : value;
+}
+
 function helperLine(definition: PropertyDefinition, serverValue: string): string {
-  const parts = [`Saved value ${serverValue}`, `default ${definition.default}`];
+  const parts = [`Saved value ${shown(serverValue)}`, `default ${shown(definition.default)}`];
   const apply = applySegment(definition, serverValue);
   if (apply) parts.push(apply);
   return parts.join(' · ');

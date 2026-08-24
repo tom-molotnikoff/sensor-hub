@@ -24,8 +24,8 @@ function actionApplySegment(action: string): string {
 export const CONSEQUENCE_NOTES: Record<string, string> = {
   'mqtt.broker.enabled': 'Changing this disconnects connected sensors.',
   'mqtt.broker.port': 'Changing this disconnects connected sensors.',
-  'oauth.credentials.file.path': 'Apply this with Reload OAuth on the Notifications page.',
-  'oauth.token.file.path': 'Apply this with Reload OAuth on the Notifications page.',
+  'oauth.credentials.file.path': 'Apply this with Reload Config on the Notifications page.',
+  'oauth.token.file.path': 'Apply this with Reload Config on the Notifications page.',
 };
 
 export function applyAction(definition: PropertyDefinition): string | undefined {
@@ -36,6 +36,7 @@ export function applyAction(definition: PropertyDefinition): string | undefined 
 // The apply-state fragment of a modified row's helper line. Live properties get none.
 export function applySegment(definition: PropertyDefinition, serverValue: string): string | undefined {
   if (definition.apply === 'next-cycle') {
+    if (serverValue === '') return 'applies from the next cycle';
     // Both next-cycle properties are their own interval, so the saved value is the cycle length.
     // Registry units (seconds, minutes, hours, days) all pluralize regularly.
     const unit = definition.unit && (serverValue === '1' ? definition.unit.replace(/s$/, '') : definition.unit);
