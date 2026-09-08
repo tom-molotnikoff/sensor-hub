@@ -54,20 +54,21 @@ export function usePropertyEdits(serverValues: Record<string, string>) {
     submitted.current = sent;
   }, []);
 
-  const modifiedKeys = useMemo(
-    () => Object.keys(state.values).filter((key) => state.values[key] !== serverValues[key]),
+  const modified = useMemo(
+    () =>
+      new Set(Object.keys(state.values).filter((key) => state.values[key] !== serverValues[key])),
     [state.values, serverValues],
   );
 
   const collisions = useMemo(
-    () => new Set(modifiedKeys.filter((key) => state.bases[key] !== serverValues[key])),
-    [modifiedKeys, state.bases, serverValues],
+    () => new Set([...modified].filter((key) => state.bases[key] !== serverValues[key])),
+    [modified, state.bases, serverValues],
   );
 
   return {
     edits: state.values,
     collisions,
-    modifiedCount: modifiedKeys.length,
+    modified,
     edit,
     discard,
     discardAll,

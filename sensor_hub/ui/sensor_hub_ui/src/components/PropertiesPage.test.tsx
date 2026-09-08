@@ -1,7 +1,34 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PropertyDefinitionsResponse } from '../gen/aliases';
 import { FakeWebSocket, installFakeWebSocket } from '../test/fakeWebSocket';
+
+class FakeIntersectionObserver {
+  static instances: FakeIntersectionObserver[] = [];
+  private readonly targets: Element[] = [];
+
+  constructor(private readonly callback: IntersectionObserverCallback) {
+    FakeIntersectionObserver.instances.push(this);
+  }
+
+  observe(target: Element) {
+    this.targets.push(target);
+  }
+
+  unobserve() {}
+
+  disconnect() {}
+
+  crossInto(ids: string[]) {
+    const entries = this.targets.map((target) => ({
+      target,
+      isIntersecting: ids.includes(target.id),
+    }));
+    this.callback(entries as unknown as IntersectionObserverEntry[], this as never);
+  }
+}
+
+vi.setConfig({ testTimeout: 20000 });
 
 const { getMock, patchMock } = vi.hoisted(() => ({
   getMock: vi.fn(),
@@ -50,8 +77,8 @@ const definitionsResponse: PropertyDefinitionsResponse = {
     },
   ],
   groups: [
-    { id: 'sensors', label: 'Sensors & collection', description: 'How often sensors are polled.', order: 1 },
     { id: 'advanced', label: 'Advanced', description: 'Rarely-changed settings.', order: 2 },
+    { id: 'sensors', label: 'Sensors & collection', description: 'How often sensors are polled.', order: 1 },
   ],
 };
 
@@ -62,6 +89,13 @@ const serverValues: Record<string, string> = {
 };
 
 let restoreWebSocket: () => void;
+
+const nativeIntersectionObserver = globalThis.IntersectionObserver;
+const nativeInnerWidth = window.innerWidth;
+
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+}
 
 async function renderPage(permissions: string[]) {
   // Fresh imports per test so the session cache in usePropertyDefinitions is empty,
@@ -90,10 +124,16 @@ describe('PropertiesPage', () => {
     restoreWebSocket = installFakeWebSocket();
     getMock.mockResolvedValue({ data: definitionsResponse });
     patchMock.mockResolvedValue({ data: { message: 'ok' } });
+    FakeIntersectionObserver.instances = [];
+    globalThis.IntersectionObserver = FakeIntersectionObserver as never;
+    window.location.hash = '';
   });
 
   afterEach(() => {
     restoreWebSocket();
+    globalThis.IntersectionObserver = nativeIntersectionObserver;
+    setViewportWidth(nativeInnerWidth);
+    window.location.hash = '';
   });
 
   it('renders a field for each definition carrying the current value from the value feed', async () => {
@@ -281,5 +321,118 @@ describe('PropertiesPage', () => {
     expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeDisabled();
     expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
+  });
+
+  it('renders one card per group, ordered by the definitions response, each owning its anchor id', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      'Sensors & collection',
+      'Advanced',
+    ]);
+
+    const sensors = document.getElementById('sensors')!;
+    expect(within(sensors).getByText('How often sensors are polled.')).toBeInTheDocument();
+    expect(within(sensors).getByRole('switch', { name: 'Skip sensor discovery' })).toBeInTheDocument();
+    expect(within(sensors).getByRole('spinbutton', { name: 'Collection interval' })).toBeInTheDocument();
+
+    const advanced = document.getElementById('advanced')!;
+    expect(within(advanced).getByText('/var/lib/sensor-hub/sensor_hub.db')).toBeInTheDocument();
+
+    expect(sensors.compareDocumentPosition(advanced) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('scrolls to the group named by the URL fragment on load', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    window.location.hash = '#advanced';
+
+    await renderPage(['view_properties', 'manage_properties']);
+
+    expect(scrollIntoView.mock.instances[0]).toBe(document.getElementById('advanced'));
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  it('puts the search box in the rail above the group list', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    const rail = screen.getByRole('navigation', { name: 'Property groups' });
+    const search = within(rail).getByRole('textbox', { name: 'Search properties' });
+    const firstGroup = screen.getByTestId('rail-sensors');
+
+    expect(search.compareDocumentPosition(firstGroup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('marks the group the page is scrolled to as current in the rail', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    expect(screen.getByTestId('rail-sensors')).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByTestId('rail-advanced')).not.toHaveAttribute('aria-current');
+
+    act(() => {
+      FakeIntersectionObserver.instances[0].crossInto(['advanced']);
+    });
+
+    expect(screen.getByTestId('rail-advanced')).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByTestId('rail-sensors')).not.toHaveAttribute('aria-current');
+  });
+
+  it('shows only the rows matching the search term, across every group', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+    const search = screen.getByRole('textbox', { name: 'Search properties' });
+
+    fireEvent.change(search, { target: { value: 'discovery.skip' } });
+    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
+    expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
+    expect(screen.queryByText('Database file')).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: 'Skip sensor' } });
+    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
+    expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: 'auto-discover' } });
+    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
+    expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: 'SQLite' } });
+    expect(screen.getByText('Database file')).toBeInTheDocument();
+    expect(document.getElementById('sensors')).toBeNull();
+    expect(screen.queryByTestId('rail-sensors')).not.toBeInTheDocument();
+  });
+
+  it('counts the edited fields per group in the rail, following the search filter', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    expect(screen.queryByTestId('rail-edited-count-sensors')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('rail-edited-count-advanced')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+      target: { value: '120' },
+    });
+    fireEvent.click(screen.getByRole('switch', { name: 'Skip sensor discovery' }));
+
+    expect(screen.getByTestId('rail-edited-count-sensors')).toHaveTextContent('2');
+    expect(screen.queryByTestId('rail-edited-count-advanced')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search properties' }), {
+      target: { value: 'auto-discover' },
+    });
+
+    expect(screen.getByTestId('rail-edited-count-sensors')).toHaveTextContent('1');
+    expect(screen.getByText('2 unsaved changes')).toBeInTheDocument();
+  });
+
+  it('stacks the rail above the content at the mobile breakpoint', async () => {
+    setViewportWidth(500);
+    await renderPage(['view_properties', 'manage_properties']);
+
+    expect(screen.getByTestId('properties-layout')).toHaveStyle({ flexDirection: 'column' });
+  });
+
+  it('sits the rail beside the content above the mobile breakpoint', async () => {
+    setViewportWidth(1200);
+    await renderPage(['view_properties', 'manage_properties']);
+
+    expect(screen.getByTestId('properties-layout')).toHaveStyle({ flexDirection: 'row' });
   });
 });
