@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 )
 
@@ -13,12 +14,41 @@ func NewMaintenanceRepository(db *Handles) MaintenanceRepository {
 	return &maintenanceRepository{db: db}
 }
 
-func (r *maintenanceRepository) Vacuum(ctx context.Context) error {
-	_, err := r.db.Writer.ExecContext(ctx, "VACUUM")
-	if err != nil {
-		return fmt.Errorf("failed to vacuum database: %w", err)
+func (r *maintenanceRepository) ReclaimFreePages(ctx context.Context, chunkPages int) (int64, error) {
+	if chunkPages <= 0 {
+		return 0, fmt.Errorf("chunk size must be positive, got %d", chunkPages)
 	}
-	return nil
+
+	conn, err := r.db.Writer.Conn(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to acquire the writer to reclaim free pages: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	before, err := freelistCount(ctx, conn)
+	if err != nil {
+		return 0, err
+	}
+
+	if _, err := conn.ExecContext(ctx, fmt.Sprintf("PRAGMA incremental_vacuum(%d)", chunkPages)); err != nil {
+		return 0, fmt.Errorf("failed to reclaim free pages: %w", err)
+	}
+
+	after, err := freelistCount(ctx, conn)
+	if err != nil {
+		return 0, err
+	}
+
+	return before - after, nil
+}
+
+func (r *maintenanceRepository) Checkpoint(ctx context.Context) (*CheckpointResult, error) {
+	var result CheckpointResult
+	row := r.db.Writer.QueryRowContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
+	if err := row.Scan(&result.Busy, &result.LogPages, &result.CheckpointedPages); err != nil {
+		return nil, fmt.Errorf("failed to checkpoint WAL: %w", err)
+	}
+	return &result, nil
 }
 
 func (r *maintenanceRepository) Optimise(ctx context.Context) error {
@@ -43,4 +73,12 @@ func (r *maintenanceRepository) DatabaseStats(ctx context.Context) (*DatabaseSta
 	}
 
 	return &stats, nil
+}
+
+func freelistCount(ctx context.Context, conn *sql.Conn) (int64, error) {
+	var count int64
+	if err := conn.QueryRowContext(ctx, "PRAGMA freelist_count").Scan(&count); err != nil {
+		return 0, fmt.Errorf("failed to get freelist_count: %w", err)
+	}
+	return count, nil
 }

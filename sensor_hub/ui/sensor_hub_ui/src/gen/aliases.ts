@@ -39,6 +39,7 @@ export type PropertyDefinition        = components['schemas']['PropertyDefinitio
 export type PropertyGroup             = components['schemas']['PropertyGroup'];
 export type PropertyDefinitionsResponse = components['schemas']['PropertyDefinitionsResponse'];
 export type MeResponse                = components['schemas']['MeResponse'];
+export type TotalReadingsSample       = components['schemas']['TotalReadingsSample'];
 
 export type NotificationSeverity = Notification['severity'];
 export type NotificationCategory = Notification['category'];
@@ -47,4 +48,3 @@ export type OAuthAuthorizeResponse = components['schemas']['OAuthAuthorizeRespon
 // Types not in the schema (frontend-only shapes)
 export type SensorStatus = 'active' | 'pending' | 'dismissed';
 export type ChartEntry = { time: string; [sensor: string]: number | string | null };
-export type TotalReadingsCountForEachSensor = Record<string, number>;

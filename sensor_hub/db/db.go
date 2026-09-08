@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	sqlite_migrate "github.com/golang-migrate/migrate/v4/database/sqlite"
@@ -34,15 +35,17 @@ func runMigrations(db *sql.DB, logger *slog.Logger) error {
 		return fmt.Errorf("could not create migrator: %w", err)
 	}
 
+	started := time.Now()
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("migration failed: %w", err)
 	}
+	elapsed := time.Since(started)
 
 	version, dirty, _ := m.Version()
 	if dirty {
 		return fmt.Errorf("database migration state is dirty at version %d", version)
 	}
 
-	logger.Info("database schema version", "version", version)
+	logger.Info("database schema version", "version", version, "migration_duration_ms", elapsed.Milliseconds())
 	return nil
 }

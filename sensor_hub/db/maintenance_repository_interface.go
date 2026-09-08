@@ -4,7 +4,8 @@ import "context"
 
 // MaintenanceRepository provides database maintenance operations for SQLite.
 type MaintenanceRepository interface {
-	Vacuum(ctx context.Context) error
+	ReclaimFreePages(ctx context.Context, chunkPages int) (int64, error)
+	Checkpoint(ctx context.Context) (*CheckpointResult, error)
 	Optimise(ctx context.Context) error
 	DatabaseStats(ctx context.Context) (*DatabaseStatsResult, error)
 }
@@ -14,6 +15,12 @@ type DatabaseStatsResult struct {
 	PageCount     int64
 	FreelistCount int64
 	PageSize      int64
+}
+
+type CheckpointResult struct {
+	Busy              int64
+	LogPages          int64
+	CheckpointedPages int64
 }
 
 // SizeBytes returns the total database size in bytes.

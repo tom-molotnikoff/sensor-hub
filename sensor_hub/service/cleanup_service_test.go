@@ -23,6 +23,8 @@ func setupCleanupService() (*cleanupService, *MockSensorRepository, *MockReading
 	failedRepo := new(MockFailedLoginRepository)
 	alertRepo := new(MockAlertRepository)
 	maintenanceRepo := new(MockMaintenanceRepository)
+	sampler := new(MockReadingsSampler)
+	sampler.On("Sample", mock.Anything).Return(nil).Maybe()
 
 	service := &cleanupService{
 		sensorRepo:      sensorRepo,
@@ -30,6 +32,7 @@ func setupCleanupService() (*cleanupService, *MockSensorRepository, *MockReading
 		failedRepo:      failedRepo,
 		alertRepo:       alertRepo,
 		maintenanceRepo: maintenanceRepo,
+		readingsSampler: sampler,
 		logger:          slog.Default().With("component", "cleanup_service"),
 		metrics:         newSQLiteInstruments(),
 	}
@@ -40,8 +43,10 @@ func defaultMaintenanceExpectations(maintenanceRepo *MockMaintenanceRepository) 
 	stats := &database.DatabaseStatsResult{PageCount: 100, FreelistCount: 10, PageSize: 4096}
 	statsAfter := &database.DatabaseStatsResult{PageCount: 90, FreelistCount: 0, PageSize: 4096}
 	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(stats, nil).Once()
-	maintenanceRepo.On("Vacuum", mock.Anything).Return(nil)
+	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(10), nil).Once()
+	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(0), nil)
 	maintenanceRepo.On("Optimise", mock.Anything).Return(nil)
+	maintenanceRepo.On("Checkpoint", mock.Anything).Return(&database.CheckpointResult{}, nil)
 	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(statsAfter, nil).Once()
 }
 
@@ -269,34 +274,67 @@ func TestCleanupService_PerformCleanup_MultipleCustomSensors(t *testing.T) {
 // Database maintenance tests
 // ============================================================================
 
-func TestCleanupService_PerformCleanup_VacuumAndOptimiseAreCalled(t *testing.T) {
+func TestCleanupService_PerformCleanup_ReclaimOptimiseAndCheckpointAreCalled(t *testing.T) {
 	service, _, _, _, _, maintenanceRepo := setupCleanupService()
 
 	stats := &database.DatabaseStatsResult{PageCount: 200, FreelistCount: 50, PageSize: 4096}
 	statsAfter := &database.DatabaseStatsResult{PageCount: 150, FreelistCount: 0, PageSize: 4096}
 	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(stats, nil).Once()
-	maintenanceRepo.On("Vacuum", mock.Anything).Return(nil)
+	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(50), nil).Once()
+	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(0), nil).Once()
 	maintenanceRepo.On("Optimise", mock.Anything).Return(nil)
+	maintenanceRepo.On("Checkpoint", mock.Anything).Return(&database.CheckpointResult{LogPages: 4, CheckpointedPages: 4}, nil)
 	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(statsAfter, nil).Once()
 
 	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
 
 	assert.NoError(t, err)
-	maintenanceRepo.AssertCalled(t, "DatabaseStats", mock.Anything)
-	maintenanceRepo.AssertCalled(t, "Vacuum", mock.Anything)
-	maintenanceRepo.AssertCalled(t, "Optimise", mock.Anything)
+	maintenanceRepo.AssertExpectations(t)
 }
 
-func TestCleanupService_PerformCleanup_VacuumError_DoesNotFail(t *testing.T) {
+func TestCleanupService_PerformCleanup_ReclaimLoopsUntilFreelistIsEmpty(t *testing.T) {
+	service, _, _, _, _, maintenanceRepo := setupCleanupService()
+
+	stats := &database.DatabaseStatsResult{PageCount: 200, FreelistCount: 1200, PageSize: 4096}
+	statsAfter := &database.DatabaseStatsResult{PageCount: 150, FreelistCount: 0, PageSize: 4096}
+	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(stats, nil).Once()
+	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(512), nil).Twice()
+	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(176), nil).Once()
+	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(0), nil).Once()
+	maintenanceRepo.On("Optimise", mock.Anything).Return(nil)
+	maintenanceRepo.On("Checkpoint", mock.Anything).Return(&database.CheckpointResult{}, nil)
+	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(statsAfter, nil).Once()
+
+	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
+
+	assert.NoError(t, err)
+	maintenanceRepo.AssertNumberOfCalls(t, "ReclaimFreePages", 4)
+}
+
+func TestCleanupService_PerformCleanup_ReclaimError_DoesNotFail(t *testing.T) {
 	service, _, _, _, _, maintenanceRepo := setupCleanupService()
 
 	stats := &database.DatabaseStatsResult{PageCount: 100, FreelistCount: 10, PageSize: 4096}
 	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(stats, nil).Once()
-	maintenanceRepo.On("Vacuum", mock.Anything).Return(errors.New("vacuum error"))
+	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(0), errors.New("reclaim error"))
 
 	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
 
 	// Maintenance errors are warned, not returned
+	assert.NoError(t, err)
+}
+
+func TestCleanupService_PerformCleanup_CheckpointError_DoesNotFail(t *testing.T) {
+	service, _, _, _, _, maintenanceRepo := setupCleanupService()
+
+	stats := &database.DatabaseStatsResult{PageCount: 100, FreelistCount: 0, PageSize: 4096}
+	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(stats, nil)
+	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(0), nil)
+	maintenanceRepo.On("Optimise", mock.Anything).Return(nil)
+	maintenanceRepo.On("Checkpoint", mock.Anything).Return(nil, errors.New("checkpoint error"))
+
+	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
+
 	assert.NoError(t, err)
 }
 
@@ -316,8 +354,9 @@ func TestCleanupService_PerformCleanup_OptimiseError_DoesNotFail(t *testing.T) {
 
 	stats := &database.DatabaseStatsResult{PageCount: 100, FreelistCount: 0, PageSize: 4096}
 	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(stats, nil)
-	maintenanceRepo.On("Vacuum", mock.Anything).Return(nil)
+	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(0), nil)
 	maintenanceRepo.On("Optimise", mock.Anything).Return(errors.New("optimise error"))
+	maintenanceRepo.On("Checkpoint", mock.Anything).Return(&database.CheckpointResult{}, nil)
 
 	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
 
@@ -379,7 +418,7 @@ func TestNewCleanupService_ReturnsService(t *testing.T) {
 	alertRepo := new(MockAlertRepository)
 	maintenanceRepo := new(MockMaintenanceRepository)
 
-	service := NewCleanupService(sensorRepo, readingsRepo, failedRepo, nil, alertRepo, maintenanceRepo, slog.Default())
+	service := NewCleanupService(sensorRepo, readingsRepo, failedRepo, nil, alertRepo, maintenanceRepo, new(MockReadingsSampler), slog.Default())
 
 	assert.NotNil(t, service)
 }

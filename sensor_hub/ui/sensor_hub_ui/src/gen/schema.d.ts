@@ -327,7 +327,7 @@ export interface paths {
         };
         /**
          * Get total readings per sensor
-         * @description Returns statistics counting total readings for each sensor (useful for usage dashboards and validation of ingestion).
+         * @description Returns the most recent sample of total readings for each sensor, taken at startup and after each cleanup pass rather than on the request.
          */
         get: operations["getTotalReadingsPerSensor"];
         put?: never;
@@ -2416,6 +2416,18 @@ export interface components {
                 h: number;
             };
         };
+        /** @description A sample of total readings per sensor and the time it was taken */
+        TotalReadingsSample: {
+            /**
+             * Format: date-time
+             * @description When the counts were taken
+             */
+            sampled_at: string;
+            /** @description Sensor name to total reading count */
+            counts: {
+                [key: string]: number;
+            };
+        };
         /** @description Generic success response */
         SuccessMessage: {
             message: string;
@@ -3153,15 +3165,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Map of sensor name to total reading count */
+            /** @description The most recent reading count sample */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
+                    "application/json": components["schemas"]["TotalReadingsSample"];
                 };
             };
         };

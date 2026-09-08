@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -218,14 +220,22 @@ func TestTotalReadingsPerSensorHandler(t *testing.T) {
 	router, api, s, mockService := setupSensorRouter()
 	api.GET("/sensors/readings/total", s.GetTotalReadingsPerSensor)
 
-	mockService.On("ServiceGetTotalReadingsForEachSensor", mock.Anything).Return(map[string]int{"s1": 10}, nil)
+	sampledAt := time.Date(2026, 9, 8, 10, 30, 0, 0, time.UTC)
+	mockService.On("ServiceGetTotalReadingsForEachSensor").Return(gen.TotalReadingsSample{
+		SampledAt: sampledAt,
+		Counts:    map[string]int{"s1": 10},
+	})
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/sensors/readings/total", nil)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "10")
+
+	var body gen.TotalReadingsSample
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Equal(t, sampledAt, body.SampledAt)
+	assert.Equal(t, map[string]int{"s1": 10}, body.Counts)
 }
 
 func TestGetSensorsByDriverHandler(t *testing.T) {
@@ -675,19 +685,6 @@ func TestDisableSensorHandler_ServiceError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/sensors/s1/disable", nil)
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestTotalReadingsPerSensorHandler_ServiceError(t *testing.T) {
-	router, api, s, mockService := setupSensorRouter()
-	api.GET("/sensors/readings/total", s.GetTotalReadingsPerSensor)
-
-	mockService.On("ServiceGetTotalReadingsForEachSensor", mock.Anything).Return(map[string]int{}, errors.New("db error"))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/sensors/readings/total", nil)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)

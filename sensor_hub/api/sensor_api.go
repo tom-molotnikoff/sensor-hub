@@ -354,13 +354,7 @@ func (s *Server) GetSensorHealthHistoryByName(c *gin.Context, name string) {
 }
 
 func (s *Server) GetTotalReadingsPerSensor(c *gin.Context) {
-	ctx := c.Request.Context()
-	stats, err := s.sensorService.ServiceGetTotalReadingsForEachSensor(ctx)
-	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error retrieving total readings per sensor", "error": err.Error()})
-		return
-	}
-	c.IndentedJSON(http.StatusOK, stats)
+	c.IndentedJSON(http.StatusOK, s.sensorService.ServiceGetTotalReadingsForEachSensor())
 }
 
 // maskSensitiveConfig returns a copy of the sensor with sensitive config fields masked.

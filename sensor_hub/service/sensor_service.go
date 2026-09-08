@@ -44,16 +44,18 @@ type SensorService struct {
 	thresholdProcessor *alerting.ThresholdAlertProcessor
 	notifSvc           NotificationServiceInterface
 	readingsObserver   actuation.ReadingsObserver
+	readingsSampler    ReadingsSamplerInterface
 	logger             *slog.Logger
 }
 
-func NewSensorService(sensorRepo database.SensorRepositoryInterface[gen.Sensor], readingsRepo database.ReadingsRepository, mtRepo database.MeasurementTypeRepository, processor *alerting.ThresholdAlertProcessor, notifSvc NotificationServiceInterface, logger *slog.Logger) *SensorService {
+func NewSensorService(sensorRepo database.SensorRepositoryInterface[gen.Sensor], readingsRepo database.ReadingsRepository, mtRepo database.MeasurementTypeRepository, processor *alerting.ThresholdAlertProcessor, notifSvc NotificationServiceInterface, readingsSampler ReadingsSamplerInterface, logger *slog.Logger) *SensorService {
 	return &SensorService{
 		sensorRepo:         sensorRepo,
 		readingsRepo:       readingsRepo,
 		mtRepo:             mtRepo,
 		thresholdProcessor: processor,
 		notifSvc:           notifSvc,
+		readingsSampler:    readingsSampler,
 		logger:             logger.With("component", "sensor_service"),
 	}
 }
@@ -479,21 +481,8 @@ func (s *SensorService) ServiceSetEnabledSensorByName(ctx context.Context, name 
 	return nil
 }
 
-func (s *SensorService) ServiceGetTotalReadingsForEachSensor(ctx context.Context) (map[string]int, error) {
-	sensors, err := s.sensorRepo.GetSensorsByStatus(ctx, "active")
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving active sensors: %w", err)
-	}
-
-	totalReadings := make(map[string]int)
-	for _, sensor := range sensors {
-		count, err := s.readingsRepo.GetTotalReadingsBySensorId(ctx, sensor.Id)
-		if err != nil {
-			return nil, fmt.Errorf("error retrieving total readings for sensor %s: %w", sensor.Name, err)
-		}
-		totalReadings[sensor.Name] = count
-	}
-	return totalReadings, nil
+func (s *SensorService) ServiceGetTotalReadingsForEachSensor() gen.TotalReadingsSample {
+	return s.readingsSampler.LatestSample()
 }
 
 func (s *SensorService) ServiceGetSensorHealthHistoryByName(ctx context.Context, name string) ([]gen.SensorHealthHistory, error) {
