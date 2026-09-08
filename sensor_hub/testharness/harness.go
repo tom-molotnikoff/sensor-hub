@@ -137,14 +137,13 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 	_ = service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, maintenanceRepo, readingsSampler, logger)
 
 	userService := service.NewUserService(userRepo, notificationService, logger)
-	authService := service.NewAuthService(userRepo, sessionRepo, failedRepo, roleRepo, logger)
+	authService := service.NewAuthService(userRepo, sessionRepo, failedRepo, logger)
 	roleService := service.NewRoleService(roleRepo, logger)
 	alertManagementService := service.NewAlertManagementService(alertRepo, thresholdProcessor, logger)
 	apiKeyService := service.NewApiKeyService(apiKeyRepo, userRepo, roleRepo, logger)
 
 	// Init middleware
 	middleware.InitAuthMiddleware(authService)
-	middleware.InitPermissionMiddleware(roleRepo)
 	middleware.InitApiKeyMiddleware(apiKeyService)
 
 	dashboardRepo := database.NewDashboardRepository(db, logger)
@@ -188,6 +187,7 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 	router.Use(gin.Recovery())
 
 	apiGroup := router.Group("/api")
+	apiGroup.Use(middleware.Compression())
 	apiGroup.Use(middleware.CSRFMiddleware())
 
 	gen.RegisterHandlersWithOptions(apiGroup, server, gen.GinServerOptions{

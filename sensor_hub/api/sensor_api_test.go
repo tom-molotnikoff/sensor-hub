@@ -85,7 +85,7 @@ func TestUpdateSensorHandler(t *testing.T) {
 	api.PUT("/sensors/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.UpdateSensorById(c, id)
@@ -113,7 +113,7 @@ func TestUpdateSensorHandler_IgnoresMetadataFromRequest(t *testing.T) {
 	api.PUT("/sensors/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.UpdateSensorById(c, id)
@@ -259,7 +259,7 @@ func TestGetSensorCapabilitiesHandler(t *testing.T) {
 	api.GET("/sensors/by-id/:id/capabilities", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.GetSensorCapabilities(c, id)
@@ -282,7 +282,7 @@ func TestGetSensorCapabilitiesHandler_NotFound(t *testing.T) {
 	api.GET("/sensors/by-id/:id/capabilities", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.GetSensorCapabilities(c, id)
@@ -304,7 +304,7 @@ func TestGetSensorCommandHistoryHandler_EmptyHistory(t *testing.T) {
 	api.GET("/sensors/by-id/:id/commands", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.GetSensorCommandHistory(c, id)
@@ -327,7 +327,7 @@ func TestGetSensorCommandHistoryHandler_NotFound(t *testing.T) {
 	api.GET("/sensors/by-id/:id/commands", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.GetSensorCommandHistory(c, id)
@@ -350,7 +350,7 @@ func TestSendSensorCommandHandler(t *testing.T) {
 	api.POST("/sensors/:id/command", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		c.Set("currentUser", &gen.User{Id: 99, Permissions: []string{"control_sensors"}})
@@ -370,8 +370,10 @@ func TestSendSensorCommandHandler(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusAccepted, w.Code)
-	assert.Contains(t, w.Body.String(), `"id": 42`)
-	assert.Contains(t, w.Body.String(), `"status": "sent"`)
+	var accepted gen.SensorCommandAccepted
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &accepted))
+	assert.Equal(t, 42, accepted.Id)
+	assert.Equal(t, "sent", string(accepted.Status))
 }
 
 func TestSendSensorCommandHandler_ServiceUnavailable(t *testing.T) {
@@ -381,7 +383,7 @@ func TestSendSensorCommandHandler_ServiceUnavailable(t *testing.T) {
 	api.POST("/sensors/:id/command", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		c.Set("currentUser", &gen.User{Id: 99, Permissions: []string{"control_sensors"}})
@@ -497,7 +499,7 @@ func TestUpdateSensorHandler_InvalidID(t *testing.T) {
 	api.PUT("/sensors/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.UpdateSensorById(c, id)
@@ -518,7 +520,7 @@ func TestUpdateSensorHandler_InvalidJSON(t *testing.T) {
 	api.PUT("/sensors/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.UpdateSensorById(c, id)
@@ -536,7 +538,7 @@ func TestUpdateSensorHandler_ServiceError(t *testing.T) {
 	api.PUT("/sensors/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.UpdateSensorById(c, id)
@@ -778,7 +780,7 @@ func TestApproveSensorHandler(t *testing.T) {
 	api.POST("/sensors/approve/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.ApproveSensor(c, id)
@@ -799,7 +801,7 @@ func TestApproveSensorHandler_InvalidID(t *testing.T) {
 	api.POST("/sensors/approve/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.ApproveSensor(c, id)
@@ -817,7 +819,7 @@ func TestApproveSensorHandler_Error(t *testing.T) {
 	api.POST("/sensors/approve/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.ApproveSensor(c, id)
@@ -837,7 +839,7 @@ func TestDismissSensorHandler(t *testing.T) {
 	api.POST("/sensors/dismiss/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.DismissSensor(c, id)
@@ -858,7 +860,7 @@ func TestDismissSensorHandler_InvalidID(t *testing.T) {
 	api.POST("/sensors/dismiss/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.DismissSensor(c, id)
@@ -876,7 +878,7 @@ func TestDismissSensorHandler_Error(t *testing.T) {
 	api.POST("/sensors/dismiss/:id", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.DismissSensor(c, id)

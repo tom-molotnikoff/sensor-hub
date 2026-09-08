@@ -13,45 +13,45 @@ func (s *Server) ListRoles(c *gin.Context) {
 	ctx := c.Request.Context()
 	roles, err := s.roleService.ListRoles(ctx)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to list roles", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to list roles", "error": err.Error()})
 		return
 	}
 	result := make([]gen.RoleInfo, len(roles))
 	for i, r := range roles {
 		result[i] = gen.RoleInfo{Id: r.Id, Name: r.Name}
 	}
-	c.IndentedJSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, result)
 }
 
 func (s *Server) ListPermissions(c *gin.Context) {
 	ctx := c.Request.Context()
 	perms, err := s.roleService.ListPermissions(ctx)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to list permissions", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to list permissions", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, convertPermissions(perms))
+	c.JSON(http.StatusOK, convertPermissions(perms))
 }
 
 func (s *Server) GetRolePermissions(c *gin.Context, id int) {
 	ctx := c.Request.Context()
 	perms, err := s.roleService.ListPermissionsForRole(ctx, id)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to list role permissions", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to list role permissions", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, convertPermissions(perms))
+	c.JSON(http.StatusOK, convertPermissions(perms))
 }
 
 func (s *Server) AssignPermission(c *gin.Context, id int) {
 	ctx := c.Request.Context()
 	var req gen.AssignPermissionJSONRequestBody
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request"})
 		return
 	}
 	if err := s.roleService.AssignPermission(ctx, id, req.PermissionId); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to assign permission", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to assign permission", "error": err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)
@@ -60,7 +60,7 @@ func (s *Server) AssignPermission(c *gin.Context, id int) {
 func (s *Server) RemovePermission(c *gin.Context, id int, pid int) {
 	ctx := c.Request.Context()
 	if err := s.roleService.RemovePermission(ctx, id, pid); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to remove permission", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to remove permission", "error": err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)

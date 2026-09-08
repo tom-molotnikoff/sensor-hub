@@ -17,7 +17,7 @@ func (s *Server) UpdateProperties(c *gin.Context) {
 	var requestBody gen.UpdatePropertiesJSONRequestBody
 
 	if err := c.BindJSON(&requestBody); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request body"})
 		return
 	}
 
@@ -25,21 +25,21 @@ func (s *Server) UpdateProperties(c *gin.Context) {
 	if err != nil {
 		var vErr *appProps.ValidationError
 		if errors.As(err, &vErr) {
-			c.IndentedJSON(http.StatusBadRequest, gen.PropertiesErrorResponse{Message: vErr.Message, Key: &vErr.Key})
+			c.JSON(http.StatusBadRequest, gen.PropertiesErrorResponse{Message: vErr.Message, Key: &vErr.Key})
 			return
 		}
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error updating properties", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error updating properties", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusAccepted, gin.H{"message": "Property updated successfully"})
+	c.JSON(http.StatusAccepted, gin.H{"message": "Property updated successfully"})
 }
 
 func (s *Server) GetProperties(c *gin.Context) {
 	ctx := c.Request.Context()
 	properties, err := s.propertiesService.ServiceGetProperties(ctx)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error fetching properties", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching properties", "error": err.Error()})
 		return
 	}
 
@@ -47,7 +47,7 @@ func (s *Server) GetProperties(c *gin.Context) {
 	for k, v := range properties {
 		result[k] = fmt.Sprintf("%v", v)
 	}
-	c.IndentedJSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, result)
 }
 
 // GetPropertyDefinitions serves the registry metadata. The data is static
@@ -93,7 +93,7 @@ func (s *Server) GetPropertyDefinitions(c *gin.Context) {
 		})
 	}
 
-	c.IndentedJSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, resp)
 }
 
 func definitionType(kind reflect.Kind) gen.PropertyDefinitionType {
@@ -111,15 +111,18 @@ func (s *Server) PropertiesWebSocket(c *gin.Context) {
 	ctx := c.Request.Context()
 	properties, err := s.propertiesService.ServiceGetProperties(ctx)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error fetching properties", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching properties", "error": err.Error()})
 		return
 	}
 
-	createPushWebSocket(c, "properties")
+	conn := createPushWebSocket(c, "properties")
+	if conn == nil {
+		return
+	}
 
 	result := make(gen.PropertiesMap)
 	for k, v := range properties {
 		result[k] = fmt.Sprintf("%v", v)
 	}
-	ws.BroadcastToTopic("properties", result)
+	ws.Send(conn, result)
 }

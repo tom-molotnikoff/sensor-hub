@@ -75,7 +75,7 @@ func setupAlertByIDRoute(s *Server) *gin.Engine {
 	apiGroup.GET("/alerts/:id", func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid alert rule ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid alert rule ID"})
 			return
 		}
 		s.GetAlertRuleById(c, id)
@@ -90,7 +90,7 @@ func setupAlertsBySensorRoute(s *Server) *gin.Engine {
 	apiGroup.GET("/alerts/sensor/:sensorId", func(c *gin.Context) {
 		sensorID, err := strconv.Atoi(c.Param("sensorId"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		s.GetAlertRulesBySensorId(c, sensorID)
@@ -105,7 +105,7 @@ func setupUpdateAlertRoute(s *Server) *gin.Engine {
 	apiGroup.PUT("/alerts/:id", func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid alert rule ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid alert rule ID"})
 			return
 		}
 		s.UpdateAlertRule(c, id)
@@ -120,7 +120,7 @@ func setupDeleteAlertRoute(s *Server) *gin.Engine {
 	apiGroup.DELETE("/alerts/:id", func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid alert rule ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid alert rule ID"})
 			return
 		}
 		s.DeleteAlertRule(c, id)
@@ -135,7 +135,7 @@ func setupAlertHistoryRoute(s *Server) *gin.Engine {
 	apiGroup.GET("/alerts/sensor/:sensorId/history", func(c *gin.Context) {
 		sensorID, err := strconv.Atoi(c.Param("sensorId"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
 			return
 		}
 		var params gen.GetAlertHistoryParams

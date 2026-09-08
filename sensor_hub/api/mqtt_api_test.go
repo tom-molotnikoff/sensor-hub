@@ -140,7 +140,7 @@ func withBrokerID(s *Server, h func(*gin.Context, int)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid broker ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid broker ID"})
 			return
 		}
 		h(c, id)
@@ -151,7 +151,7 @@ func withSubscriptionID(s *Server, h func(*gin.Context, int)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid subscription ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid subscription ID"})
 			return
 		}
 		h(c, id)
@@ -165,7 +165,7 @@ func listSubscriptionsClosureHandler(s *Server) gin.HandlerFunc {
 		if brokerParam := c.Query("broker_id"); brokerParam != "" {
 			id, err := strconv.Atoi(brokerParam)
 			if err != nil {
-				c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid broker_id parameter"})
+				c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid broker_id parameter"})
 				return
 			}
 			params.BrokerId = &id

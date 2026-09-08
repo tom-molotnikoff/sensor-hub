@@ -10,12 +10,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
+
+	gen "example/sensorHub/gen"
 )
 
 type SessionRepository interface {
 	CreateSession(ctx context.Context, userId int, rawToken string, expiresAt time.Time, ip string, userAgent string) (string, error) // returns csrfToken
-	GetUserIdByToken(ctx context.Context, rawToken string) (int, error)
+	GetAuthenticatedUserByToken(ctx context.Context, rawToken string) (*gen.User, time.Time, error)
+	TouchSession(ctx context.Context, rawToken string) error
 	GetSessionIdByToken(ctx context.Context, rawToken string) (int64, error)
 	DeleteSessionByToken(ctx context.Context, rawToken string) error
 	DeleteSessionsForUser(ctx context.Context, userId int) error
@@ -70,26 +74,70 @@ func (r *SqlSessionRepository) CreateSession(ctx context.Context, userId int, ra
 	return csrf, nil
 }
 
-func (r *SqlSessionRepository) GetUserIdByToken(ctx context.Context, rawToken string) (int, error) {
-	query := "SELECT user_id, expires_at FROM sessions WHERE token_hash = ?"
-	var userId int
-	var expiresAt SQLiteTime
-	err := r.db.Reader.QueryRowContext(ctx, query, tokenHash(rawToken)).Scan(&userId, &expiresAt)
+func (r *SqlSessionRepository) GetAuthenticatedUserByToken(ctx context.Context, rawToken string) (*gen.User, time.Time, error) {
+	query := `SELECT s.expires_at, s.last_accessed_at,
+		u.id, u.username, u.email, u.must_change_password, u.disabled, u.created_at, u.updated_at,
+		(SELECT group_concat(r.name, char(31))
+			FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+			WHERE ur.user_id = u.id),
+		(SELECT group_concat(p.name, char(31))
+			FROM user_roles ur
+			JOIN role_permissions rp ON rp.role_id = ur.role_id
+			JOIN permissions p ON p.id = rp.permission_id
+			WHERE ur.user_id = u.id)
+	FROM sessions s JOIN users u ON u.id = s.user_id
+	WHERE s.token_hash = ?`
+	var user gen.User
+	var expiresAt, lastAccessedAt, createdAt SQLiteTime
+	var updatedAt NullSQLiteTime
+	var roles, permissions sql.NullString
+	err := r.db.Reader.QueryRowContext(ctx, query, tokenHash(rawToken)).Scan(
+		&expiresAt, &lastAccessedAt,
+		&user.Id, &user.Username, &user.Email, &user.MustChangePassword, &user.Disabled, &createdAt, &updatedAt,
+		&roles, &permissions,
+	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, nil
+			return nil, time.Time{}, nil
 		}
-		return 0, fmt.Errorf("error querying session: %w", err)
+		return nil, time.Time{}, fmt.Errorf("error querying authenticated user: %w", err)
 	}
 	if time.Now().After(expiresAt.Time) {
 		_ = r.DeleteSessionByToken(ctx, rawToken)
-		return 0, nil
+		return nil, time.Time{}, nil
 	}
-	_, err = r.db.Writer.ExecContext(ctx, "UPDATE sessions SET last_accessed_at = ? WHERE token_hash = ?", time.Now(), tokenHash(rawToken))
+	user.CreatedAt = createdAt.Time
+	if updatedAt.Valid {
+		user.UpdatedAt = updatedAt.Time
+	}
+	user.Roles = splitConcatenated(roles)
+	user.Permissions = splitConcatenated(permissions)
+	return &user, lastAccessedAt.Time, nil
+}
+
+func splitConcatenated(v sql.NullString) []string {
+	if !v.Valid || v.String == "" {
+		return nil
+	}
+	parts := strings.Split(v.String, "\x1f")
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
+	for _, p := range parts {
+		if p == "" || seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	return out
+}
+
+func (r *SqlSessionRepository) TouchSession(ctx context.Context, rawToken string) error {
+	_, err := r.db.Writer.ExecContext(ctx, "UPDATE sessions SET last_accessed_at = ? WHERE token_hash = ?", time.Now(), tokenHash(rawToken))
 	if err != nil {
-		r.logger.Error("error updating last accessed time", "error", err)
+		return fmt.Errorf("error updating last accessed time: %w", err)
 	}
-	return userId, nil
+	return nil
 }
 
 func (r *SqlSessionRepository) GetSessionIdByToken(ctx context.Context, rawToken string) (int64, error) {

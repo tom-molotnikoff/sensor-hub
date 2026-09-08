@@ -109,6 +109,31 @@ func (c *Client) decodeInto(resp *http.Response, err error, v any) int {
 
 func (c *Client) ctx() context.Context { return context.Background() }
 
+func (c *Client) GetRaw(path string, headers http.Header) (*http.Response, []byte, error) {
+	req, err := http.NewRequestWithContext(c.ctx(), http.MethodGet, strings.TrimRight(c.baseURL, "/")+path, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	for name, values := range headers {
+		for _, value := range values {
+			req.Header.Add(name, value)
+		}
+	}
+	if err := c.injectCSRF(c.ctx(), req); err != nil {
+		return nil, nil, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, err
+	}
+	return resp, body, nil
+}
+
 func (c *Client) DialWebSocket(path string) (*websocket.Conn, *http.Response, error) {
 	base, err := url.Parse(c.baseURL)
 	if err != nil {

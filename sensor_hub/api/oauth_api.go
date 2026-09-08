@@ -30,24 +30,24 @@ var pendingStates = struct {
 func (s *Server) GetOAuthStatus(c *gin.Context) {
 	ctx := c.Request.Context()
 	if s.oauthService == nil {
-		c.IndentedJSON(http.StatusServiceUnavailable, gin.H{"message": "OAuth not configured"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "OAuth not configured"})
 		return
 	}
 	status := s.oauthService.GetStatus(ctx)
-	c.IndentedJSON(http.StatusOK, status)
+	c.JSON(http.StatusOK, status)
 }
 
 func (s *Server) GetOAuthAuthorizeUrl(c *gin.Context) {
 	ctx := c.Request.Context()
 	if s.oauthService == nil {
-		c.IndentedJSON(http.StatusServiceUnavailable, gin.H{"message": "OAuth not configured"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "OAuth not configured"})
 		return
 	}
 
 	// Generate CSRF state
 	stateBytes := make([]byte, 16)
 	if _, err := rand.Read(stateBytes); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to generate state"})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to generate state"})
 		return
 	}
 	state := hex.EncodeToString(stateBytes)
@@ -59,11 +59,11 @@ func (s *Server) GetOAuthAuthorizeUrl(c *gin.Context) {
 
 	authURL, err := s.oauthService.GetAuthURL(ctx, state)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to get auth URL", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to get auth URL", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{"auth_url": authURL, "state": state})
+	c.JSON(http.StatusOK, gin.H{"auth_url": authURL, "state": state})
 }
 
 // SubmitOAuthCode handles manual submission of the authorization code.
@@ -71,13 +71,13 @@ func (s *Server) GetOAuthAuthorizeUrl(c *gin.Context) {
 func (s *Server) SubmitOAuthCode(c *gin.Context) {
 	ctx := c.Request.Context()
 	if s.oauthService == nil {
-		c.IndentedJSON(http.StatusServiceUnavailable, gin.H{"message": "OAuth not configured"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "OAuth not configured"})
 		return
 	}
 
 	var req gen.SubmitOAuthCodeJSONRequestBody
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request", "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request", "error": err.Error()})
 		return
 	}
 
@@ -88,30 +88,30 @@ func (s *Server) SubmitOAuthCode(c *gin.Context) {
 	pendingStates.Unlock()
 
 	if !valid {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid or expired state"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid or expired state"})
 		return
 	}
 
 	if err := s.oauthService.ExchangeCode(ctx, req.Code); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to exchange code", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to exchange code", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "OAuth authorization successful"})
+	c.JSON(http.StatusOK, gin.H{"message": "OAuth authorization successful"})
 }
 
 // ReloadOAuth reloads credentials and token from disk.
 func (s *Server) ReloadOAuth(c *gin.Context) {
 	ctx := c.Request.Context()
 	if s.oauthService == nil {
-		c.IndentedJSON(http.StatusServiceUnavailable, gin.H{"message": "OAuth not configured"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "OAuth not configured"})
 		return
 	}
 
 	if err := s.oauthService.Reload(ctx); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to reload", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to reload", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "OAuth configuration reloaded"})
+	c.JSON(http.StatusOK, gin.H{"message": "OAuth configuration reloaded"})
 }

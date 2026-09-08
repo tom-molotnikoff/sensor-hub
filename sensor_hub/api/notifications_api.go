@@ -28,10 +28,10 @@ func (s *Server) ListNotifications(c *gin.Context, params gen.ListNotificationsP
 
 	notifs, err := s.notificationService.GetNotificationsForUser(ctx, userID, limit, offset, includeDismissed)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to get notifications", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to get notifications", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, notifs)
+	c.JSON(http.StatusOK, notifs)
 }
 
 func (s *Server) GetUnreadCount(c *gin.Context) {
@@ -40,10 +40,10 @@ func (s *Server) GetUnreadCount(c *gin.Context) {
 
 	count, err := s.notificationService.GetUnreadCount(ctx, userID)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to get unread count", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to get unread count", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"count": count})
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func (s *Server) MarkAsRead(c *gin.Context, id int) {
@@ -52,10 +52,10 @@ func (s *Server) MarkAsRead(c *gin.Context, id int) {
 
 	err := s.notificationService.MarkAsRead(ctx, userID, id)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to mark as read", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to mark as read", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "marked as read"})
+	c.JSON(http.StatusOK, gin.H{"message": "marked as read"})
 }
 
 func (s *Server) DismissNotification(c *gin.Context, id int) {
@@ -64,10 +64,10 @@ func (s *Server) DismissNotification(c *gin.Context, id int) {
 
 	err := s.notificationService.Dismiss(ctx, userID, id)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to dismiss notification", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to dismiss notification", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "dismissed"})
+	c.JSON(http.StatusOK, gin.H{"message": "dismissed"})
 }
 
 func (s *Server) BulkMarkAsRead(c *gin.Context) {
@@ -76,10 +76,10 @@ func (s *Server) BulkMarkAsRead(c *gin.Context) {
 
 	err := s.notificationService.BulkMarkAsRead(ctx, userID)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to mark all as read", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to mark all as read", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "all marked as read"})
+	c.JSON(http.StatusOK, gin.H{"message": "all marked as read"})
 }
 
 func (s *Server) BulkDismiss(c *gin.Context) {
@@ -88,10 +88,10 @@ func (s *Server) BulkDismiss(c *gin.Context) {
 
 	err := s.notificationService.BulkDismiss(ctx, userID)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to dismiss all", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to dismiss all", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "all dismissed"})
+	c.JSON(http.StatusOK, gin.H{"message": "all dismissed"})
 }
 
 func (s *Server) GetChannelPreferences(c *gin.Context) {
@@ -100,10 +100,10 @@ func (s *Server) GetChannelPreferences(c *gin.Context) {
 
 	prefs, err := s.notificationService.GetChannelPreferences(ctx, userID)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to get preferences", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to get preferences", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, prefs)
+	c.JSON(http.StatusOK, prefs)
 }
 
 func (s *Server) SetChannelPreference(c *gin.Context) {
@@ -112,7 +112,7 @@ func (s *Server) SetChannelPreference(c *gin.Context) {
 
 	var req gen.SetChannelPreferenceJSONRequestBody
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request body", "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body", "error": err.Error()})
 		return
 	}
 
@@ -134,10 +134,10 @@ func (s *Server) SetChannelPreference(c *gin.Context) {
 
 	err := s.notificationService.SetChannelPreference(ctx, userID, pref)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to set preference", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to set preference", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "preference saved"})
+	c.JSON(http.StatusOK, gin.H{"message": "preference saved"})
 }
 
 func (s *Server) NotificationsWebSocket(ctx *gin.Context) {

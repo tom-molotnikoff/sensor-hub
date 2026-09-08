@@ -23,9 +23,7 @@ import (
 //go:embed openapi.yaml
 var openapiSpec []byte
 
-func InitialiseAndListen(ctx context.Context, logger *slog.Logger, prometheusHandler http.Handler, server *Server) error {
-	logger.Info("API server starting")
-
+func newRouter(logger *slog.Logger, prometheusHandler http.Handler, server *Server) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.RedirectTrailingSlash = false
@@ -49,6 +47,7 @@ func InitialiseAndListen(ctx context.Context, logger *slog.Logger, prometheusHan
 	// All API routes live under /api
 	apiGroup := router.Group("/api")
 
+	apiGroup.Use(middleware.Compression())
 	apiGroup.Use(middleware.CSRFMiddleware())
 
 	gen.RegisterHandlersWithOptions(apiGroup, server, gen.GinServerOptions{
@@ -65,6 +64,14 @@ func InitialiseAndListen(ctx context.Context, logger *slog.Logger, prometheusHan
 
 	// Serve embedded UI for all non-API routes
 	web.RegisterSPAHandler(router)
+
+	return router
+}
+
+func InitialiseAndListen(ctx context.Context, logger *slog.Logger, prometheusHandler http.Handler, server *Server) error {
+	logger.Info("API server starting")
+
+	router := newRouter(logger, prometheusHandler, server)
 
 	srv := &http.Server{
 		Addr:    "0.0.0.0:8080",

@@ -27,7 +27,7 @@ func (s *Server) ListDrivers(c *gin.Context, params gen.ListDriversParams) {
 		}
 		result = append(result, driverToGenInfo(d))
 	}
-	c.IndentedJSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, result)
 }
 
 func driverToGenInfo(d drivers.SensorDriver) gen.DriverInfo {

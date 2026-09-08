@@ -150,7 +150,7 @@ func withDashboardID(s *Server, h func(*gin.Context, int)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid dashboard ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid dashboard ID"})
 			return
 		}
 		h(c, id)

@@ -1,6 +1,7 @@
 import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sensor } from '../../gen/aliases';
+import { apiClient } from '../../gen/client';
 import HeatmapWidget from './HeatmapWidget';
 
 const { scheduleMock, reportUpdateMock } = vi.hoisted(() => ({
@@ -48,5 +49,26 @@ describe('HeatmapWidget loading state', () => {
     await waitForElementToBeRemoved(() => screen.queryByTestId('widget-loader'));
     // Loader gone; the real grid (no animated loader cells) is shown.
     expect(screen.queryByTestId('heatmap-cell')).not.toBeInTheDocument();
+  });
+});
+
+describe('HeatmapWidget request', () => {
+  beforeEach(() => {
+    sensors.splice(0, sensors.length, makeSensor());
+    scheduleMock.mockReset();
+    reportUpdateMock.mockReset();
+    vi.mocked(apiClient.GET).mockReset();
+  });
+
+  it('asks for its own sensor and measurement type only', async () => {
+    vi.mocked(apiClient.GET).mockResolvedValue({ data: { readings: [] } });
+    scheduleMock.mockImplementation((_priority: string, fetcher: () => Promise<unknown>) => fetcher());
+
+    render(<HeatmapWidget id="w" isEditing={false} config={config} />);
+    await waitForElementToBeRemoved(() => screen.queryByTestId('widget-loader'));
+
+    expect(apiClient.GET).toHaveBeenCalledWith('/readings/between', {
+      params: { query: expect.objectContaining({ type: 'temperature', sensor: 'greenhouse' }) },
+    });
   });
 });

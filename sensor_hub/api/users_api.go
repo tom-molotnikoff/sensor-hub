@@ -12,7 +12,7 @@ func (s *Server) CreateUser(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req gen.CreateUserRequest
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
 		return
 	}
 
@@ -27,27 +27,27 @@ func (s *Server) CreateUser(c *gin.Context) {
 	user := gen.User{Username: req.Username, Email: email, Roles: roles}
 	id, err := s.userService.CreateUser(ctx, user, req.Password)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to create user", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to create user", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusCreated, gin.H{"id": id})
+	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
 func (s *Server) ListUsers(c *gin.Context) {
 	ctx := c.Request.Context()
 	users, err := s.userService.ListUsers(ctx)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to list users", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to list users", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, users)
+	c.JSON(http.StatusOK, users)
 }
 
 func (s *Server) ChangePassword(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req gen.ChangePasswordRequest
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
 		return
 	}
 
@@ -87,7 +87,7 @@ func (s *Server) ChangePassword(c *gin.Context) {
 		}
 	}
 	if err := s.userService.ChangePassword(ctx, targetUserId, req.NewPassword, keepToken); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to change password", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to change password", "error": err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)
@@ -111,11 +111,11 @@ func (s *Server) DeleteUser(c *gin.Context, id int) {
 	}
 
 	if currentUser.Id == id {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "cannot delete current user"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "cannot delete current user"})
 		return
 	}
 	if err := s.userService.DeleteUser(ctx, id); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to delete user", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to delete user", "error": err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)
@@ -125,7 +125,7 @@ func (s *Server) SetMustChangePassword(c *gin.Context, id int) {
 	ctx := c.Request.Context()
 	var req gen.SetMustChangePasswordJSONRequestBody
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
 		return
 	}
 
@@ -149,7 +149,7 @@ func (s *Server) SetMustChangePassword(c *gin.Context, id int) {
 		}
 	}
 	if err := s.userService.SetMustChangeFlag(ctx, id, req.MustChange); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to update user flag", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to update user flag", "error": err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)
@@ -159,7 +159,7 @@ func (s *Server) SetUserRoles(c *gin.Context, id int) {
 	ctx := c.Request.Context()
 	var req gen.SetUserRolesJSONRequestBody
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
 		return
 	}
 	currentUserObj, _ := c.Get("currentUser")
@@ -180,7 +180,7 @@ func (s *Server) SetUserRoles(c *gin.Context, id int) {
 		return
 	}
 	if err := s.userService.SetUserRoles(ctx, id, req.Roles); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to set roles", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to set roles", "error": err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)

@@ -80,7 +80,7 @@ func TestDeleteUserHandler_Admin(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.DeleteUser(c, id)
@@ -101,7 +101,7 @@ func TestSetMustChangeHandler_Admin(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.SetMustChangePassword(c, id)
@@ -125,7 +125,7 @@ func TestSetRolesHandler_Admin(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.SetUserRoles(c, id)
@@ -282,7 +282,7 @@ func TestDeleteUserHandler_InvalidID(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.DeleteUser(c, id)
@@ -301,7 +301,7 @@ func TestDeleteUserHandler_NonAdminForbidden(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"user"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.DeleteUser(c, id)
@@ -320,7 +320,7 @@ func TestDeleteUserHandler_CannotDeleteSelf(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.DeleteUser(c, id)
@@ -339,7 +339,7 @@ func TestDeleteUserHandler_ServiceError(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.DeleteUser(c, id)
@@ -360,7 +360,7 @@ func TestSetMustChangeHandler_InvalidID(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.SetMustChangePassword(c, id)
@@ -379,7 +379,7 @@ func TestSetMustChangeHandler_InvalidJSON(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.SetMustChangePassword(c, id)
@@ -398,7 +398,7 @@ func TestSetMustChangeHandler_NonAdminForbidden(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"user"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.SetMustChangePassword(c, id)
@@ -420,7 +420,7 @@ func TestSetMustChangeHandler_ServiceError(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.SetMustChangePassword(c, id)
@@ -444,7 +444,7 @@ func TestSetRolesHandler_InvalidID(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.SetUserRoles(c, id)
@@ -463,7 +463,7 @@ func TestSetRolesHandler_InvalidJSON(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.SetUserRoles(c, id)
@@ -482,7 +482,7 @@ func TestSetRolesHandler_NonAdminForbidden(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"user"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.SetUserRoles(c, id)
@@ -504,7 +504,7 @@ func TestSetRolesHandler_ServiceError(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
 			return
 		}
 		s.SetUserRoles(c, id)

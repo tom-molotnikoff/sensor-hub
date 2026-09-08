@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"errors"
 	gen "example/sensorHub/gen"
 	"net/http"
 	"net/http/httptest"
@@ -9,30 +8,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-func TestRequirePermission_Cached(t *testing.T) {
+func TestRequirePermission_Granted(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	user := &gen.User{Id: 1, Permissions: []string{"test_perm"}}
-	c.Set("currentUser", user)
-
-	RequirePermission("test_perm")(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestRequirePermission_FromDB(t *testing.T) {
-	mockRepo := new(MockRoleRepository)
-	InitPermissionMiddleware(mockRepo)
-
-	user := &gen.User{Id: 1} // No permissions cached
-	mockRepo.On("GetPermissionsForUser", mock.Anything, 1).Return([]string{"test_perm"}, nil)
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/test", nil)
 	c.Set("currentUser", user)
 
 	RequirePermission("test_perm")(c)
@@ -60,19 +41,12 @@ func TestRequirePermission_NoUser(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestRequirePermission_DBError(t *testing.T) {
-	mockRepo := new(MockRoleRepository)
-	InitPermissionMiddleware(mockRepo)
-
-	user := &gen.User{Id: 1}
-	mockRepo.On("GetPermissionsForUser", mock.Anything, 1).Return(nil, errors.New("db error"))
-
+func TestRequirePermission_NoPermissions(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/test", nil)
-	c.Set("currentUser", user)
+	c.Set("currentUser", &gen.User{Id: 1})
 
 	RequirePermission("test_perm")(c)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }

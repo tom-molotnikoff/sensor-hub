@@ -31,75 +31,75 @@ func (s *Server) GetAllAlertRules(c *gin.Context) {
 	rules, err := s.alertService.ServiceGetAllAlertRules(ctx)
 	if err != nil {
 		slog.Error("error fetching alert rules", "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert rules", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert rules", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, rules)
+	c.JSON(http.StatusOK, rules)
 }
 
 func (s *Server) GetAlertRuleById(c *gin.Context, id int) {
 	ctx := c.Request.Context()
 	rule, err := s.alertService.ServiceGetAlertRuleByID(ctx, id)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert rule", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert rule", "error": err.Error()})
 		return
 	}
 	if rule == nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Alert rule not found"})
+		c.JSON(http.StatusNotFound, gin.H{"message": "Alert rule not found"})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, rule)
+	c.JSON(http.StatusOK, rule)
 }
 
 func (s *Server) GetAlertRulesBySensorId(c *gin.Context, sensorId int) {
 	ctx := c.Request.Context()
 	rules, err := s.alertService.ServiceGetAlertRulesBySensorID(ctx, sensorId)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert rules", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert rules", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, rules)
+	c.JSON(http.StatusOK, rules)
 }
 
 func (s *Server) CreateAlertRule(c *gin.Context) {
 	ctx := c.Request.Context()
 	var genRule gen.AlertRule
 	if err := c.ShouldBindJSON(&genRule); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid request body", "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request body", "error": err.Error()})
 		return
 	}
 
 	rule := toAlertingRule(genRule)
 	if err := rule.Validate(); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid alert rule", "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid alert rule", "error": err.Error()})
 		return
 	}
 
 	if err := s.alertService.ServiceCreateAlertRule(ctx, &rule); err != nil {
 		slog.Error("error creating alert rule", "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error creating alert rule", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error creating alert rule", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusCreated, gin.H{"message": "Alert rule created successfully"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Alert rule created successfully"})
 }
 
 func (s *Server) UpdateAlertRule(c *gin.Context, id int) {
 	ctx := c.Request.Context()
 	var genRule gen.AlertRule
 	if err := c.ShouldBindJSON(&genRule); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid request body", "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request body", "error": err.Error()})
 		return
 	}
 
 	existing, err := s.alertService.ServiceGetAlertRuleByID(ctx, id)
 	if err != nil {
 		slog.Error("error fetching alert rule for update", "id", id, "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert rule", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert rule", "error": err.Error()})
 		return
 	}
 	if existing == nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Alert rule not found"})
+		c.JSON(http.StatusNotFound, gin.H{"message": "Alert rule not found"})
 		return
 	}
 
@@ -111,27 +111,27 @@ func (s *Server) UpdateAlertRule(c *gin.Context, id int) {
 	rule.MeasurementTypeId = existing.MeasurementTypeId
 
 	if err := rule.Validate(); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid alert rule", "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid alert rule", "error": err.Error()})
 		return
 	}
 
 	if err := s.alertService.ServiceUpdateAlertRule(ctx, &rule); err != nil {
 		slog.Error("error updating alert rule", "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error updating alert rule", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error updating alert rule", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "Alert rule updated successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Alert rule updated successfully"})
 }
 
 func (s *Server) DeleteAlertRule(c *gin.Context, id int) {
 	ctx := c.Request.Context()
 	if err := s.alertService.ServiceDeleteAlertRule(ctx, id); err != nil {
 		slog.Error("error deleting alert rule", "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error deleting alert rule", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error deleting alert rule", "error": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "Alert rule deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Alert rule deleted successfully"})
 }
 
 func (s *Server) GetAlertHistory(c *gin.Context, sensorId int, params gen.GetAlertHistoryParams) {
@@ -144,9 +144,9 @@ func (s *Server) GetAlertHistory(c *gin.Context, sensorId int, params gen.GetAle
 	history, err := s.alertService.ServiceGetAlertHistory(ctx, sensorId, limit)
 	if err != nil {
 		slog.Error("error fetching alert history", "sensor_id", sensorId, "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert history", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert history", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, history)
+	c.JSON(http.StatusOK, history)
 }
