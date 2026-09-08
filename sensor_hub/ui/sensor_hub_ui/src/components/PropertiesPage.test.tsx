@@ -105,10 +105,13 @@ async function renderPageUntil(permissions: string[], settled: string) {
   // and so the AuthContext instance matches the one the page imports.
   const { default: PropertiesPage } = await import('./PropertiesPage');
   const { AuthContext } = await import('../providers/AuthContext');
+  const { default: PropertiesProvider } = await import('../providers/PropertiesProvider');
 
   render(
     <AuthContext.Provider value={{ user: { id: 1, username: 'owner', roles: [], permissions }, refresh: async () => {} }}>
-      <PropertiesPage />
+      <PropertiesProvider>
+        <PropertiesPage />
+      </PropertiesProvider>
     </AuthContext.Provider>,
   );
 
@@ -613,9 +616,12 @@ describe('PropertiesPage', () => {
 
     const { default: PropertiesPage } = await import('./PropertiesPage');
     const { AuthContext } = await import('../providers/AuthContext');
+    const { default: PropertiesProvider } = await import('../providers/PropertiesProvider');
     render(
       <AuthContext.Provider value={{ user: { id: 1, username: 'owner', roles: [], permissions: ['view_properties'] }, refresh: async () => {} }}>
-        <PropertiesPage />
+        <PropertiesProvider>
+          <PropertiesPage />
+        </PropertiesProvider>
       </AuthContext.Provider>,
     );
 
@@ -638,9 +644,12 @@ describe('PropertiesPage', () => {
 
     const { default: PropertiesPage } = await import('./PropertiesPage');
     const { AuthContext } = await import('../providers/AuthContext');
+    const { default: PropertiesProvider } = await import('../providers/PropertiesProvider');
     render(
       <AuthContext.Provider value={{ user: { id: 1, username: 'owner', roles: [], permissions: ['view_properties'] }, refresh: async () => {} }}>
-        <PropertiesPage />
+        <PropertiesProvider>
+          <PropertiesPage />
+        </PropertiesProvider>
       </AuthContext.Provider>,
     );
 

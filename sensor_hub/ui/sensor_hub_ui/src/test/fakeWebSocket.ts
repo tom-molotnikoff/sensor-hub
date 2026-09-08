@@ -33,6 +33,11 @@ export class FakeWebSocket {
   serverSends(data: string) {
     this.onmessage?.(new MessageEvent('message', { data }));
   }
+
+  serverCloses() {
+    this.readyState = FakeWebSocket.CLOSED;
+    this.onclose?.(new CloseEvent('close'));
+  }
 }
 
 /** Replace globalThis.WebSocket with the fake. Returns a restore function. */
