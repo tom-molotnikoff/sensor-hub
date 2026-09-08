@@ -109,8 +109,8 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 
 	// Build the full service graph, mirroring cmd/serve.go
 	sensorRepo := database.NewSensorRepository(db, logger)
-	readingsRepo := database.NewReadingsRepository(db, logger)
 	mtRepo := database.NewMeasurementTypeRepository(db, logger)
+	readingsRepo := database.NewReadingsRepository(db, sensorRepo, mtRepo, logger)
 	alertRepo := database.NewAlertRepository(db, logger)
 	notificationRepo := database.NewNotificationRepository(db, logger)
 	userRepo := database.NewUserRepository(db, logger)
@@ -139,7 +139,7 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 	userService := service.NewUserService(userRepo, notificationService, logger)
 	authService := service.NewAuthService(userRepo, sessionRepo, failedRepo, roleRepo, logger)
 	roleService := service.NewRoleService(roleRepo, logger)
-	alertManagementService := service.NewAlertManagementService(alertRepo, logger)
+	alertManagementService := service.NewAlertManagementService(alertRepo, thresholdProcessor, logger)
 	apiKeyService := service.NewApiKeyService(apiKeyRepo, userRepo, roleRepo, logger)
 
 	// Init middleware

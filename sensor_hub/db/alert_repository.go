@@ -16,7 +16,6 @@ type AlertRepository interface {
 	GetAlertRuleByID(ctx context.Context, ruleID int) (*alerting.AlertRule, error)
 	GetAlertRuleBySensorID(ctx context.Context, sensorID int) (*alerting.AlertRule, error)
 	GetAlertRulesBySensorID(ctx context.Context, sensorID int) ([]alerting.AlertRule, error)
-	GetAlertRuleForReading(ctx context.Context, sensorID int, measurementTypeName string) (*alerting.AlertRule, error)
 	RecordAlertSent(ctx context.Context, ruleID, sensorID, measurementTypeId int, reason string, numericValue float64, statusValue string) error
 	GetAllAlertRules(ctx context.Context) ([]alerting.AlertRule, error)
 	GetAlertRuleBySensorName(ctx context.Context, sensorName string) (*alerting.AlertRule, error)
@@ -156,69 +155,6 @@ func (r *AlertRepositoryImpl) GetAlertRuleBySensorID(ctx context.Context, sensor
 		rule.LastAlertSentAt = &lastAlertSent.Time
 	}
 
-	if triggerStatus.Valid {
-		rule.TriggerStatus = triggerStatus.String
-	}
-
-	return &rule, nil
-}
-
-func (r *AlertRepositoryImpl) GetAlertRuleForReading(ctx context.Context, sensorID int, measurementTypeName string) (*alerting.AlertRule, error) {
-	query := `
-		SELECT 
-			ar.id,
-			ar.sensor_id,
-			s.name,
-			ar.measurement_type_id,
-			mt.name,
-			ar.alert_type,
-			ar.high_threshold,
-			ar.low_threshold,
-			ar.trigger_status,
-			ar.enabled,
-			ar.rate_limit_seconds,
-			ah.sent_at
-		FROM sensor_alert_rules ar
-		JOIN sensors s ON ar.sensor_id = s.id
-		JOIN measurement_types mt ON ar.measurement_type_id = mt.id
-		LEFT JOIN (
-			SELECT alert_rule_id, MAX(sent_at) as sent_at
-			FROM alert_sent_history
-			GROUP BY alert_rule_id
-		) ah ON ar.id = ah.alert_rule_id
-		WHERE ar.sensor_id = ? AND LOWER(mt.name) = LOWER(?) AND ar.enabled = TRUE
-		LIMIT 1
-	`
-
-	var rule alerting.AlertRule
-	var lastAlertSent NullSQLiteTime
-	var triggerStatus sql.NullString
-
-	err := r.db.Reader.QueryRowContext(ctx, query, sensorID, measurementTypeName).Scan(
-		&rule.ID,
-		&rule.SensorID,
-		&rule.SensorName,
-		&rule.MeasurementTypeId,
-		&rule.MeasurementType,
-		&rule.AlertType,
-		&rule.HighThreshold,
-		&rule.LowThreshold,
-		&triggerStatus,
-		&rule.Enabled,
-		&rule.RateLimitSeconds,
-		&lastAlertSent,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get alert rule for sensor %d measurement %s: %w", sensorID, measurementTypeName, err)
-	}
-
-	if lastAlertSent.Valid {
-		rule.LastAlertSentAt = &lastAlertSent.Time
-	}
 	if triggerStatus.Valid {
 		rule.TriggerStatus = triggerStatus.String
 	}

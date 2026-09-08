@@ -9,15 +9,27 @@ import (
 	"log/slog"
 )
 
+type AlertRuleCache interface {
+	InvalidateRules()
+}
+
 type AlertManagementService struct {
 	alertRepo database.AlertRepository
+	ruleCache AlertRuleCache
 	logger    *slog.Logger
 }
 
-func NewAlertManagementService(alertRepo database.AlertRepository, logger *slog.Logger) AlertManagementServiceInterface {
+func NewAlertManagementService(alertRepo database.AlertRepository, ruleCache AlertRuleCache, logger *slog.Logger) AlertManagementServiceInterface {
 	return &AlertManagementService{
 		alertRepo: alertRepo,
+		ruleCache: ruleCache,
 		logger:    logger.With("component", "alert_management_service"),
+	}
+}
+
+func (s *AlertManagementService) invalidateRuleCache() {
+	if s.ruleCache != nil {
+		s.ruleCache.InvalidateRules()
 	}
 }
 
@@ -38,14 +50,17 @@ func (s *AlertManagementService) ServiceGetAlertRulesBySensorID(ctx context.Cont
 }
 
 func (s *AlertManagementService) ServiceCreateAlertRule(ctx context.Context, rule *alerting.AlertRule) error {
+	defer s.invalidateRuleCache()
 	return s.alertRepo.CreateAlertRule(ctx, rule)
 }
 
 func (s *AlertManagementService) ServiceUpdateAlertRule(ctx context.Context, rule *alerting.AlertRule) error {
+	defer s.invalidateRuleCache()
 	return s.alertRepo.UpdateAlertRule(ctx, rule)
 }
 
 func (s *AlertManagementService) ServiceDeleteAlertRule(ctx context.Context, ruleID int) error {
+	defer s.invalidateRuleCache()
 	return s.alertRepo.DeleteAlertRule(ctx, ruleID)
 }
 

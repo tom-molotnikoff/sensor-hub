@@ -31,6 +31,10 @@ type Handles struct {
 }
 
 func Open(cfg *appProps.ApplicationConfiguration, logger *slog.Logger) (*Handles, error) {
+	return OpenWithDriver("sqlite", cfg, logger)
+}
+
+func OpenWithDriver(driverName string, cfg *appProps.ApplicationConfiguration, logger *slog.Logger) (*Handles, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("application configuration not loaded")
 	}
@@ -42,7 +46,7 @@ func Open(cfg *appProps.ApplicationConfiguration, logger *slog.Logger) (*Handles
 		return nil, fmt.Errorf("could not create database directory: %w", err)
 	}
 
-	writer, err := openPool(cfg.DatabasePath, PoolWriter, writerDSNParams, 1)
+	writer, err := openPool(driverName, cfg.DatabasePath, PoolWriter, writerDSNParams, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +56,7 @@ func Open(cfg *appProps.ApplicationConfiguration, logger *slog.Logger) (*Handles
 		return nil, fmt.Errorf("could not run migrations: %w", err)
 	}
 
-	reader, err := openPool(cfg.DatabasePath, PoolReader, readerDSNParams, cfg.DatabaseReaderConnections)
+	reader, err := openPool(driverName, cfg.DatabasePath, PoolReader, readerDSNParams, cfg.DatabaseReaderConnections)
 	if err != nil {
 		writer.Close()
 		return nil, err
@@ -66,15 +70,15 @@ func (h *Handles) Close() error {
 	return errors.Join(h.Reader.Close(), h.Writer.Close())
 }
 
-func openPool(dbPath, pool, dsnParams string, maxOpenConns int) (*sql.DB, error) {
+func openPool(driverName, dbPath, pool, dsnParams string, maxOpenConns int) (*sql.DB, error) {
 	attributes := otelsql.WithAttributes(semconv.DBSystemSqlite, poolAttributeKey.String(pool))
 
-	driverName, err := otelsql.Register("sqlite", attributes)
+	instrumented, err := otelsql.Register(driverName, attributes)
 	if err != nil {
 		return nil, fmt.Errorf("could not register instrumented driver for %s pool: %w", pool, err)
 	}
 
-	db, err := sql.Open(driverName, fmt.Sprintf("file:%s?%s", dbPath, dsnParams))
+	db, err := sql.Open(instrumented, fmt.Sprintf("file:%s?%s", dbPath, dsnParams))
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s pool: %w", pool, err)
 	}

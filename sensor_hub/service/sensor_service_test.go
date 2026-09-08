@@ -49,14 +49,6 @@ func (m *MockAlertRepository) GetAlertRulesBySensorID(ctx context.Context, senso
 	return args.Get(0).([]alerting.AlertRule), args.Error(1)
 }
 
-func (m *MockAlertRepository) GetAlertRuleForReading(ctx context.Context, sensorID int, measurementTypeName string) (*alerting.AlertRule, error) {
-	args := m.Called(ctx, sensorID, measurementTypeName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*alerting.AlertRule), args.Error(1)
-}
-
 func (m *MockAlertRepository) RecordAlertSent(ctx context.Context, ruleID, sensorID, measurementTypeId int, reason string, numericValue float64, statusValue string) error {
 	args := m.Called(ctx, ruleID, sensorID, measurementTypeId, reason, numericValue, statusValue)
 	return args.Error(0)
@@ -127,6 +119,11 @@ func (m *MockMeasurementTypeRepository) GetByName(ctx context.Context, name stri
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*gen.MeasurementType), args.Error(1)
+}
+
+func (m *MockMeasurementTypeRepository) GetIdByName(ctx context.Context, name string) (int, error) {
+	args := m.Called(ctx, name)
+	return args.Int(0), args.Error(1)
 }
 
 func (m *MockMeasurementTypeRepository) GetBySensorId(ctx context.Context, sensorId int) ([]database.SensorMeasurementType, error) {
@@ -224,6 +221,23 @@ func TestSensorService_ServiceAddSensor_Success(t *testing.T) {
 	time.Sleep(50 * time.Millisecond) // Allow async goroutine to complete
 }
 
+func TestSensorService_ServiceProcessPushReadings_StoreError_SetsHealthBad(t *testing.T) {
+	service, sensorRepo, readingsRepo, _, _ := setupSensorService()
+	sensor := gen.Sensor{Id: 7, Name: "office-plug", SensorDriver: "zigbee2mqtt", Enabled: true}
+	value := 21.0
+	readings := []gen.Reading{{MeasurementType: "temperature", NumericValue: &value, Time: "2026-01-16 12:00:00"}}
+
+	readingsRepo.On("Ingest", mock.Anything, mock.Anything).Return(errors.New("disk full"))
+	sensorRepo.On("UpdateSensorHealthById", mock.Anything, 7, gen.Bad, mock.Anything).Return(nil)
+	sensorRepo.On("GetAllSensors", mock.Anything).Return([]gen.Sensor{sensor}, nil).Maybe()
+
+	err := service.ServiceProcessPushReadings(context.Background(), sensor, readings)
+
+	assert.Error(t, err)
+	sensorRepo.AssertCalled(t, "UpdateSensorHealthById", mock.Anything, 7, gen.Bad, "storage error: disk full")
+	time.Sleep(50 * time.Millisecond)
+}
+
 func TestSensorService_ServiceProcessPushReadings_NotifiesReadingsObserver(t *testing.T) {
 	service, sensorRepo, readingsRepo, _, alertRepo := setupSensorService()
 	observer := &fakeReadingsObserver{}
@@ -238,12 +252,12 @@ func TestSensorService_ServiceProcessPushReadings_NotifiesReadingsObserver(t *te
 		}(),
 	}}
 
-	readingsRepo.On("Add", mock.Anything, mock.MatchedBy(func(actual []gen.Reading) bool {
-		return len(actual) == 1 && actual[0].SensorName == "office-plug" && actual[0].MeasurementType == "state"
+	readingsRepo.On("Ingest", mock.Anything, mock.MatchedBy(func(batch database.ReadingBatch) bool {
+		return batch.SensorName == "office-plug" && batch.HealthReason == "MQTT reading received" &&
+			len(batch.Readings) == 1 && batch.Readings[0].MeasurementType == "state"
 	})).Return(nil)
-	sensorRepo.On("UpdateSensorHealthById", mock.Anything, 7, gen.Good, "MQTT reading received").Return(nil)
 	sensorRepo.On("GetAllSensors", mock.Anything).Return([]gen.Sensor{sensor}, nil).Maybe()
-	alertRepo.On("GetAlertRuleForReading", mock.Anything, 7, "state").Return(nil, nil)
+	alertRepo.On("GetAlertRulesBySensorID", mock.Anything, 7).Return([]alerting.AlertRule{}, nil)
 
 	err := service.ServiceProcessPushReadings(context.Background(), sensor, readings)
 
@@ -616,9 +630,9 @@ func TestSensorService_ServiceSetEnabledSensorByName_Enable(t *testing.T) {
 	sensorRepo.On("GetAllSensors", mock.Anything).Return([]gen.Sensor{*sensor}, nil).Maybe()
 	sensorRepo.On("GetSensorByName", mock.Anything, "TestSensor").Return(sensor, nil).Maybe()
 	sensorRepo.On("UpdateSensorHealthById", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
-	readingsRepo.On("Add", mock.Anything, mock.Anything).Return(nil).Maybe()
+	readingsRepo.On("Ingest", mock.Anything, mock.Anything).Return(nil).Maybe()
 	// The async collection triggers alert processing
-	alertRepo.On("GetAlertRuleForReading", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	alertRepo.On("GetAlertRulesBySensorID", mock.Anything, mock.Anything).Return([]alerting.AlertRule{}, nil).Maybe()
 
 	err := service.ServiceSetEnabledSensorByName(context.Background(), "TestSensor", true)
 
@@ -781,16 +795,16 @@ func TestSensorService_ServiceCollectFromSensorByName_Success(t *testing.T) {
 
 	sensor := &gen.Sensor{Id: 1, Name: "test-sensor", SensorDriver: "sensor-hub-http-temperature", Config: map[string]string{"url": server.URL}, Enabled: true}
 	sensorRepo.On("GetSensorByName", mock.Anything, "test-sensor").Return(sensor, nil)
-	readingsRepo.On("Add", mock.Anything, mock.Anything).Return(nil)
-	sensorRepo.On("UpdateSensorHealthById", mock.Anything, 1, gen.Good, mock.Anything).Return(nil).Maybe()
+	readingsRepo.On("Ingest", mock.Anything, mock.Anything).Return(nil)
 	sensorRepo.On("GetAllSensors", mock.Anything).Return([]gen.Sensor{*sensor}, nil).Maybe()
-	alertRepo.On("GetAlertRuleForReading", mock.Anything, 1, mock.Anything).Return(nil, nil).Maybe()
+	alertRepo.On("GetAlertRulesBySensorID", mock.Anything, 1).Return([]alerting.AlertRule{}, nil).Maybe()
 
 	err := service.ServiceCollectFromSensorByName(context.Background(), "test-sensor")
 
 	assert.NoError(t, err)
-	readingsRepo.AssertCalled(t, "Add", mock.Anything, mock.MatchedBy(func(readings []gen.Reading) bool {
-		return len(readings) == 1 && readings[0].NumericValue != nil && *readings[0].NumericValue == 22.5 && readings[0].SensorName == "test-sensor"
+	readingsRepo.AssertCalled(t, "Ingest", mock.Anything, mock.MatchedBy(func(batch database.ReadingBatch) bool {
+		return batch.SensorName == "test-sensor" && batch.HealthReason == "successful reading" &&
+			len(batch.Readings) == 1 && batch.Readings[0].NumericValue != nil && *batch.Readings[0].NumericValue == 22.5
 	}))
 	time.Sleep(50 * time.Millisecond)
 }
@@ -859,7 +873,7 @@ func TestSensorService_ServiceCollectFromSensorByName_StoreError_SetsHealthBad(t
 	sensorRepo.On("GetSensorByName", mock.Anything, "store-fail-sensor").Return(sensor, nil)
 	sensorRepo.On("UpdateSensorHealthById", mock.Anything, 1, mock.Anything, mock.Anything).Return(nil).Maybe()
 	sensorRepo.On("GetAllSensors", mock.Anything).Return([]gen.Sensor{*sensor}, nil).Maybe()
-	readingsRepo.On("Add", mock.Anything, mock.Anything).Return(errors.New("db error"))
+	readingsRepo.On("Ingest", mock.Anything, mock.Anything).Return(errors.New("db error"))
 
 	err := service.ServiceCollectFromSensorByName(context.Background(), "store-fail-sensor")
 

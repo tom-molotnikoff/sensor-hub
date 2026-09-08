@@ -6,8 +6,22 @@ import (
 	"time"
 )
 
+type SensorIDResolver interface {
+	GetSensorIdByName(ctx context.Context, name string) (int, error)
+}
+
+type MeasurementTypeIDResolver interface {
+	GetIdByName(ctx context.Context, name string) (int, error)
+}
+
+type ReadingBatch struct {
+	SensorName   string
+	HealthReason string
+	Readings     []gen.Reading
+}
+
 type ReadingsRepository interface {
-	Add(ctx context.Context, readings []gen.Reading) error
+	Ingest(ctx context.Context, batch ReadingBatch) error
 	GetBetweenDates(ctx context.Context, startDate, endDate, sensorName, measurementType string, interval AggregationInterval, aggFunc AggregationFunction) ([]gen.Reading, error)
 	GetLatest(ctx context.Context) ([]gen.Reading, error)
 	CountReadingsPerActiveSensor(ctx context.Context) (map[string]int, error)

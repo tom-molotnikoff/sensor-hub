@@ -7,15 +7,43 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 )
 
 type MeasurementTypeRepositoryImpl struct {
-	db     *Handles
-	logger *slog.Logger
+	db       *Handles
+	logger   *slog.Logger
+	nameMu   sync.RWMutex
+	nameToID map[string]int
 }
 
 func NewMeasurementTypeRepository(db *Handles, logger *slog.Logger) MeasurementTypeRepository {
-	return &MeasurementTypeRepositoryImpl{db: db, logger: logger.With("component", "measurement_type_repository")}
+	return &MeasurementTypeRepositoryImpl{
+		db:       db,
+		logger:   logger.With("component", "measurement_type_repository"),
+		nameToID: make(map[string]int),
+	}
+}
+
+func (r *MeasurementTypeRepositoryImpl) GetIdByName(ctx context.Context, name string) (int, error) {
+	key := cacheKeyForName(name)
+
+	r.nameMu.RLock()
+	id, cached := r.nameToID[key]
+	r.nameMu.RUnlock()
+	if cached {
+		return id, nil
+	}
+
+	query := fmt.Sprintf("SELECT id FROM %s WHERE LOWER(name) = LOWER(?)", TableMeasurementTypes)
+	if err := r.db.Reader.QueryRowContext(ctx, query, name).Scan(&id); err != nil {
+		return 0, fmt.Errorf("measurement type %q not found: %w", name, err)
+	}
+
+	r.nameMu.Lock()
+	r.nameToID[key] = id
+	r.nameMu.Unlock()
+	return id, nil
 }
 
 func (r *MeasurementTypeRepositoryImpl) GetAll(ctx context.Context) ([]gen.MeasurementType, error) {
@@ -46,18 +74,20 @@ func (r *MeasurementTypeRepositoryImpl) GetAll(ctx context.Context) ([]gen.Measu
 	return mts, rows.Err()
 }
 
-func (r *MeasurementTypeRepositoryImpl) GetAllWithReadings(ctx context.Context) ([]gen.MeasurementType, error) {
-	query := fmt.Sprintf(`
-		SELECT DISTINCT mt.id, mt.name, mt.display_name, mt.category, mt.default_unit,
+func typesWithReadingsQuery() string {
+	return fmt.Sprintf(`
+		SELECT mt.id, mt.name, mt.display_name, mt.category, mt.default_unit,
 			COALESCE(mta.function, 'avg') AS default_aggregation_function,
 			COALESCE((SELECT GROUP_CONCAT(mta2.function, ',') FROM measurement_type_aggregations mta2 WHERE mta2.measurement_type_id = mt.id ORDER BY mta2.function), 'avg') AS supported_aggregation_functions
 		FROM %s mt
-		INNER JOIN %s r ON r.measurement_type_id = mt.id
 		LEFT JOIN measurement_type_aggregations mta ON mta.measurement_type_id = mt.id AND mta.is_default = 1
+		WHERE EXISTS (SELECT 1 FROM %s smt WHERE smt.measurement_type_id = mt.id)
 		ORDER BY mt.name
-	`, TableMeasurementTypes, TableReadings)
+	`, TableMeasurementTypes, TableSensorMeasurementTypes)
+}
 
-	rows, err := r.db.Reader.QueryContext(ctx, query)
+func (r *MeasurementTypeRepositoryImpl) GetAllWithReadings(ctx context.Context) ([]gen.MeasurementType, error) {
+	rows, err := r.db.Reader.QueryContext(ctx, typesWithReadingsQuery())
 	if err != nil {
 		return nil, fmt.Errorf("error querying measurement types with readings: %w", err)
 	}
@@ -130,6 +160,9 @@ func (r *MeasurementTypeRepositoryImpl) EnsureExists(ctx context.Context, mt gen
 	if err != nil {
 		return fmt.Errorf("error ensuring measurement type exists: %w", err)
 	}
+	r.nameMu.Lock()
+	clear(r.nameToID)
+	r.nameMu.Unlock()
 	return nil
 }
 
@@ -151,21 +184,22 @@ func (r *MeasurementTypeRepositoryImpl) RemoveFromSensor(ctx context.Context, se
 	return nil
 }
 
-func (r *MeasurementTypeRepositoryImpl) GetMeasurementTypesWithReadings(ctx context.Context, sensorId int) ([]gen.MeasurementType, error) {
-	query := fmt.Sprintf(`
-		SELECT DISTINCT mt.id, mt.name, mt.display_name, mt.category,
+func sensorTypesWithReadingsQuery() string {
+	return fmt.Sprintf(`
+		SELECT mt.id, mt.name, mt.display_name, mt.category,
 			COALESCE(NULLIF(smt.unit, ''), mt.default_unit) AS unit,
 			COALESCE(mta.function, 'avg') AS default_aggregation_function,
 			COALESCE((SELECT GROUP_CONCAT(mta2.function, ',') FROM measurement_type_aggregations mta2 WHERE mta2.measurement_type_id = mt.id ORDER BY mta2.function), 'avg') AS supported_aggregation_functions
-		FROM %s r
-		JOIN %s mt ON r.measurement_type_id = mt.id
-		LEFT JOIN %s smt ON smt.sensor_id = r.sensor_id AND smt.measurement_type_id = mt.id
+		FROM %s smt
+		JOIN %s mt ON mt.id = smt.measurement_type_id
 		LEFT JOIN measurement_type_aggregations mta ON mta.measurement_type_id = mt.id AND mta.is_default = 1
-		WHERE r.sensor_id = ?
+		WHERE smt.sensor_id = ?
 		ORDER BY mt.name
-	`, TableReadings, TableMeasurementTypes, TableSensorMeasurementTypes)
+	`, TableSensorMeasurementTypes, TableMeasurementTypes)
+}
 
-	rows, err := r.db.Reader.QueryContext(ctx, query, sensorId)
+func (r *MeasurementTypeRepositoryImpl) GetMeasurementTypesWithReadings(ctx context.Context, sensorId int) ([]gen.MeasurementType, error) {
+	rows, err := r.db.Reader.QueryContext(ctx, sensorTypesWithReadingsQuery(), sensorId)
 	if err != nil {
 		return nil, fmt.Errorf("error querying measurement types with readings: %w", err)
 	}
