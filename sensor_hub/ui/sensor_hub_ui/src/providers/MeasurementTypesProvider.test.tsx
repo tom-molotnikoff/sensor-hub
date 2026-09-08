@@ -93,6 +93,26 @@ describe('MeasurementTypesProvider', () => {
     expect(result.current[2]).toBe(result.current[0]);
   });
 
+  it('asks again the next time a consumer needs a list the server refused', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    getMock.mockResolvedValueOnce({ error: { message: 'internal server error' } });
+
+    const { result, rerender } = renderHook(
+      ({ open }) => useMeasurementTypesWithReadings(open),
+      { wrapper, initialProps: { open: true } },
+    );
+
+    await waitFor(() => expect(consoleError).toHaveBeenCalled());
+    expect(queriesFor(true)).toHaveLength(1);
+    expect(result.current).toEqual([]);
+
+    rerender({ open: false });
+    rerender({ open: true });
+
+    await waitFor(() => expect(result.current).toEqual([temperature]));
+    expect(queriesFor(true)).toHaveLength(2);
+  });
+
   it('keeps the two lists apart', async () => {
     getMock.mockImplementation((_path: string, init?: { params?: { query?: { has_readings?: boolean } } }) => (
       Promise.resolve({ data: init?.params?.query?.has_readings ? [temperature] : [] })

@@ -32,7 +32,8 @@ export default function MeasurementTypesProvider({ children }: MeasurementTypesP
       .schedule('normal', () => apiClient.GET('/measurement-types', {
         params: { query: LIST_QUERY[list] },
       }))
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) throw error;
         setLists((prev) => ({ ...prev, [list]: (data as MeasurementTypeInfo[] | undefined) ?? [] }));
       })
       .catch((err) => {
