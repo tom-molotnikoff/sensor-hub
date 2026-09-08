@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PropertyDefinitionsResponse } from '../gen/aliases';
 import { FakeWebSocket, installFakeWebSocket } from '../test/fakeWebSocket';
+import { landingOffset } from './propertyLayout';
 
 class FakeIntersectionObserver {
   static instances: FakeIntersectionObserver[] = [];
@@ -128,6 +129,10 @@ async function renderPage(permissions: string[]) {
 
 async function renderFallbackPage(permissions: string[]) {
   await renderPageUntil(permissions, 'sensor.discovery.skip');
+}
+
+function stubHeight(element: HTMLElement, height: number) {
+  vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({ height } as DOMRect);
 }
 
 describe('PropertiesPage', () => {
@@ -677,5 +682,28 @@ describe('PropertiesPage', () => {
     await renderPage(['view_properties', 'manage_properties']);
 
     expect(screen.getByTestId('properties-layout')).toHaveStyle({ flexDirection: 'row' });
+  });
+
+  it('leaves room below the last group so the rail can bring it to the landing line', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+    stubHeight(screen.getByTestId('properties-header'), 60);
+    stubHeight(screen.getByTestId('properties-sections'), 4000);
+    stubHeight(document.getElementById('advanced') as HTMLElement, 300);
+
+    act(() => { window.dispatchEvent(new Event('resize')); });
+
+    expect(screen.getByTestId('properties-tail-space')).toHaveStyle({
+      height: `${window.innerHeight - landingOffset(60) - 300}px`,
+    });
+  });
+
+  it('leaves no room below groups that already fit on the page', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+    stubHeight(screen.getByTestId('properties-sections'), 100);
+    stubHeight(document.getElementById('advanced') as HTMLElement, 50);
+
+    act(() => { window.dispatchEvent(new Event('resize')); });
+
+    expect(screen.getByTestId('properties-tail-space')).toHaveStyle({ height: '0px' });
   });
 });

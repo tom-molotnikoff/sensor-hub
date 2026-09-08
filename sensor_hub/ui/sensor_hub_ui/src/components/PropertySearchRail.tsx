@@ -1,6 +1,5 @@
 import { Box, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
 import { useIsMobile } from '../hooks/useMobile';
-import { STICKY_TOP_OFFSET } from './propertyLayout';
 
 export interface RailGroup {
   id: string;
@@ -14,6 +13,7 @@ interface PropertySearchRailProps {
   currentGroupId?: string;
   search: string;
   onSearchChange: (value: string) => void;
+  stickyTop: number;
 }
 
 export default function PropertySearchRail({
@@ -21,6 +21,7 @@ export default function PropertySearchRail({
   currentGroupId,
   search,
   onSearchChange,
+  stickyTop,
 }: PropertySearchRailProps) {
   const isMobile = useIsMobile();
 
@@ -31,7 +32,7 @@ export default function PropertySearchRail({
       sx={{
         flex: isMobile ? '0 0 auto' : '0 0 200px',
         width: isMobile ? '100%' : undefined,
-        ...(isMobile ? {} : { position: 'sticky', top: STICKY_TOP_OFFSET, alignSelf: 'flex-start' }),
+        ...(isMobile ? {} : { position: 'sticky', top: stickyTop, alignSelf: 'flex-start' }),
       }}
     >
       <TextField
@@ -51,8 +52,24 @@ export default function PropertySearchRail({
             selected={group.id === currentGroupId}
             aria-current={group.id === currentGroupId ? 'true' : undefined}
             data-testid={`rail-${group.id}`}
+            sx={{
+              borderRadius: 1,
+              borderLeft: 3,
+              borderLeftColor: group.id === currentGroupId ? 'primary.main' : 'transparent',
+            }}
           >
-            <ListItemText primary={group.label} />
+            <ListItemText
+              primary={group.label}
+              slotProps={{
+                primary: {
+                  sx: {
+                    fontSize: 15,
+                    fontWeight: group.id === currentGroupId ? 700 : 500,
+                    color: group.id === currentGroupId ? 'primary.main' : 'text.primary',
+                  },
+                },
+              }}
+            />
             {group.editedCount > 0 && (
               <Typography
                 variant="caption"
