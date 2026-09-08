@@ -152,6 +152,100 @@ describe('PropertiesPage', () => {
     expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(600);
   });
 
+  it('keeps an edited field on screen when a broadcast arrives, while untouched fields update', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+      target: { value: '120' },
+    });
+
+    act(() => {
+      FakeWebSocket.instances[0].serverSends(
+        JSON.stringify({ ...serverValues, 'sensor.discovery.skip': 'false' }),
+      );
+    });
+
+    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(120);
+    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
+  });
+
+  it('reports a broadcast landing on an edited field and resets it to the broadcast value', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+      target: { value: '120' },
+    });
+
+    act(() => {
+      FakeWebSocket.instances[0].serverSends(
+        JSON.stringify({ ...serverValues, 'sensor.collection.interval': '600' }),
+      );
+    });
+
+    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(120);
+    expect(screen.getByText(/Someone else changed this to 600/)).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Reset Collection interval to the value someone else saved' }),
+    );
+
+    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(600);
+    expect(screen.queryByText(/Someone else changed this/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
+  });
+
+  it('states the unsaved count as plain text and offers Discard only while there are unsaved changes', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+      target: { value: '120' },
+    });
+    expect(screen.getByText('1 unsaved change').closest('.MuiChip-root')).toBeNull();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Skip sensor discovery' }));
+    expect(screen.getByText('2 unsaved changes')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+
+    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(300);
+    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeChecked();
+    expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
+  });
+
+  it('clears the edited fields on the broadcast that follows a successful save', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+      target: { value: '120' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() => expect(patchMock).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      FakeWebSocket.instances[0].serverSends(
+        JSON.stringify({ ...serverValues, 'sensor.collection.interval': '120' }),
+      );
+    });
+
+    expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Undo changes to Collection interval' }),
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      FakeWebSocket.instances[0].serverSends(
+        JSON.stringify({ ...serverValues, 'sensor.collection.interval': '600' }),
+      );
+    });
+
+    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(600);
+    expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
+  });
+
   it('disables every control and shows no save control for a user without manage_properties', async () => {
     await renderPage(['view_properties']);
 
