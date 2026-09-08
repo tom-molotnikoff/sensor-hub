@@ -2,6 +2,16 @@ package database
 
 import "time"
 
+func cacheKeyForName(name string) string {
+	lowered := []byte(name)
+	for i := range lowered {
+		if lowered[i] >= 'A' && lowered[i] <= 'Z' {
+			lowered[i] += 'a' - 'A'
+		}
+	}
+	return string(lowered)
+}
+
 // ============================================================================
 // Table name constants
 // ============================================================================

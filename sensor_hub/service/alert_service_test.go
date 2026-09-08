@@ -38,14 +38,6 @@ func (m *mockAlertRepositoryForService) GetAlertRulesBySensorID(ctx context.Cont
 	return args.Get(0).([]alerting.AlertRule), args.Error(1)
 }
 
-func (m *mockAlertRepositoryForService) GetAlertRuleForReading(ctx context.Context, sensorID int, measurementTypeName string) (*alerting.AlertRule, error) {
-	args := m.Called(ctx, sensorID, measurementTypeName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*alerting.AlertRule), args.Error(1)
-}
-
 func (m *mockAlertRepositoryForService) UpdateLastAlertSent(ctx context.Context, ruleID int) error {
 	args := m.Called(ctx, ruleID)
 	return args.Error(0)

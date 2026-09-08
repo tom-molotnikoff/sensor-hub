@@ -88,7 +88,7 @@ func TestSensorRepository_GetSensorIdByName_Success(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSensorRepository(handles(db), slog.Default())
 
-	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = \\?").
+	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(42))
 
@@ -103,7 +103,7 @@ func TestSensorRepository_GetSensorIdByName_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSensorRepository(handles(db), slog.Default())
 
-	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = \\?").
+	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("nonexistent").
 		WillReturnError(sql.ErrNoRows)
 
@@ -119,7 +119,7 @@ func TestSensorRepository_GetSensorIdByName_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSensorRepository(handles(db), slog.Default())
 
-	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = \\?").
+	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
 		WillReturnError(errors.New("database error"))
 
@@ -787,7 +787,7 @@ func TestSensorRepository_DeleteSensorByName_Success(t *testing.T) {
 	repo := NewSensorRepository(handles(db), slog.Default())
 
 	// Get sensor ID first
-	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = \\?").
+	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 
@@ -831,7 +831,7 @@ func TestSensorRepository_DeleteSensorByName_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSensorRepository(handles(db), slog.Default())
 
-	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = \\?").
+	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("nonexistent").
 		WillReturnError(sql.ErrNoRows)
 
@@ -846,7 +846,7 @@ func TestSensorRepository_DeleteSensorByName_RollbackOnPurgeError(t *testing.T) 
 	db, mock := newMockDB(t)
 	repo := NewSensorRepository(handles(db), slog.Default())
 
-	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = \\?").
+	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 
@@ -869,7 +869,7 @@ func TestSensorRepository_DeleteSensorByName_NoRowsDeleted(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSensorRepository(handles(db), slog.Default())
 
-	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = \\?").
+	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 

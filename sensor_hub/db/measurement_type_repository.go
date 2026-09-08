@@ -26,7 +26,7 @@ func NewMeasurementTypeRepository(db *Handles, logger *slog.Logger) MeasurementT
 }
 
 func (r *MeasurementTypeRepositoryImpl) GetIdByName(ctx context.Context, name string) (int, error) {
-	key := strings.ToLower(name)
+	key := cacheKeyForName(name)
 
 	r.nameMu.RLock()
 	id, cached := r.nameToID[key]
@@ -35,8 +35,8 @@ func (r *MeasurementTypeRepositoryImpl) GetIdByName(ctx context.Context, name st
 		return id, nil
 	}
 
-	query := fmt.Sprintf("SELECT id FROM %s WHERE LOWER(name) = ?", TableMeasurementTypes)
-	if err := r.db.Reader.QueryRowContext(ctx, query, key).Scan(&id); err != nil {
+	query := fmt.Sprintf("SELECT id FROM %s WHERE LOWER(name) = LOWER(?)", TableMeasurementTypes)
+	if err := r.db.Reader.QueryRowContext(ctx, query, name).Scan(&id); err != nil {
 		return 0, fmt.Errorf("measurement type %q not found: %w", name, err)
 	}
 

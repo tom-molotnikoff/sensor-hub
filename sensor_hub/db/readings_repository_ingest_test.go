@@ -103,3 +103,20 @@ func TestIngest_ResolvesARenamedSensorAndForgetsTheOldName(t *testing.T) {
 	})
 	assert.ErrorContains(t, err, "issue finding sensor id", "the old name is unknown")
 }
+
+func TestIngest_ResolvesASensorWhoseNameIsNotASCII(t *testing.T) {
+	repo, db := migratedReadingsRepo(t)
+	ctx := context.Background()
+	sensorRepo := NewSensorRepository(handles(db), slog.Default())
+	require.NoError(t, sensorRepo.AddSensor(ctx, gen.Sensor{Name: "\u00d6lkessel", SensorDriver: "sensor-hub-http-temperature"}))
+	unicodeRepo := NewReadingsRepository(handles(db), sensorRepo, NewMeasurementTypeRepository(handles(db), slog.Default()), slog.Default())
+
+	for range 2 {
+		require.NoError(t, unicodeRepo.Ingest(ctx, ReadingBatch{
+			SensorName: "\u00d6lkessel",
+			Readings:   []gen.Reading{reading("temperature", 60.0)},
+		}), "resolves through the cache as well as the database")
+	}
+
+	assert.Equal(t, 2, readingCount(t, repo))
+}

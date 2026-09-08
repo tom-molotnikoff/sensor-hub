@@ -8,7 +8,6 @@ import (
 	gen "example/sensorHub/gen"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 )
@@ -104,7 +103,7 @@ func (s *SensorRepository) SetEnabledSensorByName(ctx context.Context, name stri
 }
 
 func (s *SensorRepository) GetSensorIdByName(ctx context.Context, sensorName string) (int, error) {
-	key := strings.ToLower(sensorName)
+	key := cacheKeyForName(sensorName)
 
 	s.nameMu.RLock()
 	sensorID, cached := s.nameToID[key]
@@ -113,8 +112,8 @@ func (s *SensorRepository) GetSensorIdByName(ctx context.Context, sensorName str
 		return sensorID, nil
 	}
 
-	query := "SELECT id FROM sensors WHERE LOWER(name) = ?"
-	if err := s.db.Reader.QueryRowContext(ctx, query, key).Scan(&sensorID); err != nil {
+	query := "SELECT id FROM sensors WHERE LOWER(name) = LOWER(?)"
+	if err := s.db.Reader.QueryRowContext(ctx, query, sensorName).Scan(&sensorID); err != nil {
 		return 0, fmt.Errorf("could not find sensor id for name %s: %w", sensorName, err)
 	}
 
