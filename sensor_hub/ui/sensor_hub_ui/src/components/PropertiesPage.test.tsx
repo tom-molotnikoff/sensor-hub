@@ -99,7 +99,7 @@ function setViewportWidth(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
 }
 
-async function renderPage(permissions: string[]) {
+async function renderPageUntil(permissions: string[], settled: string) {
   // Fresh imports per test so the session cache in usePropertyDefinitions is empty,
   // and so the AuthContext instance matches the one the page imports.
   const { default: PropertiesPage } = await import('./PropertiesPage');
@@ -115,7 +115,15 @@ async function renderPage(permissions: string[]) {
   act(() => {
     FakeWebSocket.instances[0].serverSends(JSON.stringify(serverValues));
   });
-  await waitFor(() => expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(settled)).toBeInTheDocument());
+}
+
+async function renderPage(permissions: string[]) {
+  await renderPageUntil(permissions, 'Skip sensor discovery');
+}
+
+async function renderFallbackPage(permissions: string[]) {
+  await renderPageUntil(permissions, 'sensor.discovery.skip');
 }
 
 describe('PropertiesPage', () => {
@@ -423,6 +431,77 @@ describe('PropertiesPage', () => {
     expect(screen.getByTestId('rail-edited-count-sensors')).toHaveTextContent('2');
     expect(screen.getByText('2 unsaved changes')).toBeInTheDocument();
     expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
+  });
+
+  it('falls back to an editable text field per value, under a banner, when the definitions fetch fails', async () => {
+    getMock.mockResolvedValue({ error: 'definitions unavailable' });
+    await renderFallbackPage(['view_properties', 'manage_properties']);
+
+    expect(
+      screen.getByText(/descriptions and typed controls are unavailable/i),
+    ).toBeInTheDocument();
+
+    for (const key of Object.keys(serverValues)) {
+      expect(screen.getByRole('textbox', { name: key })).toHaveValue(serverValues[key]);
+    }
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'sensor.collection.interval' }), {
+      target: { value: '120' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(patchMock).toHaveBeenCalledTimes(1));
+    expect(patchMock).toHaveBeenCalledWith('/properties', {
+      body: { ...serverValues, 'sensor.collection.interval': '120' },
+    });
+  });
+
+  it('puts a value with no matching definition in the Ungrouped section with its raw key', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    act(() => {
+      FakeWebSocket.instances[0].serverSends(
+        JSON.stringify({ ...serverValues, 'orphan.property': 'kept' }),
+      );
+    });
+
+    const ungrouped = document.getElementById('ungrouped')!;
+    expect(within(ungrouped).getByRole('textbox', { name: 'orphan.property' })).toHaveValue('kept');
+  });
+
+  it('renders a definition with no matching value with its default as placeholder', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    act(() => {
+      FakeWebSocket.instances[0].serverSends(JSON.stringify({}));
+    });
+
+    const field = screen.getByRole('spinbutton', { name: 'Collection interval' });
+    expect(field).toHaveValue(null);
+    expect(field).toHaveAttribute('placeholder', '300');
+  });
+
+  it('says it is loading rather than rendering blank while the definitions are still in flight', async () => {
+    let settleDefinitions: (value: unknown) => void = () => {};
+    getMock.mockReturnValue(new Promise((resolve) => { settleDefinitions = resolve; }));
+
+    const { default: PropertiesPage } = await import('./PropertiesPage');
+    const { AuthContext } = await import('../providers/AuthContext');
+    render(
+      <AuthContext.Provider value={{ user: { id: 1, username: 'owner', roles: [], permissions: ['view_properties'] }, refresh: async () => {} }}>
+        <PropertiesPage />
+      </AuthContext.Provider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Properties' })).toBeInTheDocument();
+    expect(screen.getByText(/loading properties/i)).toBeInTheDocument();
+
+    await act(async () => { settleDefinitions({ data: definitionsResponse }); });
+
+    expect(screen.queryByText(/loading properties/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
   });
 
   it('stacks the rail above the content at the mobile breakpoint', async () => {

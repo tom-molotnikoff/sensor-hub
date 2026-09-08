@@ -12,6 +12,7 @@ import { hasPerm } from '../tools/Utils';
 import PropertyField from './PropertyField';
 import PropertyGroupSection from './PropertyGroupSection';
 import PropertySearchRail from './PropertySearchRail';
+import { buildSections } from './propertySections';
 import { TypographyH2 } from '../tools/Typography.tsx';
 
 function matchesSearch(definition: PropertyDefinition, term: string): boolean {
@@ -23,7 +24,7 @@ function matchesSearch(definition: PropertyDefinition, term: string): boolean {
 
 export default function PropertiesPage() {
   const serverValues = useProperties();
-  const { definitions } = usePropertyDefinitions();
+  const { definitions, loading, error: definitionsError } = usePropertyDefinitions();
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const canManage = !!user && hasPerm(user, 'manage_properties');
@@ -34,23 +35,21 @@ export default function PropertiesPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const allSections = useMemo(
+    () => buildSections(definitions, Object.keys(serverValues)),
+    [definitions, serverValues],
+  );
+
   const sections = useMemo(() => {
-    if (!definitions) return [];
     const term = search.trim().toLowerCase();
-    return [...definitions.groups]
-      .sort((a, b) => a.order - b.order)
-      .map((group) => {
-        const groupFields = definitions.definitions.filter(
-          (definition) => definition.group === group.id,
-        );
-        return {
-          group,
-          groupFields,
-          fields: groupFields.filter((definition) => matchesSearch(definition, term)),
-        };
-      })
+    return allSections
+      .map(({ group, fields }) => ({
+        group,
+        groupFields: fields,
+        fields: fields.filter((definition) => matchesSearch(definition, term)),
+      }))
       .filter((section) => section.fields.length > 0);
-  }, [definitions, search]);
+  }, [allSections, search]);
 
   const currentGroupId = useScrollSpy(sections.map((section) => section.group.id));
 
@@ -62,8 +61,6 @@ export default function PropertiesPage() {
     if (target === '') return;
     document.getElementById(target)?.scrollIntoView?.();
   }, [sections.length]);
-
-  if (!definitions) return null;
 
   const railGroups = sections.map(({ group, groupFields }) => ({
     id: group.id,
@@ -77,7 +74,7 @@ export default function PropertiesPage() {
     setSaved(false);
     try {
       const payload: Record<string, string> = {};
-      for (const definition of definitions.definitions) {
+      for (const definition of allSections.flatMap((section) => section.fields)) {
         if (definition.readOnly) continue;
         const value = edits[definition.key] ?? serverValues[definition.key];
         if (value !== undefined) payload[definition.key] = value;
@@ -124,42 +121,55 @@ export default function PropertiesPage() {
           )}
         </Stack>
 
+        {definitionsError && (
+          <Alert severity="warning">
+            Property descriptions and typed controls are unavailable. Every property is editable as text.
+          </Alert>
+        )}
+
         {error && <Typography color="error">Error: {error}</Typography>}
 
-        <Box
-          data-testid="properties-layout"
-          sx={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            alignItems: 'flex-start',
-            gap: 2,
-          }}
-        >
-          <PropertySearchRail
-            groups={railGroups}
-            currentGroupId={currentGroupId}
-            search={search}
-            onSearchChange={setSearch}
-          />
-          <Stack spacing={2} sx={{ flex: '1 1 auto', minWidth: 0, width: '100%' }}>
-            {sections.map(({ group, fields }) => (
-              <PropertyGroupSection key={group.id} group={group}>
-                {fields.map((definition) => (
-                  <PropertyField
-                    key={definition.key}
-                    definition={definition}
-                    serverValue={serverValues[definition.key]}
-                    editedValue={edits[definition.key]}
-                    collided={collisions.has(definition.key)}
-                    onChange={(value) => edit(definition.key, value)}
-                    onUndo={() => discard(definition.key)}
-                    disabled={!canManage}
-                  />
-                ))}
-              </PropertyGroupSection>
-            ))}
+        {loading ? (
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <CircularProgress size={20} />
+            <Typography color="text.secondary">Loading properties…</Typography>
           </Stack>
-        </Box>
+        ) : (
+          <Box
+            data-testid="properties-layout"
+            sx={{
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              alignItems: 'flex-start',
+              gap: 2,
+            }}
+          >
+            <PropertySearchRail
+              groups={railGroups}
+              currentGroupId={currentGroupId}
+              search={search}
+              onSearchChange={setSearch}
+            />
+            <Stack spacing={2} sx={{ flex: '1 1 auto', minWidth: 0, width: '100%' }}>
+              {sections.map(({ group, fields }) => (
+                <PropertyGroupSection key={group.id} group={group}>
+                  {fields.map((definition) => (
+                    <PropertyField
+                      key={definition.key}
+                      definition={definition}
+                      serverValue={serverValues[definition.key]}
+                      editedValue={edits[definition.key]}
+                      collided={collisions.has(definition.key)}
+                      onChange={(value) => edit(definition.key, value)}
+                      onUndo={() => discard(definition.key)}
+                      disabled={!canManage}
+                    />
+                  ))}
+                </PropertyGroupSection>
+              ))}
+            </Stack>
+          </Box>
+        )}
       </Stack>
       <Snackbar
         open={saved}

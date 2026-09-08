@@ -18,11 +18,12 @@ interface PropertyFieldProps {
 interface PropertyControlProps {
   definition: PropertyDefinition;
   value: string;
+  placeholder?: string;
   onChange: (value: string) => void;
   disabled?: boolean;
 }
 
-function PropertyControl({ definition, value, onChange, disabled }: PropertyControlProps) {
+function PropertyControl({ definition, value, placeholder, onChange, disabled }: PropertyControlProps) {
   if (definition.readOnly) {
     return <Typography sx={{ fontFamily: 'monospace' }} color="text.secondary">{value}</Typography>;
   }
@@ -59,6 +60,7 @@ function PropertyControl({ definition, value, onChange, disabled }: PropertyCont
       <TextField
         type={definition.type === 'int' ? 'number' : 'text'}
         value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         size="small"
         disabled={disabled}
@@ -84,6 +86,7 @@ export default function PropertyField({ definition, serverValue, editedValue, co
   const isMobile = useIsMobile();
   const value = editedValue ?? serverValue ?? '';
   const modified = editedValue !== undefined && editedValue !== serverValue;
+  const unset = serverValue === undefined && editedValue === undefined;
 
   return (
     <Box
@@ -103,10 +106,14 @@ export default function PropertyField({ definition, serverValue, editedValue, co
           </Typography>
           <ApplyChip definition={definition} />
         </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-          {definition.key}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">{definition.description}</Typography>
+        {definition.label !== definition.key && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            {definition.key}
+          </Typography>
+        )}
+        {definition.description !== '' && (
+          <Typography variant="body2" color="text.secondary">{definition.description}</Typography>
+        )}
         {definition.readOnly && (
           <Typography variant="body2" color="text.secondary">
             Set at install time and not changeable at runtime.
@@ -115,7 +122,13 @@ export default function PropertyField({ definition, serverValue, editedValue, co
       </Box>
       <Box sx={{ flex: '1 1 auto' }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <PropertyControl definition={definition} value={value} onChange={onChange} disabled={disabled} />
+          <PropertyControl
+            definition={definition}
+            value={value}
+            placeholder={unset ? definition.default : undefined}
+            onChange={onChange}
+            disabled={disabled}
+          />
           {modified && !collided && onUndo && (
             <IconButton size="small" aria-label={`Undo changes to ${definition.label}`} onClick={onUndo}>
               <UndoIcon fontSize="small" />
