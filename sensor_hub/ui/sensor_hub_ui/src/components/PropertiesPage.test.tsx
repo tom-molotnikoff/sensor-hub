@@ -28,7 +28,7 @@ class FakeIntersectionObserver {
   }
 }
 
-vi.setConfig({ testTimeout: 20000 });
+vi.setConfig({ testTimeout: 10000 });
 
 const { getMock, patchMock } = vi.hoisted(() => ({
   getMock: vi.fn(),

@@ -54,7 +54,7 @@ export default function PropertiesPage() {
   useEffect(() => {
     if (landed.current || sections.length === 0) return;
     landed.current = true;
-    const target = decodeURIComponent(window.location.hash.slice(1));
+    const target = window.location.hash.slice(1);
     if (target === '') return;
     document.getElementById(target)?.scrollIntoView?.();
   }, [sections.length]);

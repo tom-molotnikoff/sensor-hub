@@ -1,5 +1,6 @@
 import { Box, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
 import { useIsMobile } from '../hooks/useMobile';
+import { STICKY_TOP_OFFSET } from './propertyLayout';
 
 export interface RailGroup {
   id: string;
@@ -29,7 +30,7 @@ export default function PropertySearchRail({
       sx={{
         flex: isMobile ? '0 0 auto' : '0 0 200px',
         width: isMobile ? '100%' : undefined,
-        ...(isMobile ? {} : { position: 'sticky', top: 80, alignSelf: 'flex-start' }),
+        ...(isMobile ? {} : { position: 'sticky', top: STICKY_TOP_OFFSET, alignSelf: 'flex-start' }),
       }}
     >
       <TextField

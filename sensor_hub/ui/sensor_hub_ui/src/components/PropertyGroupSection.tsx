@@ -1,6 +1,7 @@
 import { Divider, Paper, Stack, Typography } from '@mui/material';
 import type { PropertyGroup } from '../gen/aliases';
 import { TypographyH3 } from '../tools/Typography';
+import { STICKY_TOP_OFFSET } from './propertyLayout';
 
 interface PropertyGroupSectionProps {
   group: PropertyGroup;
@@ -9,7 +10,7 @@ interface PropertyGroupSectionProps {
 
 export default function PropertyGroupSection({ group, children }: PropertyGroupSectionProps) {
   return (
-    <Paper id={group.id} sx={{ p: 2, width: '100%', scrollMarginTop: 80 }}>
+    <Paper id={group.id} sx={{ p: 2, width: '100%', scrollMarginTop: STICKY_TOP_OFFSET }}>
       <TypographyH3 changes={{ margin: 0 }}>{group.label}</TypographyH3>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         {group.description}
