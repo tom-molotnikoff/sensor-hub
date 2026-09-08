@@ -41,14 +41,14 @@ var measurementTypeNames = []string{
 	"energy",
 }
 
-var errNoMeasurementTypes = fmt.Errorf("shape requests more measurement types than the schema seeds (%d)", len(measurementTypeNames))
+var errMeasurementTypesOutOfRange = fmt.Errorf("shape must request between 1 and %d measurement types", len(measurementTypeNames))
 
 func Generate(ctx context.Context, dbPath string, shape Shape, logger *slog.Logger) error {
 	if shape.Sensors < 1 || shape.Days < 1 || shape.Readings < 1 {
 		return fmt.Errorf("shape must have at least one sensor, day and reading, got %+v", shape)
 	}
 	if shape.MeasurementTypes < 1 || shape.MeasurementTypes > len(measurementTypeNames) {
-		return errNoMeasurementTypes
+		return errMeasurementTypesOutOfRange
 	}
 
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
@@ -89,8 +89,8 @@ func Generate(ctx context.Context, dbPath string, shape Shape, logger *slog.Logg
 		return err
 	}
 
-	if _, err := db.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", Version)); err != nil {
-		return fmt.Errorf("could not stamp seed version: %w", err)
+	if err := stamp(ctx, db, shape); err != nil {
+		return err
 	}
 	if _, err := db.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
 		return fmt.Errorf("could not checkpoint seed database: %w", err)
@@ -104,26 +104,47 @@ func Generate(ctx context.Context, dbPath string, shape Shape, logger *slog.Logg
 	return nil
 }
 
-func StoredVersion(dbPath string) (int, error) {
+func stamp(ctx context.Context, db *sql.DB, shape Shape) error {
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE seed_metadata (
+			version INTEGER NOT NULL,
+			sensors INTEGER NOT NULL,
+			measurement_types INTEGER NOT NULL,
+			days INTEGER NOT NULL,
+			readings INTEGER NOT NULL
+		)`); err != nil {
+		return fmt.Errorf("could not create seed metadata table: %w", err)
+	}
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO seed_metadata (version, sensors, measurement_types, days, readings) VALUES (?, ?, ?, ?, ?)",
+		Version, shape.Sensors, shape.MeasurementTypes, shape.Days, shape.Readings); err != nil {
+		return fmt.Errorf("could not stamp seed metadata: %w", err)
+	}
+	return nil
+}
+
+func StoredStamp(dbPath string) (int, Shape, error) {
 	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?_pragma=query_only(1)", dbPath))
 	if err != nil {
-		return 0, fmt.Errorf("could not open seed database: %w", err)
+		return 0, Shape{}, fmt.Errorf("could not open seed database: %w", err)
 	}
 	defer db.Close()
 
 	var version int
-	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
-		return 0, fmt.Errorf("could not read seed version: %w", err)
+	var shape Shape
+	if err := db.QueryRow("SELECT version, sensors, measurement_types, days, readings FROM seed_metadata").
+		Scan(&version, &shape.Sensors, &shape.MeasurementTypes, &shape.Days, &shape.Readings); err != nil {
+		return 0, Shape{}, fmt.Errorf("could not read seed metadata: %w", err)
 	}
-	return version, nil
+	return version, shape, nil
 }
 
-func IsCurrent(dbPath string) bool {
+func IsCurrent(dbPath string, shape Shape) bool {
 	if _, err := os.Stat(dbPath); err != nil {
 		return false
 	}
-	version, err := StoredVersion(dbPath)
-	return err == nil && version == Version
+	version, stored, err := StoredStamp(dbPath)
+	return err == nil && version == Version && stored == shape
 }
 
 func removeDatabaseFiles(dbPath string) error {
@@ -184,7 +205,7 @@ func insertReadings(ctx context.Context, db *sql.DB, shape Shape, sensorIDs, typ
 	remainder := shape.Readings % series
 
 	window := time.Duration(shape.Days) * 24 * time.Hour
-	end := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Now().UTC().Truncate(time.Second)
 	start := end.Add(-window)
 
 	statement := insertStatement(insertBatchRows)
@@ -228,7 +249,7 @@ func insertReadings(ctx context.Context, db *sql.DB, shape Shape, sensorIDs, typ
 				step = window / time.Duration(rows-1)
 			}
 			for row := range rows {
-				at := start.Add(time.Duration(row) * step)
+				at := start.Add(time.Duration(row) * step).Round(time.Second)
 				batch = append(batch, sensorID, typeID, seriesValue(typeIndex, row), at.Format("2006-01-02 15:04:05"))
 				written++
 

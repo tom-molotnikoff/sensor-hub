@@ -79,6 +79,7 @@ func openPool(dbPath, pool, dsnParams string, maxOpenConns int) (*sql.DB, error)
 		return nil, fmt.Errorf("could not open %s pool: %w", pool, err)
 	}
 	db.SetMaxOpenConns(maxOpenConns)
+	db.SetMaxIdleConns(maxOpenConns)
 
 	if _, err := otelsql.RegisterDBStatsMetrics(db, attributes); err != nil {
 		db.Close()

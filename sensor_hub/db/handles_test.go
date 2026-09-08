@@ -5,6 +5,7 @@ import (
 	appProps "example/sensorHub/application_properties"
 	"log/slog"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func TestOpen_WriteThroughTheReaderFailsReadOnly(t *testing.T) {
 	assert.Equal(t, sqlite3.SQLITE_READONLY, sqliteErr.Code(), "the reader pool refuses writes at the SQLite level")
 }
 
-func TestOpen_BothHandlesWaitFiveSecondsForALock(t *testing.T) {
+func TestOpen_BothHandlesCarryAFiveSecondBusyTimeout(t *testing.T) {
 	h := openHandles(t, 4)
 	ctx := context.Background()
 
@@ -82,6 +83,34 @@ func TestOpen_BothHandlesWaitFiveSecondsForALock(t *testing.T) {
 func TestOpen_ReaderPoolUsesTheConfiguredConnectionCount(t *testing.T) {
 	assert.Equal(t, 4, openHandles(t, 4).Reader.Stats().MaxOpenConnections)
 	assert.Equal(t, 2, openHandles(t, 2).Reader.Stats().MaxOpenConnections)
+}
+
+func TestOpen_ReaderPoolKeepsEveryConnectionOpenBetweenBursts(t *testing.T) {
+	h := openHandles(t, 4)
+	ctx := context.Background()
+
+	release := make(chan struct{})
+	var concurrent sync.WaitGroup
+	for range 4 {
+		concurrent.Add(1)
+		go func() {
+			defer concurrent.Done()
+			rows, err := h.Reader.QueryContext(ctx, "SELECT 1")
+			if !assert.NoError(t, err) {
+				return
+			}
+			<-release
+			rows.Close()
+		}()
+	}
+
+	assert.Eventually(t, func() bool { return h.Reader.Stats().InUse == 4 }, 5*time.Second, 10*time.Millisecond,
+		"the pool opens every configured connection under a burst")
+	close(release)
+	concurrent.Wait()
+
+	assert.Eventually(t, func() bool { return h.Reader.Stats().Idle == 4 }, 5*time.Second, 10*time.Millisecond,
+		"released connections stay idle rather than being closed and reopened on the next read")
 }
 
 func TestOpen_WriterPoolHasASingleConnection(t *testing.T) {

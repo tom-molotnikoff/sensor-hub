@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,6 +35,7 @@ func openSeed(t *testing.T, path string) *sql.DB {
 
 func TestGenerate_WritesTheRequestedShape(t *testing.T) {
 	shape := Shape{Sensors: 8, MeasurementTypes: 9, Days: 90, Readings: 3600}
+	before := time.Now().UTC()
 	db := openSeed(t, generate(t, shape))
 
 	var sensors, types, readings, series int
@@ -50,35 +52,43 @@ func TestGenerate_WritesTheRequestedShape(t *testing.T) {
 	var span float64
 	require.NoError(t, db.QueryRow("SELECT julianday(MAX(time)) - julianday(MIN(time)) FROM readings").Scan(&span))
 	assert.InDelta(t, float64(shape.Days), span, 0.01, "readings span the requested window")
+
+	var latest string
+	require.NoError(t, db.QueryRow("SELECT MAX(time) FROM readings").Scan(&latest))
+	newest, err := time.Parse("2006-01-02 15:04:05", latest)
+	require.NoError(t, err)
+	assert.False(t, newest.Before(before.Truncate(time.Second)),
+		"the window ends at generation time, so the seed always looks like a live database")
 }
 
-func TestGenerate_StampsTheSeedVersion(t *testing.T) {
-	path := generate(t, Shape{Sensors: 2, MeasurementTypes: 2, Days: 4, Readings: 40})
+func TestGenerate_StampsTheVersionAndTheShape(t *testing.T) {
+	shape := Shape{Sensors: 2, MeasurementTypes: 2, Days: 4, Readings: 40}
+	path := generate(t, shape)
 
-	version, err := StoredVersion(path)
+	version, stored, err := StoredStamp(path)
 	require.NoError(t, err)
 	assert.Equal(t, Version, version)
-	assert.True(t, IsCurrent(path))
+	assert.Equal(t, shape, stored)
+	assert.True(t, IsCurrent(path, shape))
 }
 
-func TestIsCurrent_IsFalseForAMissingOrStaleFile(t *testing.T) {
-	missing := filepath.Join(t.TempDir(), "absent.db")
-	assert.False(t, IsCurrent(missing))
+func TestIsCurrent_IsFalseForAMissingFileOrADifferentShape(t *testing.T) {
+	shape := Shape{Sensors: 1, MeasurementTypes: 1, Days: 2, Readings: 10}
 
-	path := generate(t, Shape{Sensors: 1, MeasurementTypes: 1, Days: 2, Readings: 10})
-	db, err := sql.Open("sqlite", "file:"+path)
-	require.NoError(t, err)
-	_, err = db.Exec("PRAGMA user_version = 0")
-	require.NoError(t, err)
-	require.NoError(t, db.Close())
+	assert.False(t, IsCurrent(filepath.Join(t.TempDir(), "absent.db"), shape))
 
-	assert.False(t, IsCurrent(path))
+	path := generate(t, shape)
+	assert.True(t, IsCurrent(path, shape))
+
+	smaller := shape
+	smaller.Readings = 5
+	assert.False(t, IsCurrent(path, smaller), "a seed of a different shape is not current")
 }
 
 func TestGenerate_RejectsAShapeTheSchemaCannotSupply(t *testing.T) {
 	err := Generate(context.Background(), filepath.Join(t.TempDir(), "seed.db"),
 		Shape{Sensors: 1, MeasurementTypes: len(measurementTypeNames) + 1, Days: 1, Readings: 1}, discardLogger())
-	assert.ErrorIs(t, err, errNoMeasurementTypes)
+	assert.ErrorIs(t, err, errMeasurementTypesOutOfRange)
 }
 
 func TestGenerate_FullSeed(t *testing.T) {

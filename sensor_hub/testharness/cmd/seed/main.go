@@ -29,13 +29,13 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
-	if !*force && seed.IsCurrent(*out) {
-		logger.Info("seed database already at the current version", "path", *out, "version", seed.Version)
-		return
-	}
-
 	shape := seed.Default
 	shape.Readings = *readings
+
+	if !*force && seed.IsCurrent(*out, shape) {
+		logger.Info("seed database already at the current version and shape", "path", *out, "version", seed.Version)
+		return
+	}
 
 	if err := seed.Generate(context.Background(), *out, shape, logger); err != nil {
 		logger.Error("failed to generate seed database", "error", err)
