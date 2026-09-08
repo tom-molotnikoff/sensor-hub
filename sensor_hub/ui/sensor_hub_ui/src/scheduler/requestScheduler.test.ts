@@ -79,6 +79,52 @@ describe('requestScheduler', () => {
     expect(order).toEqual(['high-1', 'high-2', 'normal-1', 'normal-2', 'low-1']);
   });
 
+  it('removes an aborted waiter from its queue and rejects with the abort reason', async () => {
+    const blocker = deferred();
+    void scheduler.schedule('normal', () => blocker.promise);
+    void scheduler.schedule('normal', () => blocker.promise);
+    await flush();
+
+    const controller = new AbortController();
+    const ran = vi.fn();
+    const waiting = scheduler.schedule('normal', async () => { ran(); }, { signal: controller.signal });
+
+    expect(scheduler.getQueuedCount('normal')).toBe(1);
+
+    const reason = new Error('left view');
+    controller.abort(reason);
+
+    await expect(waiting).rejects.toBe(reason);
+    expect(scheduler.getQueuedCount('normal')).toBe(0);
+
+    blocker.resolve();
+    await flush();
+    expect(ran).not.toHaveBeenCalled();
+  });
+
+  it('rejects immediately when the signal is already aborted', async () => {
+    const controller = new AbortController();
+    const reason = new Error('gone');
+    controller.abort(reason);
+    const ran = vi.fn();
+
+    await expect(scheduler.schedule('normal', async () => { ran(); }, { signal: controller.signal }))
+      .rejects.toBe(reason);
+    expect(ran).not.toHaveBeenCalled();
+  });
+
+  it('leaves a task that has already started alone when its signal aborts', async () => {
+    const running = deferred<string>();
+    const controller = new AbortController();
+    const settled = scheduler.schedule('normal', () => running.promise, { signal: controller.signal });
+    await flush();
+
+    controller.abort(new Error('too late'));
+    running.resolve('done');
+
+    await expect(settled).resolves.toBe('done');
+  });
+
   it('propagates resolution and rejection of the wrapped fn', async () => {
     await expect(scheduler.schedule('normal', () => Promise.resolve(42))).resolves.toBe(42);
     await expect(scheduler.schedule('normal', () => Promise.reject(new Error('boom')))).rejects.toThrow('boom');

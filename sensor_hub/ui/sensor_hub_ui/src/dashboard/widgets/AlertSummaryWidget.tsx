@@ -1,29 +1,31 @@
 import type { WidgetProps } from '../types';
 import type { AlertRule } from '../../gen/aliases';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Box, Typography, List, ListItem, ListItemText, Chip } from '@mui/material';
 import { apiClient } from '../../gen/client';
-import { requestScheduler } from '../../scheduler/requestScheduler';
+import { useScheduledQuery } from '../../hooks/useScheduledQuery';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { WidgetSwap, CascadeRowsLoader } from '../widget-loaders';
 
+const NO_RULES: AlertRule[] = [];
+
 export default function AlertSummaryWidget(_props: WidgetProps) {
-    const [rules, setRules] = useState<AlertRule[]>([]);
-    const [loaded, setLoaded] = useState(false);
     const reportUpdate = useReportWidgetUpdate();
 
+    const fetcher = useCallback(async (signal: AbortSignal) => {
+        const { data } = await apiClient.GET('/alerts', { signal });
+        return (data as AlertRule[] | null) ?? NO_RULES;
+    }, []);
+
+    const { data, isLoading } = useScheduledQuery(fetcher, { deps: [] });
+    const rules = data ?? NO_RULES;
+
     useEffect(() => {
-        requestScheduler.schedule('normal', () => apiClient.GET('/alerts')).then(({ data }) => {
-            setRules((data as AlertRule[] | null) ?? []);
-            setLoaded(true);
-            reportUpdate(new Date());
-        }).catch(() => {
-            setLoaded(true);
-        });
-    }, [reportUpdate]);
+        if (data) reportUpdate(new Date());
+    }, [data, reportUpdate]);
 
     return (
-        <WidgetSwap loading={!loaded} loader={<CascadeRowsLoader />}>
+        <WidgetSwap loading={isLoading} loader={<CascadeRowsLoader />}>
             {rules.length === 0 ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                     <Typography sx={{

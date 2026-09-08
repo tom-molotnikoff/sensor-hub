@@ -1,56 +1,61 @@
 import type { WidgetProps } from '../types';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import { useSensorContext } from '../../hooks/useSensorContext';
+import { useScheduledQuery } from '../../hooks/useScheduledQuery';
 import { apiClient } from '../../gen/client';
-import { requestScheduler } from '../../scheduler/requestScheduler';
 import { useChartColours } from '../../theme/chartColours';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { resolveTimeRange } from '../timeRange';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { WidgetSwap, SkeletonTilesLoader } from '../widget-loaders';
 
+interface Stats {
+    min: number;
+    max: number;
+    avg: number;
+    unit: string;
+}
+
 export default function MinMaxAvgWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
     const chartColours = useChartColours();
     const reportUpdate = useReportWidgetUpdate();
-    const [stats, setStats] = useState<{ min: number; max: number; avg: number; unit: string } | null>(null);
-    const [loading, setLoading] = useState(true);
 
     const sensorId = config.sensorId as number | undefined;
     const measurementType = config.measurementType as string | undefined;
     const sensor = sensorId ? sensors.find((s) => s.id === sensorId) : undefined;
+    const sensorName = sensor?.name;
 
     const { startDate, endDate } = resolveTimeRange(config);
     const startIso = startDate.toISODate() ?? '';
     const endIso = endDate.toISODate() ?? '';
 
-    // Show the loader again when the query changes (adjust-during-render).
-    const loadKey = `${sensor?.id ?? ''}|${startIso}|${endIso}|${measurementType ?? ''}`;
-    const [prevLoadKey, setPrevLoadKey] = useState(loadKey);
-    if (prevLoadKey !== loadKey) {
-        setPrevLoadKey(loadKey);
-        setLoading(true);
-    }
+    const fetcher = useCallback(async (signal: AbortSignal): Promise<Stats | null> => {
+        const { data } = await apiClient.GET('/readings/between', {
+            params: { query: { start: startIso, end: endIso, type: measurementType, sensor: sensorName } },
+            signal,
+        });
+        const readings = data?.readings ?? [];
+        if (readings.length === 0) return null;
+
+        const values = readings.map((r) => r.numeric_value ?? 0);
+        return {
+            min: Math.min(...values),
+            max: Math.max(...values),
+            avg: values.reduce((sum, value) => sum + value, 0) / values.length,
+            unit: readings[0]?.unit ?? '',
+        };
+    }, [startIso, endIso, measurementType, sensorName]);
+
+    const { data: stats, isLoading } = useScheduledQuery(fetcher, {
+        enabled: !!sensorName && !!measurementType,
+        deps: [sensorName, startIso, endIso, measurementType],
+    });
 
     useEffect(() => {
-        if (!sensor) return;
-
-        requestScheduler.schedule('normal', () => apiClient.GET('/readings/between', { params: { query: { start: startIso, end: endIso, type: measurementType, sensor: sensor.name } } })).then(({ data: response }) => {
-            const sensorReadings = response?.readings ?? [];
-            if (sensorReadings.length === 0) {
-                setStats(null);
-                return;
-            }
-            const nums = sensorReadings.map((r) => r.numeric_value ?? 0);
-            const min = Math.min(...nums);
-            const max = Math.max(...nums);
-            const avg = nums.reduce((sum, t) => sum + t, 0) / nums.length;
-            const unit = sensorReadings[0]?.unit ?? '';
-            setStats({ min, max, avg, unit });
-            reportUpdate(new Date());
-        }).finally(() => setLoading(false));
-    }, [sensor, startIso, endIso, measurementType, reportUpdate]);
+        if (stats) reportUpdate(new Date());
+    }, [stats, reportUpdate]);
 
     if (!sensor || !measurementType) {
         return <NeedsConfiguration message="Select a sensor and measurement type" />;
@@ -65,7 +70,7 @@ export default function MinMaxAvgWidget({ config }: WidgetProps) {
         : [];
 
     return (
-        <WidgetSwap loading={loading && !stats} loader={<SkeletonTilesLoader />}>
+        <WidgetSwap loading={isLoading} loader={<SkeletonTilesLoader />}>
             {!stats ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                     <Typography sx={{

@@ -5,6 +5,7 @@ import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurr
 import { parseUTCTime } from '../../tools/Utils';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
+import { useWidgetStateReport } from '../WidgetContext';
 import { WidgetSwap, ValuePlaceholderLoader } from '../widget-loaders';
 
 export default function CurrentReadingWidget({ config }: WidgetProps) {
@@ -12,6 +13,7 @@ export default function CurrentReadingWidget({ config }: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
     const readings = useCurrentReadings({ onDataUpdate: reportUpdate });
     const ready = useCurrentReadingsReady();
+    useWidgetStateReport(ready ? 'populated' : 'loading');
 
     const sensorId = config.sensorId as number | undefined;
     const measurementType = config.measurementType as string | undefined;

@@ -1,4 +1,5 @@
 import {BrowserRouter, Route, Routes, Navigate} from "react-router";
+import {Suspense, lazy} from "react";
 import SensorsOverview from "../pages/sensors-overview/SensorsOverview.tsx";
 import {useSensorContext} from "../hooks/useSensorContext.ts";
 import SensorPage from "../pages/sensor/SensorPage.tsx";
@@ -8,11 +9,12 @@ import ChangePasswordPage from "../pages/account/ChangePassword.tsx";
 import SessionsPage from "../pages/account/SessionsPage.tsx";
 import UsersPage from "../pages/admin/UsersPage.tsx";
 import NotificationsPage from "../pages/notifications/NotificationsPage.tsx";
-import DeveloperPage from "../pages/account/DeveloperPage.tsx";
 import RequireAuth from "./RequireAuth.tsx";
 import DashboardPage from "../dashboard/DashboardPage.tsx";
 import MqttPage from "../pages/mqtt/MqttPage.tsx";
 import DataRetentionPage from "../pages/data-retention/DataRetentionPage.tsx";
+
+const DeveloperPage = lazy(() => import("../pages/account/DeveloperPage.tsx"));
 
 
 function AppRoutes() {
@@ -24,7 +26,7 @@ function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/account/change-password" element={<RequireAuth><ChangePasswordPage /></RequireAuth>} />
         <Route path="/account/sessions" element={<RequireAuth><SessionsPage /></RequireAuth>} />
-        <Route path="/account/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
+        <Route path="/account/developer" element={<RequireAuth><Suspense fallback={null}><DeveloperPage /></Suspense></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth><UsersPage /></RequireAuth>} />
         <Route path="/mqtt" element={<RequireAuth><MqttPage /></RequireAuth>} />
         <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />

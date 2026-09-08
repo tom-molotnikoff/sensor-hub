@@ -51,12 +51,12 @@ describe('ReadingsChart loading states', () => {
     readingsDataMock.mockReset();
   });
 
-  it('shows the signal-trace loader while the first fetch is in flight', () => {
+  it('shows the signal-trace loader while the first fetch is in flight', async () => {
     readingsDataMock.mockReturnValue({ mergedData: [], aggregation: { interval: 'raw', function: 'none' }, isLoading: true, error: null });
 
     renderChart();
 
-    expect(screen.getByTestId('widget-loader')).toBeInTheDocument();
+    expect(await screen.findByTestId('widget-loader')).toBeInTheDocument();
     expect(screen.queryByText('No readings in selected date range')).not.toBeInTheDocument();
   });
 

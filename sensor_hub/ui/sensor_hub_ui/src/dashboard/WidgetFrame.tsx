@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Paper, IconButton, Box, Typography, Skeleton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -8,6 +9,13 @@ import { WidgetErrorBoundary } from './WidgetErrorBoundary';
 import { useWidgetLastUpdated } from './WidgetUpdateContext';
 import { WidgetUpdateProvider } from './WidgetUpdateProvider';
 import RelativeTime from './RelativeTime';
+import type { ReactNode } from 'react';
+import {
+    WidgetStateReportContext,
+    WidgetViewportContext,
+    type WidgetState,
+    type WidgetViewport,
+} from './WidgetContext';
 import type { WidgetProps } from './types';
 import type { DashboardWidget } from '../gen/aliases';
 
@@ -35,6 +43,49 @@ function EditPlaceholder({ label }: { label: string }) {
     );
 }
 
+export const WIDGET_VISIBILITY_MARGIN = '0px 0px 33% 0px';
+
+function useFrameVisibility(): [boolean, (element: HTMLElement | null) => void] {
+    const hasObserver = typeof IntersectionObserver !== 'undefined';
+    const [visible, setVisible] = useState(!hasObserver);
+    const elementRef = useRef<HTMLElement | null>(null);
+
+    useEffect(() => {
+        const element = elementRef.current;
+        if (!element || !hasObserver) return;
+        const observer = new IntersectionObserver(
+            (entries) => setVisible(entries[entries.length - 1].isIntersecting),
+            { rootMargin: WIDGET_VISIBILITY_MARGIN },
+        );
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [hasObserver]);
+
+    const observe = useCallback((element: HTMLElement | null) => {
+        elementRef.current = element;
+    }, []);
+
+    return [visible, observe];
+}
+
+interface WidgetFrameProvidersProps {
+    viewport: WidgetViewport;
+    reportState: (state: WidgetState) => void;
+    children: ReactNode;
+}
+
+function WidgetFrameProviders({ viewport, reportState, children }: WidgetFrameProvidersProps) {
+    return (
+        <WidgetUpdateProvider>
+            <WidgetViewportContext.Provider value={viewport}>
+                <WidgetStateReportContext.Provider value={reportState}>
+                    {children}
+                </WidgetStateReportContext.Provider>
+            </WidgetViewportContext.Provider>
+        </WidgetUpdateProvider>
+    );
+}
+
 interface WidgetFrameProps {
     widget: DashboardWidget;
     isEditing: boolean;
@@ -51,10 +102,15 @@ function WidgetLastUpdatedBadge() {
 export default function WidgetFrame({ widget, isEditing, onRemove, onConfigure }: WidgetFrameProps) {
     const definition = getWidget(widget.type);
     const subtitle = useWidgetSubtitle(widget.type, widget.config);
+    const [visible, observeFrame] = useFrameVisibility();
+    const [reportedState, setReportedState] = useState<WidgetState>('held');
+    const reportState = useCallback((state: WidgetState) => setReportedState(state), []);
+    const kind = definition?.kind ?? 'informational';
+    const viewport = useMemo<WidgetViewport>(() => ({ visible, kind }), [visible, kind]);
 
     if (!definition) {
         return (
-            <Paper sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Paper data-widget-state="error" sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Typography color="error">Unknown widget: {widget.type}</Typography>
             </Paper>
         );
@@ -70,8 +126,10 @@ export default function WidgetFrame({ widget, isEditing, onRemove, onConfigure }
     };
 
     return (
-        <WidgetUpdateProvider>
+        <WidgetFrameProviders viewport={viewport} reportState={reportState}>
             <Paper
+                ref={observeFrame}
+                data-widget-state={isEditing ? 'populated' : reportedState}
                 elevation={isEditing ? 3 : 1}
                 sx={{
                     height: '100%',
@@ -140,6 +198,6 @@ export default function WidgetFrame({ widget, isEditing, onRemove, onConfigure }
                     )}
                 </Box>
             </Paper>
-        </WidgetUpdateProvider>
+        </WidgetFrameProviders>
     );
 }

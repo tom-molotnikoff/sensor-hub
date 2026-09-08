@@ -5,12 +5,13 @@ import type { WidgetProps } from '../types';
 import type { Capability, CommandStatusMessage } from '../../gen/aliases';
 import { apiClient } from '../../gen/client';
 import { requestScheduler } from '../../scheduler/requestScheduler';
-import { useCurrentReadings } from '../../hooks/useCurrentReadings';
+import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurrentReadings';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { useAuth } from '../../providers/AuthContext';
 import { hasPerm } from '../../tools/Utils';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
+import { useWidgetStateReport } from '../WidgetContext';
 
 function resolveBinaryCapability(
   capabilities: Capability[] | undefined,
@@ -93,6 +94,7 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
   const { sensors } = useSensorContext();
   const { user } = useAuth();
   const reportUpdate = useReportWidgetUpdate();
+  useWidgetStateReport(useCurrentReadingsReady() ? 'populated' : 'loading');
 
   const sensorId = config.sensorId as number | undefined;
   const property = config.property as string | undefined;

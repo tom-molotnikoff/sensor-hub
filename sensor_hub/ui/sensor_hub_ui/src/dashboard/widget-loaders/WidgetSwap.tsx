@@ -16,15 +16,18 @@ interface WidgetSwapProps {
 }
 
 /**
- * The core integration primitive for the loader family. Shows `loader` while
- * loading (with anti-flash min-display), then cross-fades to the resolved
- * `children`. Occupies the same box throughout so there is no layout shift.
+ * The core integration primitive for the loader family. While loading it shows an empty box, then
+ * `loader` once the load has outlasted the show-after window (with anti-flash min-display), then
+ * cross-fades to the resolved `children`. A loading widget never shows its own empty state, and a
+ * load that finishes inside the window shows no loader at all. Occupies the same box throughout so
+ * there is no layout shift.
  */
 export default function WidgetSwap({ loading, loader, minVisibleMs, children }: WidgetSwapProps) {
   const showLoader = useLoaderVisibility(loading, { minVisibleMs });
   const reduced = usePrefersReducedMotion();
 
   if (showLoader) return <>{loader}</>;
+  if (loading) return <Box sx={{ height: '100%', width: '100%' }} />;
 
   return (
     <Box

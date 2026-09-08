@@ -18,6 +18,7 @@ import { useChartColours } from '../../theme/chartColours';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { resolveTimeRange } from '../timeRange';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
+import { useWidgetViewport } from '../WidgetContext';
 import { WidgetSwap, SignalTraceLoader } from '../widget-loaders';
 
 export default function ComparisonChartWidget({ config }: WidgetProps) {
@@ -26,7 +27,8 @@ export default function ComparisonChartWidget({ config }: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
     const measurementType = config.measurementType as string | undefined;
     const aggregationFunction = config.aggregationFunction as string | undefined;
-    const measurementTypes = useMeasurementTypes();
+    const { visible } = useWidgetViewport();
+    const measurementTypes = useMeasurementTypes(visible);
 
     const mtInfo = measurementTypes.find(mt => mt.name === measurementType);
     const yAxisLabel = measurementType
@@ -56,6 +58,7 @@ export default function ComparisonChartWidget({ config }: WidgetProps) {
         measurementType,
         aggregationFunction,
         pollIntervalMs,
+        enabled: !!measurementType && filteredSensors.length > 0,
         resolveTimeRange: resolveRange,
         onDataUpdate: reportUpdate,
     });

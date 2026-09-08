@@ -16,18 +16,43 @@ describe('useLoaderVisibility', () => {
     expect(result.current).toBe(false);
   });
 
-  it('shows immediately when loading starts', () => {
+  it('stays hidden for a load that finishes inside the show-after window', () => {
+    const { result, rerender } = renderHook(({ l }) => useLoaderVisibility(l), {
+      initialProps: { l: true },
+    });
+    expect(result.current).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(99);
+    });
+    rerender({ l: false });
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(result.current).toBe(false);
+  });
+
+  it('shows once loading outlasts the show-after window', () => {
     const { result } = renderHook(({ l }) => useLoaderVisibility(l), { initialProps: { l: true } });
+    expect(result.current).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
     expect(result.current).toBe(true);
   });
 
-  it('stays visible for at least minVisibleMs after loading ends (anti-flash)', () => {
+  it('stays visible for at least minVisibleMs once shown (anti-flash)', () => {
     const { result, rerender } = renderHook(({ l }) => useLoaderVisibility(l, { minVisibleMs: 350 }), {
       initialProps: { l: true },
     });
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
     expect(result.current).toBe(true);
 
-    // Data arrives almost immediately.
     rerender({ l: false });
     expect(result.current).toBe(true);
 

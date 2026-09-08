@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { Paper, Typography, Grid } from '@mui/material';
 import type { Sensor, MeasurementTypeInfo } from '../gen/aliases';
 import { apiClient } from '../gen/client';
 import { useCurrentReadings } from '../hooks/useCurrentReadings';
+import { useScheduledQuery } from '../hooks/useScheduledQuery';
 import LayoutCard from '../tools/LayoutCard';
 import { TypographyH2 } from '../tools/Typography';
 import { WidgetSwap, SensorDetailTilesLoader } from '../dashboard/widget-loaders';
@@ -12,28 +13,27 @@ interface SensorDetailCardProps {
     onDataUpdate?: (date: Date) => void;
 }
 
+const NO_TYPES: MeasurementTypeInfo[] = [];
+
 export default function SensorDetailCard({ sensor, onDataUpdate }: SensorDetailCardProps) {
-    const [measurementTypes, setMeasurementTypes] = useState<MeasurementTypeInfo[]>([]);
-    const [loading, setLoading] = useState(true);
     const readings = useCurrentReadings({ onDataUpdate });
+    const sensorId = sensor.id;
 
-    // Show the loader again when the sensor changes (adjust-during-render).
-    const [prevSensorId, setPrevSensorId] = useState(sensor.id);
-    if (prevSensorId !== sensor.id) {
-        setPrevSensorId(sensor.id);
-        setLoading(true);
-    }
+    const fetcher = useCallback(async (signal: AbortSignal) => {
+        const { data } = await apiClient.GET('/sensors/by-id/{id}/measurement-types', {
+            params: { path: { id: sensorId } },
+            signal,
+        });
+        return data ?? NO_TYPES;
+    }, [sensorId]);
 
-    useEffect(() => {
-        apiClient.GET('/sensors/by-id/{id}/measurement-types', { params: { path: { id: sensor.id } } })
-            .then(({ data }) => setMeasurementTypes(data ?? []))
-            .finally(() => setLoading(false));
-    }, [sensor.id]);
+    const { data, isLoading } = useScheduledQuery(fetcher, { deps: [sensorId] });
+    const measurementTypes = data ?? NO_TYPES;
 
     const sensorReadings = readings[sensor.name] ?? {};
 
     return (
-        <WidgetSwap loading={loading && measurementTypes.length === 0} loader={<SensorDetailTilesLoader />}>
+        <WidgetSwap loading={isLoading} loader={<SensorDetailTilesLoader />}>
             {measurementTypes.length === 0 ? null : (
             <LayoutCard variant="secondary" changes={{ height: '100%', width: '100%' }}>
             <TypographyH2>{sensor.name}: Details</TypographyH2>

@@ -1,4 +1,4 @@
-import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sensor } from '../../gen/aliases';
 import { apiClient } from '../../gen/client';
@@ -34,21 +34,22 @@ describe('HeatmapWidget loading state', () => {
     sensors.splice(0, sensors.length, makeSensor());
     scheduleMock.mockReset();
     reportUpdateMock.mockReset();
+    vi.mocked(apiClient.GET).mockReset();
   });
 
-  it('shows the ripple loader while the fetch is in flight', () => {
+  it('shows the ripple loader while the fetch is in flight', async () => {
     scheduleMock.mockReturnValue(new Promise(() => {})); // never resolves
     render(<HeatmapWidget id="w" isEditing={false} config={config} />);
-    expect(screen.getByTestId('widget-loader')).toBeInTheDocument();
+    expect(await screen.findByTestId('widget-loader')).toBeInTheDocument();
     expect(screen.getAllByTestId('heatmap-cell').length).toBe(30);
   });
 
   it('replaces the loader with the day grid once data has loaded', async () => {
-    scheduleMock.mockResolvedValue({ data: { readings: [] } });
+    vi.mocked(apiClient.GET).mockResolvedValue({ data: { readings: [] } });
+    scheduleMock.mockImplementation((_priority: string, fetcher: () => Promise<unknown>) => fetcher());
     render(<HeatmapWidget id="w" isEditing={false} config={config} />);
-    await waitForElementToBeRemoved(() => screen.queryByTestId('widget-loader'));
-    // Loader gone; the real grid (no animated loader cells) is shown.
-    expect(screen.queryByTestId('heatmap-cell')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByTestId('heatmap-cell')).not.toBeInTheDocument(), { timeout: 3000 });
+    expect(screen.queryByTestId('widget-loader')).not.toBeInTheDocument();
   });
 });
 
@@ -65,10 +66,9 @@ describe('HeatmapWidget request', () => {
     scheduleMock.mockImplementation((_priority: string, fetcher: () => Promise<unknown>) => fetcher());
 
     render(<HeatmapWidget id="w" isEditing={false} config={config} />);
-    await waitForElementToBeRemoved(() => screen.queryByTestId('widget-loader'));
 
-    expect(apiClient.GET).toHaveBeenCalledWith('/readings/between', {
+    await waitFor(() => expect(apiClient.GET).toHaveBeenCalledWith('/readings/between', expect.objectContaining({
       params: { query: expect.objectContaining({ type: 'temperature', sensor: 'greenhouse' }) },
-    });
+    })));
   });
 });

@@ -25,11 +25,11 @@ describe('GroupSummaryWidget loading state', () => {
     readyMock.mockReset();
   });
 
-  it('shows the loader while readings are still loading', () => {
+  it('shows the loader while readings are still loading', async () => {
     readingsMock.mockReturnValue({});
     readyMock.mockReturnValue(false);
     render(<GroupSummaryWidget id="w" isEditing={false} config={config} />);
-    expect(screen.getByTestId('widget-loader')).toBeInTheDocument();
+    expect(await screen.findByTestId('widget-loader')).toBeInTheDocument();
     expect(screen.queryByText('No temperature readings available')).not.toBeInTheDocument();
   });
 
