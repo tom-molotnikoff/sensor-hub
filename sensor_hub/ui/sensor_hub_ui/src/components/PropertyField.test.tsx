@@ -72,8 +72,8 @@ describe('PropertyField', () => {
       />,
     );
 
-    const field = screen.getByRole('spinbutton', { name: 'Collection interval' });
-    expect(field).toHaveValue(300);
+    const field = screen.getByRole('textbox', { name: 'Collection interval' });
+    expect(field).toHaveValue('300');
     expect(screen.getByText('seconds')).toBeInTheDocument();
   });
 
@@ -160,7 +160,7 @@ describe('PropertyField', () => {
     expect(screen.queryByText(/saved value/i)).not.toBeInTheDocument();
 
     rerender(<PropertyField definition={definition} serverValue="12" editedValue="14" onChange={() => {}} />);
-    expect(screen.getByRole('spinbutton', { name: 'Bcrypt cost' })).toHaveValue(14);
+    expect(screen.getByRole('textbox', { name: 'Bcrypt cost' })).toHaveValue('14');
     expect(screen.getByText('Saved value 12 · default 12')).toBeInTheDocument();
 
     // An edit typed back to the saved value leaves the row unmodified.

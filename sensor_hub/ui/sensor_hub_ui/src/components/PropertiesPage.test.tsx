@@ -65,6 +65,7 @@ const definitionsResponse: PropertyDefinitionsResponse = {
       group: 'sensors',
       unit: 'seconds',
       apply: 'next-cycle',
+      validate: 'positive',
       readOnly: false,
     },
     {
@@ -150,14 +151,14 @@ describe('PropertiesPage', () => {
     await renderPage(['view_properties', 'manage_properties']);
 
     expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeChecked();
-    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(300);
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('300');
     expect(screen.getByText('/var/lib/sensor-hub/sensor_hub.db')).toBeInTheDocument();
   });
 
   it('saves edits through PATCH /properties with database.path excluded from the payload', async () => {
     await renderPage(['view_properties', 'manage_properties']);
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
@@ -174,14 +175,14 @@ describe('PropertiesPage', () => {
   it('undoes one modified field back to the saved value, leaving other edits untouched', async () => {
     await renderPage(['view_properties', 'manage_properties']);
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
     fireEvent.click(screen.getByRole('switch', { name: 'Skip sensor discovery' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo changes to Collection interval' }));
 
-    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(300);
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('300');
     expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
     expect(screen.queryByRole('button', { name: 'Undo changes to Collection interval' })).not.toBeInTheDocument();
   });
@@ -189,7 +190,7 @@ describe('PropertiesPage', () => {
   it('treats a field typed back to the saved value as untouched, so a later server change reaches it', async () => {
     await renderPage(['view_properties', 'manage_properties']);
 
-    const interval = screen.getByRole('spinbutton', { name: 'Collection interval' });
+    const interval = screen.getByRole('textbox', { name: 'Collection interval' });
     fireEvent.change(interval, { target: { value: '120' } });
     fireEvent.change(interval, { target: { value: '300' } });
 
@@ -199,13 +200,13 @@ describe('PropertiesPage', () => {
       );
     });
 
-    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(600);
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('600');
   });
 
   it('keeps an edited field on screen when a broadcast arrives, while untouched fields update', async () => {
     await renderPage(['view_properties', 'manage_properties']);
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
 
@@ -215,14 +216,14 @@ describe('PropertiesPage', () => {
       );
     });
 
-    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(120);
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('120');
     expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
   });
 
   it('reports a broadcast landing on an edited field and resets it to the broadcast value', async () => {
     await renderPage(['view_properties', 'manage_properties']);
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
 
@@ -232,7 +233,7 @@ describe('PropertiesPage', () => {
       );
     });
 
-    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(120);
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('120');
     expect(screen.getByText(/Someone else changed this to 600/)).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Undo changes to Collection interval' }),
@@ -242,7 +243,7 @@ describe('PropertiesPage', () => {
       screen.getByRole('button', { name: 'Reset Collection interval to the value someone else saved' }),
     );
 
-    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(600);
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('600');
     expect(screen.queryByText(/Someone else changed this/)).not.toBeInTheDocument();
     expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
   });
@@ -253,7 +254,7 @@ describe('PropertiesPage', () => {
     expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
     expect(screen.getByText('1 unsaved change').closest('.MuiChip-root')).toBeNull();
@@ -263,7 +264,7 @@ describe('PropertiesPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
 
-    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(300);
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('300');
     expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeChecked();
     expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
@@ -272,7 +273,7 @@ describe('PropertiesPage', () => {
   it('clears the edited fields on the broadcast that follows a successful save', async () => {
     await renderPage(['view_properties', 'manage_properties']);
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
@@ -295,7 +296,7 @@ describe('PropertiesPage', () => {
       );
     });
 
-    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(600);
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('600');
     expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
   });
 
@@ -304,13 +305,13 @@ describe('PropertiesPage', () => {
     patchMock.mockReturnValue(new Promise((resolve) => { settlePatch = resolve; }));
     await renderPage(['view_properties', 'manage_properties']);
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
     await waitFor(() => expect(patchMock).toHaveBeenCalledTimes(1));
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '121' },
     });
     await act(async () => { settlePatch({ data: { message: 'ok' } }); });
@@ -321,7 +322,7 @@ describe('PropertiesPage', () => {
       );
     });
 
-    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(121);
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('121');
     expect(screen.getByText('1 unsaved change')).toBeInTheDocument();
   });
 
@@ -329,7 +330,7 @@ describe('PropertiesPage', () => {
     await renderPage(['view_properties']);
 
     expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeDisabled();
-    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
   });
 
@@ -344,7 +345,7 @@ describe('PropertiesPage', () => {
     const sensors = document.getElementById('sensors')!;
     expect(within(sensors).getByText('How often sensors are polled.')).toBeInTheDocument();
     expect(within(sensors).getByRole('switch', { name: 'Skip sensor discovery' })).toBeInTheDocument();
-    expect(within(sensors).getByRole('spinbutton', { name: 'Collection interval' })).toBeInTheDocument();
+    expect(within(sensors).getByRole('textbox', { name: 'Collection interval' })).toBeInTheDocument();
 
     const advanced = document.getElementById('advanced')!;
     expect(within(advanced).getByText('/var/lib/sensor-hub/sensor_hub.db')).toBeInTheDocument();
@@ -416,7 +417,7 @@ describe('PropertiesPage', () => {
     expect(screen.queryByTestId('rail-edited-count-sensors')).not.toBeInTheDocument();
     expect(screen.queryByTestId('rail-edited-count-advanced')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
     fireEvent.click(screen.getByRole('switch', { name: 'Skip sensor discovery' }));
@@ -433,6 +434,125 @@ describe('PropertiesPage', () => {
     expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
   });
 
+  it('reports non-numeric text in an int field, disables Save and marks the group in the rail', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
+      target: { value: '30o' },
+    });
+
+    expect(screen.getByText('Must be a whole number')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
+    expect(screen.getByTestId('rail-error-count-sensors')).toHaveTextContent('1');
+    expect(screen.queryByTestId('rail-error-count-advanced')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
+      target: { value: '120' },
+    });
+
+    expect(screen.queryByText('Must be a whole number')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save/i })).toBeEnabled();
+    expect(screen.queryByTestId('rail-error-count-sensors')).not.toBeInTheDocument();
+  });
+
+  it('reports a value breaking a validate rule without sending a request', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
+      target: { value: '0' },
+    });
+
+    expect(screen.getByText('Must be greater than 0')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    expect(patchMock).not.toHaveBeenCalled();
+  });
+
+  it('counts every invalid field in a group, including one the search is hiding', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
+      target: { value: '0' },
+    });
+    expect(screen.getByTestId('rail-error-count-sensors')).toHaveTextContent('1');
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search properties' }), {
+      target: { value: 'auto-discover' },
+    });
+
+    expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
+    expect(screen.getByTestId('rail-error-count-sensors')).toHaveTextContent('1');
+    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
+  });
+
+  it('says an error is hidden when the search leaves no invalid field on screen', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
+      target: { value: '' },
+    });
+    expect(screen.getByText('Must be a whole number')).toBeInTheDocument();
+    expect(screen.queryByText(/hidden by the search/)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search properties' }), {
+      target: { value: 'SQLite' },
+    });
+
+    expect(screen.queryByTestId('rail-error-count-sensors')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
+    expect(
+      screen.getByText('1 field hidden by the search has an error. Clear the search to correct it.'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a backend rejection against the offending field and keeps every local edit', async () => {
+    patchMock.mockResolvedValue({
+      error: { message: 'invalid sensor.collection.interval value: 120', key: 'sensor.collection.interval' },
+    });
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
+      target: { value: '120' },
+    });
+    fireEvent.click(screen.getByRole('switch', { name: 'Skip sensor discovery' }));
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText('invalid sensor.collection.interval value: 120')).toBeInTheDocument(),
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('120');
+    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
+    expect(screen.getByText('2 unsaved changes')).toBeInTheDocument();
+    expect(screen.queryByText('Properties updated successfully')).not.toBeInTheDocument();
+    expect(screen.getByTestId('rail-error-count-sensors')).toHaveTextContent('1');
+    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
+      target: { value: '180' },
+    });
+
+    expect(screen.queryByText('invalid sensor.collection.interval value: 120')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save/i })).toBeEnabled();
+  });
+
+  it('shows a rejection naming no rendered field at page level rather than dropping it', async () => {
+    patchMock.mockResolvedValue({
+      error: { message: 'invalid ghost.property value: x', key: 'ghost.property' },
+    });
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
+      target: { value: '120' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(screen.getByText('invalid ghost.property value: x')).toBeInTheDocument());
+
+    expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('120');
+    expect(screen.queryByTestId('rail-error-count-sensors')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save/i })).toBeEnabled();
+  });
+
   it('falls back to an editable text field per value, under a banner, when the definitions fetch fails', async () => {
     getMock.mockResolvedValue({ error: 'definitions unavailable' });
     await renderFallbackPage(['view_properties', 'manage_properties']);
@@ -445,7 +565,7 @@ describe('PropertiesPage', () => {
       expect(screen.getByRole('textbox', { name: key })).toHaveValue(serverValues[key]);
     }
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
-    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'sensor.collection.interval' })).not.toHaveAttribute('inputmode');
 
     fireEvent.change(screen.getByRole('textbox', { name: 'sensor.collection.interval' }), {
       target: { value: '120' },
@@ -481,8 +601,8 @@ describe('PropertiesPage', () => {
       FakeWebSocket.instances[0].serverSends(JSON.stringify({}));
     });
 
-    const field = screen.getByRole('spinbutton', { name: 'Collection interval' });
-    expect(field).toHaveValue(null);
+    const field = screen.getByRole('textbox', { name: 'Collection interval' });
+    expect(field).toHaveValue('');
     expect(field).toHaveAttribute('placeholder', '300');
     expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
   });

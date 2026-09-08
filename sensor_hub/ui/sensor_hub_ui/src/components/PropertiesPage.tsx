@@ -13,6 +13,8 @@ import PropertyField from './PropertyField';
 import PropertyGroupSection from './PropertyGroupSection';
 import PropertySearchRail from './PropertySearchRail';
 import { buildSections } from './propertySections';
+import { asRejection, propertyErrors } from './propertyValidation';
+import type { PropertyRejection } from './propertyValidation';
 import { TypographyH2 } from '../tools/Typography.tsx';
 
 function matchesSearch(definition: PropertyDefinition, term: string): boolean {
@@ -31,7 +33,7 @@ export default function PropertiesPage() {
   const { edits, collisions, modified, edit, discard, discardAll, markSubmitted } =
     usePropertyEdits(serverValues);
   const [search, setSearch] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [rejection, setRejection] = useState<PropertyRejection | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -51,6 +53,23 @@ export default function PropertiesPage() {
       .filter((section) => section.rows.length > 0);
   }, [allSections, search]);
 
+  const allDefinitions = useMemo(
+    () => allSections.flatMap((section) => section.rows.map((row) => row.definition)),
+    [allSections],
+  );
+
+  const errors = useMemo(
+    () => propertyErrors(allDefinitions, edits, rejection),
+    [allDefinitions, edits, rejection],
+  );
+
+  const hiddenErrorCount = useMemo(() => {
+    const rendered = new Set(
+      sections.flatMap((section) => section.rows.map((row) => row.definition.key)),
+    );
+    return [...errors.fields.keys()].filter((key) => !rendered.has(key)).length;
+  }, [sections, errors]);
+
   const currentGroupId = useScrollSpy(sections.map((section) => section.group.id));
 
   const landed = useRef(false);
@@ -66,11 +85,30 @@ export default function PropertiesPage() {
     id: group.id,
     label: group.label,
     editedCount: groupRows.filter((row) => modified.has(row.definition.key)).length,
+    errorCount: groupRows.filter((row) => errors.fields.has(row.definition.key)).length,
   }));
+
+  const forgetRejection = (key: string) =>
+    setRejection((current) => (current?.key === key ? null : current));
+
+  const handleEdit = (key: string, value: string) => {
+    forgetRejection(key);
+    edit(key, value);
+  };
+
+  const handleDiscard = (key: string) => {
+    forgetRejection(key);
+    discard(key);
+  };
+
+  const handleDiscardAll = () => {
+    setRejection(null);
+    discardAll();
+  };
 
   const handleSave = async () => {
     setSaving(true);
-    setError(null);
+    setRejection(null);
     setSaved(false);
     try {
       const payload: Record<string, string> = {};
@@ -80,17 +118,15 @@ export default function PropertiesPage() {
         if (value !== undefined) payload[definition.key] = value;
       }
       const submitted = edits;
-      await apiClient.PATCH('/properties', { body: payload as never });
+      const { error: apiError } = await apiClient.PATCH('/properties', { body: payload as never });
+      if (apiError) {
+        setRejection(asRejection(apiError));
+        return;
+      }
       markSubmitted(submitted);
       setSaved(true);
     } catch (e: unknown) {
-      let msg: string;
-      if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
-        msg = (e as { message: string }).message;
-      } else {
-        try { msg = JSON.stringify(e); } catch { msg = String(e); }
-      }
-      setError(msg);
+      setRejection(asRejection(e));
     } finally {
       setSaving(false);
     }
@@ -109,12 +145,17 @@ export default function PropertiesPage() {
                   <Typography variant="body2" color="text.secondary">
                     {modified.size === 1 ? '1 unsaved change' : `${modified.size} unsaved changes`}
                   </Typography>
-                  <Button variant="text" color="inherit" onClick={discardAll} disabled={saving}>
+                  <Button variant="text" color="inherit" onClick={handleDiscardAll} disabled={saving}>
                     Discard
                   </Button>
                 </>
               )}
-              <Button variant="contained" color="primary" onClick={handleSave} disabled={modified.size === 0 || saving}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSave}
+                disabled={modified.size === 0 || saving || errors.fields.size > 0}
+              >
                 Save changes
               </Button>
             </Stack>
@@ -127,7 +168,15 @@ export default function PropertiesPage() {
           </Alert>
         )}
 
-        {error && <Typography color="error">Error: {error}</Typography>}
+        {hiddenErrorCount > 0 && (
+          <Alert severity="warning">
+            {hiddenErrorCount === 1
+              ? '1 field hidden by the search has an error. Clear the search to correct it.'
+              : `${hiddenErrorCount} fields hidden by the search have errors. Clear the search to correct them.`}
+          </Alert>
+        )}
+
+        {errors.page && <Alert severity="error">{errors.page}</Alert>}
 
         {loading ? (
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -161,8 +210,9 @@ export default function PropertiesPage() {
                       serverValue={serverValues[definition.key]}
                       editedValue={edits[definition.key]}
                       collided={collisions.has(definition.key)}
-                      onChange={(value) => edit(definition.key, value)}
-                      onUndo={() => discard(definition.key)}
+                      error={errors.fields.get(definition.key)}
+                      onChange={(value) => handleEdit(definition.key, value)}
+                      onUndo={() => handleDiscard(definition.key)}
                       disabled={!canManage}
                     />
                   ))}
