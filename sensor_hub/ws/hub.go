@@ -98,15 +98,7 @@ func (h *Hub) BroadcastToTopic(topic string, v any) {
 	h.mu.Lock()
 	for _, ci := range h.conns {
 		if ci.topics[topic] {
-			select {
-			case ci.send <- v:
-				// queued
-			default:
-				h.logger.Warn("dropping message for conn (buffer full), unregistering", "topic", topic)
-				delete(h.conns, ci.conn)
-				close(ci.send)
-				_ = ci.conn.Close()
-			}
+			h.queueLocked(ci, v)
 		}
 	}
 	h.mu.Unlock()
@@ -120,13 +112,21 @@ func (h *Hub) Send(conn *websocket.Conn, v any) {
 		h.logger.Warn("Send called for an unregistered connection, ignoring")
 		return
 	}
+	h.queueLocked(ci, v)
+}
+
+func (h *Hub) queueLocked(ci *connInfo, v any) {
 	select {
 	case ci.send <- v:
 	default:
-		h.logger.Warn("dropping message for conn (buffer full), unregistering")
-		delete(h.conns, conn)
+		topics := make([]string, 0, len(ci.topics))
+		for t := range ci.topics {
+			topics = append(topics, t)
+		}
+		h.logger.Warn("dropping message for conn (buffer full), unregistering", "topics", topics)
+		delete(h.conns, ci.conn)
 		close(ci.send)
-		_ = conn.Close()
+		_ = ci.conn.Close()
 	}
 }
 
