@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 )
@@ -28,11 +27,11 @@ type PermissionInfo struct {
 }
 
 type SqlRoleRepository struct {
-	db     *sql.DB
+	db     *Handles
 	logger *slog.Logger
 }
 
-func NewRoleRepository(db *sql.DB, logger *slog.Logger) *SqlRoleRepository {
+func NewRoleRepository(db *Handles, logger *slog.Logger) *SqlRoleRepository {
 	return &SqlRoleRepository{db: db, logger: logger.With("component", "role_repository")}
 }
 
@@ -41,7 +40,7 @@ func (r *SqlRoleRepository) GetPermissionsForUser(ctx context.Context, userId in
 	JOIN role_permissions rp ON p.id = rp.permission_id
 	JOIN user_roles ur ON rp.role_id = ur.role_id
 	WHERE ur.user_id = ?`
-	rows, err := r.db.QueryContext(ctx, query, userId)
+	rows, err := r.db.Reader.QueryContext(ctx, query, userId)
 	if err != nil {
 		return nil, fmt.Errorf("error querying permissions for user: %w", err)
 	}
@@ -61,7 +60,7 @@ func (r *SqlRoleRepository) GetPermissionsForUser(ctx context.Context, userId in
 }
 
 func (r *SqlRoleRepository) GetAllRoles(ctx context.Context) ([]RoleInfo, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT id, name FROM roles")
+	rows, err := r.db.Reader.QueryContext(ctx, "SELECT id, name FROM roles")
 	if err != nil {
 		return nil, fmt.Errorf("error querying roles: %w", err)
 	}
@@ -78,7 +77,7 @@ func (r *SqlRoleRepository) GetAllRoles(ctx context.Context) ([]RoleInfo, error)
 }
 
 func (r *SqlRoleRepository) GetAllPermissions(ctx context.Context) ([]PermissionInfo, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT id, name, description FROM permissions")
+	rows, err := r.db.Reader.QueryContext(ctx, "SELECT id, name, description FROM permissions")
 	if err != nil {
 		return nil, fmt.Errorf("error querying permissions: %w", err)
 	}
@@ -95,7 +94,7 @@ func (r *SqlRoleRepository) GetAllPermissions(ctx context.Context) ([]Permission
 }
 
 func (r *SqlRoleRepository) GetPermissionsForRole(ctx context.Context, roleId int) ([]PermissionInfo, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT p.id, p.name, p.description FROM permissions p JOIN role_permissions rp ON p.id = rp.permission_id WHERE rp.role_id = ?", roleId)
+	rows, err := r.db.Reader.QueryContext(ctx, "SELECT p.id, p.name, p.description FROM permissions p JOIN role_permissions rp ON p.id = rp.permission_id WHERE rp.role_id = ?", roleId)
 	if err != nil {
 		return nil, fmt.Errorf("error querying role permissions: %w", err)
 	}
@@ -112,7 +111,7 @@ func (r *SqlRoleRepository) GetPermissionsForRole(ctx context.Context, roleId in
 }
 
 func (r *SqlRoleRepository) AssignPermissionToRole(ctx context.Context, roleId int, permissionId int) error {
-	_, err := r.db.ExecContext(ctx, "INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)", roleId, permissionId)
+	_, err := r.db.Writer.ExecContext(ctx, "INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)", roleId, permissionId)
 	if err != nil {
 		return fmt.Errorf("error assigning permission to role: %w", err)
 	}
@@ -120,7 +119,7 @@ func (r *SqlRoleRepository) AssignPermissionToRole(ctx context.Context, roleId i
 }
 
 func (r *SqlRoleRepository) RemovePermissionFromRole(ctx context.Context, roleId int, permissionId int) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM role_permissions WHERE role_id = ? AND permission_id = ?", roleId, permissionId)
+	_, err := r.db.Writer.ExecContext(ctx, "DELETE FROM role_permissions WHERE role_id = ? AND permission_id = ?", roleId, permissionId)
 	if err != nil {
 		return fmt.Errorf("error removing permission from role: %w", err)
 	}

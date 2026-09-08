@@ -10,11 +10,11 @@ import (
 )
 
 type MeasurementTypeRepositoryImpl struct {
-	db     *sql.DB
+	db     *Handles
 	logger *slog.Logger
 }
 
-func NewMeasurementTypeRepository(db *sql.DB, logger *slog.Logger) MeasurementTypeRepository {
+func NewMeasurementTypeRepository(db *Handles, logger *slog.Logger) MeasurementTypeRepository {
 	return &MeasurementTypeRepositoryImpl{db: db, logger: logger.With("component", "measurement_type_repository")}
 }
 
@@ -27,7 +27,7 @@ func (r *MeasurementTypeRepositoryImpl) GetAll(ctx context.Context) ([]gen.Measu
 		LEFT JOIN measurement_type_aggregations mta ON mta.measurement_type_id = mt.id AND mta.is_default = 1
 		ORDER BY mt.name
 	`, TableMeasurementTypes)
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying measurement types: %w", err)
 	}
@@ -57,7 +57,7 @@ func (r *MeasurementTypeRepositoryImpl) GetAllWithReadings(ctx context.Context) 
 		ORDER BY mt.name
 	`, TableMeasurementTypes, TableReadings)
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying measurement types with readings: %w", err)
 	}
@@ -87,7 +87,7 @@ func (r *MeasurementTypeRepositoryImpl) GetByName(ctx context.Context, name stri
 	`, TableMeasurementTypes)
 	var mt gen.MeasurementType
 	var supported string
-	err := r.db.QueryRowContext(ctx, query, name).Scan(&mt.Id, &mt.Name, &mt.DisplayName, &mt.Category, &mt.Unit, &mt.DefaultAggregationFunction, &supported)
+	err := r.db.Reader.QueryRowContext(ctx, query, name).Scan(&mt.Id, &mt.Name, &mt.DisplayName, &mt.Category, &mt.Unit, &mt.DefaultAggregationFunction, &supported)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -107,7 +107,7 @@ func (r *MeasurementTypeRepositoryImpl) GetBySensorId(ctx context.Context, senso
 		ORDER BY mt.name
 	`, TableSensorMeasurementTypes, TableMeasurementTypes)
 
-	rows, err := r.db.QueryContext(ctx, query, sensorId)
+	rows, err := r.db.Reader.QueryContext(ctx, query, sensorId)
 	if err != nil {
 		return nil, fmt.Errorf("error querying sensor measurement types: %w", err)
 	}
@@ -126,7 +126,7 @@ func (r *MeasurementTypeRepositoryImpl) GetBySensorId(ctx context.Context, senso
 
 func (r *MeasurementTypeRepositoryImpl) EnsureExists(ctx context.Context, mt gen.MeasurementType) error {
 	query := fmt.Sprintf("INSERT OR IGNORE INTO %s (name, display_name, category, default_unit) VALUES (?, ?, ?, ?)", TableMeasurementTypes)
-	_, err := r.db.ExecContext(ctx, query, mt.Name, mt.DisplayName, mt.Category, mt.Unit)
+	_, err := r.db.Writer.ExecContext(ctx, query, mt.Name, mt.DisplayName, mt.Category, mt.Unit)
 	if err != nil {
 		return fmt.Errorf("error ensuring measurement type exists: %w", err)
 	}
@@ -135,7 +135,7 @@ func (r *MeasurementTypeRepositoryImpl) EnsureExists(ctx context.Context, mt gen
 
 func (r *MeasurementTypeRepositoryImpl) AssignToSensor(ctx context.Context, sensorId, measurementTypeId int, unit string) error {
 	query := fmt.Sprintf("INSERT OR IGNORE INTO %s (sensor_id, measurement_type_id, unit) VALUES (?, ?, ?)", TableSensorMeasurementTypes)
-	_, err := r.db.ExecContext(ctx, query, sensorId, measurementTypeId, unit)
+	_, err := r.db.Writer.ExecContext(ctx, query, sensorId, measurementTypeId, unit)
 	if err != nil {
 		return fmt.Errorf("error assigning measurement type to sensor: %w", err)
 	}
@@ -144,7 +144,7 @@ func (r *MeasurementTypeRepositoryImpl) AssignToSensor(ctx context.Context, sens
 
 func (r *MeasurementTypeRepositoryImpl) RemoveFromSensor(ctx context.Context, sensorId, measurementTypeId int) error {
 	query := fmt.Sprintf("DELETE FROM %s WHERE sensor_id = ? AND measurement_type_id = ?", TableSensorMeasurementTypes)
-	_, err := r.db.ExecContext(ctx, query, sensorId, measurementTypeId)
+	_, err := r.db.Writer.ExecContext(ctx, query, sensorId, measurementTypeId)
 	if err != nil {
 		return fmt.Errorf("error removing measurement type from sensor: %w", err)
 	}
@@ -165,7 +165,7 @@ func (r *MeasurementTypeRepositoryImpl) GetMeasurementTypesWithReadings(ctx cont
 		ORDER BY mt.name
 	`, TableReadings, TableMeasurementTypes, TableSensorMeasurementTypes)
 
-	rows, err := r.db.QueryContext(ctx, query, sensorId)
+	rows, err := r.db.Reader.QueryContext(ctx, query, sensorId)
 	if err != nil {
 		return nil, fmt.Errorf("error querying measurement types with readings: %w", err)
 	}
@@ -192,7 +192,7 @@ func (r *MeasurementTypeRepositoryImpl) GetAggregationsForMeasurementType(ctx co
 		WHERE LOWER(mt.name) = LOWER(?)
 		ORDER BY mta.is_default DESC, mta.function ASC
 	`
-	rows, err := r.db.QueryContext(ctx, query, name)
+	rows, err := r.db.Reader.QueryContext(ctx, query, name)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching aggregations for measurement type %q: %w", name, err)
 	}

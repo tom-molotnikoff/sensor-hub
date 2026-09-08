@@ -31,16 +31,16 @@ type ApiKeyRepository interface {
 }
 
 type SqlApiKeyRepository struct {
-	db     *sql.DB
+	db     *Handles
 	logger *slog.Logger
 }
 
-func NewApiKeyRepository(db *sql.DB, logger *slog.Logger) *SqlApiKeyRepository {
+func NewApiKeyRepository(db *Handles, logger *slog.Logger) *SqlApiKeyRepository {
 	return &SqlApiKeyRepository{db: db, logger: logger.With("component", "api_key_repository")}
 }
 
 func (r *SqlApiKeyRepository) CreateApiKey(ctx context.Context, name string, keyPrefix string, keyHash string, userId int, expiresAt *time.Time) (int64, error) {
-	result, err := r.db.ExecContext(ctx,
+	result, err := r.db.Writer.ExecContext(ctx,
 		`INSERT INTO api_keys (name, key_prefix, key_hash, user_id, expires_at) VALUES (?, ?, ?, ?, ?)`,
 		name, keyPrefix, keyHash, userId, expiresAt,
 	)
@@ -51,7 +51,7 @@ func (r *SqlApiKeyRepository) CreateApiKey(ctx context.Context, name string, key
 }
 
 func (r *SqlApiKeyRepository) GetApiKeyByHash(ctx context.Context, keyHash string) (*ApiKey, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.db.Reader.QueryRowContext(ctx,
 		`SELECT id, name, key_prefix, key_hash, user_id, expires_at, revoked, last_used_at, created_at, updated_at
 		 FROM api_keys
 		 WHERE key_hash = ? AND revoked = 0 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
@@ -88,7 +88,7 @@ func (r *SqlApiKeyRepository) GetApiKeyByHash(ctx context.Context, keyHash strin
 }
 
 func (r *SqlApiKeyRepository) ListApiKeysForUser(ctx context.Context, userId int) ([]ApiKey, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.db.Reader.QueryContext(ctx,
 		`SELECT id, name, key_prefix, user_id, expires_at, revoked, last_used_at, created_at, updated_at
 		 FROM api_keys WHERE user_id = ? ORDER BY created_at DESC`,
 		userId,
@@ -134,7 +134,7 @@ func (r *SqlApiKeyRepository) ListApiKeysForUser(ctx context.Context, userId int
 }
 
 func (r *SqlApiKeyRepository) UpdateApiKeyExpiry(ctx context.Context, id int, expiresAt *time.Time) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.db.Writer.ExecContext(ctx,
 		`UPDATE api_keys SET expires_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		expiresAt, id,
 	)
@@ -142,7 +142,7 @@ func (r *SqlApiKeyRepository) UpdateApiKeyExpiry(ctx context.Context, id int, ex
 }
 
 func (r *SqlApiKeyRepository) RevokeApiKey(ctx context.Context, id int) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.db.Writer.ExecContext(ctx,
 		`UPDATE api_keys SET revoked = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		id,
 	)
@@ -150,12 +150,12 @@ func (r *SqlApiKeyRepository) RevokeApiKey(ctx context.Context, id int) error {
 }
 
 func (r *SqlApiKeyRepository) DeleteApiKey(ctx context.Context, id int) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM api_keys WHERE id = ?`, id)
+	_, err := r.db.Writer.ExecContext(ctx, `DELETE FROM api_keys WHERE id = ?`, id)
 	return err
 }
 
 func (r *SqlApiKeyRepository) UpdateLastUsed(ctx context.Context, id int) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.db.Writer.ExecContext(ctx,
 		`UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		id,
 	)

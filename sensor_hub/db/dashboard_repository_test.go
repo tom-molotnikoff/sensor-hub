@@ -14,7 +14,7 @@ import (
 func TestDashboardRepository_Create(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
-	repo := NewDashboardRepository(db, slog.Default())
+	repo := NewDashboardRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO dashboards").
 		WithArgs(1, "My Dashboard", `{"widgets":[]}`, false, false).
@@ -31,7 +31,7 @@ func TestDashboardRepository_Create(t *testing.T) {
 func TestDashboardRepository_GetById(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
-	repo := NewDashboardRepository(db, slog.Default())
+	repo := NewDashboardRepository(handles(db), slog.Default())
 
 	rows := sqlmock.NewRows([]string{"id", "user_id", "name", "config", "shared", "is_default", "created_at", "updated_at"}).
 		AddRow(1, 1, "Test", `{"widgets":[]}`, false, true, "2026-03-31 00:00:00", "2026-03-31 00:00:00")
@@ -50,7 +50,7 @@ func TestDashboardRepository_GetById(t *testing.T) {
 func TestDashboardRepository_GetById_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
-	repo := NewDashboardRepository(db, slog.Default())
+	repo := NewDashboardRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM dashboards WHERE id = \\?").
 		WithArgs(999).
@@ -66,7 +66,7 @@ func TestDashboardRepository_GetById_NotFound(t *testing.T) {
 func TestDashboardRepository_GetByUserId(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
-	repo := NewDashboardRepository(db, slog.Default())
+	repo := NewDashboardRepository(handles(db), slog.Default())
 
 	rows := sqlmock.NewRows([]string{"id", "user_id", "name", "config", "shared", "is_default", "created_at", "updated_at"}).
 		AddRow(1, 1, "Default", `{"widgets":[]}`, false, true, "2026-03-31 00:00:00", "2026-03-31 00:00:00").
@@ -85,7 +85,7 @@ func TestDashboardRepository_GetByUserId(t *testing.T) {
 func TestDashboardRepository_Update(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
-	repo := NewDashboardRepository(db, slog.Default())
+	repo := NewDashboardRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE dashboards SET").
 		WithArgs("Updated", `{"widgets":[]}`, false, 1).
@@ -100,7 +100,7 @@ func TestDashboardRepository_Update(t *testing.T) {
 func TestDashboardRepository_Delete(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
-	repo := NewDashboardRepository(db, slog.Default())
+	repo := NewDashboardRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM dashboards WHERE id = \\?").
 		WithArgs(1).
@@ -115,7 +115,7 @@ func TestDashboardRepository_Delete(t *testing.T) {
 func TestDashboardRepository_SetDefault(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
-	repo := NewDashboardRepository(db, slog.Default())
+	repo := NewDashboardRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectExec("UPDATE dashboards SET is_default = 0 WHERE user_id = \\?").

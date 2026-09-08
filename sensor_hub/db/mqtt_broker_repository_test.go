@@ -25,7 +25,7 @@ var brokerColumns = []string{
 
 func TestMQTTBrokerRepository_Add_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	broker := gen.MQTTBroker{
 		Name: "test-broker", Type: "external", Host: "mqtt.example.com", Port: 1883, Enabled: true,
@@ -45,7 +45,7 @@ func TestMQTTBrokerRepository_Add_Success(t *testing.T) {
 
 func TestMQTTBrokerRepository_Add_EmptyName(t *testing.T) {
 	db, _ := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	_, err := repo.Add(context.Background(), gen.MQTTBroker{Host: "localhost", Port: 1883})
 	assert.Error(t, err)
@@ -54,7 +54,7 @@ func TestMQTTBrokerRepository_Add_EmptyName(t *testing.T) {
 
 func TestMQTTBrokerRepository_Add_EmptyHost(t *testing.T) {
 	db, _ := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	_, err := repo.Add(context.Background(), gen.MQTTBroker{Name: "test"})
 	assert.Error(t, err)
@@ -67,7 +67,7 @@ func TestMQTTBrokerRepository_Add_EmptyHost(t *testing.T) {
 
 func TestMQTTBrokerRepository_GetByID_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_brokers WHERE id = \\?").
 		WithArgs(1).
@@ -85,7 +85,7 @@ func TestMQTTBrokerRepository_GetByID_Success(t *testing.T) {
 
 func TestMQTTBrokerRepository_GetByID_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_brokers WHERE id = \\?").
 		WithArgs(99).
@@ -103,7 +103,7 @@ func TestMQTTBrokerRepository_GetByID_NotFound(t *testing.T) {
 
 func TestMQTTBrokerRepository_GetByName_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_brokers WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-broker").
@@ -127,7 +127,7 @@ func TestMQTTBrokerRepository_GetByName_Success(t *testing.T) {
 
 func TestMQTTBrokerRepository_GetAll_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_brokers ORDER BY name").
 		WillReturnRows(sqlmock.NewRows(brokerColumns).
@@ -147,7 +147,7 @@ func TestMQTTBrokerRepository_GetAll_Success(t *testing.T) {
 
 func TestMQTTBrokerRepository_GetAll_Empty(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_brokers ORDER BY name").
 		WillReturnRows(sqlmock.NewRows(brokerColumns))
@@ -164,7 +164,7 @@ func TestMQTTBrokerRepository_GetAll_Empty(t *testing.T) {
 
 func TestMQTTBrokerRepository_Update_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE mqtt_brokers SET").
 		WithArgs("updated-broker", "external", "new-host.com", 8883,
@@ -182,7 +182,7 @@ func TestMQTTBrokerRepository_Update_Success(t *testing.T) {
 
 func TestMQTTBrokerRepository_Update_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE mqtt_brokers SET").
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
@@ -203,7 +203,7 @@ func TestMQTTBrokerRepository_Update_NotFound(t *testing.T) {
 
 func TestMQTTBrokerRepository_Delete_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM mqtt_brokers WHERE id = \\?").
 		WithArgs(1).
@@ -216,7 +216,7 @@ func TestMQTTBrokerRepository_Delete_Success(t *testing.T) {
 
 func TestMQTTBrokerRepository_Delete_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM mqtt_brokers WHERE id = \\?").
 		WithArgs(99).
@@ -234,7 +234,7 @@ func TestMQTTBrokerRepository_Delete_NotFound(t *testing.T) {
 
 func TestMQTTBrokerRepository_GetEnabled_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_brokers WHERE enabled = 1").
 		WillReturnRows(sqlmock.NewRows(brokerColumns).
@@ -254,7 +254,7 @@ func TestMQTTBrokerRepository_GetEnabled_Success(t *testing.T) {
 
 func TestMQTTBrokerRepository_Add_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(db, slog.Default())
+	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO mqtt_brokers").
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),

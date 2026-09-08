@@ -21,6 +21,10 @@ func newMockDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 	return db, mock
 }
 
+func handles(db *sql.DB) *Handles {
+	return &Handles{Reader: db, Writer: db}
+}
+
 // newMockDBWithQueryMatcher creates a mock DB with custom query matching.
 func newMockDBWithQueryMatcher(t *testing.T, matcher sqlmock.QueryMatcher) (*sql.DB, sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(matcher))

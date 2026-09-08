@@ -21,7 +21,7 @@ import (
 
 func TestSensorRepository_SensorExists_ReturnsTrue(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
@@ -36,7 +36,7 @@ func TestSensorRepository_SensorExists_ReturnsTrue(t *testing.T) {
 
 func TestSensorRepository_SensorExists_ReturnsFalse(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("nonexistent").
@@ -51,7 +51,7 @@ func TestSensorRepository_SensorExists_ReturnsFalse(t *testing.T) {
 
 func TestSensorRepository_SensorExists_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
@@ -67,7 +67,7 @@ func TestSensorRepository_SensorExists_DBError(t *testing.T) {
 
 func TestSensorRepository_SensorExists_EmptyName(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("").
@@ -86,7 +86,7 @@ func TestSensorRepository_SensorExists_EmptyName(t *testing.T) {
 
 func TestSensorRepository_GetSensorIdByName_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
@@ -101,7 +101,7 @@ func TestSensorRepository_GetSensorIdByName_Success(t *testing.T) {
 
 func TestSensorRepository_GetSensorIdByName_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("nonexistent").
@@ -117,7 +117,7 @@ func TestSensorRepository_GetSensorIdByName_NotFound(t *testing.T) {
 
 func TestSensorRepository_GetSensorIdByName_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
@@ -136,7 +136,7 @@ func TestSensorRepository_GetSensorIdByName_DBError(t *testing.T) {
 
 func TestSensorRepository_GetSensorByName_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
@@ -158,7 +158,7 @@ func TestSensorRepository_GetSensorByName_Success(t *testing.T) {
 
 func TestSensorRepository_GetSensorByName_IncludesMetadata(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
@@ -177,7 +177,7 @@ func TestSensorRepository_GetSensorByName_IncludesMetadata(t *testing.T) {
 
 func TestSensorRepository_GetSensorByName_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("nonexistent").
@@ -193,7 +193,7 @@ func TestSensorRepository_GetSensorByName_NotFound(t *testing.T) {
 
 func TestSensorRepository_GetSensorByName_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
@@ -213,7 +213,7 @@ func TestSensorRepository_GetSensorByName_DBError(t *testing.T) {
 
 func TestSensorRepository_GetAllSensors_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors").
 		WillReturnRows(sqlmock.NewRows(sensorColumns).
@@ -231,7 +231,7 @@ func TestSensorRepository_GetAllSensors_Success(t *testing.T) {
 
 func TestSensorRepository_GetAllSensors_EmptyTable(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors").
 		WillReturnRows(sqlmock.NewRows(sensorColumns))
@@ -245,7 +245,7 @@ func TestSensorRepository_GetAllSensors_EmptyTable(t *testing.T) {
 
 func TestSensorRepository_GetAllSensors_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors").
 		WillReturnError(errors.New("database error"))
@@ -264,7 +264,7 @@ func TestSensorRepository_GetAllSensors_DBError(t *testing.T) {
 
 func TestSensorRepository_GetSensorsByDriver_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors WHERE LOWER\\(sensor_driver\\) = LOWER\\(\\?\\)").
 		WithArgs("sensor-hub-http-temperature").
@@ -281,7 +281,7 @@ func TestSensorRepository_GetSensorsByDriver_Success(t *testing.T) {
 
 func TestSensorRepository_GetSensorsByDriver_NoMatches(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors WHERE LOWER\\(sensor_driver\\) = LOWER\\(\\?\\)").
 		WithArgs("humidity").
@@ -296,7 +296,7 @@ func TestSensorRepository_GetSensorsByDriver_NoMatches(t *testing.T) {
 
 func TestSensorRepository_GetSensorsByDriver_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors WHERE LOWER\\(sensor_driver\\) = LOWER\\(\\?\\)").
 		WithArgs("sensor-hub-http-temperature").
@@ -315,7 +315,7 @@ func TestSensorRepository_GetSensorsByDriver_DBError(t *testing.T) {
 
 func TestSensorRepository_AddSensor_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	sensor := gen.Sensor{
 		Name:         "new-sensor",
@@ -335,7 +335,7 @@ func TestSensorRepository_AddSensor_Success(t *testing.T) {
 
 func TestSensorRepository_AddSensor_StoresMetadata(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	metadata := map[string]interface{}{"manufacturer": "Aqara"}
 	sensor := gen.Sensor{
@@ -357,7 +357,7 @@ func TestSensorRepository_AddSensor_StoresMetadata(t *testing.T) {
 
 func TestSensorRepository_AddSensor_EmptyName(t *testing.T) {
 	db, _ := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	sensor := gen.Sensor{
 		Name:         "",
@@ -373,7 +373,7 @@ func TestSensorRepository_AddSensor_EmptyName(t *testing.T) {
 
 func TestSensorRepository_AddSensor_EmptyType(t *testing.T) {
 	db, _ := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	sensor := gen.Sensor{
 		Name:         "new-sensor",
@@ -389,7 +389,7 @@ func TestSensorRepository_AddSensor_EmptyType(t *testing.T) {
 
 func TestSensorRepository_AddSensor_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	sensor := gen.Sensor{
 		Name:         "new-sensor",
@@ -414,7 +414,7 @@ func TestSensorRepository_AddSensor_DBError(t *testing.T) {
 
 func TestSensorRepository_UpdateSensorById_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	sensor := gen.Sensor{
 		Id:           1,
@@ -435,7 +435,7 @@ func TestSensorRepository_UpdateSensorById_Success(t *testing.T) {
 
 func TestSensorRepository_UpdateSensorById_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	sensor := gen.Sensor{
 		Id:           999,
@@ -457,7 +457,7 @@ func TestSensorRepository_UpdateSensorById_NotFound(t *testing.T) {
 
 func TestSensorRepository_UpdateSensorById_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	sensor := gen.Sensor{
 		Id:           1,
@@ -483,7 +483,7 @@ func TestSensorRepository_UpdateSensorById_DBError(t *testing.T) {
 
 func TestSensorRepository_SetEnabledSensorByName_Enable(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE sensors SET enabled = \\?, health_status = \\? WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs(true, gen.Unknown, "test-sensor").
@@ -497,7 +497,7 @@ func TestSensorRepository_SetEnabledSensorByName_Enable(t *testing.T) {
 
 func TestSensorRepository_SetEnabledSensorByName_SkipsHistoryInsertWhenDisablingUnknownSensor(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, health_status FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
@@ -516,7 +516,7 @@ func TestSensorRepository_SetEnabledSensorByName_SkipsHistoryInsertWhenDisabling
 
 func TestSensorRepository_SetEnabledSensorByName_InsertsUnknownHistoryWhenDisablingHealthySensor(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, health_status FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
@@ -538,7 +538,7 @@ func TestSensorRepository_SetEnabledSensorByName_InsertsUnknownHistoryWhenDisabl
 
 func TestSensorRepository_SetEnabledSensorByName_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE sensors SET enabled = \\?, health_status = \\? WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs(true, gen.Unknown, "nonexistent").
@@ -553,7 +553,7 @@ func TestSensorRepository_SetEnabledSensorByName_NotFound(t *testing.T) {
 
 func TestSensorRepository_SetEnabledSensorByName_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE sensors SET enabled = \\?, health_status = \\? WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs(true, gen.Unknown, "test-sensor").
@@ -572,7 +572,7 @@ func TestSensorRepository_SetEnabledSensorByName_DBError(t *testing.T) {
 
 func TestSensorRepository_UpdateSensorHealthById_SkipsHistoryInsertWhenStatusUnchanged(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT health_status FROM sensors WHERE id = \\?").
@@ -591,7 +591,7 @@ func TestSensorRepository_UpdateSensorHealthById_SkipsHistoryInsertWhenStatusUnc
 
 func TestSensorRepository_UpdateSensorHealthById_InsertsHistoryWhenStatusChanges(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT health_status FROM sensors WHERE id = \\?").
@@ -613,7 +613,7 @@ func TestSensorRepository_UpdateSensorHealthById_InsertsHistoryWhenStatusChanges
 
 func TestSensorRepository_UpdateSensorHealthById_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT health_status FROM sensors WHERE id = \\?").
@@ -637,7 +637,7 @@ func TestSensorRepository_UpdateSensorHealthById_DBError(t *testing.T) {
 
 func TestSensorRepository_GetSensorHealthHistoryById_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	now := time.Now()
 	since := now.Add(-24 * time.Hour)
@@ -659,7 +659,7 @@ func TestSensorRepository_GetSensorHealthHistoryById_Success(t *testing.T) {
 
 func TestSensorRepository_GetSensorHealthHistoryById_Empty(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	since := time.Now().Add(-24 * time.Hour)
 	formattedSince := since.UTC().Format("2006-01-02 15:04:05")
@@ -677,7 +677,7 @@ func TestSensorRepository_GetSensorHealthHistoryById_Empty(t *testing.T) {
 
 func TestSensorRepository_GetSensorHealthHistoryById_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	since := time.Now().Add(-24 * time.Hour)
 	formattedSince := since.UTC().Format("2006-01-02 15:04:05")
@@ -699,7 +699,7 @@ func TestSensorRepository_GetSensorHealthHistoryById_DBError(t *testing.T) {
 
 func TestSensorRepository_DeleteHealthHistoryOlderThan_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	cutoff := time.Now().Add(-24 * time.Hour)
 	formattedCutoff := cutoff.UTC().Format("2006-01-02 15:04:05")
@@ -723,7 +723,7 @@ func TestSensorRepository_DeleteHealthHistoryOlderThan_Success(t *testing.T) {
 
 func TestSensorRepository_DeleteHealthHistoryOlderThan_NothingToDelete(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	cutoff := time.Now().Add(-24 * time.Hour)
 	formattedCutoff := cutoff.UTC().Format("2006-01-02 15:04:05")
@@ -747,7 +747,7 @@ func TestSensorRepository_DeleteHealthHistoryOlderThan_NothingToDelete(t *testin
 
 func TestSensorRepository_DeleteHealthHistoryOlderThan_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	cutoff := time.Now().Add(-24 * time.Hour)
 	formattedCutoff := cutoff.UTC().Format("2006-01-02 15:04:05")
@@ -776,7 +776,7 @@ func TestSensorRepository_DeleteHealthHistoryOlderThan_DBError(t *testing.T) {
 
 func TestSensorRepository_DeleteSensorByName_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	// Get sensor ID first
 	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
@@ -821,7 +821,7 @@ func TestSensorRepository_DeleteSensorByName_Success(t *testing.T) {
 
 func TestSensorRepository_DeleteSensorByName_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("nonexistent").
@@ -836,7 +836,7 @@ func TestSensorRepository_DeleteSensorByName_NotFound(t *testing.T) {
 
 func TestSensorRepository_DeleteSensorByName_RollbackOnPurgeError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
@@ -859,7 +859,7 @@ func TestSensorRepository_DeleteSensorByName_RollbackOnPurgeError(t *testing.T) 
 
 func TestSensorRepository_DeleteSensorByName_NoRowsDeleted(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id FROM sensors WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("test-sensor").
@@ -905,7 +905,7 @@ func TestSensorRepository_DeleteSensorByName_NoRowsDeleted(t *testing.T) {
 
 func TestSensorRepository_GetSensorsByStatus_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .* FROM sensors WHERE LOWER\\(status\\) = LOWER\\(\\?\\)").
 		WithArgs("pending").
@@ -924,7 +924,7 @@ func TestSensorRepository_GetSensorsByStatus_Success(t *testing.T) {
 
 func TestSensorRepository_GetSensorsByStatus_Empty(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .* FROM sensors WHERE LOWER\\(status\\) = LOWER\\(\\?\\)").
 		WithArgs("pending").
@@ -939,7 +939,7 @@ func TestSensorRepository_GetSensorsByStatus_Empty(t *testing.T) {
 
 func TestSensorRepository_GetSensorsByStatus_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .* FROM sensors WHERE LOWER\\(status\\) = LOWER\\(\\?\\)").
 		WithArgs("pending").
@@ -958,7 +958,7 @@ func TestSensorRepository_GetSensorsByStatus_DBError(t *testing.T) {
 
 func TestSensorRepository_UpdateSensorStatus_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE sensors SET status = \\?, enabled = CASE WHEN \\? = 'active' THEN 1 ELSE enabled END WHERE id = \\?").
 		WithArgs("active", "active", 1).
@@ -972,7 +972,7 @@ func TestSensorRepository_UpdateSensorStatus_Success(t *testing.T) {
 
 func TestSensorRepository_UpdateSensorStatus_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE sensors SET status = \\?, enabled = CASE WHEN \\? = 'active' THEN 1 ELSE enabled END WHERE id = \\?").
 		WithArgs("active", "active", 999).
@@ -987,7 +987,7 @@ func TestSensorRepository_UpdateSensorStatus_NotFound(t *testing.T) {
 
 func TestSensorRepository_UpdateSensorStatus_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE sensors SET status = \\?, enabled = CASE WHEN \\? = 'active' THEN 1 ELSE enabled END WHERE id = \\?").
 		WithArgs("active", "active", 1).
@@ -1004,7 +1004,7 @@ func TestSensorRepository_DeleteHealthHistoryOlderThan_PreservesCutoffCheckpoint
 	db := newInMemoryDB(t)
 	require.NoError(t, runMigrations(db, slog.Default()))
 
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 	ctx := context.Background()
 	cutoff := time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
 
@@ -1041,7 +1041,7 @@ func TestSensorRepository_DeleteHealthHistoryOlderThan_BackfillsCutoffCheckpoint
 	db := newInMemoryDB(t)
 	require.NoError(t, runMigrations(db, slog.Default()))
 
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 	ctx := context.Background()
 	cutoff := time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
 
@@ -1077,7 +1077,7 @@ func TestSensorRepository_GetSensorHealthHistoryById_IncludesLatestCheckpointBef
 	db := newInMemoryDB(t)
 	require.NoError(t, runMigrations(db, slog.Default()))
 
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 	ctx := context.Background()
 	checkpointTime := time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
 
@@ -1111,7 +1111,7 @@ func TestSensorRepository_GetSensorHealthHistoryById_IncludesBaselineAndLaterTra
 	db := newInMemoryDB(t)
 	require.NoError(t, runMigrations(db, slog.Default()))
 
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 	ctx := context.Background()
 	baselineTime := time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
 	transitionTime := baselineTime.Add(2 * time.Hour)

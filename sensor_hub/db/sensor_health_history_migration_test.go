@@ -22,7 +22,7 @@ func TestHealthHistoryMigration_RemovesConsecutiveDuplicates(t *testing.T) {
 
 	require.NoError(t, m.Migrate(18))
 
-	repo := NewSensorRepository(db, slog.Default())
+	repo := NewSensorRepository(handles(db), slog.Default())
 	ctx := context.Background()
 	require.NoError(t, repo.AddSensor(ctx, gen.Sensor{
 		Name:         "migration-sensor",

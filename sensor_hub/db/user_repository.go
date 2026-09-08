@@ -11,17 +11,17 @@ import (
 )
 
 type SqlUserRepository struct {
-	db     *sql.DB
+	db     *Handles
 	logger *slog.Logger
 }
 
-func NewUserRepository(db *sql.DB, logger *slog.Logger) *SqlUserRepository {
+func NewUserRepository(db *Handles, logger *slog.Logger) *SqlUserRepository {
 	return &SqlUserRepository{db: db, logger: logger.With("component", "user_repository")}
 }
 
 func (r *SqlUserRepository) CreateUser(ctx context.Context, user gen.User, passwordHash string) (int, error) {
 	query := "INSERT INTO users (username, email, password_hash, must_change_password, disabled, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-	res, err := r.db.ExecContext(ctx, query, user.Username, user.Email, passwordHash, user.MustChangePassword, user.Disabled, time.Now())
+	res, err := r.db.Writer.ExecContext(ctx, query, user.Username, user.Email, passwordHash, user.MustChangePassword, user.Disabled, time.Now())
 	if err != nil {
 		return 0, fmt.Errorf("error creating user: %w", err)
 	}
@@ -43,7 +43,7 @@ func (r *SqlUserRepository) GetUserByUsername(ctx context.Context, username stri
 	var passwordHash string
 	var createdAt SQLiteTime
 	var updatedAt NullSQLiteTime
-	err := r.db.QueryRowContext(ctx, query, username).Scan(&user.Id, &user.Username, &user.Email, &user.MustChangePassword, &user.Disabled, &createdAt, &updatedAt, &passwordHash)
+	err := r.db.Reader.QueryRowContext(ctx, query, username).Scan(&user.Id, &user.Username, &user.Email, &user.MustChangePassword, &user.Disabled, &createdAt, &updatedAt, &passwordHash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, "", nil
@@ -67,7 +67,7 @@ func (r *SqlUserRepository) GetUserById(ctx context.Context, id int) (*gen.User,
 	var user gen.User
 	var createdAt SQLiteTime
 	var updatedAt NullSQLiteTime
-	err := r.db.QueryRowContext(ctx, query, id).Scan(&user.Id, &user.Username, &user.Email, &user.MustChangePassword, &user.Disabled, &createdAt, &updatedAt)
+	err := r.db.Reader.QueryRowContext(ctx, query, id).Scan(&user.Id, &user.Username, &user.Email, &user.MustChangePassword, &user.Disabled, &createdAt, &updatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -88,7 +88,7 @@ func (r *SqlUserRepository) GetUserById(ctx context.Context, id int) (*gen.User,
 
 func (r *SqlUserRepository) ListUsers(ctx context.Context) ([]gen.User, error) {
 	query := "SELECT id, username, email, must_change_password, disabled, created_at, updated_at FROM users"
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying users: %w", err)
 	}
@@ -125,7 +125,7 @@ func (r *SqlUserRepository) ListUsers(ctx context.Context) ([]gen.User, error) {
 
 func (r *SqlUserRepository) UpdatePassword(ctx context.Context, userId int, passwordHash string, mustChange bool) error {
 	query := "UPDATE users SET password_hash = ?, must_change_password = ?, updated_at = ? WHERE id = ?"
-	_, err := r.db.ExecContext(ctx, query, passwordHash, mustChange, time.Now(), userId)
+	_, err := r.db.Writer.ExecContext(ctx, query, passwordHash, mustChange, time.Now(), userId)
 	if err != nil {
 		return fmt.Errorf("error updating password for user: %w", err)
 	}
@@ -134,7 +134,7 @@ func (r *SqlUserRepository) UpdatePassword(ctx context.Context, userId int, pass
 
 func (r *SqlUserRepository) SetDisabled(ctx context.Context, userId int, disabled bool) error {
 	query := "UPDATE users SET disabled = ?, updated_at = ? WHERE id = ?"
-	_, err := r.db.ExecContext(ctx, query, disabled, time.Now(), userId)
+	_, err := r.db.Writer.ExecContext(ctx, query, disabled, time.Now(), userId)
 	if err != nil {
 		return fmt.Errorf("error updating disabled flag for user: %w", err)
 	}
@@ -143,11 +143,11 @@ func (r *SqlUserRepository) SetDisabled(ctx context.Context, userId int, disable
 
 func (r *SqlUserRepository) AssignRoleToUser(ctx context.Context, userId int, roleName string) error {
 	var roleId int
-	err := r.db.QueryRowContext(ctx, "SELECT id FROM roles WHERE LOWER(name) = LOWER(?)", roleName).Scan(&roleId)
+	err := r.db.Reader.QueryRowContext(ctx, "SELECT id FROM roles WHERE LOWER(name) = LOWER(?)", roleName).Scan(&roleId)
 	if err != nil {
 		return fmt.Errorf("error finding role %s: %w", roleName, err)
 	}
-	_, err = r.db.ExecContext(ctx, "INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)", userId, roleId)
+	_, err = r.db.Writer.ExecContext(ctx, "INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)", userId, roleId)
 	if err != nil {
 		return fmt.Errorf("error assigning role to user: %w", err)
 	}
@@ -156,7 +156,7 @@ func (r *SqlUserRepository) AssignRoleToUser(ctx context.Context, userId int, ro
 
 func (r *SqlUserRepository) GetRolesForUser(ctx context.Context, userId int) ([]string, error) {
 	query := "SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?"
-	rows, err := r.db.QueryContext(ctx, query, userId)
+	rows, err := r.db.Reader.QueryContext(ctx, query, userId)
 	if err != nil {
 		return nil, fmt.Errorf("error querying roles for user: %w", err)
 	}
@@ -176,7 +176,7 @@ func (r *SqlUserRepository) GetRolesForUser(ctx context.Context, userId int) ([]
 }
 
 func (r *SqlUserRepository) DeleteSessionsForUser(ctx context.Context, userId int) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ?", userId)
+	_, err := r.db.Writer.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ?", userId)
 	if err != nil {
 		return fmt.Errorf("error deleting sessions for user: %w", err)
 	}
@@ -189,7 +189,7 @@ func (r *SqlUserRepository) DeleteSessionsForUserExcept(ctx context.Context, use
 	}
 	keepHash := tokenHash(keepToken)
 	var cnt int
-	err := r.db.QueryRowContext(ctx, "SELECT COUNT(1) FROM sessions WHERE user_id = ? AND token_hash = ?", userId, keepHash).Scan(&cnt)
+	err := r.db.Reader.QueryRowContext(ctx, "SELECT COUNT(1) FROM sessions WHERE user_id = ? AND token_hash = ?", userId, keepHash).Scan(&cnt)
 	if err != nil {
 		return fmt.Errorf("error checking current session existence: %w", err)
 	}
@@ -197,7 +197,7 @@ func (r *SqlUserRepository) DeleteSessionsForUserExcept(ctx context.Context, use
 		r.logger.Warn("session token not found for user; skipping deletion to avoid lockout", "user_id", userId)
 		return nil
 	}
-	res, err := r.db.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", userId, keepHash)
+	res, err := r.db.Writer.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", userId, keepHash)
 	if err != nil {
 		return fmt.Errorf("error deleting sessions for user except token: %w", err)
 	}
@@ -208,7 +208,7 @@ func (r *SqlUserRepository) DeleteSessionsForUserExcept(ctx context.Context, use
 }
 
 func (r *SqlUserRepository) DeleteUserById(ctx context.Context, userId int) error {
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.db.Writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %w", err)
 	}
@@ -239,7 +239,7 @@ func (r *SqlUserRepository) DeleteUserById(ctx context.Context, userId int) erro
 }
 
 func (r *SqlUserRepository) SetMustChangeFlag(ctx context.Context, userId int, mustChange bool) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE users SET must_change_password = ?, updated_at = ? WHERE id = ?", mustChange, time.Now(), userId)
+	_, err := r.db.Writer.ExecContext(ctx, "UPDATE users SET must_change_password = ?, updated_at = ? WHERE id = ?", mustChange, time.Now(), userId)
 	if err != nil {
 		return fmt.Errorf("error updating must_change_password: %w", err)
 	}
@@ -247,7 +247,7 @@ func (r *SqlUserRepository) SetMustChangeFlag(ctx context.Context, userId int, m
 }
 
 func (r *SqlUserRepository) SetRolesForUser(ctx context.Context, userId int, roles []string) error {
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.db.Writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %w", err)
 	}

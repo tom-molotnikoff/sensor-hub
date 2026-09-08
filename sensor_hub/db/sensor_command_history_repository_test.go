@@ -15,7 +15,7 @@ import (
 
 func TestSensorCommandHistoryRepository_AddSentCommand_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorCommandHistoryRepository(db, slog.Default())
+	repo := NewSensorCommandHistoryRepository(handles(db), slog.Default())
 	userID := 99
 	sentAt := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
 
@@ -31,7 +31,7 @@ func TestSensorCommandHistoryRepository_AddSentCommand_Success(t *testing.T) {
 
 func TestSensorCommandHistoryRepository_HasPendingCommand_ReturnsTrue(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorCommandHistoryRepository(db, slog.Default())
+	repo := NewSensorCommandHistoryRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM sensor_command_history WHERE sensor_id = \\? AND property = \\? AND status = 'sent'").
 		WithArgs(7, "state").
@@ -45,7 +45,7 @@ func TestSensorCommandHistoryRepository_HasPendingCommand_ReturnsTrue(t *testing
 
 func TestSensorCommandHistoryRepository_AddSentCommand_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorCommandHistoryRepository(db, slog.Default())
+	repo := NewSensorCommandHistoryRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO sensor_command_history").
 		WithArgs(7, nil, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, sqlmock.AnyArg()).
@@ -59,7 +59,7 @@ func TestSensorCommandHistoryRepository_AddSentCommand_DBError(t *testing.T) {
 
 func TestSensorCommandHistoryRepository_MarkAcknowledged_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorCommandHistoryRepository(db, slog.Default())
+	repo := NewSensorCommandHistoryRepository(handles(db), slog.Default())
 	acknowledgedAt := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
 
 	mock.ExpectExec("UPDATE sensor_command_history").
@@ -74,7 +74,7 @@ func TestSensorCommandHistoryRepository_MarkAcknowledged_Success(t *testing.T) {
 
 func TestSensorCommandHistoryRepository_ListPendingCommands_ReturnsRows(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorCommandHistoryRepository(db, slog.Default())
+	repo := NewSensorCommandHistoryRepository(handles(db), slog.Default())
 	sentAt := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
 
 	mock.ExpectQuery("SELECT id, sensor_id, property, value, status, timeout_seconds, sent_at, acknowledged_at, acknowledged_value").
@@ -97,7 +97,7 @@ func TestSensorCommandHistoryRepository_ListPendingCommands_ReturnsRows(t *testi
 
 func TestSensorCommandHistoryRepository_ListBySensorID_ReturnsNewestEntriesWithUserMetadata(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSensorCommandHistoryRepository(db, slog.Default())
+	repo := NewSensorCommandHistoryRepository(handles(db), slog.Default())
 
 	sentAt := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
 	acknowledgedAt := sentAt.Add(2 * time.Second)

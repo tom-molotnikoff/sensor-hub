@@ -28,11 +28,11 @@ type AlertRepository interface {
 }
 
 type AlertRepositoryImpl struct {
-	db     *sql.DB
+	db     *Handles
 	logger *slog.Logger
 }
 
-func NewAlertRepository(db *sql.DB, logger *slog.Logger) AlertRepository {
+func NewAlertRepository(db *Handles, logger *slog.Logger) AlertRepository {
 	return &AlertRepositoryImpl{db: db, logger: logger.With("component", "alert_repository")}
 }
 
@@ -67,7 +67,7 @@ func (r *AlertRepositoryImpl) GetAlertRule(ctx context.Context, sensorID, measur
 	var lastAlertSent NullSQLiteTime
 	var triggerStatus sql.NullString
 
-	err := r.db.QueryRowContext(ctx, query, sensorID, measurementTypeId).Scan(
+	err := r.db.Reader.QueryRowContext(ctx, query, sensorID, measurementTypeId).Scan(
 		&rule.ID,
 		&rule.SensorID,
 		&rule.SensorName,
@@ -130,7 +130,7 @@ func (r *AlertRepositoryImpl) GetAlertRuleBySensorID(ctx context.Context, sensor
 	var lastAlertSent NullSQLiteTime
 	var triggerStatus sql.NullString
 
-	err := r.db.QueryRowContext(ctx, query, sensorID).Scan(
+	err := r.db.Reader.QueryRowContext(ctx, query, sensorID).Scan(
 		&rule.ID,
 		&rule.SensorID,
 		&rule.SensorName,
@@ -194,7 +194,7 @@ func (r *AlertRepositoryImpl) GetAlertRuleForReading(ctx context.Context, sensor
 	var lastAlertSent NullSQLiteTime
 	var triggerStatus sql.NullString
 
-	err := r.db.QueryRowContext(ctx, query, sensorID, measurementTypeName).Scan(
+	err := r.db.Reader.QueryRowContext(ctx, query, sensorID, measurementTypeName).Scan(
 		&rule.ID,
 		&rule.SensorID,
 		&rule.SensorName,
@@ -256,7 +256,7 @@ func (r *AlertRepositoryImpl) GetAlertRuleByID(ctx context.Context, ruleID int) 
 	var lastAlertSent NullSQLiteTime
 	var triggerStatus sql.NullString
 
-	err := r.db.QueryRowContext(ctx, query, ruleID).Scan(
+	err := r.db.Reader.QueryRowContext(ctx, query, ruleID).Scan(
 		&rule.ID,
 		&rule.SensorID,
 		&rule.SensorName,
@@ -314,7 +314,7 @@ func (r *AlertRepositoryImpl) GetAlertRulesBySensorID(ctx context.Context, senso
 		WHERE ar.sensor_id = ?
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, sensorID)
+	rows, err := r.db.Reader.QueryContext(ctx, query, sensorID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get alert rules for sensor %d: %w", sensorID, err)
 	}
@@ -361,7 +361,7 @@ func (r *AlertRepositoryImpl) RecordAlertSent(ctx context.Context, ruleID, senso
 		VALUES (?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := r.db.ExecContext(ctx, query, ruleID, sensorID, measurementTypeId, reason, numericValue, statusValue)
+	_, err := r.db.Writer.ExecContext(ctx, query, ruleID, sensorID, measurementTypeId, reason, numericValue, statusValue)
 	if err != nil {
 		return fmt.Errorf("failed to record alert sent: %w", err)
 	}
@@ -394,7 +394,7 @@ func (r *AlertRepositoryImpl) GetAllAlertRules(ctx context.Context) ([]alerting.
 		) ash ON sar.id = ash.alert_rule_id
 	`
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all alert rules: %w", err)
 	}
@@ -463,7 +463,7 @@ func (r *AlertRepositoryImpl) GetAlertRuleBySensorName(ctx context.Context, sens
 	var rule alerting.AlertRule
 	var lastAlertSentAt NullSQLiteTime
 	var triggerStatus sql.NullString
-	err := r.db.QueryRowContext(ctx, query, sensorName).Scan(
+	err := r.db.Reader.QueryRowContext(ctx, query, sensorName).Scan(
 		&rule.ID,
 		&rule.SensorID,
 		&rule.SensorName,
@@ -501,7 +501,7 @@ func (r *AlertRepositoryImpl) CreateAlertRule(ctx context.Context, rule *alertin
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.db.Writer.ExecContext(ctx, query,
 		rule.SensorID,
 		rule.MeasurementTypeId,
 		rule.AlertType,
@@ -531,7 +531,7 @@ func (r *AlertRepositoryImpl) UpdateAlertRule(ctx context.Context, rule *alertin
 		WHERE id = ?
 	`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.db.Writer.ExecContext(ctx, query,
 		rule.AlertType,
 		rule.HighThreshold,
 		rule.LowThreshold,
@@ -550,7 +550,7 @@ func (r *AlertRepositoryImpl) UpdateAlertRule(ctx context.Context, rule *alertin
 
 func (r *AlertRepositoryImpl) DeleteAlertRule(ctx context.Context, ruleID int) error {
 	query := `DELETE FROM sensor_alert_rules WHERE id = ?`
-	_, err := r.db.ExecContext(ctx, query, ruleID)
+	_, err := r.db.Writer.ExecContext(ctx, query, ruleID)
 	if err != nil {
 		return fmt.Errorf("failed to delete alert rule: %w", err)
 	}
@@ -572,7 +572,7 @@ func (r *AlertRepositoryImpl) GetAlertHistory(ctx context.Context, sensorID int,
 		LIMIT ?
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, sensorID, limit)
+	rows, err := r.db.Reader.QueryContext(ctx, query, sensorID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get alert history: %w", err)
 	}
@@ -601,7 +601,7 @@ func (r *AlertRepositoryImpl) GetAlertHistory(ctx context.Context, sensorID int,
 }
 
 func (r *AlertRepositoryImpl) DeleteAlertHistoryOlderThan(ctx context.Context, cutoff time.Time) (int64, error) {
-	result, err := r.db.ExecContext(ctx, "DELETE FROM alert_sent_history WHERE sent_at < ?", cutoff)
+	result, err := r.db.Writer.ExecContext(ctx, "DELETE FROM alert_sent_history WHERE sent_at < ?", cutoff)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete old alert history: %w", err)
 	}

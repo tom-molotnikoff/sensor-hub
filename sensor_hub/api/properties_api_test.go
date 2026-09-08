@@ -67,7 +67,7 @@ func TestGetPropertyDefinitions_Shape(t *testing.T) {
 	var resp gen.PropertyDefinitionsResponse
 	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 
-	assert.Len(t, resp.Definitions, 29)
+	assert.Len(t, resp.Definitions, 30)
 	assert.Len(t, resp.Groups, 7)
 
 	for i, g := range resp.Groups {

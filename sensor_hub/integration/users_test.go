@@ -101,7 +101,7 @@ func TestUsers_DeleteRemovesOwnedApiKeys(t *testing.T) {
 	assert.Equal(t, http.StatusOK, status)
 
 	var apiKeyCount int
-	require.NoError(t, env.DB.QueryRow(`SELECT COUNT(*) FROM api_keys WHERE user_id = ?`, created.ID).Scan(&apiKeyCount))
+	require.NoError(t, env.DB.Reader.QueryRow(`SELECT COUNT(*) FROM api_keys WHERE user_id = ?`, created.ID).Scan(&apiKeyCount))
 	assert.Zero(t, apiKeyCount)
 }
 
@@ -132,12 +132,12 @@ func TestUsers_DeleteRemovesSensorCommandHistory(t *testing.T) {
 	require.Equal(t, http.StatusAccepted, status)
 
 	var historyCount int
-	require.NoError(t, env.DB.QueryRow(`SELECT COUNT(*) FROM sensor_command_history WHERE id = ?`, command.Id).Scan(&historyCount))
+	require.NoError(t, env.DB.Reader.QueryRow(`SELECT COUNT(*) FROM sensor_command_history WHERE id = ?`, command.Id).Scan(&historyCount))
 	require.Equal(t, 1, historyCount)
 
 	status = client.DeleteUser(created.ID)
 	assert.Equal(t, http.StatusOK, status)
 
-	require.NoError(t, env.DB.QueryRow(`SELECT COUNT(*) FROM sensor_command_history WHERE id = ?`, command.Id).Scan(&historyCount))
+	require.NoError(t, env.DB.Reader.QueryRow(`SELECT COUNT(*) FROM sensor_command_history WHERE id = ?`, command.Id).Scan(&historyCount))
 	assert.Zero(t, historyCount)
 }

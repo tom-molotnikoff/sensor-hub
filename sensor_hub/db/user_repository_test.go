@@ -21,7 +21,7 @@ import (
 
 func TestUserRepository_CreateUser_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	user := gen.User{
 		Username:           "newuser",
@@ -52,7 +52,7 @@ func TestUserRepository_CreateUser_Success(t *testing.T) {
 
 func TestUserRepository_CreateUser_NoRoles(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	user := gen.User{
 		Username:           "newuser",
@@ -75,7 +75,7 @@ func TestUserRepository_CreateUser_NoRoles(t *testing.T) {
 
 func TestUserRepository_CreateUser_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	user := gen.User{
 		Username: "newuser",
@@ -96,7 +96,7 @@ func TestUserRepository_CreateUser_DBError(t *testing.T) {
 
 func TestUserRepository_CreateUser_MultipleRoles(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	user := gen.User{
 		Username: "adminuser",
@@ -135,7 +135,7 @@ func TestUserRepository_CreateUser_MultipleRoles(t *testing.T) {
 
 func TestUserRepository_GetUserByUsername_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	now := time.Now()
 	mock.ExpectQuery("SELECT id, username, email, must_change_password, disabled, created_at, updated_at, password_hash FROM users WHERE LOWER\\(username\\) = LOWER\\(\\?\\)").
@@ -161,7 +161,7 @@ func TestUserRepository_GetUserByUsername_Success(t *testing.T) {
 
 func TestUserRepository_GetUserByUsername_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, username, email, must_change_password, disabled, created_at, updated_at, password_hash FROM users WHERE LOWER\\(username\\) = LOWER\\(\\?\\)").
 		WithArgs("nonexistent").
@@ -177,7 +177,7 @@ func TestUserRepository_GetUserByUsername_NotFound(t *testing.T) {
 
 func TestUserRepository_GetUserByUsername_NullUpdatedAt(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	now := time.Now()
 	mock.ExpectQuery("SELECT id, username, email, must_change_password, disabled, created_at, updated_at, password_hash FROM users WHERE LOWER\\(username\\) = LOWER\\(\\?\\)").
@@ -199,7 +199,7 @@ func TestUserRepository_GetUserByUsername_NullUpdatedAt(t *testing.T) {
 
 func TestUserRepository_GetUserByUsername_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, username, email, must_change_password, disabled, created_at, updated_at, password_hash FROM users WHERE LOWER\\(username\\) = LOWER\\(\\?\\)").
 		WithArgs("testuser").
@@ -219,7 +219,7 @@ func TestUserRepository_GetUserByUsername_DBError(t *testing.T) {
 
 func TestUserRepository_GetUserById_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	now := time.Now()
 	mock.ExpectQuery("SELECT id, username, email, must_change_password, disabled, created_at, updated_at FROM users WHERE id = \\?").
@@ -242,7 +242,7 @@ func TestUserRepository_GetUserById_Success(t *testing.T) {
 
 func TestUserRepository_GetUserById_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, username, email, must_change_password, disabled, created_at, updated_at FROM users WHERE id = \\?").
 		WithArgs(999).
@@ -257,7 +257,7 @@ func TestUserRepository_GetUserById_NotFound(t *testing.T) {
 
 func TestUserRepository_GetUserById_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, username, email, must_change_password, disabled, created_at, updated_at FROM users WHERE id = \\?").
 		WithArgs(1).
@@ -277,7 +277,7 @@ func TestUserRepository_GetUserById_DBError(t *testing.T) {
 
 func TestUserRepository_ListUsers_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	now := time.Now()
 	mock.ExpectQuery("SELECT id, username, email, must_change_password, disabled, created_at, updated_at FROM users").
@@ -306,7 +306,7 @@ func TestUserRepository_ListUsers_Success(t *testing.T) {
 
 func TestUserRepository_ListUsers_Empty(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, username, email, must_change_password, disabled, created_at, updated_at FROM users").
 		WillReturnRows(sqlmock.NewRows(userColumns))
@@ -320,7 +320,7 @@ func TestUserRepository_ListUsers_Empty(t *testing.T) {
 
 func TestUserRepository_ListUsers_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, username, email, must_change_password, disabled, created_at, updated_at FROM users").
 		WillReturnError(errors.New("database error"))
@@ -339,7 +339,7 @@ func TestUserRepository_ListUsers_DBError(t *testing.T) {
 
 func TestUserRepository_UpdatePassword_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE users SET password_hash = \\?, must_change_password = \\?, updated_at = \\? WHERE id = \\?").
 		WithArgs("newhashedpassword", false, sqlmock.AnyArg(), 1).
@@ -353,7 +353,7 @@ func TestUserRepository_UpdatePassword_Success(t *testing.T) {
 
 func TestUserRepository_UpdatePassword_WithMustChange(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE users SET password_hash = \\?, must_change_password = \\?, updated_at = \\? WHERE id = \\?").
 		WithArgs("newhashedpassword", true, sqlmock.AnyArg(), 1).
@@ -367,7 +367,7 @@ func TestUserRepository_UpdatePassword_WithMustChange(t *testing.T) {
 
 func TestUserRepository_UpdatePassword_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE users SET password_hash = \\?, must_change_password = \\?, updated_at = \\? WHERE id = \\?").
 		WithArgs("newhashedpassword", false, sqlmock.AnyArg(), 1).
@@ -386,7 +386,7 @@ func TestUserRepository_UpdatePassword_DBError(t *testing.T) {
 
 func TestUserRepository_SetDisabled_Enable(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE users SET disabled = \\?, updated_at = \\? WHERE id = \\?").
 		WithArgs(false, sqlmock.AnyArg(), 1).
@@ -400,7 +400,7 @@ func TestUserRepository_SetDisabled_Enable(t *testing.T) {
 
 func TestUserRepository_SetDisabled_Disable(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE users SET disabled = \\?, updated_at = \\? WHERE id = \\?").
 		WithArgs(true, sqlmock.AnyArg(), 1).
@@ -414,7 +414,7 @@ func TestUserRepository_SetDisabled_Disable(t *testing.T) {
 
 func TestUserRepository_SetDisabled_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE users SET disabled = \\?, updated_at = \\? WHERE id = \\?").
 		WithArgs(true, sqlmock.AnyArg(), 1).
@@ -433,7 +433,7 @@ func TestUserRepository_SetDisabled_DBError(t *testing.T) {
 
 func TestUserRepository_AssignRoleToUser_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id FROM roles WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("admin").
@@ -450,7 +450,7 @@ func TestUserRepository_AssignRoleToUser_Success(t *testing.T) {
 
 func TestUserRepository_AssignRoleToUser_RoleNotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id FROM roles WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("nonexistent").
@@ -465,7 +465,7 @@ func TestUserRepository_AssignRoleToUser_RoleNotFound(t *testing.T) {
 
 func TestUserRepository_AssignRoleToUser_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id FROM roles WHERE LOWER\\(name\\) = LOWER\\(\\?\\)").
 		WithArgs("admin").
@@ -487,7 +487,7 @@ func TestUserRepository_AssignRoleToUser_DBError(t *testing.T) {
 
 func TestUserRepository_GetRolesForUser_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = \\?").
 		WithArgs(1).
@@ -504,7 +504,7 @@ func TestUserRepository_GetRolesForUser_Success(t *testing.T) {
 
 func TestUserRepository_GetRolesForUser_NoRoles(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = \\?").
 		WithArgs(1).
@@ -519,7 +519,7 @@ func TestUserRepository_GetRolesForUser_NoRoles(t *testing.T) {
 
 func TestUserRepository_GetRolesForUser_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = \\?").
 		WithArgs(1).
@@ -539,7 +539,7 @@ func TestUserRepository_GetRolesForUser_DBError(t *testing.T) {
 
 func TestUserRepository_DeleteSessionsForUser_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE user_id = \\?").
 		WithArgs(1).
@@ -553,7 +553,7 @@ func TestUserRepository_DeleteSessionsForUser_Success(t *testing.T) {
 
 func TestUserRepository_DeleteSessionsForUser_NoSessions(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE user_id = \\?").
 		WithArgs(1).
@@ -567,7 +567,7 @@ func TestUserRepository_DeleteSessionsForUser_NoSessions(t *testing.T) {
 
 func TestUserRepository_DeleteSessionsForUser_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE user_id = \\?").
 		WithArgs(1).
@@ -586,7 +586,7 @@ func TestUserRepository_DeleteSessionsForUser_DBError(t *testing.T) {
 
 func TestUserRepository_DeleteSessionsForUserExcept_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	// Check that session exists
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM sessions WHERE user_id = \\? AND token_hash = \\?").
@@ -605,7 +605,7 @@ func TestUserRepository_DeleteSessionsForUserExcept_Success(t *testing.T) {
 
 func TestUserRepository_DeleteSessionsForUserExcept_EmptyToken(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	// Empty token should delete all sessions
 	mock.ExpectExec("DELETE FROM sessions WHERE user_id = \\?").
@@ -620,7 +620,7 @@ func TestUserRepository_DeleteSessionsForUserExcept_EmptyToken(t *testing.T) {
 
 func TestUserRepository_DeleteSessionsForUserExcept_TokenNotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM sessions WHERE user_id = \\? AND token_hash = \\?").
 		WithArgs(1, sqlmock.AnyArg()).
@@ -638,7 +638,7 @@ func TestUserRepository_DeleteSessionsForUserExcept_TokenNotFound(t *testing.T) 
 
 func TestUserRepository_DeleteUserById_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectExec("DELETE FROM user_roles WHERE user_id = \\?").
@@ -666,7 +666,7 @@ func TestUserRepository_DeleteUserById_Success(t *testing.T) {
 
 func TestUserRepository_DeleteUserById_RollbackOnRolesError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectExec("DELETE FROM user_roles WHERE user_id = \\?").
@@ -683,7 +683,7 @@ func TestUserRepository_DeleteUserById_RollbackOnRolesError(t *testing.T) {
 
 func TestUserRepository_DeleteUserById_RollbackOnSessionsError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectExec("DELETE FROM user_roles WHERE user_id = \\?").
@@ -710,7 +710,7 @@ func TestUserRepository_DeleteUserById_RollbackOnSessionsError(t *testing.T) {
 
 func TestUserRepository_SetMustChangeFlag_True(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE users SET must_change_password = \\?, updated_at = \\? WHERE id = \\?").
 		WithArgs(true, sqlmock.AnyArg(), 1).
@@ -724,7 +724,7 @@ func TestUserRepository_SetMustChangeFlag_True(t *testing.T) {
 
 func TestUserRepository_SetMustChangeFlag_False(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE users SET must_change_password = \\?, updated_at = \\? WHERE id = \\?").
 		WithArgs(false, sqlmock.AnyArg(), 1).
@@ -738,7 +738,7 @@ func TestUserRepository_SetMustChangeFlag_False(t *testing.T) {
 
 func TestUserRepository_SetMustChangeFlag_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE users SET must_change_password = \\?, updated_at = \\? WHERE id = \\?").
 		WithArgs(true, sqlmock.AnyArg(), 1).
@@ -757,7 +757,7 @@ func TestUserRepository_SetMustChangeFlag_DBError(t *testing.T) {
 
 func TestUserRepository_SetRolesForUser_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectExec("DELETE FROM user_roles WHERE user_id = \\?").
@@ -788,7 +788,7 @@ func TestUserRepository_SetRolesForUser_Success(t *testing.T) {
 
 func TestUserRepository_SetRolesForUser_EmptyRoles(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectExec("DELETE FROM user_roles WHERE user_id = \\?").
@@ -804,7 +804,7 @@ func TestUserRepository_SetRolesForUser_EmptyRoles(t *testing.T) {
 
 func TestUserRepository_SetRolesForUser_RoleNotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewUserRepository(db, slog.Default())
+	repo := NewUserRepository(handles(db), slog.Default())
 
 	mock.ExpectBegin()
 	mock.ExpectExec("DELETE FROM user_roles WHERE user_id = \\?").

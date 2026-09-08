@@ -10,11 +10,11 @@ import (
 )
 
 type SqlDashboardRepository struct {
-	db     *sql.DB
+	db     *Handles
 	logger *slog.Logger
 }
 
-func NewDashboardRepository(db *sql.DB, logger *slog.Logger) *SqlDashboardRepository {
+func NewDashboardRepository(db *Handles, logger *slog.Logger) *SqlDashboardRepository {
 	return &SqlDashboardRepository{
 		db:     db,
 		logger: logger.With("component", "dashboard_repository"),
@@ -23,7 +23,7 @@ func NewDashboardRepository(db *sql.DB, logger *slog.Logger) *SqlDashboardReposi
 
 func (r *SqlDashboardRepository) Create(ctx context.Context, dashboard *gen.Dashboard) (int, error) {
 	query := `INSERT INTO dashboards (user_id, name, config, shared, is_default) VALUES (?, ?, ?, ?, ?)`
-	result, err := r.db.ExecContext(ctx, query, dashboard.UserId, dashboard.Name, dashboard.Config, dashboard.Shared, dashboard.IsDefault)
+	result, err := r.db.Writer.ExecContext(ctx, query, dashboard.UserId, dashboard.Name, dashboard.Config, dashboard.Shared, dashboard.IsDefault)
 	if err != nil {
 		return 0, fmt.Errorf("error creating dashboard: %w", err)
 	}
@@ -37,7 +37,7 @@ func (r *SqlDashboardRepository) Create(ctx context.Context, dashboard *gen.Dash
 
 func (r *SqlDashboardRepository) GetById(ctx context.Context, id int) (*gen.Dashboard, error) {
 	query := `SELECT id, user_id, name, config, shared, is_default, created_at, updated_at FROM dashboards WHERE id = ?`
-	row := r.db.QueryRowContext(ctx, query, id)
+	row := r.db.Reader.QueryRowContext(ctx, query, id)
 	d := &gen.Dashboard{}
 	var createdAt, updatedAt SQLiteTime
 	err := row.Scan(&d.Id, &d.UserId, &d.Name, &d.Config, &d.Shared, &d.IsDefault, &createdAt, &updatedAt)
@@ -56,7 +56,7 @@ func (r *SqlDashboardRepository) GetById(ctx context.Context, id int) (*gen.Dash
 func (r *SqlDashboardRepository) GetByUserId(ctx context.Context, userId int) ([]gen.Dashboard, error) {
 	query := `SELECT id, user_id, name, config, shared, is_default, created_at, updated_at
 		FROM dashboards WHERE user_id = ? OR shared = 1 ORDER BY is_default DESC, name ASC`
-	rows, err := r.db.QueryContext(ctx, query, userId)
+	rows, err := r.db.Reader.QueryContext(ctx, query, userId)
 	if err != nil {
 		return nil, fmt.Errorf("error querying dashboards for user: %w", err)
 	}
@@ -82,7 +82,7 @@ func (r *SqlDashboardRepository) GetByUserId(ctx context.Context, userId int) ([
 
 func (r *SqlDashboardRepository) Update(ctx context.Context, dashboard *gen.Dashboard) error {
 	query := `UPDATE dashboards SET name = ?, config = ?, shared = ?, updated_at = datetime('now') WHERE id = ?`
-	_, err := r.db.ExecContext(ctx, query, dashboard.Name, dashboard.Config, dashboard.Shared, dashboard.Id)
+	_, err := r.db.Writer.ExecContext(ctx, query, dashboard.Name, dashboard.Config, dashboard.Shared, dashboard.Id)
 	if err != nil {
 		return fmt.Errorf("error updating dashboard: %w", err)
 	}
@@ -92,7 +92,7 @@ func (r *SqlDashboardRepository) Update(ctx context.Context, dashboard *gen.Dash
 
 func (r *SqlDashboardRepository) Delete(ctx context.Context, id int) error {
 	query := `DELETE FROM dashboards WHERE id = ?`
-	_, err := r.db.ExecContext(ctx, query, id)
+	_, err := r.db.Writer.ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("error deleting dashboard: %w", err)
 	}
@@ -101,7 +101,7 @@ func (r *SqlDashboardRepository) Delete(ctx context.Context, id int) error {
 }
 
 func (r *SqlDashboardRepository) SetDefault(ctx context.Context, userId int, dashboardId int) error {
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.db.Writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error beginning transaction: %w", err)
 	}
@@ -131,7 +131,7 @@ func (r *SqlDashboardRepository) SetDefault(ctx context.Context, userId int, das
 
 func (r *SqlDashboardRepository) GetDefaultForUser(ctx context.Context, userId int) (*gen.Dashboard, error) {
 	query := `SELECT id, user_id, name, config, shared, is_default, created_at, updated_at FROM dashboards WHERE user_id = ? AND is_default = 1`
-	row := r.db.QueryRowContext(ctx, query, userId)
+	row := r.db.Reader.QueryRowContext(ctx, query, userId)
 	d := &gen.Dashboard{}
 	var createdAt, updatedAt SQLiteTime
 	err := row.Scan(&d.Id, &d.UserId, &d.Name, &d.Config, &d.Shared, &d.IsDefault, &createdAt, &updatedAt)

@@ -17,7 +17,7 @@ import (
 
 func TestFailedLoginRepository_RecordFailedAttempt_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	userId := 1
 	mock.ExpectExec("INSERT INTO failed_login_attempts").
@@ -32,7 +32,7 @@ func TestFailedLoginRepository_RecordFailedAttempt_Success(t *testing.T) {
 
 func TestFailedLoginRepository_RecordFailedAttempt_NullUserId(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO failed_login_attempts").
 		WithArgs("unknownuser", nil, "192.168.1.1", sqlmock.AnyArg(), "user not found").
@@ -46,7 +46,7 @@ func TestFailedLoginRepository_RecordFailedAttempt_NullUserId(t *testing.T) {
 
 func TestFailedLoginRepository_RecordFailedAttempt_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO failed_login_attempts").
 		WithArgs("testuser", nil, "192.168.1.1", sqlmock.AnyArg(), "test").
@@ -65,7 +65,7 @@ func TestFailedLoginRepository_RecordFailedAttempt_DBError(t *testing.T) {
 
 func TestFailedLoginRepository_CountRecentFailedAttemptsByUsername_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 15 * time.Minute
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM failed_login_attempts WHERE LOWER\\(username\\) = LOWER\\(\\?\\) AND attempt_time > \\?").
@@ -81,7 +81,7 @@ func TestFailedLoginRepository_CountRecentFailedAttemptsByUsername_Success(t *te
 
 func TestFailedLoginRepository_CountRecentFailedAttemptsByUsername_Zero(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 15 * time.Minute
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM failed_login_attempts WHERE LOWER\\(username\\) = LOWER\\(\\?\\) AND attempt_time > \\?").
@@ -97,7 +97,7 @@ func TestFailedLoginRepository_CountRecentFailedAttemptsByUsername_Zero(t *testi
 
 func TestFailedLoginRepository_CountRecentFailedAttemptsByUsername_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 15 * time.Minute
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM failed_login_attempts WHERE LOWER\\(username\\) = LOWER\\(\\?\\) AND attempt_time > \\?").
@@ -118,7 +118,7 @@ func TestFailedLoginRepository_CountRecentFailedAttemptsByUsername_DBError(t *te
 
 func TestFailedLoginRepository_CountRecentFailedAttemptsByIP_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 15 * time.Minute
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM failed_login_attempts WHERE ip_address = \\? AND attempt_time > \\?").
@@ -134,7 +134,7 @@ func TestFailedLoginRepository_CountRecentFailedAttemptsByIP_Success(t *testing.
 
 func TestFailedLoginRepository_CountRecentFailedAttemptsByIP_Zero(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 15 * time.Minute
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM failed_login_attempts WHERE ip_address = \\? AND attempt_time > \\?").
@@ -150,7 +150,7 @@ func TestFailedLoginRepository_CountRecentFailedAttemptsByIP_Zero(t *testing.T) 
 
 func TestFailedLoginRepository_CountRecentFailedAttemptsByIP_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 15 * time.Minute
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM failed_login_attempts WHERE ip_address = \\? AND attempt_time > \\?").
@@ -171,7 +171,7 @@ func TestFailedLoginRepository_CountRecentFailedAttemptsByIP_DBError(t *testing.
 
 func TestFailedLoginRepository_DeleteRecentFailedAttemptsByIP_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 15 * time.Minute
 	mock.ExpectExec("DELETE FROM failed_login_attempts WHERE ip_address = \\? AND attempt_time > \\?").
@@ -186,7 +186,7 @@ func TestFailedLoginRepository_DeleteRecentFailedAttemptsByIP_Success(t *testing
 
 func TestFailedLoginRepository_DeleteRecentFailedAttemptsByIP_NothingToDelete(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 15 * time.Minute
 	mock.ExpectExec("DELETE FROM failed_login_attempts WHERE ip_address = \\? AND attempt_time > \\?").
@@ -201,7 +201,7 @@ func TestFailedLoginRepository_DeleteRecentFailedAttemptsByIP_NothingToDelete(t 
 
 func TestFailedLoginRepository_DeleteRecentFailedAttemptsByIP_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 15 * time.Minute
 	mock.ExpectExec("DELETE FROM failed_login_attempts WHERE ip_address = \\? AND attempt_time > \\?").
@@ -221,7 +221,7 @@ func TestFailedLoginRepository_DeleteRecentFailedAttemptsByIP_DBError(t *testing
 
 func TestFailedLoginRepository_DeleteAttemptsOlderThan_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	threshold := time.Now().Add(-24 * time.Hour)
 	mock.ExpectExec("DELETE FROM failed_login_attempts WHERE attempt_time < \\?").
@@ -236,7 +236,7 @@ func TestFailedLoginRepository_DeleteAttemptsOlderThan_Success(t *testing.T) {
 
 func TestFailedLoginRepository_DeleteAttemptsOlderThan_NothingToDelete(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	threshold := time.Now().Add(-24 * time.Hour)
 	mock.ExpectExec("DELETE FROM failed_login_attempts WHERE attempt_time < \\?").
@@ -251,7 +251,7 @@ func TestFailedLoginRepository_DeleteAttemptsOlderThan_NothingToDelete(t *testin
 
 func TestFailedLoginRepository_DeleteAttemptsOlderThan_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	threshold := time.Now().Add(-24 * time.Hour)
 	mock.ExpectExec("DELETE FROM failed_login_attempts WHERE attempt_time < \\?").
@@ -271,7 +271,7 @@ func TestFailedLoginRepository_DeleteAttemptsOlderThan_DBError(t *testing.T) {
 
 func TestFailedLoginRepository_RecordFailedAttempt_EmptyUsername(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO failed_login_attempts").
 		WithArgs("", nil, "192.168.1.1", sqlmock.AnyArg(), "empty username").
@@ -285,7 +285,7 @@ func TestFailedLoginRepository_RecordFailedAttempt_EmptyUsername(t *testing.T) {
 
 func TestFailedLoginRepository_CountRecentFailedAttemptsByIP_IPv6(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 15 * time.Minute
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM failed_login_attempts WHERE ip_address = \\? AND attempt_time > \\?").
@@ -301,7 +301,7 @@ func TestFailedLoginRepository_CountRecentFailedAttemptsByIP_IPv6(t *testing.T) 
 
 func TestFailedLoginRepository_CountRecentFailedAttemptsByUsername_VeryLongWindow(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewFailedLoginRepository(db, slog.Default())
+	repo := NewFailedLoginRepository(handles(db), slog.Default())
 
 	window := 30 * 24 * time.Hour // 30 days
 	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM failed_login_attempts WHERE LOWER\\(username\\) = LOWER\\(\\?\\) AND attempt_time > \\?").
