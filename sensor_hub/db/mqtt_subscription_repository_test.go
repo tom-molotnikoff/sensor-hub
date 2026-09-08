@@ -24,7 +24,7 @@ var subscriptionColumns = []string{
 
 func TestMQTTSubscriptionRepository_Add_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	sub := gen.MQTTSubscription{
 		BrokerId: 1, TopicPattern: "zigbee2mqtt/+", DriverType: "mqtt-zigbee2mqtt", Enabled: true,
@@ -42,7 +42,7 @@ func TestMQTTSubscriptionRepository_Add_Success(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_Add_EmptyTopic(t *testing.T) {
 	db, _ := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	_, err := repo.Add(context.Background(), gen.MQTTSubscription{BrokerId: 1, DriverType: "mqtt-zigbee2mqtt"})
 	assert.Error(t, err)
@@ -51,7 +51,7 @@ func TestMQTTSubscriptionRepository_Add_EmptyTopic(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_Add_EmptyDriverType(t *testing.T) {
 	db, _ := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	_, err := repo.Add(context.Background(), gen.MQTTSubscription{BrokerId: 1, TopicPattern: "test/+"})
 	assert.Error(t, err)
@@ -60,7 +60,7 @@ func TestMQTTSubscriptionRepository_Add_EmptyDriverType(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_Add_InvalidBrokerID(t *testing.T) {
 	db, _ := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	_, err := repo.Add(context.Background(), gen.MQTTSubscription{TopicPattern: "test/+", DriverType: "mqtt-zigbee2mqtt"})
 	assert.Error(t, err)
@@ -73,7 +73,7 @@ func TestMQTTSubscriptionRepository_Add_InvalidBrokerID(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_GetByID_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_subscriptions WHERE id = \\?").
 		WithArgs(1).
@@ -90,7 +90,7 @@ func TestMQTTSubscriptionRepository_GetByID_Success(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_GetByID_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_subscriptions WHERE id = \\?").
 		WithArgs(99).
@@ -108,7 +108,7 @@ func TestMQTTSubscriptionRepository_GetByID_NotFound(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_GetAll_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_subscriptions ORDER BY").
 		WillReturnRows(sqlmock.NewRows(subscriptionColumns).
@@ -127,7 +127,7 @@ func TestMQTTSubscriptionRepository_GetAll_Success(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_GetByBrokerID_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_subscriptions WHERE broker_id = \\?").
 		WithArgs(1).
@@ -146,7 +146,7 @@ func TestMQTTSubscriptionRepository_GetByBrokerID_Success(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_GetEnabledByBrokerID_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_subscriptions WHERE broker_id = \\? AND enabled = 1").
 		WithArgs(1).
@@ -161,7 +161,7 @@ func TestMQTTSubscriptionRepository_GetEnabledByBrokerID_Success(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_GetEnabledByDriverType_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_subscriptions WHERE driver_type = \\? AND enabled = 1 ORDER BY id LIMIT 1").
 		WithArgs("mqtt-zigbee2mqtt").
@@ -177,7 +177,7 @@ func TestMQTTSubscriptionRepository_GetEnabledByDriverType_Success(t *testing.T)
 
 func TestMQTTSubscriptionRepository_GetEnabledByDriverType_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM mqtt_subscriptions WHERE driver_type = \\? AND enabled = 1 ORDER BY id LIMIT 1").
 		WithArgs("mqtt-zigbee2mqtt").
@@ -195,7 +195,7 @@ func TestMQTTSubscriptionRepository_GetEnabledByDriverType_NotFound(t *testing.T
 
 func TestMQTTSubscriptionRepository_Update_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE mqtt_subscriptions SET").
 		WithArgs(1, "zigbee2mqtt/#", "mqtt-zigbee2mqtt", true, 1).
@@ -211,7 +211,7 @@ func TestMQTTSubscriptionRepository_Update_Success(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_Update_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE mqtt_subscriptions SET").
 		WithArgs(1, "test/+", "mqtt-zigbee2mqtt", true, 99).
@@ -232,7 +232,7 @@ func TestMQTTSubscriptionRepository_Update_NotFound(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_Delete_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM mqtt_subscriptions WHERE id = \\?").
 		WithArgs(1).
@@ -245,7 +245,7 @@ func TestMQTTSubscriptionRepository_Delete_Success(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_Delete_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM mqtt_subscriptions WHERE id = \\?").
 		WithArgs(99).
@@ -263,7 +263,7 @@ func TestMQTTSubscriptionRepository_Delete_NotFound(t *testing.T) {
 
 func TestMQTTSubscriptionRepository_Add_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewMQTTSubscriptionRepository(db, slog.Default())
+	repo := NewMQTTSubscriptionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO mqtt_subscriptions").
 		WithArgs(1, "zigbee2mqtt/+", "mqtt-zigbee2mqtt", true).

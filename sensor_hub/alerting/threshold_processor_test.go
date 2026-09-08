@@ -36,6 +36,10 @@ func newTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
+func testHandles(db *sql.DB) *database.Handles {
+	return &database.Handles{Reader: db, Writer: db}
+}
+
 // ============================================================
 // Recording stubs for system-boundary interfaces
 // ============================================================
@@ -130,8 +134,8 @@ func (a *notifRepoAdapter) GetChannelPreference(ctx context.Context, userID int,
 func newProcessor(t *testing.T, db *sql.DB, ws alerting.WebSocketNotifier, email alerting.EmailNotifier) *alerting.ThresholdAlertProcessor {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	alertRepo := database.NewAlertRepository(db, logger)
-	notifRepo := &notifRepoAdapter{inner: database.NewNotificationRepository(db, logger)}
+	alertRepo := database.NewAlertRepository(testHandles(db), logger)
+	notifRepo := &notifRepoAdapter{inner: database.NewNotificationRepository(testHandles(db), logger)}
 	return alerting.NewThresholdAlertProcessor(alertRepo, notifRepo, ws, email, logger)
 }
 
@@ -486,7 +490,7 @@ func TestProcessReading_notificationPersistFails_propagatesError(t *testing.T) {
 	// Use a failing notif repo stub that errors on CreateNotification
 	failingNotifRepo := &failingCreateNotificationRepo{}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	alertRepo := database.NewAlertRepository(db, logger)
+	alertRepo := database.NewAlertRepository(testHandles(db), logger)
 	p := alerting.NewThresholdAlertProcessor(alertRepo, failingNotifRepo, nil, nil, logger)
 
 	err := p.ProcessReading(context.Background(), alerting.ReadingAlert{

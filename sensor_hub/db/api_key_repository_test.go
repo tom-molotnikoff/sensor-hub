@@ -17,7 +17,7 @@ import (
 
 func TestApiKeyRepository_CreateApiKey_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO api_keys").
 		WithArgs("my-key", "shk_abcd", "hash123", 1, nil).
@@ -32,7 +32,7 @@ func TestApiKeyRepository_CreateApiKey_Success(t *testing.T) {
 
 func TestApiKeyRepository_CreateApiKey_WithExpiry(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	expiry := time.Now().Add(24 * time.Hour)
 	mock.ExpectExec("INSERT INTO api_keys").
@@ -48,7 +48,7 @@ func TestApiKeyRepository_CreateApiKey_WithExpiry(t *testing.T) {
 
 func TestApiKeyRepository_CreateApiKey_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO api_keys").
 		WithArgs("my-key", "shk_abcd", "hash123", 1, nil).
@@ -68,7 +68,7 @@ var apiKeyColumns = []string{"id", "name", "key_prefix", "key_hash", "user_id", 
 
 func TestApiKeyRepository_GetApiKeyByHash_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	now := time.Now()
 	rows := sqlmock.NewRows(apiKeyColumns).
@@ -93,7 +93,7 @@ func TestApiKeyRepository_GetApiKeyByHash_Success(t *testing.T) {
 
 func TestApiKeyRepository_GetApiKeyByHash_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM api_keys").
 		WithArgs("nonexistent").
@@ -108,7 +108,7 @@ func TestApiKeyRepository_GetApiKeyByHash_NotFound(t *testing.T) {
 
 func TestApiKeyRepository_GetApiKeyByHash_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .+ FROM api_keys").
 		WithArgs("hash123").
@@ -129,7 +129,7 @@ var listApiKeyColumns = []string{"id", "name", "key_prefix", "user_id", "expires
 
 func TestApiKeyRepository_ListApiKeysForUser_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	now := time.Now()
 	rows := sqlmock.NewRows(listApiKeyColumns).
@@ -152,7 +152,7 @@ func TestApiKeyRepository_ListApiKeysForUser_Success(t *testing.T) {
 
 func TestApiKeyRepository_ListApiKeysForUser_Empty(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	rows := sqlmock.NewRows(listApiKeyColumns)
 	mock.ExpectQuery("SELECT .+ FROM api_keys WHERE user_id").
@@ -173,7 +173,7 @@ func TestApiKeyRepository_ListApiKeysForUser_Empty(t *testing.T) {
 
 func TestApiKeyRepository_RevokeApiKey_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE api_keys SET revoked = 1").
 		WithArgs(1).
@@ -191,7 +191,7 @@ func TestApiKeyRepository_RevokeApiKey_Success(t *testing.T) {
 
 func TestApiKeyRepository_DeleteApiKey_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM api_keys").
 		WithArgs(1).
@@ -209,7 +209,7 @@ func TestApiKeyRepository_DeleteApiKey_Success(t *testing.T) {
 
 func TestApiKeyRepository_UpdateLastUsed_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE api_keys SET last_used_at").
 		WithArgs(1).
@@ -227,7 +227,7 @@ func TestApiKeyRepository_UpdateLastUsed_Success(t *testing.T) {
 
 func TestApiKeyRepository_UpdateApiKeyExpiry_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	expiry := time.Now().Add(72 * time.Hour)
 	mock.ExpectExec("UPDATE api_keys SET expires_at").
@@ -242,7 +242,7 @@ func TestApiKeyRepository_UpdateApiKeyExpiry_Success(t *testing.T) {
 
 func TestApiKeyRepository_UpdateApiKeyExpiry_ClearExpiry(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(db, slog.Default())
+	repo := NewApiKeyRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE api_keys SET expires_at").
 		WithArgs(nil, 1).

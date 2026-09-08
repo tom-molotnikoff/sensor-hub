@@ -4,7 +4,6 @@ package testharness
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"net"
@@ -37,7 +36,7 @@ type Env struct {
 	AdminUser         string
 	AdminPass         string
 	ConfigDir         string
-	DB                *sql.DB
+	DB                *database.Handles
 	ConnectionManager *mqttpkg.ConnectionManager
 	WSCapture         *RecordingWSNotifier
 	EmailCapture      *RecordingEmailNotifier
@@ -102,7 +101,7 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 
 	logger := slog.Default()
 
-	db, err := database.InitialiseDatabase(logger)
+	db, err := database.Open(appProps.AppConfig(), logger)
 	if err != nil {
 		cleanupDir()
 		return nil, func() {}, fmt.Errorf("failed to initialise database: %w", err)

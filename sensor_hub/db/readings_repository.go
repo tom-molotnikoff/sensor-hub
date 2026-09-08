@@ -13,11 +13,11 @@ import (
 )
 
 type ReadingsRepositoryImpl struct {
-	db     *sql.DB
+	db     *Handles
 	logger *slog.Logger
 }
 
-func NewReadingsRepository(db *sql.DB, logger *slog.Logger) ReadingsRepository {
+func NewReadingsRepository(db *Handles, logger *slog.Logger) ReadingsRepository {
 	return &ReadingsRepositoryImpl{db: db, logger: logger.With("component", "readings_repository")}
 }
 
@@ -37,7 +37,7 @@ func (r *ReadingsRepositoryImpl) Add(ctx context.Context, readings []gen.Reading
 		}
 
 		query := fmt.Sprintf("INSERT INTO %s (sensor_id, measurement_type_id, numeric_value, text_state, time) VALUES (?, ?, ?, ?, ?)", TableReadings)
-		_, err = r.db.ExecContext(ctx, query, sensorID, mtID, reading.NumericValue, reading.TextState, reading.Time)
+		_, err = r.db.Writer.ExecContext(ctx, query, sensorID, mtID, reading.NumericValue, reading.TextState, reading.Time)
 		if err != nil {
 			return fmt.Errorf("issue persisting reading to database: %w", err)
 		}
@@ -112,7 +112,7 @@ func (r *ReadingsRepositoryImpl) getRawBetweenDates(ctx context.Context, startDa
 	}
 
 	args := append([]any{startDate, endDate}, filterArgs...)
-	rows, err := r.db.QueryContext(ctx, rawBetweenQuery(clause), args...)
+	rows, err := r.db.Reader.QueryContext(ctx, rawBetweenQuery(clause), args...)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching readings between %s and %s: %w", startDate, endDate, err)
 	}
@@ -145,7 +145,7 @@ func (r *ReadingsRepositoryImpl) getAggregatedBetweenDates(ctx context.Context, 
 	}
 
 	args := append([]any{startDate, endDate}, filterArgs...)
-	rows, err := r.db.QueryContext(ctx, aggregatedBetweenQuery(sqlAgg, bucket, clause), args...)
+	rows, err := r.db.Reader.QueryContext(ctx, aggregatedBetweenQuery(sqlAgg, bucket, clause), args...)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching aggregated readings between %s and %s: %w", startDate, endDate, err)
 	}
@@ -193,7 +193,7 @@ func (r *ReadingsRepositoryImpl) getLastBetweenDates(ctx context.Context, startD
 	}
 
 	args := append([]any{startDate, endDate}, filterArgs...)
-	rows, err := r.db.QueryContext(ctx, lastBetweenQuery(bucket, clause), args...)
+	rows, err := r.db.Reader.QueryContext(ctx, lastBetweenQuery(bucket, clause), args...)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching last-value readings between %s and %s: %w", startDate, endDate, err)
 	}
@@ -236,7 +236,7 @@ func (r *ReadingsRepositoryImpl) GetLatest(ctx context.Context) ([]gen.Reading, 
 		WHERE sub.rn = 1
 	`, TableReadings, TableMeasurementTypes, TableSensorMeasurementTypes)
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching latest readings: %w", err)
 	}
@@ -248,7 +248,7 @@ func (r *ReadingsRepositoryImpl) GetLatest(ctx context.Context) ([]gen.Reading, 
 func (r *ReadingsRepositoryImpl) GetTotalReadingsBySensorId(ctx context.Context, sensorId int) (int, error) {
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE sensor_id = ?", TableReadings)
 	var count int
-	err := r.db.QueryRowContext(ctx, query, sensorId).Scan(&count)
+	err := r.db.Reader.QueryRowContext(ctx, query, sensorId).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("error fetching total readings for sensor ID %d: %w", sensorId, err)
 	}
@@ -257,7 +257,7 @@ func (r *ReadingsRepositoryImpl) GetTotalReadingsBySensorId(ctx context.Context,
 
 func (r *ReadingsRepositoryImpl) DeleteReadingsOlderThan(ctx context.Context, cutoffDateTime time.Time) error {
 	query := fmt.Sprintf("DELETE FROM %s WHERE time < ?", TableReadings)
-	if _, err := r.db.ExecContext(ctx, query, cutoffDateTime); err != nil {
+	if _, err := r.db.Writer.ExecContext(ctx, query, cutoffDateTime); err != nil {
 		return fmt.Errorf("error deleting old readings: %w", err)
 	}
 	return nil
@@ -265,7 +265,7 @@ func (r *ReadingsRepositoryImpl) DeleteReadingsOlderThan(ctx context.Context, cu
 
 func (r *ReadingsRepositoryImpl) DeleteReadingsOlderThanForSensor(ctx context.Context, cutoffDateTime time.Time, sensorId int) error {
 	query := fmt.Sprintf("DELETE FROM %s WHERE sensor_id = ? AND time < ?", TableReadings)
-	if _, err := r.db.ExecContext(ctx, query, sensorId, cutoffDateTime); err != nil {
+	if _, err := r.db.Writer.ExecContext(ctx, query, sensorId, cutoffDateTime); err != nil {
 		return fmt.Errorf("error deleting old readings for sensor %d: %w", sensorId, err)
 	}
 	return nil
@@ -283,7 +283,7 @@ func (r *ReadingsRepositoryImpl) DeleteReadingsOlderThanExcludingSensors(ctx con
 	for _, id := range excludedSensorIds {
 		args = append(args, id)
 	}
-	if _, err := r.db.ExecContext(ctx, query, args...); err != nil {
+	if _, err := r.db.Writer.ExecContext(ctx, query, args...); err != nil {
 		return fmt.Errorf("error deleting old readings: %w", err)
 	}
 	return nil
@@ -291,7 +291,7 @@ func (r *ReadingsRepositoryImpl) DeleteReadingsOlderThanExcludingSensors(ctx con
 
 func (r *ReadingsRepositoryImpl) resolveMeasurementTypeID(ctx context.Context, name string) (int, error) {
 	var id int
-	err := r.db.QueryRowContext(ctx, fmt.Sprintf("SELECT id FROM %s WHERE LOWER(name) = LOWER(?)", TableMeasurementTypes), name).Scan(&id)
+	err := r.db.Reader.QueryRowContext(ctx, fmt.Sprintf("SELECT id FROM %s WHERE LOWER(name) = LOWER(?)", TableMeasurementTypes), name).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("measurement type %q not found: %w", name, err)
 	}
@@ -300,7 +300,7 @@ func (r *ReadingsRepositoryImpl) resolveMeasurementTypeID(ctx context.Context, n
 
 func (r *ReadingsRepositoryImpl) resolveSensorID(ctx context.Context, name string) (int, error) {
 	var id int
-	err := r.db.QueryRowContext(ctx, "SELECT id FROM sensors WHERE LOWER(name) = LOWER(?)", name).Scan(&id)
+	err := r.db.Reader.QueryRowContext(ctx, "SELECT id FROM sensors WHERE LOWER(name) = LOWER(?)", name).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("sensor %q not found: %w", name, err)
 	}

@@ -20,7 +20,8 @@ type ApplicationConfiguration struct {
 
 	SMTPUser string `prop:"smtp.user" default:"" file:"smtp" desc:"Email address alert and notification emails are sent from." group:"email"`
 
-	DatabasePath string `prop:"database.path" default:"data/sensor_hub.db" file:"database" validate:"non_empty" label:"Database file" desc:"SQLite database file, set at install time. Not changeable at runtime." group:"advanced" readonly:"true"`
+	DatabasePath              string `prop:"database.path" default:"data/sensor_hub.db" file:"database" validate:"non_empty" label:"Database file" desc:"SQLite database file, set at install time. Not changeable at runtime." group:"advanced" readonly:"true"`
+	DatabaseReaderConnections int    `prop:"database.reader.connections" default:"4" file:"database" validate:"positive" label:"Reader connections" desc:"Connections in the read-only database pool; reads run in parallel up to this many." group:"advanced" apply:"action:service-restart"`
 
 	AuthBcryptCost                int    `prop:"auth.bcrypt.cost" default:"12" file:"application" label:"Bcrypt cost" desc:"Work factor for password hashing; higher is slower and stronger." group:"security"`
 	AuthSessionTTLMinutes         int    `prop:"auth.session.ttl.minutes" default:"43200" file:"application" label:"Session TTL" desc:"How long a login session stays valid." group:"security" unit:"minutes"`

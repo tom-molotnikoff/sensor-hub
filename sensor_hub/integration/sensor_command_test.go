@@ -73,7 +73,7 @@ func TestSendSensorCommand_PublishesAndPersistsSentCommand(t *testing.T) {
 
 	var userID int
 	var property, value, statusValue, mqttTopic, mqttPayload string
-	require.NoError(t, env.DB.QueryRow(`
+	require.NoError(t, env.DB.Reader.QueryRow(`
 		SELECT user_id, property, value, status, mqtt_topic, mqtt_payload
 		FROM sensor_command_history
 		WHERE id = ?
@@ -170,7 +170,7 @@ func TestSendSensorCommand_AcknowledgesAndBroadcastsCommandStatus(t *testing.T) 
 		var statusValue sql.NullString
 		var acknowledgedValue sql.NullString
 		var acknowledgedAt sql.NullTime
-		err := env.DB.QueryRow(`
+		err := env.DB.Reader.QueryRow(`
 			SELECT status, acknowledged_value, acknowledged_at
 			FROM sensor_command_history
 			WHERE id = ?
@@ -273,7 +273,7 @@ func TestSendSensorCommand_TimesOutAndBroadcastsCommandStatus(t *testing.T) {
 	require.Equal(t, http.StatusAccepted, status)
 
 	var timeoutSeconds int
-	require.NoError(t, env.DB.QueryRow(`
+	require.NoError(t, env.DB.Reader.QueryRow(`
 		SELECT timeout_seconds
 		FROM sensor_command_history
 		WHERE id = ?
@@ -282,7 +282,7 @@ func TestSendSensorCommand_TimesOutAndBroadcastsCommandStatus(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		var statusValue string
-		err := env.DB.QueryRow(`
+		err := env.DB.Reader.QueryRow(`
 			SELECT status
 			FROM sensor_command_history
 			WHERE id = ?
@@ -392,7 +392,7 @@ func lookupUserID(t *testing.T, username string) int {
 	t.Helper()
 
 	var id int
-	require.NoError(t, env.DB.QueryRow(`SELECT id FROM users WHERE username = ?`, username).Scan(&id))
+	require.NoError(t, env.DB.Reader.QueryRow(`SELECT id FROM users WHERE username = ?`, username).Scan(&id))
 	return id
 }
 

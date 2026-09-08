@@ -19,7 +19,7 @@ import (
 
 func TestSessionRepository_CreateSession_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(24 * time.Hour)
 	mock.ExpectExec("INSERT INTO sessions").
@@ -35,7 +35,7 @@ func TestSessionRepository_CreateSession_Success(t *testing.T) {
 
 func TestSessionRepository_CreateSession_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(24 * time.Hour)
 	mock.ExpectExec("INSERT INTO sessions").
@@ -56,7 +56,7 @@ func TestSessionRepository_CreateSession_DBError(t *testing.T) {
 
 func TestSessionRepository_GetUserIdByToken_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(1 * time.Hour) // Not expired
 	mock.ExpectQuery("SELECT user_id, expires_at FROM sessions WHERE token_hash = \\?").
@@ -77,7 +77,7 @@ func TestSessionRepository_GetUserIdByToken_Success(t *testing.T) {
 
 func TestSessionRepository_GetUserIdByToken_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT user_id, expires_at FROM sessions WHERE token_hash = \\?").
 		WithArgs(sqlmock.AnyArg()).
@@ -92,7 +92,7 @@ func TestSessionRepository_GetUserIdByToken_NotFound(t *testing.T) {
 
 func TestSessionRepository_GetUserIdByToken_Expired(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(-1 * time.Hour) // Expired
 	mock.ExpectQuery("SELECT user_id, expires_at FROM sessions WHERE token_hash = \\?").
@@ -113,7 +113,7 @@ func TestSessionRepository_GetUserIdByToken_Expired(t *testing.T) {
 
 func TestSessionRepository_GetUserIdByToken_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT user_id, expires_at FROM sessions WHERE token_hash = \\?").
 		WithArgs(sqlmock.AnyArg()).
@@ -133,7 +133,7 @@ func TestSessionRepository_GetUserIdByToken_DBError(t *testing.T) {
 
 func TestSessionRepository_GetSessionIdByToken_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(1 * time.Hour)
 	mock.ExpectQuery("SELECT id, expires_at FROM sessions WHERE token_hash = \\?").
@@ -149,7 +149,7 @@ func TestSessionRepository_GetSessionIdByToken_Success(t *testing.T) {
 
 func TestSessionRepository_GetSessionIdByToken_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, expires_at FROM sessions WHERE token_hash = \\?").
 		WithArgs(sqlmock.AnyArg()).
@@ -164,7 +164,7 @@ func TestSessionRepository_GetSessionIdByToken_NotFound(t *testing.T) {
 
 func TestSessionRepository_GetSessionIdByToken_Expired(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(-1 * time.Hour)
 	mock.ExpectQuery("SELECT id, expires_at FROM sessions WHERE token_hash = \\?").
@@ -184,7 +184,7 @@ func TestSessionRepository_GetSessionIdByToken_Expired(t *testing.T) {
 
 func TestSessionRepository_GetSessionIdByToken_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, expires_at FROM sessions WHERE token_hash = \\?").
 		WithArgs(sqlmock.AnyArg()).
@@ -204,7 +204,7 @@ func TestSessionRepository_GetSessionIdByToken_DBError(t *testing.T) {
 
 func TestSessionRepository_DeleteSessionByToken_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE token_hash = \\?").
 		WithArgs(sqlmock.AnyArg()).
@@ -218,7 +218,7 @@ func TestSessionRepository_DeleteSessionByToken_Success(t *testing.T) {
 
 func TestSessionRepository_DeleteSessionByToken_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE token_hash = \\?").
 		WithArgs(sqlmock.AnyArg()).
@@ -232,7 +232,7 @@ func TestSessionRepository_DeleteSessionByToken_NotFound(t *testing.T) {
 
 func TestSessionRepository_DeleteSessionByToken_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE token_hash = \\?").
 		WithArgs(sqlmock.AnyArg()).
@@ -251,7 +251,7 @@ func TestSessionRepository_DeleteSessionByToken_DBError(t *testing.T) {
 
 func TestSessionRepository_DeleteSessionsForUser_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE user_id = \\?").
 		WithArgs(1).
@@ -265,7 +265,7 @@ func TestSessionRepository_DeleteSessionsForUser_Success(t *testing.T) {
 
 func TestSessionRepository_DeleteSessionsForUser_NoSessions(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE user_id = \\?").
 		WithArgs(1).
@@ -279,7 +279,7 @@ func TestSessionRepository_DeleteSessionsForUser_NoSessions(t *testing.T) {
 
 func TestSessionRepository_DeleteSessionsForUser_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE user_id = \\?").
 		WithArgs(1).
@@ -298,7 +298,7 @@ func TestSessionRepository_DeleteSessionsForUser_DBError(t *testing.T) {
 
 func TestSessionRepository_ListSessionsForUser_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	now := time.Now()
 	expiresAt := now.Add(24 * time.Hour)
@@ -321,7 +321,7 @@ func TestSessionRepository_ListSessionsForUser_Success(t *testing.T) {
 
 func TestSessionRepository_ListSessionsForUser_Empty(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, user_id, created_at, expires_at, last_accessed_at, ip_address, user_agent FROM sessions WHERE user_id = \\?").
 		WithArgs(1).
@@ -336,7 +336,7 @@ func TestSessionRepository_ListSessionsForUser_Empty(t *testing.T) {
 
 func TestSessionRepository_ListSessionsForUser_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, user_id, created_at, expires_at, last_accessed_at, ip_address, user_agent FROM sessions WHERE user_id = \\?").
 		WithArgs(1).
@@ -356,7 +356,7 @@ func TestSessionRepository_ListSessionsForUser_DBError(t *testing.T) {
 
 func TestSessionRepository_RevokeSessionById_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE id = \\?").
 		WithArgs(int64(123)).
@@ -370,7 +370,7 @@ func TestSessionRepository_RevokeSessionById_Success(t *testing.T) {
 
 func TestSessionRepository_RevokeSessionById_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE id = \\?").
 		WithArgs(int64(999)).
@@ -384,7 +384,7 @@ func TestSessionRepository_RevokeSessionById_NotFound(t *testing.T) {
 
 func TestSessionRepository_RevokeSessionById_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM sessions WHERE id = \\?").
 		WithArgs(int64(123)).
@@ -403,7 +403,7 @@ func TestSessionRepository_RevokeSessionById_DBError(t *testing.T) {
 
 func TestSessionRepository_GetCSRFForToken_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(1 * time.Hour)
 	mock.ExpectQuery("SELECT csrf_token, expires_at FROM sessions WHERE token_hash = \\?").
@@ -419,7 +419,7 @@ func TestSessionRepository_GetCSRFForToken_Success(t *testing.T) {
 
 func TestSessionRepository_GetCSRFForToken_NotFound(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT csrf_token, expires_at FROM sessions WHERE token_hash = \\?").
 		WithArgs(sqlmock.AnyArg()).
@@ -434,7 +434,7 @@ func TestSessionRepository_GetCSRFForToken_NotFound(t *testing.T) {
 
 func TestSessionRepository_GetCSRFForToken_Expired(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(-1 * time.Hour)
 	mock.ExpectQuery("SELECT csrf_token, expires_at FROM sessions WHERE token_hash = \\?").
@@ -454,7 +454,7 @@ func TestSessionRepository_GetCSRFForToken_Expired(t *testing.T) {
 
 func TestSessionRepository_GetCSRFForToken_NullCSRF(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(1 * time.Hour)
 	mock.ExpectQuery("SELECT csrf_token, expires_at FROM sessions WHERE token_hash = \\?").
@@ -470,7 +470,7 @@ func TestSessionRepository_GetCSRFForToken_NullCSRF(t *testing.T) {
 
 func TestSessionRepository_GetCSRFForToken_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT csrf_token, expires_at FROM sessions WHERE token_hash = \\?").
 		WithArgs(sqlmock.AnyArg()).
@@ -490,7 +490,7 @@ func TestSessionRepository_GetCSRFForToken_DBError(t *testing.T) {
 
 func TestSessionRepository_InsertSessionAudit_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	revokedBy := 2
 	reason := "password change"
@@ -506,7 +506,7 @@ func TestSessionRepository_InsertSessionAudit_Success(t *testing.T) {
 
 func TestSessionRepository_InsertSessionAudit_NullOptionalFields(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO session_audit").
 		WithArgs(int64(123), nil, "logout", nil, sqlmock.AnyArg()).
@@ -520,7 +520,7 @@ func TestSessionRepository_InsertSessionAudit_NullOptionalFields(t *testing.T) {
 
 func TestSessionRepository_InsertSessionAudit_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO session_audit").
 		WithArgs(int64(123), nil, "revoke", nil, sqlmock.AnyArg()).
@@ -540,7 +540,7 @@ func TestSessionRepository_InsertSessionAudit_DBError(t *testing.T) {
 func TestSessionRepository_TokenHashing_Consistent(t *testing.T) {
 	// Verify that the same token always produces the same hash
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(1 * time.Hour)
 
@@ -571,7 +571,7 @@ func TestSessionRepository_TokenHashing_Consistent(t *testing.T) {
 
 func TestSessionRepository_CreateSession_GeneratesUniqueCSRF(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewSessionRepository(db, slog.Default())
+	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(24 * time.Hour)
 

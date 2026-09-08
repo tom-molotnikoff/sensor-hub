@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"database/sql"
 	"example/sensorHub/actuation"
 	"example/sensorHub/alerting"
 	"example/sensorHub/api"
@@ -78,16 +77,16 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}()
 	}
 
-	db, err := database.InitialiseDatabase(logger)
+	db, err := database.Open(bootCfg, logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialise database: %w", err)
 	}
 
-	defer func(db *sql.DB) {
+	defer func() {
 		if err := db.Close(); err != nil {
 			logger.Error("error closing database", "error", err)
 		}
-	}(db)
+	}()
 
 	sensorRepo := database.NewSensorRepository(db, logger)
 	readingsRepo := database.NewReadingsRepository(db, logger)

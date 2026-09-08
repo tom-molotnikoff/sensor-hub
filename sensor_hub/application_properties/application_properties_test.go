@@ -44,7 +44,8 @@ func validSmtpPropsMap() map[string]string {
 
 func validDbPropsMap() map[string]string {
 	return map[string]string{
-		"database.path": "test/sensor_hub.db",
+		"database.path":               "test/sensor_hub.db",
+		"database.reader.connections": "4",
 	}
 }
 
@@ -373,6 +374,7 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 		AuthLoginBackoffMaxSeconds:    600,
 		SMTPUser:                      "smtp@test.com",
 		DatabasePath:                  "test/roundtrip.db",
+		DatabaseReaderConnections:     4,
 		MQTTBrokerPort:                1883,
 		ActuatorCommandTimeoutSeconds: 25,
 	}
@@ -386,6 +388,7 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 	assert.Equal(t, original.AuthBcryptCost, restored.AuthBcryptCost)
 	assert.Equal(t, original.SMTPUser, restored.SMTPUser)
 	assert.Equal(t, original.DatabasePath, restored.DatabasePath)
+	assert.Equal(t, original.DatabaseReaderConnections, restored.DatabaseReaderConnections)
 	assert.Equal(t, original.ActuatorCommandTimeoutSeconds, restored.ActuatorCommandTimeoutSeconds)
 }
 
@@ -737,6 +740,29 @@ func TestDatabasePropertiesDefaults_Initial(t *testing.T) {
 
 	_, hasPath := dbDefaults["database.path"]
 	assert.True(t, hasPath)
+	assert.Equal(t, "4", dbDefaults["database.reader.connections"])
+}
+
+func TestLoadConfigurationFromMaps_ReaderConnectionsOverridesTheDefault(t *testing.T) {
+	dbProps := validDbPropsMap()
+	dbProps["database.reader.connections"] = "2"
+
+	cfg, err := LoadConfigurationFromMaps(validAppPropsMap(), validSmtpPropsMap(), dbProps)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, cfg.DatabaseReaderConnections)
+}
+
+func TestLoadConfigurationFromMaps_NonPositiveReaderConnections(t *testing.T) {
+	for _, raw := range []string{"0", "-1"} {
+		dbProps := validDbPropsMap()
+		dbProps["database.reader.connections"] = raw
+
+		cfg, err := LoadConfigurationFromMaps(validAppPropsMap(), validSmtpPropsMap(), dbProps)
+
+		assert.Error(t, err, "reader connections of %s is rejected", raw)
+		assert.Nil(t, cfg)
+	}
 }
 
 func TestLoadConfigurationFromMaps_OAuthConfig(t *testing.T) {

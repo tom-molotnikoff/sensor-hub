@@ -21,7 +21,7 @@ func newInMemoryDB(t *testing.T) *sql.DB {
 
 func TestMaintenanceRepository_DatabaseStats(t *testing.T) {
 	db := newInMemoryDB(t)
-	repo := NewMaintenanceRepository(db)
+	repo := NewMaintenanceRepository(handles(db))
 
 	// Create a table to ensure the database has some pages
 	_, err := db.Exec("CREATE TABLE dummy (id INTEGER PRIMARY KEY)")
@@ -37,7 +37,7 @@ func TestMaintenanceRepository_DatabaseStats(t *testing.T) {
 
 func TestMaintenanceRepository_Vacuum(t *testing.T) {
 	db := newInMemoryDB(t)
-	repo := NewMaintenanceRepository(db)
+	repo := NewMaintenanceRepository(handles(db))
 
 	err := repo.Vacuum(context.Background())
 	assert.NoError(t, err)
@@ -45,7 +45,7 @@ func TestMaintenanceRepository_Vacuum(t *testing.T) {
 
 func TestMaintenanceRepository_Optimise(t *testing.T) {
 	db := newInMemoryDB(t)
-	repo := NewMaintenanceRepository(db)
+	repo := NewMaintenanceRepository(handles(db))
 
 	err := repo.Optimise(context.Background())
 	assert.NoError(t, err)
@@ -53,7 +53,7 @@ func TestMaintenanceRepository_Optimise(t *testing.T) {
 
 func TestMaintenanceRepository_StatsAfterInsertAndDelete(t *testing.T) {
 	db := newInMemoryDB(t)
-	repo := NewMaintenanceRepository(db)
+	repo := NewMaintenanceRepository(handles(db))
 
 	// Create a table and insert data
 	_, err := db.Exec("CREATE TABLE test_data (id INTEGER PRIMARY KEY, payload TEXT)")

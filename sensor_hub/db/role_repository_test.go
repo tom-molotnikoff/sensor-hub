@@ -16,7 +16,7 @@ import (
 
 func TestRoleRepository_GetPermissionsForUser_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT p.name FROM permissions p").
 		WithArgs(1).
@@ -37,7 +37,7 @@ func TestRoleRepository_GetPermissionsForUser_Success(t *testing.T) {
 
 func TestRoleRepository_GetPermissionsForUser_NoPermissions(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT p.name FROM permissions p").
 		WithArgs(1).
@@ -52,7 +52,7 @@ func TestRoleRepository_GetPermissionsForUser_NoPermissions(t *testing.T) {
 
 func TestRoleRepository_GetPermissionsForUser_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT p.name FROM permissions p").
 		WithArgs(1).
@@ -72,7 +72,7 @@ func TestRoleRepository_GetPermissionsForUser_DBError(t *testing.T) {
 
 func TestRoleRepository_GetAllRoles_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name FROM roles").
 		WillReturnRows(sqlmock.NewRows(roleColumns).
@@ -92,7 +92,7 @@ func TestRoleRepository_GetAllRoles_Success(t *testing.T) {
 
 func TestRoleRepository_GetAllRoles_Empty(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name FROM roles").
 		WillReturnRows(sqlmock.NewRows(roleColumns))
@@ -106,7 +106,7 @@ func TestRoleRepository_GetAllRoles_Empty(t *testing.T) {
 
 func TestRoleRepository_GetAllRoles_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name FROM roles").
 		WillReturnError(errors.New("database error"))
@@ -125,7 +125,7 @@ func TestRoleRepository_GetAllRoles_DBError(t *testing.T) {
 
 func TestRoleRepository_GetAllPermissions_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, description FROM permissions").
 		WillReturnRows(sqlmock.NewRows(permissionColumns).
@@ -145,7 +145,7 @@ func TestRoleRepository_GetAllPermissions_Success(t *testing.T) {
 
 func TestRoleRepository_GetAllPermissions_Empty(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, description FROM permissions").
 		WillReturnRows(sqlmock.NewRows(permissionColumns))
@@ -159,7 +159,7 @@ func TestRoleRepository_GetAllPermissions_Empty(t *testing.T) {
 
 func TestRoleRepository_GetAllPermissions_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT id, name, description FROM permissions").
 		WillReturnError(errors.New("database error"))
@@ -178,7 +178,7 @@ func TestRoleRepository_GetAllPermissions_DBError(t *testing.T) {
 
 func TestRoleRepository_GetPermissionsForRole_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT p.id, p.name, p.description FROM permissions p JOIN role_permissions rp").
 		WithArgs(1).
@@ -196,7 +196,7 @@ func TestRoleRepository_GetPermissionsForRole_Success(t *testing.T) {
 
 func TestRoleRepository_GetPermissionsForRole_NoPermissions(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT p.id, p.name, p.description FROM permissions p JOIN role_permissions rp").
 		WithArgs(1).
@@ -211,7 +211,7 @@ func TestRoleRepository_GetPermissionsForRole_NoPermissions(t *testing.T) {
 
 func TestRoleRepository_GetPermissionsForRole_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT p.id, p.name, p.description FROM permissions p JOIN role_permissions rp").
 		WithArgs(1).
@@ -231,7 +231,7 @@ func TestRoleRepository_GetPermissionsForRole_DBError(t *testing.T) {
 
 func TestRoleRepository_AssignPermissionToRole_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT OR IGNORE INTO role_permissions").
 		WithArgs(1, 2).
@@ -245,7 +245,7 @@ func TestRoleRepository_AssignPermissionToRole_Success(t *testing.T) {
 
 func TestRoleRepository_AssignPermissionToRole_Duplicate(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	// INSERT OR IGNORE should succeed even if duplicate
 	mock.ExpectExec("INSERT OR IGNORE INTO role_permissions").
@@ -260,7 +260,7 @@ func TestRoleRepository_AssignPermissionToRole_Duplicate(t *testing.T) {
 
 func TestRoleRepository_AssignPermissionToRole_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT OR IGNORE INTO role_permissions").
 		WithArgs(1, 2).
@@ -279,7 +279,7 @@ func TestRoleRepository_AssignPermissionToRole_DBError(t *testing.T) {
 
 func TestRoleRepository_RemovePermissionFromRole_Success(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM role_permissions WHERE role_id = \\? AND permission_id = \\?").
 		WithArgs(1, 2).
@@ -293,7 +293,7 @@ func TestRoleRepository_RemovePermissionFromRole_Success(t *testing.T) {
 
 func TestRoleRepository_RemovePermissionFromRole_NotAssigned(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM role_permissions WHERE role_id = \\? AND permission_id = \\?").
 		WithArgs(1, 2).
@@ -307,7 +307,7 @@ func TestRoleRepository_RemovePermissionFromRole_NotAssigned(t *testing.T) {
 
 func TestRoleRepository_RemovePermissionFromRole_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("DELETE FROM role_permissions WHERE role_id = \\? AND permission_id = \\?").
 		WithArgs(1, 2).
@@ -326,7 +326,7 @@ func TestRoleRepository_RemovePermissionFromRole_DBError(t *testing.T) {
 
 func TestRoleRepository_GetPermissionsForUser_ZeroUserId(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT p.name FROM permissions p").
 		WithArgs(0).
@@ -341,7 +341,7 @@ func TestRoleRepository_GetPermissionsForUser_ZeroUserId(t *testing.T) {
 
 func TestRoleRepository_GetPermissionsForRole_ZeroRoleId(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewRoleRepository(db, slog.Default())
+	repo := NewRoleRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT p.id, p.name, p.description FROM permissions p JOIN role_permissions rp").
 		WithArgs(0).

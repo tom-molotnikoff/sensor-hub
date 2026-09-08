@@ -93,21 +93,21 @@ func TestThresholdAlert_EndToEnd(t *testing.T) {
 	// --- Assert DB persistence ---
 
 	var alertHistoryCount int
-	err := env.DB.QueryRow(
+	err := env.DB.Reader.QueryRow(
 		`SELECT COUNT(*) FROM alert_sent_history WHERE sensor_id = ?`, sensor.Id,
 	).Scan(&alertHistoryCount)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, alertHistoryCount, 1, "alert_sent_history should have at least one row")
 
 	var notifCount int
-	err = env.DB.QueryRow(
+	err = env.DB.Reader.QueryRow(
 		`SELECT COUNT(*) FROM notifications WHERE category = 'threshold_alert'`,
 	).Scan(&notifCount)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, notifCount, 1, "notifications table should have at least one threshold_alert row")
 
 	var userNotifCount int
-	err = env.DB.QueryRow(
+	err = env.DB.Reader.QueryRow(
 		`SELECT COUNT(*) FROM user_notifications un
 		 JOIN notifications n ON un.notification_id = n.id
 		 WHERE n.category = 'threshold_alert'`,

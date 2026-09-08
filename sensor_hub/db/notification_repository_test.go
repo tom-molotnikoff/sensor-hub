@@ -15,7 +15,7 @@ import (
 
 func TestNotificationRepository_CreateNotification(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO notifications").
 		WithArgs("user_management", "info", "Test Title", "Test Message", sqlmock.AnyArg()).
@@ -35,7 +35,7 @@ func TestNotificationRepository_CreateNotification(t *testing.T) {
 
 func TestNotificationRepository_CreateNotification_Invalid(t *testing.T) {
 	db, _ := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	notif := notifications.Notification{
 		Category: "invalid",
@@ -51,7 +51,7 @@ func TestNotificationRepository_CreateNotification_Invalid(t *testing.T) {
 
 func TestNotificationRepository_GetUnreadCountForUser(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT COUNT").
 		WithArgs(1).
@@ -64,7 +64,7 @@ func TestNotificationRepository_GetUnreadCountForUser(t *testing.T) {
 
 func TestNotificationRepository_AssignNotificationToUser(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT OR IGNORE INTO user_notifications").
 		WithArgs(1, 5).
@@ -76,7 +76,7 @@ func TestNotificationRepository_AssignNotificationToUser(t *testing.T) {
 
 func TestNotificationRepository_MarkAsRead(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE user_notifications SET is_read = 1").
 		WithArgs(1, 5).
@@ -88,7 +88,7 @@ func TestNotificationRepository_MarkAsRead(t *testing.T) {
 
 func TestNotificationRepository_DismissNotification(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE user_notifications SET is_dismissed = 1").
 		WithArgs(1, 5).
@@ -100,7 +100,7 @@ func TestNotificationRepository_DismissNotification(t *testing.T) {
 
 func TestNotificationRepository_BulkMarkAsRead(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE user_notifications SET is_read = 1").
 		WithArgs(1).
@@ -112,7 +112,7 @@ func TestNotificationRepository_BulkMarkAsRead(t *testing.T) {
 
 func TestNotificationRepository_BulkDismiss(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("UPDATE user_notifications SET is_dismissed = 1").
 		WithArgs(1).
@@ -124,7 +124,7 @@ func TestNotificationRepository_BulkDismiss(t *testing.T) {
 
 func TestNotificationRepository_DeleteOldNotifications(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	cutoff := time.Now().AddDate(0, 0, -90)
 
@@ -139,7 +139,7 @@ func TestNotificationRepository_DeleteOldNotifications(t *testing.T) {
 
 func TestNotificationRepository_GetChannelPreference_UserOverride(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .* FROM notification_channel_preferences").
 		WithArgs(1, "user_management").
@@ -154,7 +154,7 @@ func TestNotificationRepository_GetChannelPreference_UserOverride(t *testing.T) 
 
 func TestNotificationRepository_GetChannelPreference_FallbackToDefault(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	mock.ExpectQuery("SELECT .* FROM notification_channel_preferences").
 		WithArgs(1, "threshold_alert").
@@ -173,7 +173,7 @@ func TestNotificationRepository_GetChannelPreference_FallbackToDefault(t *testin
 
 func TestNotificationRepository_SetChannelPreference(t *testing.T) {
 	db, mock := newMockDB(t)
-	repo := NewNotificationRepository(db, slog.Default())
+	repo := NewNotificationRepository(handles(db), slog.Default())
 
 	mock.ExpectExec("INSERT INTO notification_channel_preferences").
 		WithArgs(1, "user_management", false, true).

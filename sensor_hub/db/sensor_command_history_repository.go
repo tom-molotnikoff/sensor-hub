@@ -23,11 +23,11 @@ type PendingCommandRecord struct {
 }
 
 type SensorCommandHistoryRepository struct {
-	db     *sql.DB
+	db     *Handles
 	logger *slog.Logger
 }
 
-func NewSensorCommandHistoryRepository(db *sql.DB, logger *slog.Logger) *SensorCommandHistoryRepository {
+func NewSensorCommandHistoryRepository(db *Handles, logger *slog.Logger) *SensorCommandHistoryRepository {
 	return &SensorCommandHistoryRepository{db: db, logger: logger.With("component", "sensor_command_history_repository")}
 }
 
@@ -40,7 +40,7 @@ func (r *SensorCommandHistoryRepository) AddSentCommand(ctx context.Context, sen
 	query := `INSERT INTO sensor_command_history
 		(sensor_id, user_id, property, value, status, mqtt_topic, mqtt_payload, timeout_seconds, sent_at)
 		VALUES (?, ?, ?, ?, 'sent', ?, ?, ?, ?)`
-	result, err := r.db.ExecContext(ctx, query, sensorID, userIDValue, property, value, mqttTopic, mqttPayload, timeoutSeconds, sentAt)
+	result, err := r.db.Writer.ExecContext(ctx, query, sensorID, userIDValue, property, value, mqttTopic, mqttPayload, timeoutSeconds, sentAt)
 	if err != nil {
 		return 0, fmt.Errorf("error inserting sensor command history: %w", err)
 	}
@@ -56,7 +56,7 @@ func (r *SensorCommandHistoryRepository) AddSentCommand(ctx context.Context, sen
 func (r *SensorCommandHistoryRepository) HasPendingCommand(ctx context.Context, sensorID int, property string) (bool, error) {
 	query := `SELECT COUNT(1) FROM sensor_command_history WHERE sensor_id = ? AND property = ? AND status = 'sent'`
 	var count int
-	if err := r.db.QueryRowContext(ctx, query, sensorID, property).Scan(&count); err != nil {
+	if err := r.db.Reader.QueryRowContext(ctx, query, sensorID, property).Scan(&count); err != nil {
 		return false, fmt.Errorf("error querying pending sensor commands: %w", err)
 	}
 	return count > 0, nil
@@ -66,7 +66,7 @@ func (r *SensorCommandHistoryRepository) MarkAcknowledged(ctx context.Context, i
 	query := `UPDATE sensor_command_history
 		SET status = 'acknowledged', acknowledged_at = ?, acknowledged_value = ?
 		WHERE id = ? AND status = 'sent'`
-	result, err := r.db.ExecContext(ctx, query, acknowledgedAt, acknowledgedValue, id)
+	result, err := r.db.Writer.ExecContext(ctx, query, acknowledgedAt, acknowledgedValue, id)
 	if err != nil {
 		return false, fmt.Errorf("error updating acknowledged command status: %w", err)
 	}
@@ -77,7 +77,7 @@ func (r *SensorCommandHistoryRepository) MarkTimedOut(ctx context.Context, id in
 	query := `UPDATE sensor_command_history
 		SET status = 'timed_out'
 		WHERE id = ? AND status = 'sent'`
-	result, err := r.db.ExecContext(ctx, query, id)
+	result, err := r.db.Writer.ExecContext(ctx, query, id)
 	if err != nil {
 		return false, fmt.Errorf("error updating timed out command status: %w", err)
 	}
@@ -88,7 +88,7 @@ func (r *SensorCommandHistoryRepository) MarkFailed(ctx context.Context, id int)
 	query := `UPDATE sensor_command_history
 		SET status = 'failed'
 		WHERE id = ? AND status = 'sent'`
-	result, err := r.db.ExecContext(ctx, query, id)
+	result, err := r.db.Writer.ExecContext(ctx, query, id)
 	if err != nil {
 		return false, fmt.Errorf("error updating failed command status: %w", err)
 	}
@@ -100,7 +100,7 @@ func (r *SensorCommandHistoryRepository) ListPendingCommands(ctx context.Context
 		FROM sensor_command_history
 		WHERE status = 'sent'
 		ORDER BY sent_at ASC, id ASC`
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying pending sensor commands: %w", err)
 	}
@@ -147,7 +147,7 @@ func (r *SensorCommandHistoryRepository) ListBySensorID(ctx context.Context, sen
 		WHERE h.sensor_id = ?
 		ORDER BY h.sent_at DESC, h.id DESC
 		LIMIT ?`
-	rows, err := r.db.QueryContext(ctx, query, sensorID, limit)
+	rows, err := r.db.Reader.QueryContext(ctx, query, sensorID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("error querying sensor command history: %w", err)
 	}

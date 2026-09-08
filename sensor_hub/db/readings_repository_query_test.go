@@ -21,12 +21,12 @@ func migratedReadingsRepo(t *testing.T) (*ReadingsRepositoryImpl, *sql.DB) {
 	require.NoError(t, newTestMigrator(t, db).Migrate(19))
 
 	ctx := context.Background()
-	require.NoError(t, NewSensorRepository(db, slog.Default()).AddSensor(ctx, gen.Sensor{
+	require.NoError(t, NewSensorRepository(handles(db), slog.Default()).AddSensor(ctx, gen.Sensor{
 		Name:         "Office",
 		SensorDriver: "sensor-hub-http-temperature",
 	}))
 
-	repo := NewReadingsRepository(db, slog.Default()).(*ReadingsRepositoryImpl)
+	repo := NewReadingsRepository(handles(db), slog.Default()).(*ReadingsRepositoryImpl)
 	return repo, db
 }
 
@@ -103,7 +103,7 @@ func TestLastBetweenQuery_UsesCompositeIndex(t *testing.T) {
 func TestGetBetweenDates_Raw_FiltersBySensorCaseInsensitively(t *testing.T) {
 	repo, _ := migratedReadingsRepo(t) // seeds sensor "Office"
 	ctx := context.Background()
-	require.NoError(t, NewSensorRepository(db(repo), slog.Default()).AddSensor(ctx, gen.Sensor{
+	require.NoError(t, NewSensorRepository(repoHandles(repo), slog.Default()).AddSensor(ctx, gen.Sensor{
 		Name:         "Attic",
 		SensorDriver: "sensor-hub-http-temperature",
 	}))
@@ -129,5 +129,5 @@ func TestGetBetweenDates_Raw_UnknownSensorReturnsEmpty(t *testing.T) {
 	assert.Empty(t, got, "unknown sensor yields no readings")
 }
 
-// db exposes the repository's underlying *sql.DB for test setup.
-func db(r *ReadingsRepositoryImpl) *sql.DB { return r.db }
+// repoHandles exposes the repository's underlying handles for test setup.
+func repoHandles(r *ReadingsRepositoryImpl) *Handles { return r.db }

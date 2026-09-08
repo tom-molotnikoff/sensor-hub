@@ -11,11 +11,11 @@ import (
 )
 
 type MQTTBrokerRepository struct {
-	db     *sql.DB
+	db     *Handles
 	logger *slog.Logger
 }
 
-func NewMQTTBrokerRepository(db *sql.DB, logger *slog.Logger) *MQTTBrokerRepository {
+func NewMQTTBrokerRepository(db *Handles, logger *slog.Logger) *MQTTBrokerRepository {
 	return &MQTTBrokerRepository{db: db, logger: logger.With("component", "mqtt_broker_repository")}
 }
 
@@ -35,7 +35,7 @@ func (r *MQTTBrokerRepository) Add(ctx context.Context, broker gen.MQTTBroker) (
 	query := `INSERT INTO mqtt_brokers (name, type, host, port, username, password, client_id,
 		ca_cert_path, client_cert_path, client_key_path, enabled)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	result, err := r.db.ExecContext(ctx, query,
+	result, err := r.db.Writer.ExecContext(ctx, query,
 		broker.Name, broker.Type, broker.Host, broker.Port,
 		nullStringPtr(broker.Username), nullStringPtr(broker.Password), nullStringPtr(broker.ClientId),
 		nullStringPtr(broker.CaCertPath), nullStringPtr(broker.ClientCertPath), nullStringPtr(broker.ClientKeyPath),
@@ -55,7 +55,7 @@ func (r *MQTTBrokerRepository) GetByID(ctx context.Context, id int) (*gen.MQTTBr
 	query := `SELECT id, name, type, host, port, username, password, client_id,
 		ca_cert_path, client_cert_path, client_key_path, enabled, created_at, updated_at
 		FROM mqtt_brokers WHERE id = ?`
-	broker, err := scanBrokerRow(r.db.QueryRowContext(ctx, query, id))
+	broker, err := scanBrokerRow(r.db.Reader.QueryRowContext(ctx, query, id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -69,7 +69,7 @@ func (r *MQTTBrokerRepository) GetByName(ctx context.Context, name string) (*gen
 	query := `SELECT id, name, type, host, port, username, password, client_id,
 		ca_cert_path, client_cert_path, client_key_path, enabled, created_at, updated_at
 		FROM mqtt_brokers WHERE LOWER(name) = LOWER(?)`
-	broker, err := scanBrokerRow(r.db.QueryRowContext(ctx, query, name))
+	broker, err := scanBrokerRow(r.db.Reader.QueryRowContext(ctx, query, name))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -83,7 +83,7 @@ func (r *MQTTBrokerRepository) GetAll(ctx context.Context) ([]gen.MQTTBroker, er
 	query := `SELECT id, name, type, host, port, username, password, client_id,
 		ca_cert_path, client_cert_path, client_key_path, enabled, created_at, updated_at
 		FROM mqtt_brokers ORDER BY name`
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying all MQTT brokers: %w", err)
 	}
@@ -108,7 +108,7 @@ func (r *MQTTBrokerRepository) Update(ctx context.Context, broker gen.MQTTBroker
 		username = ?, password = ?, client_id = ?,
 		ca_cert_path = ?, client_cert_path = ?, client_key_path = ?,
 		enabled = ?, updated_at = datetime('now') WHERE id = ?`
-	result, err := r.db.ExecContext(ctx, query,
+	result, err := r.db.Writer.ExecContext(ctx, query,
 		broker.Name, broker.Type, broker.Host, broker.Port,
 		nullStringPtr(broker.Username), nullStringPtr(broker.Password), nullStringPtr(broker.ClientId),
 		nullStringPtr(broker.CaCertPath), nullStringPtr(broker.ClientCertPath), nullStringPtr(broker.ClientKeyPath),
@@ -128,7 +128,7 @@ func (r *MQTTBrokerRepository) Update(ctx context.Context, broker gen.MQTTBroker
 }
 
 func (r *MQTTBrokerRepository) Delete(ctx context.Context, id int) error {
-	result, err := r.db.ExecContext(ctx, "DELETE FROM mqtt_brokers WHERE id = ?", id)
+	result, err := r.db.Writer.ExecContext(ctx, "DELETE FROM mqtt_brokers WHERE id = ?", id)
 	if err != nil {
 		return fmt.Errorf("error deleting MQTT broker: %w", err)
 	}
@@ -146,7 +146,7 @@ func (r *MQTTBrokerRepository) GetEnabled(ctx context.Context) ([]gen.MQTTBroker
 	query := `SELECT id, name, type, host, port, username, password, client_id,
 		ca_cert_path, client_cert_path, client_key_path, enabled, created_at, updated_at
 		FROM mqtt_brokers WHERE enabled = 1 ORDER BY name`
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying enabled MQTT brokers: %w", err)
 	}
