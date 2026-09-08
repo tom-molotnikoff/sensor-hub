@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 // AlertRepository is the subset of db.AlertRepository needed by ThresholdAlertProcessor.
 // Defined locally to avoid an import cycle (db imports alerting).
 type AlertRepository interface {
-	GetAlertRuleForReading(ctx context.Context, sensorID int, measurementTypeName string) (*AlertRule, error)
+	GetAlertRulesBySensorID(ctx context.Context, sensorID int) ([]AlertRule, error)
 	RecordAlertSent(ctx context.Context, ruleID, sensorID, measurementTypeId int, reason string, numericValue float64, statusValue string) error
 }
 
@@ -63,6 +64,7 @@ type ThresholdAlertProcessor struct {
 	logger    *slog.Logger
 	mu        sync.Mutex
 	lastFired map[int]time.Time // rule ID → last fire time (in-memory rate-limit state)
+	rules     map[int][]AlertRule
 }
 
 // NewThresholdAlertProcessor constructs a ThresholdAlertProcessor. Call once at startup.
@@ -80,7 +82,45 @@ func NewThresholdAlertProcessor(
 		email:     email,
 		logger:    logger.With("component", "threshold_alert_processor"),
 		lastFired: make(map[int]time.Time),
+		rules:     make(map[int][]AlertRule),
 	}
+}
+
+func (p *ThresholdAlertProcessor) InvalidateRules() {
+	p.mu.Lock()
+	clear(p.rules)
+	p.mu.Unlock()
+}
+
+func (p *ThresholdAlertProcessor) rulesForSensor(ctx context.Context, sensorID int) ([]AlertRule, error) {
+	p.mu.Lock()
+	cached, ok := p.rules[sensorID]
+	p.mu.Unlock()
+	if ok {
+		return cached, nil
+	}
+
+	rules, err := p.alertRepo.GetAlertRulesBySensorID(ctx, sensorID)
+	if err != nil {
+		return nil, err
+	}
+	if rules == nil {
+		rules = []AlertRule{}
+	}
+
+	p.mu.Lock()
+	p.rules[sensorID] = rules
+	p.mu.Unlock()
+	return rules, nil
+}
+
+func ruleForMeasurementType(rules []AlertRule, measurementType string) *AlertRule {
+	for i := range rules {
+		if rules[i].Enabled && strings.EqualFold(rules[i].MeasurementType, measurementType) {
+			return &rules[i]
+		}
+	}
+	return nil
 }
 
 // ProcessReading evaluates a sensor reading against configured alert rules and, if
@@ -91,10 +131,11 @@ func NewThresholdAlertProcessor(
 // broadcast continues for remaining users. Email errors are logged at ERROR; the goroutine
 // never propagates them to the caller.
 func (p *ThresholdAlertProcessor) ProcessReading(ctx context.Context, r ReadingAlert) error {
-	rule, err := p.alertRepo.GetAlertRuleForReading(ctx, r.SensorID, r.MeasurementType)
+	rules, err := p.rulesForSensor(ctx, r.SensorID)
 	if err != nil {
-		return fmt.Errorf("failed to get alert rule for sensor %d measurement %s: %w", r.SensorID, r.MeasurementType, err)
+		return fmt.Errorf("failed to get alert rules for sensor %d: %w", r.SensorID, err)
 	}
+	rule := ruleForMeasurementType(rules, r.MeasurementType)
 	if rule == nil {
 		p.logger.Debug("no alert rule configured, skipping", "sensor", r.SensorName, "sensor_id", r.SensorID, "measurement_type", r.MeasurementType)
 		return nil

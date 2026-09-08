@@ -18,15 +18,17 @@ import (
 func migratedReadingsRepo(t *testing.T) (*ReadingsRepositoryImpl, *sql.DB) {
 	t.Helper()
 	db := newInMemoryDB(t)
-	require.NoError(t, newTestMigrator(t, db).Migrate(19))
+	require.NoError(t, newTestMigrator(t, db).Migrate(22))
 
 	ctx := context.Background()
-	require.NoError(t, NewSensorRepository(handles(db), slog.Default()).AddSensor(ctx, gen.Sensor{
+	sensorRepo := NewSensorRepository(handles(db), slog.Default())
+	require.NoError(t, sensorRepo.AddSensor(ctx, gen.Sensor{
 		Name:         "Office",
 		SensorDriver: "sensor-hub-http-temperature",
 	}))
 
-	repo := NewReadingsRepository(handles(db), slog.Default()).(*ReadingsRepositoryImpl)
+	mtRepo := NewMeasurementTypeRepository(handles(db), slog.Default())
+	repo := NewReadingsRepository(handles(db), sensorRepo, mtRepo, slog.Default()).(*ReadingsRepositoryImpl)
 	return repo, db
 }
 
@@ -49,6 +51,19 @@ func queryPlan(t *testing.T, db *sql.DB, query string, args ...any) string {
 	return sb.String()
 }
 
+var readingsAliases = []string{"readings", "r", "r2", "latest", "counted"}
+
+func assertNoReadingsScan(t *testing.T, plan string) {
+	t.Helper()
+	for line := range strings.SplitSeq(plan, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 || fields[0] != "SCAN" {
+			continue
+		}
+		assert.NotContains(t, readingsAliases, fields[1], "plan step scans readings: "+line)
+	}
+}
+
 func TestRawBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	repo, db := migratedReadingsRepo(t)
 	ctx := context.Background()
@@ -61,7 +76,7 @@ func TestRawBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	plan := queryPlan(t, db, rawBetweenQuery(clause), args...)
 
 	assert.Contains(t, plan, "idx_readings_sensor_type_time", "should use the composite index")
-	assert.NotContains(t, plan, "SCAN readings", "should not full-scan the readings table")
+	assertNoReadingsScan(t, plan)
 }
 
 func TestAggregatedBetweenQuery_UsesCompositeIndex(t *testing.T) {
@@ -79,7 +94,7 @@ func TestAggregatedBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	plan := queryPlan(t, db, aggregatedBetweenQuery("ROUND(AVG(r.numeric_value), 2)", bucket, clause), args...)
 
 	assert.Contains(t, plan, "idx_readings_sensor_type_time", "should use the composite index")
-	assert.NotContains(t, plan, "SCAN readings", "should not full-scan the readings table")
+	assertNoReadingsScan(t, plan)
 }
 
 func TestLastBetweenQuery_UsesCompositeIndex(t *testing.T) {
@@ -97,7 +112,7 @@ func TestLastBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	plan := queryPlan(t, db, lastBetweenQuery(bucket, clause), args...)
 
 	assert.Contains(t, plan, "idx_readings_sensor_type_time", "should use the composite index")
-	assert.NotContains(t, plan, "SCAN readings", "should not full-scan the readings table")
+	assertNoReadingsScan(t, plan)
 }
 
 func TestGetBetweenDates_Raw_FiltersBySensorCaseInsensitively(t *testing.T) {
@@ -109,10 +124,12 @@ func TestGetBetweenDates_Raw_FiltersBySensorCaseInsensitively(t *testing.T) {
 	}))
 
 	v := 21.0
-	require.NoError(t, repo.Add(ctx, []gen.Reading{
+	require.NoError(t, repo.Ingest(ctx, ReadingBatch{SensorName: "Office", Readings: []gen.Reading{
 		{SensorName: "Office", MeasurementType: "temperature", NumericValue: &v, Time: "2025-01-15 12:00:00"},
+	}}))
+	require.NoError(t, repo.Ingest(ctx, ReadingBatch{SensorName: "Attic", Readings: []gen.Reading{
 		{SensorName: "Attic", MeasurementType: "temperature", NumericValue: &v, Time: "2025-01-15 12:00:00"},
-	}))
+	}}))
 
 	got, err := repo.GetBetweenDates(ctx, "2025-01-01 00:00:00", "2025-02-01 00:00:00", "office", "temperature", AggregationRaw, "")
 	require.NoError(t, err)
@@ -131,3 +148,57 @@ func TestGetBetweenDates_Raw_UnknownSensorReturnsEmpty(t *testing.T) {
 
 // repoHandles exposes the repository's underlying handles for test setup.
 func repoHandles(r *ReadingsRepositoryImpl) *Handles { return r.db }
+
+func TestLatestPerSeriesQuery_ProbesTheCompositeIndexOncePerPair(t *testing.T) {
+	_, db := migratedReadingsRepo(t)
+
+	plan := queryPlan(t, db, latestPerSeriesQuery())
+
+	assert.Contains(t, plan, "CORRELATED SCALAR SUBQUERY", "one probe per pair, not one pass over readings")
+	assert.Contains(t, plan, "idx_readings_sensor_type_time", "the probe uses the composite index")
+	assert.Contains(t, plan, "SCAN smt", "the pairs come from the join table")
+	assertNoReadingsScan(t, plan)
+}
+
+func TestTypesWithReadingsQuery_ReadsTheJoinTable(t *testing.T) {
+	_, db := migratedReadingsRepo(t)
+
+	plan := queryPlan(t, db, typesWithReadingsQuery())
+
+	assert.Contains(t, plan, "smt", "the answer comes from the join table")
+	assertNoReadingsScan(t, plan)
+}
+
+func TestSensorTypesWithReadingsQuery_ReadsTheJoinTable(t *testing.T) {
+	_, db := migratedReadingsRepo(t)
+
+	plan := queryPlan(t, db, sensorTypesWithReadingsQuery(), 1)
+
+	assert.Contains(t, plan, "smt", "the answer comes from the join table")
+	assertNoReadingsScan(t, plan)
+}
+
+func TestRetentionDeletes_DoNotScanReadings(t *testing.T) {
+	_, db := migratedReadingsRepo(t)
+	cutoff := "2025-01-01 00:00:00"
+
+	global := queryPlan(t, db, deleteOlderThanQuery(), cutoff)
+	assert.Contains(t, global, "idx_readings_time", "the global delete walks the time index")
+	assertNoReadingsScan(t, global)
+
+	perSensor := queryPlan(t, db, deleteOlderThanForSensorQuery(), 1, cutoff)
+	assert.Contains(t, perSensor, "idx_readings_sensor_type_time", "the per-sensor delete walks the composite index")
+	assertNoReadingsScan(t, perSensor)
+
+	excluding := queryPlan(t, db, deleteOlderThanExcludingSensorsQuery(2), cutoff, 1, 2)
+	assert.Contains(t, excluding, "idx_readings_time", "the excluding delete walks the time index")
+	assertNoReadingsScan(t, excluding)
+}
+
+func TestCountReadingsPerSensorQuery_IsTheOneQueryThatScansReadings(t *testing.T) {
+	_, db := migratedReadingsRepo(t)
+
+	plan := queryPlan(t, db, countReadingsPerSensorQuery())
+
+	assert.Contains(t, plan, "SCAN readings", "the sampler counts by scanning readings")
+}

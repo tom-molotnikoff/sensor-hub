@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockAlertRepositoryForService struct {
@@ -103,7 +104,7 @@ func (m *mockAlertRepositoryForService) GetAlertRule(ctx context.Context, sensor
 
 func TestServiceGetAllAlertRules(t *testing.T) {
 	mockRepo := new(mockAlertRepositoryForService)
-	service := NewAlertManagementService(mockRepo, slog.Default())
+	service := NewAlertManagementService(mockRepo, nil, slog.Default())
 
 	expectedRules := []alerting.AlertRule{
 		{SensorID: 1, SensorName: "Sensor1", AlertType: alerting.AlertTypeNumericRange},
@@ -122,7 +123,7 @@ func TestServiceGetAllAlertRules(t *testing.T) {
 
 func TestServiceGetAlertRuleBySensorID(t *testing.T) {
 	mockRepo := new(mockAlertRepositoryForService)
-	service := NewAlertManagementService(mockRepo, slog.Default())
+	service := NewAlertManagementService(mockRepo, nil, slog.Default())
 
 	expectedRule := &alerting.AlertRule{
 		SensorID:   1,
@@ -141,7 +142,7 @@ func TestServiceGetAlertRuleBySensorID(t *testing.T) {
 
 func TestServiceCreateAlertRule(t *testing.T) {
 	mockRepo := new(mockAlertRepositoryForService)
-	service := NewAlertManagementService(mockRepo, slog.Default())
+	service := NewAlertManagementService(mockRepo, nil, slog.Default())
 
 	newRule := &alerting.AlertRule{
 		SensorID:         1,
@@ -162,7 +163,7 @@ func TestServiceCreateAlertRule(t *testing.T) {
 
 func TestServiceUpdateAlertRule(t *testing.T) {
 	mockRepo := new(mockAlertRepositoryForService)
-	service := NewAlertManagementService(mockRepo, slog.Default())
+	service := NewAlertManagementService(mockRepo, nil, slog.Default())
 
 	updatedRule := &alerting.AlertRule{
 		SensorID:         1,
@@ -183,7 +184,7 @@ func TestServiceUpdateAlertRule(t *testing.T) {
 
 func TestServiceDeleteAlertRule(t *testing.T) {
 	mockRepo := new(mockAlertRepositoryForService)
-	service := NewAlertManagementService(mockRepo, slog.Default())
+	service := NewAlertManagementService(mockRepo, nil, slog.Default())
 
 	mockRepo.On("DeleteAlertRule", mock.Anything, 1).Return(nil)
 
@@ -195,7 +196,7 @@ func TestServiceDeleteAlertRule(t *testing.T) {
 
 func TestServiceGetAlertHistory(t *testing.T) {
 	mockRepo := new(mockAlertRepositoryForService)
-	service := NewAlertManagementService(mockRepo, slog.Default())
+	service := NewAlertManagementService(mockRepo, nil, slog.Default())
 
 	expectedHistory := []gen.AlertHistoryEntry{
 		{SensorId: 1, AlertType: "numeric_range", ReadingValue: "35.5", SentAt: time.Now()},
@@ -210,4 +211,52 @@ func TestServiceGetAlertHistory(t *testing.T) {
 	assert.Equal(t, 2, len(history))
 	assert.Equal(t, 1, history[0].SensorId)
 	mockRepo.AssertExpectations(t)
+}
+
+type spyRuleCache struct {
+	invalidations int
+}
+
+func (s *spyRuleCache) InvalidateRules() { s.invalidations++ }
+
+func TestAlertManagementService_RuleWritesInvalidateTheRuleCache(t *testing.T) {
+	rule := &alerting.AlertRule{SensorID: 1, MeasurementTypeId: 1, AlertType: alerting.AlertTypeNumericRange}
+
+	for _, tc := range []struct {
+		name  string
+		setup func(*mockAlertRepositoryForService)
+		write func(AlertManagementServiceInterface) error
+	}{
+		{
+			name:  "create",
+			setup: func(m *mockAlertRepositoryForService) { m.On("CreateAlertRule", mock.Anything, rule).Return(nil) },
+			write: func(s AlertManagementServiceInterface) error {
+				return s.ServiceCreateAlertRule(context.Background(), rule)
+			},
+		},
+		{
+			name:  "update",
+			setup: func(m *mockAlertRepositoryForService) { m.On("UpdateAlertRule", mock.Anything, rule).Return(nil) },
+			write: func(s AlertManagementServiceInterface) error {
+				return s.ServiceUpdateAlertRule(context.Background(), rule)
+			},
+		},
+		{
+			name:  "delete",
+			setup: func(m *mockAlertRepositoryForService) { m.On("DeleteAlertRule", mock.Anything, 7).Return(nil) },
+			write: func(s AlertManagementServiceInterface) error {
+				return s.ServiceDeleteAlertRule(context.Background(), 7)
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := new(mockAlertRepositoryForService)
+			cache := &spyRuleCache{}
+			tc.setup(mockRepo)
+
+			require.NoError(t, tc.write(NewAlertManagementService(mockRepo, cache, slog.Default())))
+
+			assert.Equal(t, 1, cache.invalidations, "the next reading reads the rules again")
+		})
+	}
 }

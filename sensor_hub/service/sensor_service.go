@@ -267,7 +267,11 @@ func (s *SensorService) ServiceCollectAndStoreAllSensorReadings(ctx context.Cont
 			s.logger.Error("error collecting readings from sensor", "name", sensor.Name, "error", err)
 			continue
 		}
-		err = s.readingsRepo.Add(sensorCtx, readings)
+		err = s.readingsRepo.Ingest(sensorCtx, database.ReadingBatch{
+			SensorName:   sensor.Name,
+			HealthReason: "successful reading",
+			Readings:     readings,
+		})
 		if err != nil {
 			sensorSpan.RecordError(err)
 			sensorSpan.SetStatus(codes.Error, "storage failed")
@@ -278,7 +282,7 @@ func (s *SensorService) ServiceCollectAndStoreAllSensorReadings(ctx context.Cont
 		sensorSpan.SetAttributes(attribute.Int("readings.count", len(readings)))
 		sensorSpan.End()
 
-		s.ServiceUpdateSensorHealthById(ctx, sensor.Id, gen.Good, "successful reading")
+		s.announceSensorHealth()
 		allReadings = append(allReadings, readings...)
 		s.logger.Debug("collected readings", "sensor", sensor.Name, "count", len(readings))
 
@@ -347,7 +351,11 @@ func (s *SensorService) ServiceCollectFromSensorByName(ctx context.Context, sens
 			s.ServiceUpdateSensorHealthById(ctx, sensor.Id, gen.Bad, fmt.Sprintf("error collecting readings: %v", err))
 			return fmt.Errorf("error collecting readings from sensor %s: %w", sensorName, err)
 		}
-		err = s.readingsRepo.Add(ctx, readings)
+		err = s.readingsRepo.Ingest(ctx, database.ReadingBatch{
+			SensorName:   sensor.Name,
+			HealthReason: "successful reading",
+			Readings:     readings,
+		})
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "storage failed")
@@ -355,7 +363,7 @@ func (s *SensorService) ServiceCollectFromSensorByName(ctx context.Context, sens
 			return fmt.Errorf("error storing readings from sensor %s: %w", sensorName, err)
 		}
 		span.SetAttributes(attribute.Int("readings.count", len(readings)))
-		s.ServiceUpdateSensorHealthById(ctx, sensor.Id, gen.Good, "successful reading")
+		s.announceSensorHealth()
 		s.logger.Debug("collected readings", "sensor", sensorName, "count", len(readings))
 		ws.PublishReadings(readings)
 
@@ -383,6 +391,10 @@ func (s *SensorService) ServiceUpdateSensorHealthById(ctx context.Context, senso
 		s.logger.Error("error updating sensor health", "error", err)
 		return
 	}
+	s.announceSensorHealth()
+}
+
+func (s *SensorService) announceSensorHealth() {
 	go s.broadcastSensors(context.Background())
 }
 
@@ -594,12 +606,16 @@ func (s *SensorService) ServiceProcessPushReadings(ctx context.Context, sensor g
 		readings[i].SensorName = sensor.Name
 	}
 
-	if err := s.readingsRepo.Add(ctx, readings); err != nil {
+	batch := database.ReadingBatch{
+		SensorName:   sensor.Name,
+		HealthReason: "MQTT reading received",
+		Readings:     readings,
+	}
+	if err := s.readingsRepo.Ingest(ctx, batch); err != nil {
 		s.ServiceUpdateSensorHealthById(ctx, sensor.Id, gen.Bad, fmt.Sprintf("storage error: %v", err))
 		return fmt.Errorf("failed to store push readings: %w", err)
 	}
-
-	s.ServiceUpdateSensorHealthById(ctx, sensor.Id, gen.Good, "MQTT reading received")
+	s.announceSensorHealth()
 
 	// Process alerts
 	for _, reading := range readings {

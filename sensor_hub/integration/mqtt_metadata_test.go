@@ -49,8 +49,8 @@ func setupZigbee2MQTTBridgeFixture(t *testing.T, brokerName string, cleanupSenso
 	port := sharedZigbee2MQTTBridgeBrokerPort(t)
 
 	sensorRepo := database.NewSensorRepository(env.DB, logger)
-	readingsRepo := database.NewReadingsRepository(env.DB, logger)
 	mtRepo := database.NewMeasurementTypeRepository(env.DB, logger)
+	readingsRepo := database.NewReadingsRepository(env.DB, sensorRepo, mtRepo, logger)
 	brokerRepo := database.NewMQTTBrokerRepository(env.DB, logger)
 	subRepo := database.NewMQTTSubscriptionRepository(env.DB, logger)
 

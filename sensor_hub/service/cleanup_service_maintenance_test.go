@@ -40,11 +40,13 @@ func seededCleanupService(t *testing.T, shape seed.Shape) (*cleanupService, *pag
 	require.NoError(t, err)
 	t.Cleanup(func() { handles.Close() })
 
-	readingsRepo := database.NewReadingsRepository(handles, logger)
+	sensorRepo := database.NewSensorRepository(handles, logger)
+	mtRepo := database.NewMeasurementTypeRepository(handles, logger)
+	readingsRepo := database.NewReadingsRepository(handles, sensorRepo, mtRepo, logger)
 	spy := &pagesFreedSpy{MaintenanceRepository: database.NewMaintenanceRepository(handles)}
 
 	service := NewCleanupService(
-		database.NewSensorRepository(handles, logger),
+		sensorRepo,
 		readingsRepo,
 		database.NewFailedLoginRepository(handles, logger),
 		nil,

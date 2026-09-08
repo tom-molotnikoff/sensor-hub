@@ -89,8 +89,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}()
 
 	sensorRepo := database.NewSensorRepository(db, logger)
-	readingsRepo := database.NewReadingsRepository(db, logger)
 	mtRepo := database.NewMeasurementTypeRepository(db, logger)
+	readingsRepo := database.NewReadingsRepository(db, sensorRepo, mtRepo, logger)
 	alertRepo := database.NewAlertRepository(db, logger)
 	notificationRepo := database.NewNotificationRepository(db, logger)
 
@@ -143,7 +143,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	userService := service.NewUserService(userRepo, notificationService, logger)
 	authService := service.NewAuthService(userRepo, sessionRepo, failedRepo, roleRepo, logger)
 	roleService := service.NewRoleService(roleRepo, logger)
-	alertManagementService := service.NewAlertManagementService(alertRepo, logger)
+	alertManagementService := service.NewAlertManagementService(alertRepo, thresholdProcessor, logger)
 
 	apiKeyRepo := database.NewApiKeyRepository(db, logger)
 	apiKeyService := service.NewApiKeyService(apiKeyRepo, userRepo, roleRepo, logger)

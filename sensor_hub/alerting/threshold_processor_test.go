@@ -562,3 +562,75 @@ func TestProcessReading_emailSendFails_doesNotAbortBatch(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	assert.Equal(t, 1, email.sendCount())
 }
+
+type countingAlertRepo struct {
+	inner alerting.AlertRepository
+	mu    sync.Mutex
+	reads int
+}
+
+func (c *countingAlertRepo) GetAlertRulesBySensorID(ctx context.Context, sensorID int) ([]alerting.AlertRule, error) {
+	c.mu.Lock()
+	c.reads++
+	c.mu.Unlock()
+	return c.inner.GetAlertRulesBySensorID(ctx, sensorID)
+}
+
+func (c *countingAlertRepo) RecordAlertSent(ctx context.Context, ruleID, sensorID, measurementTypeId int, reason string, numericValue float64, statusValue string) error {
+	return c.inner.RecordAlertSent(ctx, ruleID, sensorID, measurementTypeId, reason, numericValue, statusValue)
+}
+
+func (c *countingAlertRepo) readCount() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.reads
+}
+
+func newCountingProcessor(t *testing.T, db *sql.DB) (*alerting.ThresholdAlertProcessor, *countingAlertRepo) {
+	t.Helper()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	counting := &countingAlertRepo{inner: database.NewAlertRepository(testHandles(db), logger)}
+	notifRepo := &notifRepoAdapter{inner: database.NewNotificationRepository(testHandles(db), logger)}
+	return alerting.NewThresholdAlertProcessor(counting, notifRepo, nil, nil, logger), counting
+}
+
+func TestProcessReading_readsTheRulesForASensorOnce(t *testing.T) {
+	db := newTestDB(t)
+	sensorID := insertSensor(t, db, "living-room")
+	mtID := getMeasurementTypeID(t, db, "temperature")
+	insertNumericAlertRule(t, db, sensorID, mtID, 30.0, 10.0, true, 0)
+	p, repo := newCountingProcessor(t, db)
+
+	for range 9 {
+		require.NoError(t, p.ProcessReading(context.Background(), alerting.ReadingAlert{
+			SensorID:        sensorID,
+			SensorName:      "living-room",
+			MeasurementType: "temperature",
+			NumericValue:    20.0,
+		}))
+	}
+
+	assert.Equal(t, 1, repo.readCount(), "nine readings, one rule read")
+}
+
+func TestProcessReading_readsTheRulesAgainAfterTheyAreInvalidated(t *testing.T) {
+	db := newTestDB(t)
+	sensorID := insertSensor(t, db, "living-room")
+	mtID := getMeasurementTypeID(t, db, "temperature")
+	insertNumericAlertRule(t, db, sensorID, mtID, 30.0, 10.0, true, 0)
+	p, repo := newCountingProcessor(t, db)
+
+	reading := alerting.ReadingAlert{
+		SensorID:        sensorID,
+		SensorName:      "living-room",
+		MeasurementType: "temperature",
+		NumericValue:    20.0,
+	}
+	require.NoError(t, p.ProcessReading(context.Background(), reading))
+	require.Equal(t, 1, repo.readCount())
+
+	p.InvalidateRules()
+	require.NoError(t, p.ProcessReading(context.Background(), reading))
+
+	assert.Equal(t, 2, repo.readCount(), "a rule write sends the next reading back to the database")
+}

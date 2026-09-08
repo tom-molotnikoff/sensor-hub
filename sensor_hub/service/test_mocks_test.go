@@ -338,8 +338,8 @@ type MockReadingsRepository struct {
 	mock.Mock
 }
 
-func (m *MockReadingsRepository) Add(ctx context.Context, readings []gen.Reading) error {
-	args := m.Called(ctx, readings)
+func (m *MockReadingsRepository) Ingest(ctx context.Context, batch database.ReadingBatch) error {
+	args := m.Called(ctx, batch)
 	return args.Error(0)
 }
 
