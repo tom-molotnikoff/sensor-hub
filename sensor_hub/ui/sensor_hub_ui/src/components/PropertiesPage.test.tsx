@@ -6,8 +6,10 @@ import { FakeWebSocket, installFakeWebSocket } from '../test/fakeWebSocket';
 class FakeIntersectionObserver {
   static instances: FakeIntersectionObserver[] = [];
   private readonly targets: Element[] = [];
+  private readonly callback: IntersectionObserverCallback;
 
-  constructor(private readonly callback: IntersectionObserverCallback) {
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
     FakeIntersectionObserver.instances.push(this);
   }
 
@@ -400,7 +402,7 @@ describe('PropertiesPage', () => {
     expect(screen.queryByTestId('rail-sensors')).not.toBeInTheDocument();
   });
 
-  it('counts the edited fields per group in the rail, following the search filter', async () => {
+  it('counts every edited field in a group, so the rail and the unsaved total agree under a filter', async () => {
     await renderPage(['view_properties', 'manage_properties']);
 
     expect(screen.queryByTestId('rail-edited-count-sensors')).not.toBeInTheDocument();
@@ -418,8 +420,9 @@ describe('PropertiesPage', () => {
       target: { value: 'auto-discover' },
     });
 
-    expect(screen.getByTestId('rail-edited-count-sensors')).toHaveTextContent('1');
+    expect(screen.getByTestId('rail-edited-count-sensors')).toHaveTextContent('2');
     expect(screen.getByText('2 unsaved changes')).toBeInTheDocument();
+    expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
   });
 
   it('stacks the rail above the content at the mobile breakpoint', async () => {

@@ -39,12 +39,16 @@ export default function PropertiesPage() {
     const term = search.trim().toLowerCase();
     return [...definitions.groups]
       .sort((a, b) => a.order - b.order)
-      .map((group) => ({
-        group,
-        fields: definitions.definitions.filter(
-          (definition) => definition.group === group.id && matchesSearch(definition, term),
-        ),
-      }))
+      .map((group) => {
+        const groupFields = definitions.definitions.filter(
+          (definition) => definition.group === group.id,
+        );
+        return {
+          group,
+          groupFields,
+          fields: groupFields.filter((definition) => matchesSearch(definition, term)),
+        };
+      })
       .filter((section) => section.fields.length > 0);
   }, [definitions, search]);
 
@@ -61,10 +65,10 @@ export default function PropertiesPage() {
 
   if (!definitions) return null;
 
-  const railGroups = sections.map(({ group, fields }) => ({
+  const railGroups = sections.map(({ group, groupFields }) => ({
     id: group.id,
     label: group.label,
-    editedCount: fields.filter((definition) => modified.has(definition.key)).length,
+    editedCount: groupFields.filter((definition) => modified.has(definition.key)).length,
   }));
 
   const handleSave = async () => {
