@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 
-const TOP_BAND = '0px 0px -70% 0px';
 const SEPARATOR = ',';
 
-export function useScrollSpy(ids: string[]): string | undefined {
+export function useScrollSpy(ids: string[], landingOffset: number): string | undefined {
   const joined = ids.join(SEPARATOR);
   const [inBandId, setInBandId] = useState<string>();
 
@@ -21,7 +20,7 @@ export function useScrollSpy(ids: string[]): string | undefined {
         const first = sectionIds.find((id) => inBand.has(id));
         if (first) setInBandId(first);
       },
-      { rootMargin: TOP_BAND, threshold: 0 },
+      { rootMargin: `-${landingOffset}px 0px 0px 0px`, threshold: 0 },
     );
 
     for (const id of sectionIds) {
@@ -29,7 +28,7 @@ export function useScrollSpy(ids: string[]): string | undefined {
       if (element) observer.observe(element);
     }
     return () => observer.disconnect();
-  }, [joined]);
+  }, [joined, landingOffset]);
 
   return inBandId !== undefined && ids.includes(inBandId) ? inBandId : ids[0];
 }

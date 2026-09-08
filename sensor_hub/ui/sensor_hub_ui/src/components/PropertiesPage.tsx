@@ -6,12 +6,15 @@ import { useProperties } from '../hooks/useProperties';
 import { usePropertyDefinitions } from '../hooks/usePropertyDefinitions';
 import { usePropertyEdits } from '../hooks/usePropertyEdits';
 import { useIsMobile } from '../hooks/useMobile';
+import { useLandingTailSpace } from '../hooks/useLandingTailSpace';
+import { useMeasuredHeight } from '../hooks/useMeasuredHeight';
 import { useScrollSpy } from '../hooks/useScrollSpy';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';
 import PropertyField from './PropertyField';
 import PropertyGroupSection from './PropertyGroupSection';
 import PropertySearchRail from './PropertySearchRail';
+import { belowAppBar, landingOffset, railOffset } from './propertyLayout';
 import { buildSections } from './propertySections';
 import { asRejection, propertyErrors } from './propertyValidation';
 import type { PropertyRejection } from './propertyValidation';
@@ -70,7 +73,15 @@ export default function PropertiesPage() {
     return [...errors.fields.keys()].filter((key) => !rendered.has(key)).length;
   }, [sections, errors]);
 
-  const currentGroupId = useScrollSpy(sections.map((section) => section.group.id));
+  const { measuredRef: headerRef, height: headerHeight } = useMeasuredHeight();
+  const landingLine = landingOffset(headerHeight);
+
+  const currentGroupId = useScrollSpy(
+    sections.map((section) => section.group.id),
+    landingLine,
+  );
+
+  const { sectionsRef, tailSpace } = useLandingTailSpace(landingLine);
 
   const landed = useRef(false);
   useEffect(() => {
@@ -135,8 +146,25 @@ export default function PropertiesPage() {
   return (
     <>
       <Stack spacing={2} sx={{ width: '100%' }}>
-        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <TypographyH2>Properties</TypographyH2>
+        <Stack
+          ref={headerRef}
+          data-testid="properties-header"
+          direction="row"
+          sx={(theme) => ({
+            position: 'sticky',
+            ...belowAppBar(theme),
+            zIndex: 1,
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 1,
+            flexWrap: 'wrap',
+            py: 1.5,
+            backgroundColor: 'background.default',
+            borderBottom: 1,
+            borderColor: 'divider',
+          })}
+        >
+          <TypographyH2 changes={{ margin: 0 }}>Properties</TypographyH2>
           {canManage && (
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               {saving && <CircularProgress size={20} />}
@@ -198,27 +226,35 @@ export default function PropertiesPage() {
               currentGroupId={currentGroupId}
               search={search}
               onSearchChange={setSearch}
+              stickyTop={railOffset(headerHeight)}
             />
-            <Stack spacing={2} sx={{ flex: '1 1 auto', minWidth: 0, width: '100%' }}>
-              {sections.map(({ group, rows }) => (
-                <PropertyGroupSection key={group.id} group={group}>
-                  {rows.map(({ definition, described }) => (
-                    <PropertyField
-                      key={definition.key}
-                      definition={definition}
-                      described={described}
-                      serverValue={serverValues[definition.key]}
-                      editedValue={edits[definition.key]}
-                      collided={collisions.has(definition.key)}
-                      error={errors.fields.get(definition.key)}
-                      onChange={(value) => handleEdit(definition.key, value)}
-                      onUndo={() => handleDiscard(definition.key)}
-                      disabled={!canManage}
-                    />
-                  ))}
-                </PropertyGroupSection>
-              ))}
-            </Stack>
+            <Box sx={{ flex: '1 1 auto', minWidth: 0, width: '100%' }}>
+              <Stack spacing={2} ref={sectionsRef} data-testid="properties-sections">
+                {sections.map(({ group, rows }) => (
+                  <PropertyGroupSection key={group.id} group={group} landingOffset={landingLine}>
+                    {rows.map(({ definition, described }) => (
+                      <PropertyField
+                        key={definition.key}
+                        definition={definition}
+                        described={described}
+                        serverValue={serverValues[definition.key]}
+                        editedValue={edits[definition.key]}
+                        collided={collisions.has(definition.key)}
+                        error={errors.fields.get(definition.key)}
+                        onChange={(value) => handleEdit(definition.key, value)}
+                        onUndo={() => handleDiscard(definition.key)}
+                        disabled={!canManage}
+                      />
+                    ))}
+                  </PropertyGroupSection>
+                ))}
+              </Stack>
+              <Box
+                aria-hidden
+                data-testid="properties-tail-space"
+                sx={{ height: `${tailSpace}px` }}
+              />
+            </Box>
           </Box>
         )}
       </Stack>
