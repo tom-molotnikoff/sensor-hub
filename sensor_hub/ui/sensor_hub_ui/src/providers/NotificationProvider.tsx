@@ -20,7 +20,7 @@ export default function NotificationProvider({ children }: { children: React.Rea
   const refresh = useCallback((): Promise<void> => {
     if (!user || !hasPermission) return Promise.resolve();
     return Promise.all([
-      apiClient.GET('/notifications', { params: { query: { limit: 50, offset: 0, unread_only: false } } }),
+      apiClient.GET('/notifications', { params: { query: { limit: 50, offset: 0 } } }),
       apiClient.GET('/notifications/unread-count'),
       apiClient.GET('/notifications/preferences'),
     ])

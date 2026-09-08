@@ -17,7 +17,7 @@ func (s *Server) Login(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req gen.LoginRequest
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
 		return
 	}
 	ip := c.ClientIP()
@@ -36,10 +36,10 @@ func (s *Server) Login(c *gin.Context) {
 				"exponent", e.Exponent,
 			)
 			c.Header("Retry-After", fmt.Sprintf("%d", e.RetryAfterSeconds))
-			c.IndentedJSON(http.StatusTooManyRequests, gin.H{"message": "too many failed login attempts, retry later", "retry_after": e.RetryAfterSeconds, "failed_by_user": e.FailedByUser, "failed_by_ip": e.FailedByIP, "threshold": e.Threshold, "exponent": e.Exponent})
+			c.JSON(http.StatusTooManyRequests, gin.H{"message": "too many failed login attempts, retry later", "retry_after": e.RetryAfterSeconds, "failed_by_user": e.FailedByUser, "failed_by_ip": e.FailedByIP, "threshold": e.Threshold, "exponent": e.Exponent})
 			return
 		default:
-			c.IndentedJSON(http.StatusUnauthorized, gin.H{"message": "invalid credentials"})
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid credentials"})
 			return
 		}
 	}
@@ -66,7 +66,7 @@ func (s *Server) Login(c *gin.Context) {
 		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 	})
-	c.IndentedJSON(http.StatusOK, gen.LoginResponse{MustChangePassword: &mustChange, CsrfToken: &csrf})
+	c.JSON(http.StatusOK, gen.LoginResponse{MustChangePassword: &mustChange, CsrfToken: &csrf})
 }
 
 func (s *Server) Logout(c *gin.Context) {
@@ -111,7 +111,7 @@ func (s *Server) GetCurrentUser(c *gin.Context) {
 			csrfPtr = &t
 		}
 	}
-	c.IndentedJSON(http.StatusOK, gen.MeResponse{User: user, CsrfToken: csrfPtr})
+	c.JSON(http.StatusOK, gen.MeResponse{User: user, CsrfToken: csrfPtr})
 }
 
 func (s *Server) ListSessions(c *gin.Context) {
@@ -120,7 +120,7 @@ func (s *Server) ListSessions(c *gin.Context) {
 	user := u.(*gen.User)
 	sessions, err := s.authService.ListSessionsForUser(ctx, user.Id)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to list sessions", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to list sessions", "error": err.Error()})
 		return
 	}
 	cookieName := "sensor_hub_session"
@@ -151,7 +151,7 @@ func (s *Server) ListSessions(c *gin.Context) {
 			Current:        &isCurrent,
 		})
 	}
-	c.IndentedJSON(http.StatusOK, out)
+	c.JSON(http.StatusOK, out)
 }
 
 func (s *Server) RevokeSession(c *gin.Context, id int64) {
@@ -162,7 +162,7 @@ func (s *Server) RevokeSession(c *gin.Context, id int64) {
 
 	sessions, err := s.authService.ListSessionsForUser(ctx, user.Id)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to list sessions", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to list sessions", "error": err.Error()})
 		return
 	}
 	owned := false
@@ -186,7 +186,7 @@ func (s *Server) RevokeSession(c *gin.Context, id int64) {
 
 	revokerId := user.Id
 	if err := s.authService.RevokeSessionByIdWithActor(ctx, id, &revokerId, nil); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to revoke session", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to revoke session", "error": err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)

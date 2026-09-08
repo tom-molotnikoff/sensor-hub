@@ -36,8 +36,8 @@ export default function MinMaxAvgWidget({ config }: WidgetProps) {
     useEffect(() => {
         if (!sensor) return;
 
-        requestScheduler.schedule('normal', () => apiClient.GET('/readings/between', { params: { query: { start: startIso, end: endIso, measurement_type: measurementType } } })).then(({ data: response }) => {
-            const sensorReadings = (response?.readings ?? []).filter((r) => r.sensor_name === sensor.name);
+        requestScheduler.schedule('normal', () => apiClient.GET('/readings/between', { params: { query: { start: startIso, end: endIso, type: measurementType, sensor: sensor.name } } })).then(({ data: response }) => {
+            const sensorReadings = response?.readings ?? [];
             if (sensorReadings.length === 0) {
                 setStats(null);
                 return;

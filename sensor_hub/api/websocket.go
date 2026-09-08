@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func createPushWebSocket(ctx *gin.Context, topic string) {
+func createPushWebSocket(ctx *gin.Context, topic string) *websocket.Conn {
 	// log request info for debugging
 	origin := ctx.GetHeader("Origin")
 	remote := ctx.Request.RemoteAddr
@@ -24,10 +24,11 @@ func createPushWebSocket(ctx *gin.Context, topic string) {
 	conn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 	if err != nil {
 		slog.Error("failed to set websocket upgrade", "error", err)
-		return
+		return nil
 	}
 	slog.Debug("WebSocket connection established, registering to hub", "topic", topic)
 	ws.Register(conn, []string{topic})
+	return conn
 }
 
 func createIntervalBasedWebSocket(ctx *gin.Context, topic string, methodToCall func() (any, error), intervalSeconds int) {

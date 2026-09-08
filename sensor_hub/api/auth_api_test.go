@@ -132,7 +132,7 @@ func TestRevokeSessionHandler_OwnSession(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
 			return
 		}
 		s.RevokeSession(c, id)
@@ -264,7 +264,7 @@ func TestRevokeSessionHandler_InvalidID(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
 			return
 		}
 		s.RevokeSession(c, id)
@@ -283,7 +283,7 @@ func TestRevokeSessionHandler_MissingID(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
 			return
 		}
 		s.RevokeSession(c, id)
@@ -303,7 +303,7 @@ func TestRevokeSessionHandler_NotOwnedSession(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"user"}})
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
 			return
 		}
 		s.RevokeSession(c, id)
@@ -324,7 +324,7 @@ func TestRevokeSessionHandler_AdminRevokingOthers(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1, Roles: []string{"admin"}})
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
 			return
 		}
 		s.RevokeSession(c, id)
@@ -347,7 +347,7 @@ func TestRevokeSessionHandler_ListError(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
 			return
 		}
 		s.RevokeSession(c, id)
@@ -368,7 +368,7 @@ func TestRevokeSessionHandler_RevokeError(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid session id"})
 			return
 		}
 		s.RevokeSession(c, id)

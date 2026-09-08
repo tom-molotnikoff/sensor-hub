@@ -102,9 +102,18 @@ func (m *MockSessionRepository) CreateSession(ctx context.Context, userId int, r
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockSessionRepository) GetUserIdByToken(ctx context.Context, rawToken string) (int, error) {
+func (m *MockSessionRepository) GetAuthenticatedUserByToken(ctx context.Context, rawToken string) (*gen.User, time.Time, error) {
 	args := m.Called(ctx, rawToken)
-	return args.Int(0), args.Error(1)
+	var user *gen.User
+	if args.Get(0) != nil {
+		user = args.Get(0).(*gen.User)
+	}
+	return user, args.Get(1).(time.Time), args.Error(2)
+}
+
+func (m *MockSessionRepository) TouchSession(ctx context.Context, rawToken string) error {
+	args := m.Called(ctx, rawToken)
+	return args.Error(0)
 }
 
 func (m *MockSessionRepository) DeleteSessionByToken(ctx context.Context, rawToken string) error {

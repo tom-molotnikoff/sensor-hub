@@ -139,7 +139,7 @@ func TestGetRolePermissions_InvalidID(t *testing.T) {
 	router.GET("/api/roles/:id/permissions", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid role id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid role id"})
 			return
 		}
 		s.GetRolePermissions(c, id)
@@ -174,7 +174,7 @@ func TestAssignPermission_InvalidID(t *testing.T) {
 	router.POST("/api/roles/:id/permissions", func(c *gin.Context) {
 		var id int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid role id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid role id"})
 			return
 		}
 		s.AssignPermission(c, id)
@@ -230,11 +230,11 @@ func TestRemovePermission_InvalidRoleID(t *testing.T) {
 	router.DELETE("/api/roles/:id/permissions/:pid", func(c *gin.Context) {
 		var id, pid int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid role id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid role id"})
 			return
 		}
 		if _, err := fmt.Sscan(c.Param("pid"), &pid); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid permission id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid permission id"})
 			return
 		}
 		s.RemovePermission(c, id, pid)
@@ -252,11 +252,11 @@ func TestRemovePermission_InvalidPermissionID(t *testing.T) {
 	router.DELETE("/api/roles/:id/permissions/:pid", func(c *gin.Context) {
 		var id, pid int
 		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid role id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid role id"})
 			return
 		}
 		if _, err := fmt.Sscan(c.Param("pid"), &pid); err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid permission id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid permission id"})
 			return
 		}
 		s.RemovePermission(c, id, pid)

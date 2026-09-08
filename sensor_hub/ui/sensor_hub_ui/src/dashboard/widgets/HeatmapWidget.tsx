@@ -89,8 +89,8 @@ export default function HeatmapWidget({ config }: WidgetProps) {
         const now = new Date();
         const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-        requestScheduler.schedule('normal', () => apiClient.GET('/readings/between', { params: { query: { start: start.toISOString().slice(0, 10), end: now.toISOString().slice(0, 10), measurement_type: measurementType } } })).then(({ data: response }) => {
-            const sensorReadings = (response?.readings ?? []).filter((r) => r.sensor_name === sensor.name);
+        requestScheduler.schedule('normal', () => apiClient.GET('/readings/between', { params: { query: { start: start.toISOString().slice(0, 10), end: now.toISOString().slice(0, 10), type: measurementType, sensor: sensor.name } } })).then(({ data: response }) => {
+            const sensorReadings = response?.readings ?? [];
             const grouped: Record<string, number[]> = {};
 
             for (const r of sensorReadings) {

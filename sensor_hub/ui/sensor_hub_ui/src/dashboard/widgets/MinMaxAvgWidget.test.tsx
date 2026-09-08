@@ -1,6 +1,7 @@
 import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sensor } from '../../gen/aliases';
+import { apiClient } from '../../gen/client';
 import MinMaxAvgWidget from './MinMaxAvgWidget';
 
 const { scheduleMock, reportUpdateMock } = vi.hoisted(() => ({
@@ -47,5 +48,26 @@ describe('MinMaxAvgWidget loading state', () => {
     render(<MinMaxAvgWidget id="w" isEditing={false} config={config} />);
     await waitForElementToBeRemoved(() => screen.queryByTestId('widget-loader'));
     expect(screen.getByText('No data available')).toBeInTheDocument();
+  });
+});
+
+describe('MinMaxAvgWidget request', () => {
+  beforeEach(() => {
+    sensors.splice(0, sensors.length, makeSensor());
+    scheduleMock.mockReset();
+    reportUpdateMock.mockReset();
+    vi.mocked(apiClient.GET).mockReset();
+  });
+
+  it('asks for its own sensor and measurement type only', async () => {
+    vi.mocked(apiClient.GET).mockResolvedValue({ data: { readings: [] } });
+    scheduleMock.mockImplementation((_priority: string, fetcher: () => Promise<unknown>) => fetcher());
+
+    render(<MinMaxAvgWidget id="w" isEditing={false} config={config} />);
+    await waitForElementToBeRemoved(() => screen.queryByTestId('widget-loader'));
+
+    expect(apiClient.GET).toHaveBeenCalledWith('/readings/between', {
+      params: { query: expect.objectContaining({ type: 'temperature', sensor: 'fridge' }) },
+    });
   });
 });

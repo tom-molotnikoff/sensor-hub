@@ -112,6 +112,24 @@ func (h *Hub) BroadcastToTopic(topic string, v any) {
 	h.mu.Unlock()
 }
 
+func (h *Hub) Send(conn *websocket.Conn, v any) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	ci, ok := h.conns[conn]
+	if !ok {
+		h.logger.Warn("Send called for an unregistered connection, ignoring")
+		return
+	}
+	select {
+	case ci.send <- v:
+	default:
+		h.logger.Warn("dropping message for conn (buffer full), unregistering")
+		delete(h.conns, conn)
+		close(ci.send)
+		_ = conn.Close()
+	}
+}
+
 func (h *Hub) Count() int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -144,6 +162,10 @@ func Register(conn *websocket.Conn, topics []string) {
 
 func Unregister(conn *websocket.Conn) {
 	DefaultHub.Unregister(conn)
+}
+
+func Send(conn *websocket.Conn, v any) {
+	DefaultHub.Send(conn, v)
 }
 
 func BroadcastToTopic(topic string, v any) {

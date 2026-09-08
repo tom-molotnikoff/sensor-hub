@@ -4,17 +4,10 @@ import (
 	"net/http"
 	"strings"
 
-	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 
 	"github.com/gin-gonic/gin"
 )
-
-var roleRepo database.RoleRepository
-
-func InitPermissionMiddleware(r database.RoleRepository) {
-	roleRepo = r
-}
 
 func RequirePermission(permission string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
@@ -29,17 +22,7 @@ func RequirePermission(permission string) gin.HandlerFunc {
 			return
 		}
 
-		// If permissions are already populated on the user (from ValidateSession), use them to avoid a DB lookup
-		perms := user.Permissions
-		if perms == nil {
-			var err error
-			perms, err = roleRepo.GetPermissionsForUser(ctx.Request.Context(), user.Id)
-			if err != nil {
-				ctx.AbortWithStatus(http.StatusInternalServerError)
-				return
-			}
-		}
-		for _, p := range perms {
+		for _, p := range user.Permissions {
 			if strings.EqualFold(p, permission) {
 				ctx.Next()
 				return

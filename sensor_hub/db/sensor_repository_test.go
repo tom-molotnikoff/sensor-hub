@@ -229,6 +229,22 @@ func TestSensorRepository_GetAllSensors_Success(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestSensorRepository_GetAllSensors_UsesReaderPool(t *testing.T) {
+	readerDB, readerMock := newMockDB(t)
+	writerDB, _ := newMockDB(t)
+	repo := NewSensorRepository(&Handles{Reader: readerDB, Writer: writerDB}, slog.Default())
+
+	readerMock.ExpectQuery("SELECT id, name, external_id, sensor_driver, config, health_status, health_reason, enabled, status, retention_hours, metadata FROM sensors").
+		WillReturnRows(sqlmock.NewRows(sensorColumns).
+			AddRow(1, "sensor-1", nil, "temperature", `{"url":"http://localhost:8081"}`, "good", "ok", true, "active", nil, `{}`))
+
+	sensors, err := repo.GetAllSensors(context.Background())
+
+	assert.NoError(t, err)
+	assert.Len(t, sensors, 1)
+	assert.NoError(t, readerMock.ExpectationsWereMet())
+}
+
 func TestSensorRepository_GetAllSensors_EmptyTable(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSensorRepository(handles(db), slog.Default())

@@ -262,6 +262,46 @@ func TestHub_BroadcastToTopic_MultipleSubscribers(t *testing.T) {
 	}
 }
 
+func TestHub_Send_OnlyToThatConnection(t *testing.T) {
+	hub := NewHub(slog.Default())
+	target := &websocket.Conn{}
+	other := &websocket.Conn{}
+
+	hub.conns[target] = &connInfo{
+		conn:   target,
+		send:   make(chan any, 16),
+		topics: map[string]bool{"test-topic": true},
+	}
+	hub.conns[other] = &connInfo{
+		conn:   other,
+		send:   make(chan any, 16),
+		topics: map[string]bool{"test-topic": true},
+	}
+
+	hub.Send(target, "snapshot")
+
+	select {
+	case msg := <-hub.conns[target].send:
+		assert.Equal(t, "snapshot", msg)
+	case <-time.After(100 * time.Millisecond):
+		t.Error("expected message for the target connection")
+	}
+
+	select {
+	case msg := <-hub.conns[other].send:
+		t.Errorf("expected no message for the other subscriber, got %v", msg)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestHub_Send_UnregisteredConnection(t *testing.T) {
+	hub := NewHub(slog.Default())
+
+	hub.Send(&websocket.Conn{}, "snapshot")
+
+	assert.Equal(t, 0, hub.Count())
+}
+
 func TestHub_BroadcastToTopic_FullBuffer(t *testing.T) {
 	hub := NewHub(slog.Default())
 	mockConn := &websocket.Conn{}

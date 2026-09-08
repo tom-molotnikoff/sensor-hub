@@ -28,16 +28,17 @@ type AuthServiceInterface interface {
 	GetSessionIdForToken(ctx context.Context, rawToken string) (int64, error)
 }
 
+const sessionTouchInterval = 60 * time.Second
+
 type AuthService struct {
 	userRepo    database.UserRepository
 	sessionRepo database.SessionRepository
 	failedRepo  database.FailedLoginRepository
-	roleRepo    database.RoleRepository
 	logger      *slog.Logger
 }
 
-func NewAuthService(u database.UserRepository, s database.SessionRepository, f database.FailedLoginRepository, r database.RoleRepository, logger *slog.Logger) *AuthService {
-	return &AuthService{userRepo: u, sessionRepo: s, failedRepo: f, roleRepo: r, logger: logger.With("component", "auth_service")}
+func NewAuthService(u database.UserRepository, s database.SessionRepository, f database.FailedLoginRepository, logger *slog.Logger) *AuthService {
+	return &AuthService{userRepo: u, sessionRepo: s, failedRepo: f, logger: logger.With("component", "auth_service")}
 }
 
 func (a *AuthService) generateToken(nBytes int) (string, error) {
@@ -222,21 +223,16 @@ func (a *AuthService) Login(ctx context.Context, username, password, ip, userAge
 }
 
 func (a *AuthService) ValidateSession(ctx context.Context, rawToken string) (*gen.User, error) {
-	userId, err := a.sessionRepo.GetUserIdByToken(ctx, rawToken)
+	user, lastAccessedAt, err := a.sessionRepo.GetAuthenticatedUserByToken(ctx, rawToken)
 	if err != nil {
 		return nil, err
 	}
-	if userId == 0 {
+	if user == nil {
 		return nil, nil
 	}
-	user, err := a.userRepo.GetUserById(ctx, userId)
-	if err != nil {
-		return nil, err
-	}
-	if a.roleRepo != nil {
-		perms, err := a.roleRepo.GetPermissionsForUser(ctx, user.Id)
-		if err == nil {
-			user.Permissions = perms
+	if time.Since(lastAccessedAt) >= sessionTouchInterval {
+		if err := a.sessionRepo.TouchSession(ctx, rawToken); err != nil {
+			a.logger.Error("error updating last accessed time", "error", err)
 		}
 	}
 	return user, nil

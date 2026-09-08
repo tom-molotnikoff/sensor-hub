@@ -120,7 +120,7 @@ func TestMarkAsRead_Success(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
 			return
 		}
 		s.MarkAsRead(c, id)
@@ -141,7 +141,7 @@ func TestMarkAsRead_InvalidID(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
 			return
 		}
 		s.MarkAsRead(c, id)
@@ -160,7 +160,7 @@ func TestMarkAsRead_ServiceError(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
 			return
 		}
 		s.MarkAsRead(c, id)
@@ -181,7 +181,7 @@ func TestDismissNotification_Success(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
 			return
 		}
 		s.DismissNotification(c, id)
@@ -202,7 +202,7 @@ func TestDismissNotification_InvalidID(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
 			return
 		}
 		s.DismissNotification(c, id)
@@ -221,7 +221,7 @@ func TestDismissNotification_ServiceError(t *testing.T) {
 		c.Set("currentUser", &gen.User{Id: 1})
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid notification id"})
 			return
 		}
 		s.DismissNotification(c, id)

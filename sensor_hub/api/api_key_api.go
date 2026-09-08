@@ -11,11 +11,11 @@ func (s *Server) CreateApiKey(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req gen.CreateApiKeyJSONRequestBody
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
 		return
 	}
 	if req.Name == "" {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
 		return
 	}
 
@@ -23,11 +23,11 @@ func (s *Server) CreateApiKey(c *gin.Context) {
 
 	fullKey, err := s.apiKeyService.CreateApiKey(ctx, req.Name, user.Id, req.ExpiresAt)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to create api key", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to create api key", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusCreated, gin.H{
+	c.JSON(http.StatusCreated, gin.H{
 		"key":     fullKey,
 		"message": "Store this key securely. It will not be shown again.",
 	})
@@ -39,17 +39,17 @@ func (s *Server) ListApiKeys(c *gin.Context) {
 
 	keys, err := s.apiKeyService.ListApiKeysForUser(ctx, user.Id)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to list api keys", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to list api keys", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, keys)
+	c.JSON(http.StatusOK, keys)
 }
 
 func (s *Server) UpdateApiKeyExpiry(c *gin.Context, id int) {
 	var req gen.UpdateApiKeyExpiryJSONRequestBody
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
 		return
 	}
 
@@ -57,11 +57,11 @@ func (s *Server) UpdateApiKeyExpiry(c *gin.Context, id int) {
 	user := c.MustGet("currentUser").(*gen.User)
 
 	if err := s.apiKeyService.UpdateApiKeyExpiry(ctx, id, user.Id, req.ExpiresAt); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to update expiry", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to update expiry", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "expiry updated"})
+	c.JSON(http.StatusOK, gin.H{"message": "expiry updated"})
 }
 
 func (s *Server) RevokeApiKey(c *gin.Context, id int) {
@@ -69,11 +69,11 @@ func (s *Server) RevokeApiKey(c *gin.Context, id int) {
 	user := c.MustGet("currentUser").(*gen.User)
 
 	if err := s.apiKeyService.RevokeApiKey(ctx, id, user.Id); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to revoke api key", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to revoke api key", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "api key revoked"})
+	c.JSON(http.StatusOK, gin.H{"message": "api key revoked"})
 }
 
 func (s *Server) DeleteApiKey(c *gin.Context, id int) {
@@ -81,9 +81,9 @@ func (s *Server) DeleteApiKey(c *gin.Context, id int) {
 	user := c.MustGet("currentUser").(*gen.User)
 
 	if err := s.apiKeyService.DeleteApiKey(ctx, id, user.Id); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to delete api key", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to delete api key", "error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "api key deleted"})
+	c.JSON(http.StatusOK, gin.H{"message": "api key deleted"})
 }

@@ -141,7 +141,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	cleanupService := service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, maintenanceRepo, readingsSampler, logger)
 
 	userService := service.NewUserService(userRepo, notificationService, logger)
-	authService := service.NewAuthService(userRepo, sessionRepo, failedRepo, roleRepo, logger)
+	authService := service.NewAuthService(userRepo, sessionRepo, failedRepo, logger)
 	roleService := service.NewRoleService(roleRepo, logger)
 	alertManagementService := service.NewAlertManagementService(alertRepo, thresholdProcessor, logger)
 
@@ -166,7 +166,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 
 	middleware.InitAuthMiddleware(authService)
-	middleware.InitPermissionMiddleware(roleRepo)
 	middleware.InitApiKeyMiddleware(apiKeyService)
 
 	initialAdmin := os.Getenv("SENSOR_HUB_INITIAL_ADMIN")

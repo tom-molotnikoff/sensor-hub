@@ -51,79 +51,133 @@ func TestSessionRepository_CreateSession_DBError(t *testing.T) {
 }
 
 // ============================================================================
-// GetUserIdByToken tests
+// GetAuthenticatedUserByToken tests
 // ============================================================================
 
-func TestSessionRepository_GetUserIdByToken_Success(t *testing.T) {
+func authRows(expiresAt, lastAccessedAt time.Time, roles, permissions any) *sqlmock.Rows {
+	return sqlmock.NewRows([]string{"expires_at", "last_accessed_at", "id", "username", "email", "must_change_password", "disabled", "created_at", "updated_at", "roles", "permissions"}).
+		AddRow(expiresAt, lastAccessedAt, 42, "alice", "alice@example.com", false, false, time.Now(), nil, roles, permissions)
+}
+
+func TestSessionRepository_GetAuthenticatedUserByToken_Success(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSessionRepository(handles(db), slog.Default())
 
-	expiresAt := time.Now().Add(1 * time.Hour) // Not expired
-	mock.ExpectQuery("SELECT user_id, expires_at FROM sessions WHERE token_hash = \\?").
+	expiresAt := time.Now().Add(1 * time.Hour)
+	lastAccessedAt := time.Now().Add(-5 * time.Minute)
+	mock.ExpectQuery("FROM sessions s JOIN users u ON u.id = s.user_id").
 		WithArgs(sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"user_id", "expires_at"}).AddRow(42, expiresAt))
+		WillReturnRows(authRows(expiresAt, lastAccessedAt, "admin\x1fviewer", "view_readings\x1fview_readings\x1fmanage_users"))
 
-	// Update last accessed
-	mock.ExpectExec("UPDATE sessions SET last_accessed_at = \\? WHERE token_hash = \\?").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-
-	userId, err := repo.GetUserIdByToken(context.Background(), "valid-token")
+	user, gotLastAccessed, err := repo.GetAuthenticatedUserByToken(context.Background(), "valid-token")
 
 	assert.NoError(t, err)
-	assert.Equal(t, 42, userId)
+	assert.NotNil(t, user)
+	assert.Equal(t, 42, user.Id)
+	assert.Equal(t, "alice", user.Username)
+	assert.Equal(t, []string{"admin", "viewer"}, user.Roles)
+	assert.Equal(t, []string{"view_readings", "manage_users"}, user.Permissions)
+	assert.WithinDuration(t, lastAccessedAt, gotLastAccessed, time.Second)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestSessionRepository_GetUserIdByToken_NotFound(t *testing.T) {
+func TestSessionRepository_GetAuthenticatedUserByToken_NoRolesOrPermissions(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSessionRepository(handles(db), slog.Default())
 
-	mock.ExpectQuery("SELECT user_id, expires_at FROM sessions WHERE token_hash = \\?").
+	mock.ExpectQuery("FROM sessions s JOIN users u ON u.id = s.user_id").
+		WithArgs(sqlmock.AnyArg()).
+		WillReturnRows(authRows(time.Now().Add(1*time.Hour), time.Now(), nil, nil))
+
+	user, _, err := repo.GetAuthenticatedUserByToken(context.Background(), "valid-token")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, user)
+	assert.Empty(t, user.Roles)
+	assert.Empty(t, user.Permissions)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestSessionRepository_GetAuthenticatedUserByToken_NotFound(t *testing.T) {
+	db, mock := newMockDB(t)
+	repo := NewSessionRepository(handles(db), slog.Default())
+
+	mock.ExpectQuery("FROM sessions s JOIN users u ON u.id = s.user_id").
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(sql.ErrNoRows)
 
-	userId, err := repo.GetUserIdByToken(context.Background(), "nonexistent-token")
+	user, _, err := repo.GetAuthenticatedUserByToken(context.Background(), "nonexistent-token")
 
 	assert.NoError(t, err)
-	assert.Equal(t, 0, userId)
+	assert.Nil(t, user)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestSessionRepository_GetUserIdByToken_Expired(t *testing.T) {
+func TestSessionRepository_GetAuthenticatedUserByToken_Expired(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSessionRepository(handles(db), slog.Default())
 
-	expiresAt := time.Now().Add(-1 * time.Hour) // Expired
-	mock.ExpectQuery("SELECT user_id, expires_at FROM sessions WHERE token_hash = \\?").
+	mock.ExpectQuery("FROM sessions s JOIN users u ON u.id = s.user_id").
 		WithArgs(sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"user_id", "expires_at"}).AddRow(42, expiresAt))
+		WillReturnRows(authRows(time.Now().Add(-1*time.Hour), time.Now(), "admin", "manage_users"))
 
-	// Should delete expired session
 	mock.ExpectExec("DELETE FROM sessions WHERE token_hash = \\?").
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	userId, err := repo.GetUserIdByToken(context.Background(), "expired-token")
+	user, _, err := repo.GetAuthenticatedUserByToken(context.Background(), "expired-token")
 
 	assert.NoError(t, err)
-	assert.Equal(t, 0, userId)
+	assert.Nil(t, user)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestSessionRepository_GetUserIdByToken_DBError(t *testing.T) {
+func TestSessionRepository_GetAuthenticatedUserByToken_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSessionRepository(handles(db), slog.Default())
 
-	mock.ExpectQuery("SELECT user_id, expires_at FROM sessions WHERE token_hash = \\?").
+	mock.ExpectQuery("FROM sessions s JOIN users u ON u.id = s.user_id").
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(errors.New("database error"))
 
-	userId, err := repo.GetUserIdByToken(context.Background(), "some-token")
+	user, _, err := repo.GetAuthenticatedUserByToken(context.Background(), "some-token")
 
 	assert.Error(t, err)
-	assert.Equal(t, 0, userId)
-	assert.Contains(t, err.Error(), "error querying session")
+	assert.Nil(t, user)
+	assert.Contains(t, err.Error(), "error querying authenticated user")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// ============================================================================
+// TouchSession tests
+// ============================================================================
+
+func TestSessionRepository_TouchSession_Success(t *testing.T) {
+	db, mock := newMockDB(t)
+	repo := NewSessionRepository(handles(db), slog.Default())
+
+	mock.ExpectExec("UPDATE sessions SET last_accessed_at = \\? WHERE token_hash = \\?").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	err := repo.TouchSession(context.Background(), "valid-token")
+
+	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestSessionRepository_TouchSession_DBError(t *testing.T) {
+	db, mock := newMockDB(t)
+	repo := NewSessionRepository(handles(db), slog.Default())
+
+	mock.ExpectExec("UPDATE sessions SET last_accessed_at = \\? WHERE token_hash = \\?").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnError(errors.New("database error"))
+
+	err := repo.TouchSession(context.Background(), "valid-token")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error updating last accessed time")
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -538,33 +592,24 @@ func TestSessionRepository_InsertSessionAudit_DBError(t *testing.T) {
 // ============================================================================
 
 func TestSessionRepository_TokenHashing_Consistent(t *testing.T) {
-	// Verify that the same token always produces the same hash
 	db, mock := newMockDB(t)
 	repo := NewSessionRepository(handles(db), slog.Default())
 
 	expiresAt := time.Now().Add(1 * time.Hour)
 
-	// First call
-	mock.ExpectQuery("SELECT user_id, expires_at FROM sessions WHERE token_hash = \\?").
+	mock.ExpectQuery("FROM sessions s JOIN users u ON u.id = s.user_id").
 		WithArgs(sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"user_id", "expires_at"}).AddRow(1, expiresAt))
-	mock.ExpectExec("UPDATE sessions SET last_accessed_at").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-
-	_, err := repo.GetUserIdByToken(context.Background(), "consistent-token")
+		WillReturnRows(authRows(expiresAt, time.Now(), "admin", "manage_users"))
+	first, _, err := repo.GetAuthenticatedUserByToken(context.Background(), "consistent-token")
 	assert.NoError(t, err)
+	assert.NotNil(t, first)
 
-	// Second call with same token - should use same hash
-	mock.ExpectQuery("SELECT user_id, expires_at FROM sessions WHERE token_hash = \\?").
+	mock.ExpectQuery("FROM sessions s JOIN users u ON u.id = s.user_id").
 		WithArgs(sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"user_id", "expires_at"}).AddRow(1, expiresAt))
-	mock.ExpectExec("UPDATE sessions SET last_accessed_at").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-
-	_, err = repo.GetUserIdByToken(context.Background(), "consistent-token")
+		WillReturnRows(authRows(expiresAt, time.Now(), "admin", "manage_users"))
+	second, _, err := repo.GetAuthenticatedUserByToken(context.Background(), "consistent-token")
 	assert.NoError(t, err)
+	assert.NotNil(t, second)
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }

@@ -14,13 +14,13 @@ func (s *Server) ListDashboards(c *gin.Context) {
 
 	dashboards, err := s.dashboardService.ServiceListDashboards(ctx, user.Id)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error listing dashboards"})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error listing dashboards"})
 		return
 	}
 	if dashboards == nil {
 		dashboards = []gen.Dashboard{}
 	}
-	c.IndentedJSON(http.StatusOK, dashboards)
+	c.JSON(http.StatusOK, dashboards)
 }
 
 func (s *Server) GetDashboard(c *gin.Context, id int) {
@@ -28,14 +28,14 @@ func (s *Server) GetDashboard(c *gin.Context, id int) {
 
 	dashboard, err := s.dashboardService.ServiceGetDashboard(ctx, id)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error getting dashboard"})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error getting dashboard"})
 		return
 	}
 	if dashboard == nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Dashboard not found"})
+		c.JSON(http.StatusNotFound, gin.H{"message": "Dashboard not found"})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, dashboard)
+	c.JSON(http.StatusOK, dashboard)
 }
 
 func (s *Server) CreateDashboard(c *gin.Context) {
@@ -44,20 +44,20 @@ func (s *Server) CreateDashboard(c *gin.Context) {
 
 	var req gen.CreateDashboardRequest
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request body"})
 		return
 	}
 	if req.Name == "" {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request body"})
 		return
 	}
 
 	id, err := s.dashboardService.ServiceCreateDashboard(ctx, user.Id, req)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Error creating dashboard"})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error creating dashboard"})
 		return
 	}
-	c.IndentedJSON(http.StatusCreated, gin.H{"id": id})
+	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
 func (s *Server) UpdateDashboard(c *gin.Context, id int) {
@@ -66,15 +66,15 @@ func (s *Server) UpdateDashboard(c *gin.Context, id int) {
 
 	var req gen.UpdateDashboardRequest
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request body"})
 		return
 	}
 
 	if err := s.dashboardService.ServiceUpdateDashboard(ctx, user.Id, id, req); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "Dashboard updated"})
+	c.JSON(http.StatusOK, gin.H{"message": "Dashboard updated"})
 }
 
 func (s *Server) DeleteDashboard(c *gin.Context, id int) {
@@ -82,10 +82,10 @@ func (s *Server) DeleteDashboard(c *gin.Context, id int) {
 	user := c.MustGet("currentUser").(*gen.User)
 
 	if err := s.dashboardService.ServiceDeleteDashboard(ctx, user.Id, id); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "Dashboard deleted"})
+	c.JSON(http.StatusOK, gin.H{"message": "Dashboard deleted"})
 }
 
 func (s *Server) ShareDashboard(c *gin.Context, id int) {
@@ -94,15 +94,15 @@ func (s *Server) ShareDashboard(c *gin.Context, id int) {
 
 	var req gen.ShareDashboardRequest
 	if err := c.BindJSON(&req); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request body"})
 		return
 	}
 
 	if err := s.dashboardService.ServiceShareDashboard(ctx, user.Id, id, req.TargetUserId); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "Dashboard shared"})
+	c.JSON(http.StatusOK, gin.H{"message": "Dashboard shared"})
 }
 
 func (s *Server) SetDefaultDashboard(c *gin.Context, id int) {
@@ -110,8 +110,8 @@ func (s *Server) SetDefaultDashboard(c *gin.Context, id int) {
 	user := c.MustGet("currentUser").(*gen.User)
 
 	if err := s.dashboardService.ServiceSetDefaultDashboard(ctx, user.Id, id); err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "Default dashboard set"})
+	c.JSON(http.StatusOK, gin.H{"message": "Default dashboard set"})
 }
