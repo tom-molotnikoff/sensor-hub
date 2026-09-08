@@ -43,29 +43,29 @@ export default function PropertiesPage() {
   const sections = useMemo(() => {
     const term = search.trim().toLowerCase();
     return allSections
-      .map(({ group, fields }) => ({
+      .map(({ group, rows }) => ({
         group,
-        groupFields: fields,
-        fields: fields.filter((definition) => matchesSearch(definition, term)),
+        groupRows: rows,
+        rows: rows.filter((row) => matchesSearch(row.definition, term)),
       }))
-      .filter((section) => section.fields.length > 0);
+      .filter((section) => section.rows.length > 0);
   }, [allSections, search]);
 
   const currentGroupId = useScrollSpy(sections.map((section) => section.group.id));
 
   const landed = useRef(false);
   useEffect(() => {
-    if (landed.current || sections.length === 0) return;
+    if (landed.current || loading || sections.length === 0) return;
     landed.current = true;
     const target = window.location.hash.slice(1);
     if (target === '') return;
     document.getElementById(target)?.scrollIntoView?.();
-  }, [sections.length]);
+  }, [loading, sections.length]);
 
-  const railGroups = sections.map(({ group, groupFields }) => ({
+  const railGroups = sections.map(({ group, groupRows }) => ({
     id: group.id,
     label: group.label,
-    editedCount: groupFields.filter((definition) => modified.has(definition.key)).length,
+    editedCount: groupRows.filter((row) => modified.has(row.definition.key)).length,
   }));
 
   const handleSave = async () => {
@@ -74,7 +74,7 @@ export default function PropertiesPage() {
     setSaved(false);
     try {
       const payload: Record<string, string> = {};
-      for (const definition of allSections.flatMap((section) => section.fields)) {
+      for (const { definition } of allSections.flatMap((section) => section.rows)) {
         if (definition.readOnly) continue;
         const value = edits[definition.key] ?? serverValues[definition.key];
         if (value !== undefined) payload[definition.key] = value;
@@ -151,12 +151,13 @@ export default function PropertiesPage() {
               onSearchChange={setSearch}
             />
             <Stack spacing={2} sx={{ flex: '1 1 auto', minWidth: 0, width: '100%' }}>
-              {sections.map(({ group, fields }) => (
+              {sections.map(({ group, rows }) => (
                 <PropertyGroupSection key={group.id} group={group}>
-                  {fields.map((definition) => (
+                  {rows.map(({ definition, described }) => (
                     <PropertyField
                       key={definition.key}
                       definition={definition}
+                      described={described}
                       serverValue={serverValues[definition.key]}
                       editedValue={edits[definition.key]}
                       collided={collisions.has(definition.key)}

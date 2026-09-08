@@ -450,6 +450,9 @@ describe('PropertiesPage', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'sensor.collection.interval' }), {
       target: { value: '120' },
     });
+    expect(screen.getByText('Saved value 300')).toBeInTheDocument();
+    expect(screen.queryByText(/default/)).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => expect(patchMock).toHaveBeenCalledTimes(1));
@@ -481,6 +484,7 @@ describe('PropertiesPage', () => {
     const field = screen.getByRole('spinbutton', { name: 'Collection interval' });
     expect(field).toHaveValue(null);
     expect(field).toHaveAttribute('placeholder', '300');
+    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
   });
 
   it('says it is loading rather than rendering blank while the definitions are still in flight', async () => {
@@ -502,6 +506,34 @@ describe('PropertiesPage', () => {
 
     expect(screen.queryByText(/loading properties/i)).not.toBeInTheDocument();
     expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
+  });
+
+  it('scrolls to the group named by the fragment even when the values arrive before the definitions', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    window.location.hash = '#advanced';
+
+    let settleDefinitions: (value: unknown) => void = () => {};
+    getMock.mockReturnValue(new Promise((resolve) => { settleDefinitions = resolve; }));
+
+    const { default: PropertiesPage } = await import('./PropertiesPage');
+    const { AuthContext } = await import('../providers/AuthContext');
+    render(
+      <AuthContext.Provider value={{ user: { id: 1, username: 'owner', roles: [], permissions: ['view_properties'] }, refresh: async () => {} }}>
+        <PropertiesPage />
+      </AuthContext.Provider>,
+    );
+
+    await waitFor(() => expect(FakeWebSocket.instances.length).toBe(1));
+    act(() => {
+      FakeWebSocket.instances[0].serverSends(JSON.stringify(serverValues));
+    });
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    await act(async () => { settleDefinitions({ data: definitionsResponse }); });
+
+    expect(scrollIntoView.mock.instances[0]).toBe(document.getElementById('advanced'));
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
   });
 
   it('stacks the rail above the content at the mobile breakpoint', async () => {

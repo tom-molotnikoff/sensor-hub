@@ -1,8 +1,13 @@
 import type { PropertyDefinition, PropertyDefinitionsResponse, PropertyGroup } from '../gen/aliases';
 
+export interface PropertyRow {
+  definition: PropertyDefinition;
+  described: boolean;
+}
+
 export interface PropertySection {
   group: PropertyGroup;
-  fields: PropertyDefinition[];
+  rows: PropertyRow[];
 }
 
 const UNGROUPED: PropertyGroup = {
@@ -12,16 +17,19 @@ const UNGROUPED: PropertyGroup = {
   order: Number.MAX_SAFE_INTEGER,
 };
 
-function undescribed(key: string): PropertyDefinition {
+function undescribed(key: string): PropertyRow {
   return {
-    key,
-    label: key,
-    description: '',
-    type: 'string',
-    default: '',
-    group: UNGROUPED.id,
-    apply: 'live',
-    readOnly: false,
+    definition: {
+      key,
+      label: key,
+      description: '',
+      type: 'string',
+      default: '',
+      group: UNGROUPED.id,
+      apply: 'live',
+      readOnly: false,
+    },
+    described: false,
   };
 }
 
@@ -38,14 +46,18 @@ export function buildSections(
     .sort((a, b) => a.order - b.order)
     .map((group) => ({
       group,
-      fields: defined.filter((definition) => definition.group === group.id),
+      rows: defined
+        .filter((definition) => definition.group === group.id)
+        .map((definition) => ({ definition, described: true })),
     }));
 
-  const ungrouped = [
-    ...defined.filter((definition) => !groupIds.has(definition.group)),
+  const ungrouped: PropertyRow[] = [
+    ...defined
+      .filter((definition) => !groupIds.has(definition.group))
+      .map((definition) => ({ definition, described: true })),
     ...[...valueKeys].sort().filter((key) => !definedKeys.has(key)).map(undescribed),
   ];
-  if (ungrouped.length > 0) sections.push({ group: UNGROUPED, fields: ungrouped });
+  if (ungrouped.length > 0) sections.push({ group: UNGROUPED, rows: ungrouped });
 
   return sections;
 }

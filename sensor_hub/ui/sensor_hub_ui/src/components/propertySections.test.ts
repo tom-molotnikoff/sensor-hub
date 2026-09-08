@@ -32,8 +32,8 @@ describe('buildSections', () => {
     const sections = buildSections(response, ['sensor.discovery.skip', 'database.path']);
 
     expect(sections.map((section) => section.group.id)).toEqual(['sensors', 'advanced']);
-    expect(sections[0].fields.map((field) => field.key)).toEqual(['sensor.discovery.skip']);
-    expect(sections[1].fields.map((field) => field.key)).toEqual(['database.path']);
+    expect(sections[0].rows).toEqual([{ definition: response.definitions[0], described: true }]);
+    expect(sections[1].rows).toEqual([{ definition: response.definitions[1], described: true }]);
   });
 
   it('puts a definition naming a group outside the groups list into Ungrouped rather than dropping it', () => {
@@ -45,7 +45,7 @@ describe('buildSections', () => {
 
     const ungrouped = sections[sections.length - 1];
     expect(ungrouped.group.id).toBe('ungrouped');
-    expect(ungrouped.fields).toEqual([stray]);
+    expect(ungrouped.rows).toEqual([{ definition: stray, described: true }]);
   });
 
   it('puts a value with no definition into Ungrouped as an editable string carrying its raw key', () => {
@@ -53,16 +53,19 @@ describe('buildSections', () => {
 
     const ungrouped = sections[sections.length - 1];
     expect(ungrouped.group.id).toBe('ungrouped');
-    expect(ungrouped.fields).toEqual([
+    expect(ungrouped.rows).toEqual([
       {
-        key: 'unknown.key',
-        label: 'unknown.key',
-        description: '',
-        type: 'string',
-        default: '',
-        group: 'ungrouped',
-        apply: 'live',
-        readOnly: false,
+        definition: {
+          key: 'unknown.key',
+          label: 'unknown.key',
+          description: '',
+          type: 'string',
+          default: '',
+          group: 'ungrouped',
+          apply: 'live',
+          readOnly: false,
+        },
+        described: false,
       },
     ]);
   });
@@ -72,10 +75,11 @@ describe('buildSections', () => {
 
     expect(sections).toHaveLength(1);
     expect(sections[0].group.label).toBe('Ungrouped');
-    expect(sections[0].fields.map((field) => field.key)).toEqual([
+    expect(sections[0].rows.map((row) => row.definition.key)).toEqual([
       'database.path',
       'sensor.discovery.skip',
     ]);
+    expect(sections[0].rows.every((row) => !row.described)).toBe(true);
   });
 
   it('adds no Ungrouped section when every definition has a group and every value has a definition', () => {
