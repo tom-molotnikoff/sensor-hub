@@ -6,6 +6,9 @@ import LuxonLocalizationProvider from "./LuxonLocalizationProvider.tsx";
 import {createTheme} from "@mui/material/styles";
 import AuthProvider from './AuthProvider';
 import NotificationProvider from './NotificationProvider';
+import PropertiesProvider from './PropertiesProvider';
+import CurrentReadingsProvider from './CurrentReadingsProvider';
+import MeasurementTypesProvider from './MeasurementTypesProvider';
 
 interface ProviderWrapperProps {
   children: React.ReactNode
@@ -84,7 +87,13 @@ function ProviderWrapper({ children }: ProviderWrapperProps) {
           <NotificationProvider>
             <SidebarContextProvider>
               <SensorContextProvider>
-                {children}
+                <PropertiesProvider>
+                  <CurrentReadingsProvider>
+                    <MeasurementTypesProvider>
+                      {children}
+                    </MeasurementTypesProvider>
+                  </CurrentReadingsProvider>
+                </PropertiesProvider>
               </SensorContextProvider>
             </SidebarContextProvider>
           </NotificationProvider>

@@ -1,52 +1,28 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import type { MeasurementTypeInfo } from '../gen/aliases';
 import { apiClient } from '../gen/client';
 import { logger } from '../tools/logger';
+import {
+  MeasurementTypesContext,
+  type MeasurementTypeListName,
+} from '../providers/MeasurementTypesContext';
 
-export function useMeasurementTypes() {
-  const [measurementTypes, setMeasurementTypes] = useState<MeasurementTypeInfo[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  const load = useCallback(() =>
-    apiClient.GET('/measurement-types')
-      .then(({ data }) => setMeasurementTypes(data ?? []))
-      .catch((err) => logger.error('Failed to fetch measurement types:', err))
-      .finally(() => setLoaded(true)),
-  []);
-
-  const refresh = useCallback(() => {
-    setLoaded(false);
-    return load();
-  }, [load]);
+function useMeasurementTypeList(list: MeasurementTypeListName, enabled: boolean): MeasurementTypeInfo[] {
+  const { lists, request } = useContext(MeasurementTypesContext);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (enabled) request(list);
+  }, [enabled, list, request]);
 
-  return { measurementTypes, loaded, refresh };
+  return lists[list];
 }
 
-export function useMeasurementTypesWithReadings() {
-  const [measurementTypes, setMeasurementTypes] = useState<MeasurementTypeInfo[]>([]);
-  const [loaded, setLoaded] = useState(false);
+export function useMeasurementTypes(enabled = true): MeasurementTypeInfo[] {
+  return useMeasurementTypeList('all', enabled);
+}
 
-  const load = useCallback(() =>
-    apiClient.GET('/measurement-types', { params: { query: { has_readings: true } } })
-      .then(({ data }) => setMeasurementTypes(data ?? []))
-      .catch((err) => logger.error('Failed to fetch measurement types with readings:', err))
-      .finally(() => setLoaded(true)),
-  []);
-
-  const refresh = useCallback(() => {
-    setLoaded(false);
-    return load();
-  }, [load]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  return { measurementTypes, loaded, refresh };
+export function useMeasurementTypesWithReadings(enabled = true): MeasurementTypeInfo[] {
+  return useMeasurementTypeList('withReadings', enabled);
 }
 
 const NO_MEASUREMENT_TYPES: MeasurementTypeInfo[] = [];

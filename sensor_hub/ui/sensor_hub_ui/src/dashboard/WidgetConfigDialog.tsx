@@ -57,7 +57,7 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
     const sensorMT = useSensorMeasurementTypes(
         (hasSensorSelect || hasControllableSensorSelect) && hasMeasurementTypeSelect && selectedSensorId ? selectedSensorId : null
     );
-    const globalMT = useMeasurementTypesWithReadings();
+    const globalMeasurementTypes = useMeasurementTypesWithReadings(open);
 
     // Multi-sensor intersection: fetch types for each selected sensor. The
     // fetched list only shows while the multi-sensor selection is active.
@@ -80,7 +80,7 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
     const filteredMeasurementTypes =
         (hasSensorSelect || hasControllableSensorSelect) && selectedSensorId ? sensorMT.measurementTypes
         : showIntersection ? intersectedTypes
-        : hasMeasurementTypeSelect ? globalMT.measurementTypes
+        : hasMeasurementTypeSelect ? globalMeasurementTypes
         : NO_MEASUREMENT_TYPES;
 
     // Clear a measurement type that is no longer offered (adjust-during-render).
