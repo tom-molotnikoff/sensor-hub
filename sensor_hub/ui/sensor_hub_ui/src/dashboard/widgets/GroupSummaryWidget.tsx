@@ -3,12 +3,14 @@ import { Box, Typography } from '@mui/material';
 import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurrentReadings';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
+import { useWidgetStateReport } from '../WidgetContext';
 import { WidgetSwap, ValuePlaceholderLoader } from '../widget-loaders';
 
 export default function GroupSummaryWidget({ config }: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
     const readings = useCurrentReadings({ onDataUpdate: reportUpdate });
     const ready = useCurrentReadingsReady();
+    useWidgetStateReport(ready ? 'populated' : 'loading');
     const measurementType = config.measurementType as string | undefined;
 
     if (!measurementType) {

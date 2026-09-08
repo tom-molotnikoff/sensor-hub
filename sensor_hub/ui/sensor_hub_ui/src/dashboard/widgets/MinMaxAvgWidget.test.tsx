@@ -1,4 +1,4 @@
-import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sensor } from '../../gen/aliases';
 import { apiClient } from '../../gen/client';
@@ -33,21 +33,22 @@ describe('MinMaxAvgWidget loading state', () => {
     sensors.splice(0, sensors.length, makeSensor());
     scheduleMock.mockReset();
     reportUpdateMock.mockReset();
+    vi.mocked(apiClient.GET).mockReset();
   });
 
-  it('shows skeleton tiles (not "No data available") while loading', () => {
+  it('shows skeleton tiles (not "No data available") while loading', async () => {
     scheduleMock.mockReturnValue(new Promise(() => {}));
     render(<MinMaxAvgWidget id="w" isEditing={false} config={config} />);
-    expect(screen.getByTestId('widget-loader')).toBeInTheDocument();
+    expect(await screen.findByTestId('widget-loader')).toBeInTheDocument();
     expect(screen.getAllByTestId('stat-tile')).toHaveLength(3);
     expect(screen.queryByText('No data available')).not.toBeInTheDocument();
   });
 
   it('shows the empty state once loaded with no readings', async () => {
-    scheduleMock.mockResolvedValue({ data: { readings: [] } });
+    vi.mocked(apiClient.GET).mockResolvedValue({ data: { readings: [] } });
+    scheduleMock.mockImplementation((_priority: string, fetcher: () => Promise<unknown>) => fetcher());
     render(<MinMaxAvgWidget id="w" isEditing={false} config={config} />);
-    await waitForElementToBeRemoved(() => screen.queryByTestId('widget-loader'));
-    expect(screen.getByText('No data available')).toBeInTheDocument();
+    expect(await screen.findByText('No data available', {}, { timeout: 3000 })).toBeInTheDocument();
   });
 });
 
@@ -64,10 +65,9 @@ describe('MinMaxAvgWidget request', () => {
     scheduleMock.mockImplementation((_priority: string, fetcher: () => Promise<unknown>) => fetcher());
 
     render(<MinMaxAvgWidget id="w" isEditing={false} config={config} />);
-    await waitForElementToBeRemoved(() => screen.queryByTestId('widget-loader'));
 
-    expect(apiClient.GET).toHaveBeenCalledWith('/readings/between', {
+    await waitFor(() => expect(apiClient.GET).toHaveBeenCalledWith('/readings/between', expect.objectContaining({
       params: { query: expect.objectContaining({ type: 'temperature', sensor: 'fridge' }) },
-    });
+    })));
   });
 });

@@ -1,9 +1,11 @@
 import type { WidgetProps } from '../types';
 import { Box, Typography } from '@mui/material';
 import Markdown from 'react-markdown';
+import { useWidgetStateReport } from '../WidgetContext';
 
 export default function MarkdownNoteWidget({ config }: WidgetProps) {
     const content = (config.content as string) || '';
+    useWidgetStateReport('populated');
 
     if (!content) {
         return (

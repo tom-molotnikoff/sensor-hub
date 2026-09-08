@@ -1,28 +1,28 @@
-import {useCallback, useEffect, useState} from "react";
-import {useAuth} from '../providers/AuthContext.tsx';
+import { useCallback } from "react";
+import { useAuth } from '../providers/AuthContext.tsx';
 import { apiClient } from "../gen/client";
-import { logger } from '../tools/logger';
+import { useScheduledQuery } from './useScheduledQuery';
 import type { TotalReadingsSample } from "../gen/aliases";
 
-const emptySample: TotalReadingsSample = { sampled_at: '', counts: {} };
+const EMPTY_SAMPLE: TotalReadingsSample = { sampled_at: '', counts: {} };
 
-function useTotalReadingsForEachSensor(): [TotalReadingsSample, () => Promise<void>] {
-  const [sample, setSample] = useState<TotalReadingsSample>(emptySample);
-  const {user} = useAuth();
+export const TOTAL_READINGS_POLL_MS = 60000;
 
-  const fetchTotalReadings = useCallback(() =>
-    apiClient.GET('/sensors/stats/total-readings')
-      .then(({ data }) => setSample(data ?? emptySample))
-      .catch((err) => logger.error("Failed to load total readings for each sensor", err)),
-  []);
+function useTotalReadingsForEachSensor(): [TotalReadingsSample, boolean] {
+  const { user } = useAuth();
 
-  useEffect(() => {
-    if (user === undefined) return;
-    if (user === null) return;
-    void fetchTotalReadings();
-  }, [fetchTotalReadings, user]);
+  const fetcher = useCallback(async (signal: AbortSignal) => {
+    const { data } = await apiClient.GET('/sensors/stats/total-readings', { signal });
+    return data ?? EMPTY_SAMPLE;
+  }, []);
 
-  return [sample, fetchTotalReadings];
+  const { data, isLoading } = useScheduledQuery(fetcher, {
+    pollIntervalMs: TOTAL_READINGS_POLL_MS,
+    enabled: !!user,
+    deps: [],
+  });
+
+  return [data ?? EMPTY_SAMPLE, isLoading];
 }
 
 export default useTotalReadingsForEachSensor;

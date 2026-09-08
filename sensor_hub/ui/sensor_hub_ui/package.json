@@ -19,7 +19,6 @@
     "@mui/material": "^9.4.0",
     "@mui/x-data-grid": "^9.12.0",
     "@mui/x-date-pickers": "^9.12.0",
-    "@tanstack/react-query": "^5.102.8",
     "formik": "^2.4.6",
     "luxon": "^3.7.1",
     "openapi-fetch": "^0.17.0",

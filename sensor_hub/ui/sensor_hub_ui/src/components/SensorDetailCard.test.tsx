@@ -1,4 +1,4 @@
-import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sensor } from '../gen/aliases';
 import SensorDetailCard from './SensorDetailCard';
@@ -25,17 +25,17 @@ describe('SensorDetailCard loading state', () => {
     readingsMock.mockReturnValue({});
   });
 
-  it('shows cascading tiles while measurement types are loading', () => {
+  it('shows cascading tiles while measurement types are loading', async () => {
     getMock.mockReturnValue(new Promise(() => {}));
     render(<SensorDetailCard sensor={makeSensor()} />);
-    expect(screen.getByTestId('widget-loader')).toBeInTheDocument();
+    expect(await screen.findByTestId('widget-loader')).toBeInTheDocument();
     expect(screen.getAllByTestId('detail-tile').length).toBe(6);
   });
 
   it('shows the detail grid once measurement types load', async () => {
     getMock.mockResolvedValue({ data: [{ name: 'temperature', display_name: 'Temperature', unit: '°C' }] });
     render(<SensorDetailCard sensor={makeSensor()} />);
-    await waitForElementToBeRemoved(() => screen.queryByTestId('widget-loader'));
-    expect(screen.getByText('Temperature')).toBeInTheDocument();
+    expect(await screen.findByText('Temperature', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByTestId('widget-loader')).not.toBeInTheDocument();
   });
 });

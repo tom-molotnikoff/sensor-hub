@@ -61,13 +61,13 @@ describe('CurrentReadingWidget', () => {
     readyMock.mockReset();
   });
 
-  it('shows the loader (not the empty dash) while the first snapshot is still loading', () => {
+  it('shows the loader (not the empty dash) while the first snapshot is still loading', async () => {
     readingsMock.mockReturnValue({});
     readyMock.mockReturnValue(false);
 
     render(<CurrentReadingWidget id="w" isEditing={false} config={config} />);
 
-    const loader = screen.getByTestId('widget-loader');
+    const loader = await screen.findByTestId('widget-loader');
     expect(loader).toBeInTheDocument();
     expect(loader).toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByText('—')).not.toBeInTheDocument();

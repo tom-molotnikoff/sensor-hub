@@ -2,8 +2,8 @@ import { READONLY_REQUEST_CONCURRENCY } from '../environment/Environment';
 
 /**
  * Priority tiers for scheduled read-only requests.
- * - `high`   — controllable-related work (reserved for future use); admitted before everything else.
- * - `normal` — visible read-only widgets fetching on mount.
+ * - `high`   — visible controllable widgets; admitted before everything else.
+ * - `normal` — visible informational widgets fetching for the first time.
  * - `low`    — background polling; additionally paused while a command is in flight (see preemption).
  */
 export type RequestPriority = 'high' | 'normal' | 'low';
@@ -17,12 +17,16 @@ interface Waiter {
   start: () => void;
 }
 
+export interface ScheduleOptions {
+  signal?: AbortSignal;
+}
+
 export interface RequestScheduler {
   /**
    * Run `fn` through the scheduler at the given priority. At most `maxConcurrency` scheduled tasks run at once;
    * when a slot frees the highest-priority waiter runs next (FIFO within a tier). Resolves/rejects with `fn`'s result.
    */
-  schedule<T>(priority: RequestPriority, fn: () => Promise<T>): Promise<T>;
+  schedule<T>(priority: RequestPriority, fn: () => Promise<T>, options?: ScheduleOptions): Promise<T>;
   /**
    * Run `fn` immediately (bypassing the concurrency cap — intended for a single lightweight command) while pausing
    * admission of new `low`-priority tasks. The pause is released when `fn` settles, or after `timeoutMs` as a backstop.
@@ -61,10 +65,17 @@ export function createRequestScheduler(options?: { maxConcurrency?: number }): R
     }
   }
 
-  function schedule<T>(priority: RequestPriority, fn: () => Promise<T>): Promise<T> {
+  function schedule<T>(priority: RequestPriority, fn: () => Promise<T>, options?: ScheduleOptions): Promise<T> {
+    const signal = options?.signal;
     return new Promise<T>((resolve, reject) => {
-      queues[priority].push({
+      if (signal?.aborted) {
+        reject(signal.reason);
+        return;
+      }
+
+      const waiter: Waiter = {
         start: () => {
+          signal?.removeEventListener('abort', onAbort);
           Promise.resolve()
             .then(fn)
             .then(resolve, reject)
@@ -73,7 +84,18 @@ export function createRequestScheduler(options?: { maxConcurrency?: number }): R
               pump();
             });
         },
-      });
+      };
+
+      function onAbort(): void {
+        const queue = queues[priority];
+        const index = queue.indexOf(waiter);
+        if (index === -1) return;
+        queue.splice(index, 1);
+        reject(signal!.reason);
+      }
+
+      signal?.addEventListener('abort', onAbort, { once: true });
+      queues[priority].push(waiter);
       pump();
     });
   }

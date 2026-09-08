@@ -6,6 +6,7 @@ import PageContainer from '../tools/PageContainer';
 import { useDashboard } from './DashboardContext';
 import { DashboardProvider } from './DashboardProvider';
 import DashboardEngine from './DashboardEngine';
+import DashboardSkeleton from './DashboardSkeleton';
 import DashboardToolbar from './DashboardToolbar';
 import WidgetPickerDialog from './WidgetPickerDialog';
 import WidgetConfigDialog from './WidgetConfigDialog';
@@ -52,7 +53,7 @@ function DashboardPageInner() {
     const [showCreate, setShowCreate] = useState(false);
     const [newName, setNewName] = useState('');
 
-    if (loading) return null;
+    if (loading) return <DashboardSkeleton />;
 
     const canManage = hasPerm(user, 'manage_dashboards');
 

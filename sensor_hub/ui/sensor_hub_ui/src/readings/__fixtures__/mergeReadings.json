@@ -1,0 +1,165 @@
+{
+  "simpleTwoSensors": {
+    "sensors": [
+      "living-room",
+      "kitchen"
+    ],
+    "readings": [
+      {
+        "sensor_name": "living-room",
+        "time": "2026-09-01 10:00:00",
+        "numeric_value": 21.4,
+        "unit": "°C"
+      },
+      {
+        "sensor_name": "kitchen",
+        "time": "2026-09-01 10:00:00",
+        "numeric_value": 19.8,
+        "unit": "°C"
+      },
+      {
+        "sensor_name": "living-room",
+        "time": "2026-09-01 10:05:00",
+        "numeric_value": 21.6,
+        "unit": "°C"
+      },
+      {
+        "sensor_name": "kitchen",
+        "time": "2026-09-01 10:05:00",
+        "numeric_value": 19.9,
+        "unit": "°C"
+      }
+    ],
+    "expected": [
+      {
+        "time": "2026-09-01T10:00:00Z",
+        "living-room": 21.4,
+        "kitchen": 19.8
+      },
+      {
+        "time": "2026-09-01T10:05:00Z",
+        "living-room": 21.6,
+        "kitchen": 19.9
+      }
+    ]
+  },
+  "gapsAndBinaryStates": {
+    "sensors": [
+      "boiler",
+      "hall"
+    ],
+    "readings": [
+      {
+        "sensor_name": "boiler",
+        "time": "2026-09-01 08:00:00",
+        "numeric_value": null,
+        "text_state": "true"
+      },
+      {
+        "sensor_name": "hall",
+        "time": "2026-09-01 08:00:30",
+        "numeric_value": 17.2
+      },
+      {
+        "sensor_name": "boiler",
+        "time": "2026-09-01 08:01:00",
+        "numeric_value": null,
+        "text_state": "false"
+      },
+      {
+        "sensor_name": "boiler",
+        "time": "2026-09-01 08:02:00",
+        "numeric_value": null,
+        "text_state": "unknown"
+      }
+    ],
+    "expected": [
+      {
+        "time": "2026-09-01T08:00:00Z",
+        "boiler": 1,
+        "hall": null
+      },
+      {
+        "time": "2026-09-01T08:00:30Z",
+        "boiler": null,
+        "hall": 17.2
+      },
+      {
+        "time": "2026-09-01T08:01:00Z",
+        "boiler": 0,
+        "hall": null
+      },
+      {
+        "time": "2026-09-01T08:02:00Z",
+        "boiler": null,
+        "hall": null
+      }
+    ]
+  },
+  "readingForUnselectedSensor": {
+    "sensors": [
+      "hall"
+    ],
+    "readings": [
+      {
+        "sensor_name": "hall",
+        "time": "2026-09-01 09:00:00",
+        "numeric_value": 18.1
+      },
+      {
+        "sensor_name": "attic",
+        "time": "2026-09-01 09:00:30",
+        "numeric_value": 11
+      },
+      {
+        "sensor_name": "hall",
+        "time": "2026-09-01 09:01:00",
+        "numeric_value": 18.3
+      }
+    ],
+    "expected": [
+      {
+        "time": "2026-09-01T09:00:00Z",
+        "hall": 18.1
+      },
+      {
+        "time": "2026-09-01T09:00:30Z",
+        "hall": null
+      },
+      {
+        "time": "2026-09-01T09:01:00Z",
+        "hall": 18.3
+      }
+    ]
+  },
+  "duplicateReadingsAtOneTime": {
+    "sensors": [
+      "garage"
+    ],
+    "readings": [
+      {
+        "sensor_name": "garage",
+        "time": "2026-09-01 07:00:00",
+        "numeric_value": 5.5
+      },
+      {
+        "sensor_name": "garage",
+        "time": "2026-09-01 07:00:00",
+        "numeric_value": 9.9
+      }
+    ],
+    "expected": [
+      {
+        "time": "2026-09-01T07:00:00Z",
+        "garage": 5.5
+      }
+    ]
+  },
+  "emptyResponse": {
+    "sensors": [
+      "living-room"
+    ],
+    "readings": [],
+    "expected": []
+  }
+}

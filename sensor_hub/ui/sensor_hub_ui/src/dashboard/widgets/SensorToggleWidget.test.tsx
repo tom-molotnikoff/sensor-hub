@@ -31,6 +31,7 @@ vi.mock('../../hooks/useCurrentReadings', () => ({
     commandStatusHandler = options?.onCommandStatus;
     return currentReadings;
   },
+  useCurrentReadingsReady: () => true,
 }));
 
 vi.mock('../../providers/AuthContext', () => ({

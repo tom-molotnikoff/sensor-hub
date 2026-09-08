@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sensor, SensorHealthHistory } from '../../gen/aliases';
 import UptimeWidget from './UptimeWidget';
@@ -74,6 +74,7 @@ describe('UptimeWidget', () => {
     useSensorHealthHistoryMock.mockReturnValue([[], vi.fn(), true]);
 
     render(<UptimeWidget id="widget-1" isEditing={false} config={{ sensorId: 7 }} />);
+    act(() => { vi.advanceTimersByTime(100); });
 
     expect(screen.getByTestId('widget-loader')).toBeInTheDocument();
     expect(screen.queryByText('—')).not.toBeInTheDocument();

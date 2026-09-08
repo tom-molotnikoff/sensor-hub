@@ -4,6 +4,7 @@ import { useSensorContext } from '../../hooks/useSensorContext';
 import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurrentReadings';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
+import { useWidgetStateReport } from '../WidgetContext';
 import { WidgetSwap, CircularDrawLoader } from '../widget-loaders';
 
 export default function GaugeWidget({ config }: WidgetProps) {
@@ -11,6 +12,7 @@ export default function GaugeWidget({ config }: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
     const readings = useCurrentReadings({ onDataUpdate: reportUpdate });
     const ready = useCurrentReadingsReady();
+    useWidgetStateReport(ready ? 'populated' : 'loading');
 
     const sensorId = config.sensorId as number | undefined;
     const measurementType = config.measurementType as string | undefined;

@@ -37,11 +37,11 @@ describe('GaugeWidget loading states', () => {
     readyMock.mockReset();
   });
 
-  it('shows the circular-draw loader while loading (not the empty dash)', () => {
+  it('shows the circular-draw loader while loading (not the empty dash)', async () => {
     readingsMock.mockReturnValue({});
     readyMock.mockReturnValue(false);
     render(<GaugeWidget id="w" isEditing={false} config={config} />);
-    expect(screen.getByTestId('widget-loader')).toBeInTheDocument();
+    expect(await screen.findByTestId('widget-loader')).toBeInTheDocument();
     expect(screen.queryByText('—')).not.toBeInTheDocument();
   });
 
