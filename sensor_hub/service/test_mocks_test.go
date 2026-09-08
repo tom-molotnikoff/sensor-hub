@@ -422,10 +422,6 @@ func (m *MockApiKeyRepository) UpdateLastUsed(ctx context.Context, id int) error
 	return args.Error(0)
 }
 
-// ============================================================================
-// MockReadingsSampler
-// ============================================================================
-
 type MockReadingsSampler struct {
 	mock.Mock
 }

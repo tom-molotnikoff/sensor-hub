@@ -209,10 +209,14 @@ func (cs *cleanupService) performDatabaseMaintenance(ctx context.Context) error 
 	}
 
 	if checkpoint, err := cs.maintenanceRepo.Checkpoint(ctx); err != nil {
-		cs.logger.Debug("WAL checkpoint failed", "error", err)
+		cs.logger.Warn("WAL checkpoint failed", "error", err)
+	} else if checkpoint.Busy != 0 {
+		cs.logger.Debug("WAL checkpoint blocked before the log could be truncated",
+			"log_pages", checkpoint.LogPages,
+			"checkpointed_pages", checkpoint.CheckpointedPages,
+		)
 	} else {
-		cs.logger.Debug("WAL checkpoint completed",
-			"busy", checkpoint.Busy,
+		cs.logger.Debug("WAL checkpoint truncated the log",
 			"log_pages", checkpoint.LogPages,
 			"checkpointed_pages", checkpoint.CheckpointedPages,
 		)

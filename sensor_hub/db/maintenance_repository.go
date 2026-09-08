@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 )
 
@@ -18,16 +19,22 @@ func (r *maintenanceRepository) ReclaimFreePages(ctx context.Context, chunkPages
 		return 0, fmt.Errorf("chunk size must be positive, got %d", chunkPages)
 	}
 
-	before, err := r.writerFreelistCount(ctx)
+	conn, err := r.db.Writer.Conn(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to acquire the writer to reclaim free pages: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	before, err := freelistCount(ctx, conn)
 	if err != nil {
 		return 0, err
 	}
 
-	if _, err := r.db.Writer.ExecContext(ctx, fmt.Sprintf("PRAGMA incremental_vacuum(%d)", chunkPages)); err != nil {
+	if _, err := conn.ExecContext(ctx, fmt.Sprintf("PRAGMA incremental_vacuum(%d)", chunkPages)); err != nil {
 		return 0, fmt.Errorf("failed to reclaim free pages: %w", err)
 	}
 
-	after, err := r.writerFreelistCount(ctx)
+	after, err := freelistCount(ctx, conn)
 	if err != nil {
 		return 0, err
 	}
@@ -68,9 +75,9 @@ func (r *maintenanceRepository) DatabaseStats(ctx context.Context) (*DatabaseSta
 	return &stats, nil
 }
 
-func (r *maintenanceRepository) writerFreelistCount(ctx context.Context) (int64, error) {
+func freelistCount(ctx context.Context, conn *sql.Conn) (int64, error) {
 	var count int64
-	if err := r.db.Writer.QueryRowContext(ctx, "PRAGMA freelist_count").Scan(&count); err != nil {
+	if err := conn.QueryRowContext(ctx, "PRAGMA freelist_count").Scan(&count); err != nil {
 		return 0, fmt.Errorf("failed to get freelist_count: %w", err)
 	}
 	return count, nil

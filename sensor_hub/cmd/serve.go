@@ -126,9 +126,11 @@ func runServe(cmd *cobra.Command, args []string) error {
 		ws.SeedReadings(latest)
 	}
 
-	if err := readingsSampler.Sample(ctx); err != nil {
-		logger.Warn("failed to sample readings row counts at startup", "error", err)
-	}
+	go func() {
+		if err := readingsSampler.Sample(ctx); err != nil {
+			logger.Warn("failed to sample readings row counts at startup", "error", err)
+		}
+	}()
 	propertiesService := service.NewPropertiesService(logger)
 
 	// External config file edits must reach open browsers: broadcast after

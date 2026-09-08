@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -32,12 +33,18 @@ func newMigratedTempFileDB(t *testing.T) *sql.DB {
 
 func newTempFileDB(t *testing.T) *sql.DB {
 	t.Helper()
+	db, _ := newTempFileDBAt(t)
+	return db
+}
+
+func newTempFileDBAt(t *testing.T) (*sql.DB, string) {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")
 	db, err := sql.Open("sqlite", "file:"+path+"?"+writerDSNParams)
 	require.NoError(t, err)
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { db.Close() })
-	return db
+	return db, path
 }
 
 func fillAndEmptyTable(t *testing.T, db *sql.DB, rows int) {
@@ -112,22 +119,32 @@ func TestMaintenanceRepository_ReclaimFreePages_ReturnsZeroWhenFreelistIsEmpty(t
 	assert.Equal(t, int64(0), freed)
 }
 
+func walSize(t *testing.T, dbPath string) int64 {
+	t.Helper()
+	info, err := os.Stat(dbPath + "-wal")
+	if os.IsNotExist(err) {
+		return 0
+	}
+	require.NoError(t, err)
+	return info.Size()
+}
+
 func TestMaintenanceRepository_Checkpoint_TruncatesTheWAL(t *testing.T) {
-	db := newTempFileDB(t)
+	db, path := newTempFileDBAt(t)
 	repo := NewMaintenanceRepository(handles(db))
 
 	_, err := db.Exec("CREATE TABLE dummy (id INTEGER PRIMARY KEY, payload TEXT)")
 	require.NoError(t, err)
-	for i := 0; i < 200; i++ {
-		_, err = db.Exec("INSERT INTO dummy (payload) VALUES (?)", "payload")
-		require.NoError(t, err)
-	}
+	_, err = db.Exec(`WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 5000)
+		INSERT INTO dummy (payload) SELECT hex(randomblob(100)) FROM seq`)
+	require.NoError(t, err)
+	require.Greater(t, walSize(t, path), int64(0), "the writes leave a write-ahead log to truncate")
 
 	result, err := repo.Checkpoint(context.Background())
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(0), result.Busy)
-	assert.Equal(t, result.LogPages, result.CheckpointedPages, "a truncating checkpoint moves the whole log")
+	assert.Equal(t, int64(0), walSize(t, path), "a truncating checkpoint empties the write-ahead log")
 }
 
 func TestDatabaseStatsResult_Computed(t *testing.T) {
