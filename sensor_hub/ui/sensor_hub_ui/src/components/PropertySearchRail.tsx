@@ -6,6 +6,7 @@ export interface RailGroup {
   id: string;
   label: string;
   editedCount: number;
+  errorCount: number;
 }
 
 interface PropertySearchRailProps {
@@ -60,6 +61,17 @@ export default function PropertySearchRail({
                 data-testid={`rail-edited-count-${group.id}`}
               >
                 {group.editedCount}
+              </Typography>
+            )}
+            {group.errorCount > 0 && (
+              <Typography
+                variant="caption"
+                color="error"
+                sx={{ ml: 1 }}
+                aria-label={`${group.errorCount} ${group.errorCount === 1 ? 'error' : 'errors'} in ${group.label}`}
+                data-testid={`rail-error-count-${group.id}`}
+              >
+                {group.errorCount}
               </Typography>
             )}
           </ListItemButton>

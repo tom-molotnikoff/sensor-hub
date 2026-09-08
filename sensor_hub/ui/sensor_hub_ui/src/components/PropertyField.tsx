@@ -11,6 +11,7 @@ interface PropertyFieldProps {
   serverValue?: string;
   editedValue?: string;
   collided?: boolean;
+  error?: string;
   onChange: (value: string) => void;
   onUndo?: () => void;
   disabled?: boolean;
@@ -20,11 +21,12 @@ interface PropertyControlProps {
   definition: PropertyDefinition;
   value: string;
   unset: boolean;
+  invalid: boolean;
   onChange: (value: string) => void;
   disabled?: boolean;
 }
 
-function PropertyControl({ definition, value, unset, onChange, disabled }: PropertyControlProps) {
+function PropertyControl({ definition, value, unset, invalid, onChange, disabled }: PropertyControlProps) {
   if (definition.readOnly) {
     return <Typography sx={{ fontFamily: 'monospace' }} color="text.secondary">{value}</Typography>;
   }
@@ -46,6 +48,7 @@ function PropertyControl({ definition, value, unset, onChange, disabled }: Prope
         value={unset ? definition.default : value}
         onChange={(e) => onChange(e.target.value)}
         size="small"
+        error={invalid}
         disabled={disabled}
         slotProps={{ input: { 'aria-label': definition.label } }}
       >
@@ -59,13 +62,18 @@ function PropertyControl({ definition, value, unset, onChange, disabled }: Prope
   return (
     <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
       <TextField
-        type={definition.type === 'int' ? 'number' : 'text'}
         value={value}
         placeholder={unset ? definition.default : undefined}
         onChange={(e) => onChange(e.target.value)}
         size="small"
+        error={invalid}
         disabled={disabled}
-        slotProps={{ htmlInput: { 'aria-label': definition.label } }}
+        slotProps={{
+          htmlInput: {
+            'aria-label': definition.label,
+            inputMode: definition.type === 'int' ? 'numeric' : undefined,
+          },
+        }}
       />
       {definition.unit && <Typography variant="body2" color="text.secondary">{definition.unit}</Typography>}
     </Stack>
@@ -85,7 +93,7 @@ function helperLine(definition: PropertyDefinition, described: boolean, serverVa
   return parts.join(' · ');
 }
 
-export default function PropertyField({ definition, described = true, serverValue, editedValue, collided, onChange, onUndo, disabled }: PropertyFieldProps) {
+export default function PropertyField({ definition, described = true, serverValue, editedValue, collided, error, onChange, onUndo, disabled }: PropertyFieldProps) {
   const isMobile = useIsMobile();
   const value = editedValue ?? serverValue ?? '';
   const modified = editedValue !== undefined && editedValue !== serverValue;
@@ -129,6 +137,7 @@ export default function PropertyField({ definition, described = true, serverValu
             definition={definition}
             value={value}
             unset={unset}
+            invalid={error !== undefined}
             onChange={onChange}
             disabled={disabled}
           />
@@ -138,6 +147,11 @@ export default function PropertyField({ definition, described = true, serverValu
             </IconButton>
           )}
         </Stack>
+        {error !== undefined && (
+          <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+            {error}
+          </Typography>
+        )}
         {described && <ApplyNote definition={definition} />}
         {modified && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
