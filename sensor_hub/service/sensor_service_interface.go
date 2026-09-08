@@ -27,7 +27,7 @@ type SensorServiceInterface interface {
 	ServiceUpdateSensorHealthById(ctx context.Context, sensorId int, healthStatus gen.SensorHealthStatus, healthReason string)
 	ServiceSetEnabledSensorByName(ctx context.Context, name string, enabled bool) error
 	ServiceGetSensorHealthHistoryByName(ctx context.Context, name string) ([]gen.SensorHealthHistory, error)
-	ServiceGetTotalReadingsForEachSensor(ctx context.Context) (map[string]int, error)
+	ServiceGetTotalReadingsForEachSensor() gen.TotalReadingsSample
 	ServiceGetSensorsByStatus(ctx context.Context, status string) ([]gen.Sensor, error)
 	ServiceApproveSensor(ctx context.Context, sensorId int) error
 	ServiceDismissSensor(ctx context.Context, sensorId int) error

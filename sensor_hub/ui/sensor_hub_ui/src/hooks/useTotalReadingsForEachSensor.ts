@@ -2,15 +2,17 @@ import {useCallback, useEffect, useState} from "react";
 import {useAuth} from '../providers/AuthContext.tsx';
 import { apiClient } from "../gen/client";
 import { logger } from '../tools/logger';
+import type { TotalReadingsSample } from "../gen/aliases";
 
+const emptySample: TotalReadingsSample = { sampled_at: '', counts: {} };
 
-function useTotalReadingsForEachSensor(): [Record<string, number>, () => Promise<void>] {
-  const [totalReadingsPerSensor, setTotalReadingsPerSensor] = useState<Record<string, number>>({});
+function useTotalReadingsForEachSensor(): [TotalReadingsSample, () => Promise<void>] {
+  const [sample, setSample] = useState<TotalReadingsSample>(emptySample);
   const {user} = useAuth();
 
   const fetchTotalReadings = useCallback(() =>
     apiClient.GET('/sensors/stats/total-readings')
-      .then(({ data }) => setTotalReadingsPerSensor((data as Record<string, number>) ?? {}))
+      .then(({ data }) => setSample(data ?? emptySample))
       .catch((err) => logger.error("Failed to load total readings for each sensor", err)),
   []);
 
@@ -20,7 +22,7 @@ function useTotalReadingsForEachSensor(): [Record<string, number>, () => Promise
     void fetchTotalReadings();
   }, [fetchTotalReadings, user]);
 
-  return [totalReadingsPerSensor, fetchTotalReadings];
+  return [sample, fetchTotalReadings];
 }
 
 export default useTotalReadingsForEachSensor;

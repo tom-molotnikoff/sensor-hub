@@ -245,14 +245,32 @@ func (r *ReadingsRepositoryImpl) GetLatest(ctx context.Context) ([]gen.Reading, 
 	return scanReadings(rows)
 }
 
-func (r *ReadingsRepositoryImpl) GetTotalReadingsBySensorId(ctx context.Context, sensorId int) (int, error) {
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE sensor_id = ?", TableReadings)
-	var count int
-	err := r.db.Reader.QueryRowContext(ctx, query, sensorId).Scan(&count)
+func (r *ReadingsRepositoryImpl) CountReadingsPerActiveSensor(ctx context.Context) (map[string]int, error) {
+	query := fmt.Sprintf(`SELECT s.name, COALESCE(counted.total, 0)
+		FROM sensors s
+		LEFT JOIN (SELECT sensor_id, COUNT(*) AS total FROM %s GROUP BY sensor_id) counted
+			ON counted.sensor_id = s.id
+		WHERE s.status = 'active'`, TableReadings)
+
+	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
-		return 0, fmt.Errorf("error fetching total readings for sensor ID %d: %w", sensorId, err)
+		return nil, fmt.Errorf("error counting readings per sensor: %w", err)
 	}
-	return count, nil
+	defer func() { _ = rows.Close() }()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var name string
+		var count int
+		if err := rows.Scan(&name, &count); err != nil {
+			return nil, fmt.Errorf("error scanning reading count: %w", err)
+		}
+		counts[name] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error counting readings per sensor: %w", err)
+	}
+	return counts, nil
 }
 
 func (r *ReadingsRepositoryImpl) DeleteReadingsOlderThan(ctx context.Context, cutoffDateTime time.Time) error {

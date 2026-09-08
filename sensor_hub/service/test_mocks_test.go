@@ -353,9 +353,12 @@ func (m *MockReadingsRepository) GetLatest(ctx context.Context) ([]gen.Reading, 
 	return args.Get(0).([]gen.Reading), args.Error(1)
 }
 
-func (m *MockReadingsRepository) GetTotalReadingsBySensorId(ctx context.Context, sensorId int) (int, error) {
-	args := m.Called(ctx, sensorId)
-	return args.Int(0), args.Error(1)
+func (m *MockReadingsRepository) CountReadingsPerActiveSensor(ctx context.Context) (map[string]int, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]int), args.Error(1)
 }
 
 func (m *MockReadingsRepository) DeleteReadingsOlderThan(ctx context.Context, cutoffDate time.Time) error {
@@ -420,6 +423,24 @@ func (m *MockApiKeyRepository) UpdateLastUsed(ctx context.Context, id int) error
 }
 
 // ============================================================================
+// MockReadingsSampler
+// ============================================================================
+
+type MockReadingsSampler struct {
+	mock.Mock
+}
+
+func (m *MockReadingsSampler) Sample(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockReadingsSampler) LatestSample() gen.TotalReadingsSample {
+	args := m.Called()
+	return args.Get(0).(gen.TotalReadingsSample)
+}
+
+// ============================================================================
 // MockMaintenanceRepository
 // ============================================================================
 
@@ -427,9 +448,17 @@ type MockMaintenanceRepository struct {
 	mock.Mock
 }
 
-func (m *MockMaintenanceRepository) Vacuum(ctx context.Context) error {
+func (m *MockMaintenanceRepository) ReclaimFreePages(ctx context.Context, chunkPages int) (int64, error) {
+	args := m.Called(ctx, chunkPages)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockMaintenanceRepository) Checkpoint(ctx context.Context) (*database.CheckpointResult, error) {
 	args := m.Called(ctx)
-	return args.Error(0)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*database.CheckpointResult), args.Error(1)
 }
 
 func (m *MockMaintenanceRepository) Optimise(ctx context.Context) error {

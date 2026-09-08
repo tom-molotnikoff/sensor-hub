@@ -15,6 +15,8 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
+const reclaimChunkPages = 512
+
 type sqliteInstruments struct {
 	sizeBytes     metric.Int64Gauge
 	freelistBytes metric.Int64Gauge
@@ -50,11 +52,12 @@ type cleanupService struct {
 	notificationRepo database.NotificationRepository
 	alertRepo        database.AlertRepository
 	maintenanceRepo  database.MaintenanceRepository
+	readingsSampler  ReadingsSamplerInterface
 	logger           *slog.Logger
 	metrics          *sqliteInstruments
 }
 
-func NewCleanupService(sensorRepo database.SensorRepositoryInterface[gen.Sensor], readingsRepo database.ReadingsRepository, failedRepo database.FailedLoginRepository, notificationRepo database.NotificationRepository, alertRepo database.AlertRepository, maintenanceRepo database.MaintenanceRepository, logger *slog.Logger) CleanupServiceInterface {
+func NewCleanupService(sensorRepo database.SensorRepositoryInterface[gen.Sensor], readingsRepo database.ReadingsRepository, failedRepo database.FailedLoginRepository, notificationRepo database.NotificationRepository, alertRepo database.AlertRepository, maintenanceRepo database.MaintenanceRepository, readingsSampler ReadingsSamplerInterface, logger *slog.Logger) CleanupServiceInterface {
 	return &cleanupService{
 		sensorRepo:       sensorRepo,
 		readingsRepo:     readingsRepo,
@@ -62,6 +65,7 @@ func NewCleanupService(sensorRepo database.SensorRepositoryInterface[gen.Sensor]
 		notificationRepo: notificationRepo,
 		alertRepo:        alertRepo,
 		maintenanceRepo:  maintenanceRepo,
+		readingsSampler:  readingsSampler,
 		logger:           logger.With("component", "cleanup_service"),
 		metrics:          newSQLiteInstruments(),
 	}
@@ -157,10 +161,15 @@ func (cs *cleanupService) performCleanup(ctx context.Context, healthHistoryReten
 		}
 	}
 
-	// Database maintenance: VACUUM and optimise
 	if cs.maintenanceRepo != nil {
 		if err := cs.performDatabaseMaintenance(ctx); err != nil {
 			cs.logger.Warn("database maintenance failed", "error", err)
+		}
+	}
+
+	if cs.readingsSampler != nil {
+		if err := cs.readingsSampler.Sample(ctx); err != nil {
+			cs.logger.Warn("failed to sample readings row counts", "error", err)
 		}
 	}
 
@@ -170,10 +179,10 @@ func (cs *cleanupService) performCleanup(ctx context.Context, healthHistoryReten
 func (cs *cleanupService) performDatabaseMaintenance(ctx context.Context) error {
 	statsBefore, err := cs.maintenanceRepo.DatabaseStats(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get pre-vacuum stats: %w", err)
+		return fmt.Errorf("failed to get pre-maintenance stats: %w", err)
 	}
 
-	cs.logger.Info("database stats before vacuum",
+	cs.logger.Debug("database stats before maintenance",
 		"page_count", statsBefore.PageCount,
 		"freelist_count", statsBefore.FreelistCount,
 		"page_size", statsBefore.PageSize,
@@ -181,32 +190,49 @@ func (cs *cleanupService) performDatabaseMaintenance(ctx context.Context) error 
 		"freelist_bytes", statsBefore.FreelistBytes(),
 	)
 
-	vacuumStart := time.Now()
-	if err := cs.maintenanceRepo.Vacuum(ctx); err != nil {
-		return fmt.Errorf("vacuum failed: %w", err)
+	started := time.Now()
+
+	var pagesFreed int64
+	for {
+		freed, err := cs.maintenanceRepo.ReclaimFreePages(ctx, reclaimChunkPages)
+		if err != nil {
+			return fmt.Errorf("failed to reclaim free pages: %w", err)
+		}
+		if freed <= 0 {
+			break
+		}
+		pagesFreed += freed
 	}
-	vacuumDuration := time.Since(vacuumStart)
 
 	if err := cs.maintenanceRepo.Optimise(ctx); err != nil {
 		cs.logger.Warn("PRAGMA optimize failed", "error", err)
 	}
 
-	statsAfter, err := cs.maintenanceRepo.DatabaseStats(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get post-vacuum stats: %w", err)
+	if checkpoint, err := cs.maintenanceRepo.Checkpoint(ctx); err != nil {
+		cs.logger.Debug("WAL checkpoint failed", "error", err)
+	} else {
+		cs.logger.Debug("WAL checkpoint completed",
+			"busy", checkpoint.Busy,
+			"log_pages", checkpoint.LogPages,
+			"checkpointed_pages", checkpoint.CheckpointedPages,
+		)
 	}
 
-	reclaimed := statsBefore.SizeBytes() - statsAfter.SizeBytes()
-	cs.logger.Info("database stats after vacuum",
+	statsAfter, err := cs.maintenanceRepo.DatabaseStats(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get post-maintenance stats: %w", err)
+	}
+
+	cs.logger.Info("database maintenance completed",
+		"pages_freed", pagesFreed,
+		"bytes_reclaimed", statsBefore.SizeBytes()-statsAfter.SizeBytes(),
+		"duration_ms", time.Since(started).Milliseconds(),
 		"page_count", statsAfter.PageCount,
 		"freelist_count", statsAfter.FreelistCount,
 		"size_bytes", statsAfter.SizeBytes(),
 		"freelist_bytes", statsAfter.FreelistBytes(),
-		"bytes_reclaimed", reclaimed,
-		"vacuum_duration_ms", vacuumDuration.Milliseconds(),
 	)
 
-	// Record OTel metrics
 	cs.metrics.sizeBytes.Record(ctx, statsAfter.SizeBytes())
 	cs.metrics.freelistBytes.Record(ctx, statsAfter.FreelistBytes())
 	cs.metrics.freelistRatio.Record(ctx, statsAfter.FreelistRatio())

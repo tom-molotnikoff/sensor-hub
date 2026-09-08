@@ -172,13 +172,19 @@ func (m *MockMeasurementTypeRepository) GetAggregationsForMeasurementType(ctx co
 // ============================================================================
 
 func setupSensorService() (*SensorService, *MockSensorRepository, *MockReadingsRepository, *MockMeasurementTypeRepository, *MockAlertRepository) {
+	service, sensorRepo, readingsRepo, mtRepo, alertRepo, _ := setupSensorServiceWithSampler()
+	return service, sensorRepo, readingsRepo, mtRepo, alertRepo
+}
+
+func setupSensorServiceWithSampler() (*SensorService, *MockSensorRepository, *MockReadingsRepository, *MockMeasurementTypeRepository, *MockAlertRepository, *MockReadingsSampler) {
 	sensorRepo := new(MockSensorRepository)
 	readingsRepo := new(MockReadingsRepository)
 	mtRepo := new(MockMeasurementTypeRepository)
 	alertRepo := new(MockAlertRepository)
+	sampler := new(MockReadingsSampler)
 	processor := alerting.NewThresholdAlertProcessor(alertRepo, nil, nil, nil, slog.Default())
-	service := NewSensorService(sensorRepo, readingsRepo, mtRepo, processor, nil, slog.Default())
-	return service, sensorRepo, readingsRepo, mtRepo, alertRepo
+	service := NewSensorService(sensorRepo, readingsRepo, mtRepo, processor, nil, sampler, slog.Default())
+	return service, sensorRepo, readingsRepo, mtRepo, alertRepo, sampler
 }
 
 type fakeReadingsObserver struct {
@@ -648,32 +654,21 @@ func TestSensorService_ServiceSetEnabledSensorByName_NotExists(t *testing.T) {
 // ServiceGetTotalReadingsForEachSensor tests
 // ============================================================================
 
-func TestSensorService_ServiceGetTotalReadingsForEachSensor_Success(t *testing.T) {
-	service, sensorRepo, readingsRepo, _, _ := setupSensorService()
+func TestSensorService_ServiceGetTotalReadingsForEachSensor_ReturnsTheHeldSample(t *testing.T) {
+	service, _, _, _, _, sampler := setupSensorServiceWithSampler()
 
-	sensors := []gen.Sensor{
-		{Id: 1, Name: "Sensor1", SensorDriver: "sensor-hub-http-temperature"},
-		{Id: 2, Name: "Sensor2", SensorDriver: "sensor-hub-http-temperature"},
-	}
-	sensorRepo.On("GetSensorsByStatus", mock.Anything, "active").Return(sensors, nil)
-	readingsRepo.On("GetTotalReadingsBySensorId", mock.Anything, 1).Return(100, nil)
-	readingsRepo.On("GetTotalReadingsBySensorId", mock.Anything, 2).Return(50, nil)
+	sampledAt := time.Date(2026, 9, 8, 10, 30, 0, 0, time.UTC)
+	sampler.On("LatestSample").Return(gen.TotalReadingsSample{
+		SampledAt: sampledAt,
+		Counts:    map[string]int{"Sensor1": 100, "Sensor2": 50},
+	})
 
-	result, err := service.ServiceGetTotalReadingsForEachSensor(context.Background())
+	result := service.ServiceGetTotalReadingsForEachSensor()
 
-	assert.NoError(t, err)
-	assert.Equal(t, 100, result["Sensor1"])
-	assert.Equal(t, 50, result["Sensor2"])
-}
-
-func TestSensorService_ServiceGetTotalReadingsForEachSensor_Error(t *testing.T) {
-	service, sensorRepo, _, _, _ := setupSensorService()
-
-	sensorRepo.On("GetSensorsByStatus", mock.Anything, "active").Return([]gen.Sensor{}, errors.New("database error"))
-
-	_, err := service.ServiceGetTotalReadingsForEachSensor(context.Background())
-
-	assert.Error(t, err)
+	assert.Equal(t, sampledAt, result.SampledAt)
+	assert.Equal(t, 100, result.Counts["Sensor1"])
+	assert.Equal(t, 50, result.Counts["Sensor2"])
+	sampler.AssertExpectations(t)
 }
 
 // ============================================================================

@@ -3,6 +3,9 @@ package database
 import (
 	"context"
 	"database/sql"
+	"io"
+	"log/slog"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,15 +18,43 @@ func newInMemoryDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { db.Close() })
 	return db
+}
+
+func newMigratedTempFileDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db := newTempFileDB(t)
+	require.NoError(t, RunMigrations(db, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	return db
+}
+
+func newTempFileDB(t *testing.T) *sql.DB {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := sql.Open("sqlite", "file:"+path+"?"+writerDSNParams)
+	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { db.Close() })
+	return db
+}
+
+func fillAndEmptyTable(t *testing.T, db *sql.DB, rows int) {
+	t.Helper()
+	_, err := db.Exec("CREATE TABLE test_data (id INTEGER PRIMARY KEY, payload TEXT)")
+	require.NoError(t, err)
+	_, err = db.Exec(`WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < ?)
+		INSERT INTO test_data (payload) SELECT hex(randomblob(100)) FROM seq`, rows)
+	require.NoError(t, err)
+	_, err = db.Exec("DELETE FROM test_data")
+	require.NoError(t, err)
 }
 
 func TestMaintenanceRepository_DatabaseStats(t *testing.T) {
 	db := newInMemoryDB(t)
 	repo := NewMaintenanceRepository(handles(db))
 
-	// Create a table to ensure the database has some pages
 	_, err := db.Exec("CREATE TABLE dummy (id INTEGER PRIMARY KEY)")
 	require.NoError(t, err)
 
@@ -35,14 +66,6 @@ func TestMaintenanceRepository_DatabaseStats(t *testing.T) {
 	assert.Greater(t, stats.PageSize, int64(0))
 }
 
-func TestMaintenanceRepository_Vacuum(t *testing.T) {
-	db := newInMemoryDB(t)
-	repo := NewMaintenanceRepository(handles(db))
-
-	err := repo.Vacuum(context.Background())
-	assert.NoError(t, err)
-}
-
 func TestMaintenanceRepository_Optimise(t *testing.T) {
 	db := newInMemoryDB(t)
 	repo := NewMaintenanceRepository(handles(db))
@@ -51,39 +74,60 @@ func TestMaintenanceRepository_Optimise(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestMaintenanceRepository_StatsAfterInsertAndDelete(t *testing.T) {
-	db := newInMemoryDB(t)
+func TestMaintenanceRepository_ReclaimFreePages_RejectsNonPositiveChunk(t *testing.T) {
+	db := newTempFileDB(t)
 	repo := NewMaintenanceRepository(handles(db))
 
-	// Create a table and insert data
-	_, err := db.Exec("CREATE TABLE test_data (id INTEGER PRIMARY KEY, payload TEXT)")
-	require.NoError(t, err)
+	_, err := repo.ReclaimFreePages(context.Background(), 0)
+	assert.Error(t, err)
+}
 
-	for i := 0; i < 1000; i++ {
-		_, err = db.Exec("INSERT INTO test_data (payload) VALUES (?)", "some data payload that takes space")
-		require.NoError(t, err)
-	}
+func TestMaintenanceRepository_ReclaimFreePages_ReturnsPagesFreedInChunks(t *testing.T) {
+	db := newMigratedTempFileDB(t)
+	repo := NewMaintenanceRepository(handles(db))
 
-	statsBefore, err := repo.DatabaseStats(context.Background())
-	require.NoError(t, err)
-	assert.Greater(t, statsBefore.PageCount, int64(1))
-
-	// Delete all data — freelist should grow
-	_, err = db.Exec("DELETE FROM test_data")
-	require.NoError(t, err)
+	fillAndEmptyTable(t, db, 10000)
 
 	statsAfterDelete, err := repo.DatabaseStats(context.Background())
 	require.NoError(t, err)
-	assert.Greater(t, statsAfterDelete.FreelistCount, int64(0), "freelist should have pages after delete")
+	require.Greater(t, statsAfterDelete.FreelistCount, int64(64), "the delete leaves more than one chunk to reclaim")
 
-	// Vacuum — freelist should return to 0
-	err = repo.Vacuum(context.Background())
+	freed, err := repo.ReclaimFreePages(context.Background(), 64)
 	require.NoError(t, err)
 
-	statsAfterVacuum, err := repo.DatabaseStats(context.Background())
+	assert.Equal(t, int64(64), freed, "one chunk is reclaimed per call")
+
+	statsAfterChunk, err := repo.DatabaseStats(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, int64(0), statsAfterVacuum.FreelistCount, "freelist should be 0 after vacuum")
-	assert.Less(t, statsAfterVacuum.PageCount, statsBefore.PageCount, "page count should decrease after vacuum")
+	assert.Equal(t, statsAfterDelete.FreelistCount-64, statsAfterChunk.FreelistCount)
+	assert.Equal(t, statsAfterDelete.PageCount-64, statsAfterChunk.PageCount)
+}
+
+func TestMaintenanceRepository_ReclaimFreePages_ReturnsZeroWhenFreelistIsEmpty(t *testing.T) {
+	db := newMigratedTempFileDB(t)
+	repo := NewMaintenanceRepository(handles(db))
+
+	freed, err := repo.ReclaimFreePages(context.Background(), 512)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), freed)
+}
+
+func TestMaintenanceRepository_Checkpoint_TruncatesTheWAL(t *testing.T) {
+	db := newTempFileDB(t)
+	repo := NewMaintenanceRepository(handles(db))
+
+	_, err := db.Exec("CREATE TABLE dummy (id INTEGER PRIMARY KEY, payload TEXT)")
+	require.NoError(t, err)
+	for i := 0; i < 200; i++ {
+		_, err = db.Exec("INSERT INTO dummy (payload) VALUES (?)", "payload")
+		require.NoError(t, err)
+	}
+
+	result, err := repo.Checkpoint(context.Background())
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(0), result.Busy)
+	assert.Equal(t, result.LogPages, result.CheckpointedPages, "a truncating checkpoint moves the whole log")
 }
 
 func TestDatabaseStatsResult_Computed(t *testing.T) {

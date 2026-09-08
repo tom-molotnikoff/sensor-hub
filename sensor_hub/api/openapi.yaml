@@ -813,19 +813,17 @@ paths:
         - sensors
       summary: Get total readings per sensor
       description: >-
-        Returns statistics counting total readings for each sensor (useful for
-        usage dashboards and validation of ingestion).
+        Returns the most recent sample of total readings for each sensor, taken
+        at startup and after each cleanup pass rather than on the request.
       operationId: getTotalReadingsPerSensor
       x-required-permission: view_sensors
       responses:
         '200':
-          description: Map of sensor name to total reading count
+          description: The most recent reading count sample
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties:
-                  type: integer
+                $ref: '#/components/schemas/TotalReadingsSample'
 
   /sensors/collect:
     post:
@@ -4720,6 +4718,23 @@ components:
             y: { type: integer }
             w: { type: integer }
             h: { type: integer }
+
+    TotalReadingsSample:
+      type: object
+      description: A sample of total readings per sensor and the time it was taken
+      properties:
+        sampled_at:
+          type: string
+          format: date-time
+          description: When the counts were taken
+        counts:
+          type: object
+          description: Sensor name to total reading count
+          additionalProperties:
+            type: integer
+      required:
+        - sampled_at
+        - counts
 
     # =========================================================================
     # Generic Schemas

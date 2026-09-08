@@ -10,7 +10,7 @@ type ReadingsRepository interface {
 	Add(ctx context.Context, readings []gen.Reading) error
 	GetBetweenDates(ctx context.Context, startDate, endDate, sensorName, measurementType string, interval AggregationInterval, aggFunc AggregationFunction) ([]gen.Reading, error)
 	GetLatest(ctx context.Context) ([]gen.Reading, error)
-	GetTotalReadingsBySensorId(ctx context.Context, sensorId int) (int, error)
+	CountReadingsPerActiveSensor(ctx context.Context) (map[string]int, error)
 	DeleteReadingsOlderThan(ctx context.Context, cutoffDate time.Time) error
 	DeleteReadingsOlderThanForSensor(ctx context.Context, cutoffDate time.Time, sensorId int) error
 	DeleteReadingsOlderThanExcludingSensors(ctx context.Context, cutoffDate time.Time, excludedSensorIds []int) error

@@ -104,7 +104,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	notificationService := service.NewNotificationService(notificationRepo, wsBroadcaster, logger)
 	notificationService.SetEmailNotifier(smtpNotifier)
 	thresholdProcessor := alerting.NewThresholdAlertProcessor(alertRepo, &notifRepoAdapter{notificationRepo}, wsBroadcaster, smtpNotifier, logger)
-	sensorService := service.NewSensorService(sensorRepo, readingsRepo, mtRepo, thresholdProcessor, notificationService, logger)
+	readingsSampler := service.NewReadingsSampler(readingsRepo, logger)
+	sensorService := service.NewSensorService(sensorRepo, readingsRepo, mtRepo, thresholdProcessor, notificationService, readingsSampler, logger)
 
 	aggregationTiers, err := service.ParseAggregationTiers(bootCfg.ReadingsAggregationTiers)
 	if err != nil {
@@ -124,6 +125,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 	} else {
 		ws.SeedReadings(latest)
 	}
+
+	if err := readingsSampler.Sample(ctx); err != nil {
+		logger.Warn("failed to sample readings row counts at startup", "error", err)
+	}
 	propertiesService := service.NewPropertiesService(logger)
 
 	// External config file edits must reach open browsers: broadcast after
@@ -131,7 +136,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	appProps.WatchConfigFiles(ctx, func() {
 		propertiesService.BroadcastProperties(context.Background())
 	})
-	cleanupService := service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, maintenanceRepo, logger)
+	cleanupService := service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, maintenanceRepo, readingsSampler, logger)
 
 	userService := service.NewUserService(userRepo, notificationService, logger)
 	authService := service.NewAuthService(userRepo, sessionRepo, failedRepo, roleRepo, logger)

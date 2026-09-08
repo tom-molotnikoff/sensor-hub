@@ -1087,6 +1087,15 @@ type SuccessMessage struct {
 	Message string `json:"message"`
 }
 
+// TotalReadingsSample A sample of total readings per sensor and the time it was taken
+type TotalReadingsSample struct {
+	// Counts Sensor name to total reading count
+	Counts map[string]int `json:"counts"`
+
+	// SampledAt When the counts were taken
+	SampledAt time.Time `json:"sampled_at"`
+}
+
 // UpdateDashboardRequest Request body for updating a dashboard
 type UpdateDashboardRequest struct {
 	// Config Widget layout and configuration stored as the dashboard config

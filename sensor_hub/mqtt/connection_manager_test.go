@@ -88,9 +88,9 @@ func (m *MockSensorService) ServiceGetSensorHealthHistoryByName(ctx context.Cont
 	args := m.Called(ctx, name)
 	return args.Get(0).([]gen.SensorHealthHistory), args.Error(1)
 }
-func (m *MockSensorService) ServiceGetTotalReadingsForEachSensor(ctx context.Context) (map[string]int, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(map[string]int), args.Error(1)
+func (m *MockSensorService) ServiceGetTotalReadingsForEachSensor() gen.TotalReadingsSample {
+	args := m.Called()
+	return args.Get(0).(gen.TotalReadingsSample)
 }
 func (m *MockSensorService) ServiceGetSensorsByStatus(ctx context.Context, status string) ([]gen.Sensor, error) {
 	args := m.Called(ctx, status)
