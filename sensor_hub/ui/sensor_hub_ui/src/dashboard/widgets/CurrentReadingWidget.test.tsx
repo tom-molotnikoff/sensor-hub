@@ -67,6 +67,8 @@ describe('CurrentReadingWidget', () => {
 
     render(<CurrentReadingWidget id="w" isEditing={false} config={config} />);
 
+    expect(screen.queryByText('—')).not.toBeInTheDocument();
+
     const loader = await screen.findByTestId('widget-loader');
     expect(loader).toBeInTheDocument();
     expect(loader).toHaveAttribute('aria-busy', 'true');

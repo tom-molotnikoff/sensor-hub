@@ -13,6 +13,7 @@ import DayForecastCard from "./DayForecastCard.tsx";
 import HourlyForecastDetail from "./HourlyForecastDetail.tsx";
 import EmptyState from "./EmptyState.tsx";
 import { WeatherColumnsLoader } from "../dashboard/widget-loaders";
+import { useWidgetStateReport } from "../dashboard/WidgetContext";
 
 export default function WeatherForecastCard({ showTitle = true }: { showTitle?: boolean }) {
   const properties = useProperties();
@@ -26,6 +27,7 @@ export default function WeatherForecastCard({ showTitle = true }: { showTitle?: 
   const lat = parseFloat(latStr);
   const lon = parseFloat(lonStr);
   const hasLocation = !isNaN(lat) && !isNaN(lon);
+  useWidgetStateReport(hasLocation ? null : 'populated');
 
   const { data, loading, error } = useWeatherApi(
     hasLocation ? lat : 0,

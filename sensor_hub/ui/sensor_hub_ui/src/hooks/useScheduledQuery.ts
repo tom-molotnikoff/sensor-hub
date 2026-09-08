@@ -46,8 +46,8 @@ function sameDeps(a: unknown[], b: unknown[]): boolean {
 }
 
 function widgetStateOf(snapshot: Snapshot<unknown>): WidgetState {
-    if (snapshot.status === 'error') return 'error';
     if (snapshot.data !== undefined) return 'populated';
+    if (snapshot.status === 'error') return 'error';
     if (snapshot.status === 'held') return 'held';
     return 'loading';
 }
@@ -175,7 +175,7 @@ export function useScheduledQuery<T>(
         if (run && !run.started) run.controller.abort(abortReason('Widget unmounted'));
     }, []);
 
-    useWidgetStateReport(enabled ? widgetStateOf(snapshot) : 'populated');
+    useWidgetStateReport(enabled ? widgetStateOf(snapshot) : null);
 
     return {
         data: snapshot.data,

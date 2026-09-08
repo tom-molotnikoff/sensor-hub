@@ -4,6 +4,7 @@ import { Box, LinearProgress, Typography } from '@mui/material';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import useSensorHealthHistory from '../../hooks/useSensorHealthHistory';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
+import { useWidgetStateReport } from '../WidgetContext';
 import { buildHealthWindowModel, formatDurationShort, formatWindowLabel } from '../../health/healthWindow';
 import { useProperties } from '../../hooks/useProperties';
 import { WidgetSwap, IndeterminateBarLoader } from '../widget-loaders';
@@ -15,6 +16,7 @@ export default function UptimeWidget({ config }: WidgetProps) {
     const sensorId = config.sensorId as number | undefined;
     const sensor = sensorId ? sensors.find((s) => s.id === sensorId) : undefined;
     const sensorName = sensor?.name ?? '';
+    useWidgetStateReport(sensorId ? null : 'populated');
 
     const [history, , historyLoading] = useSensorHealthHistory(sensorName);
 

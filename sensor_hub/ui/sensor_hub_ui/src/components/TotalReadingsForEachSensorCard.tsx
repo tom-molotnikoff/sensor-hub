@@ -12,8 +12,15 @@ function formatSampledAt(sampledAt: string): string {
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleString();
 }
 
-function TotalReadingsForEachSensorCard({ showTitle = true }: { showTitle?: boolean }) {
-  const [sample, isLoading] = useTotalReadingsForEachSensor();
+interface TotalReadingsForEachSensorCardProps {
+  showTitle?: boolean;
+  /** Omitted, the sample is fetched once. The dashboard widget polls so it recovers from the
+   *  empty sample the server holds for a second or two after a restart. */
+  pollIntervalMs?: number;
+}
+
+function TotalReadingsForEachSensorCard({ showTitle = true, pollIntervalMs }: TotalReadingsForEachSensorCardProps) {
+  const [sample, isLoading] = useTotalReadingsForEachSensor(pollIntervalMs);
 
   const columns: GridColDef[] = [
     { field: 'sensor', headerName: 'Sensor', flex: 1 },

@@ -305,13 +305,29 @@ describe('useScheduledQuery', () => {
         expect(seen.at(-1)).toBe('fresh:rows');
     });
 
-    it('stays dormant and reports the frame populated while disabled', async () => {
+    it('stays dormant and says nothing about the frame while disabled', async () => {
         const fetcher = vi.fn().mockResolvedValue('rows');
         const query = renderQuery(fetcher, { enabled: false, deps: [] }, { visible: true });
         await settle();
 
         expect(fetcher).not.toHaveBeenCalled();
-        expect(query.states).toEqual(['populated']);
+        expect(query.states).toEqual([]);
+    });
+
+    it('keeps the frame populated when a poll fails on a widget that already has data', async () => {
+        const fetcher = vi.fn()
+            .mockResolvedValueOnce('rows')
+            .mockRejectedValueOnce(new Error('boom'));
+        const query = renderQuery(fetcher, { pollIntervalMs: 30000, deps: [] }, { visible: true });
+        await settle();
+        expect(query.states.at(-1)).toBe('populated');
+
+        await tick(30000);
+
+        expect(fetcher).toHaveBeenCalledTimes(2);
+        expect(query.latest().status).toBe('error');
+        expect(query.latest().data).toBe('rows');
+        expect(query.states.at(-1)).toBe('populated');
     });
 
     it('refetches on demand', async () => {

@@ -31,6 +31,9 @@ type UseWeatherApiResult = {
   error: string | null;
 };
 
+/** The forecast shares the dashboard's read budget, so it must not hold a slot indefinitely. */
+const WEATHER_TIMEOUT_MS = 10000;
+
 export function useWeatherApi(
   latitude: number,
   longitude: number
@@ -50,7 +53,9 @@ export function useWeatherApi(
     });
 
     const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
-    const resp = await fetch(url, { signal });
+    const resp = await fetch(url, {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(WEATHER_TIMEOUT_MS)]),
+    });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const json = await resp.json();
 

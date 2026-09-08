@@ -6,9 +6,7 @@ import type { TotalReadingsSample } from "../gen/aliases";
 
 const EMPTY_SAMPLE: TotalReadingsSample = { sampled_at: '', counts: {} };
 
-export const TOTAL_READINGS_POLL_MS = 60000;
-
-function useTotalReadingsForEachSensor(): [TotalReadingsSample, boolean] {
+function useTotalReadingsForEachSensor(pollIntervalMs?: number): [TotalReadingsSample, boolean] {
   const { user } = useAuth();
 
   const fetcher = useCallback(async (signal: AbortSignal) => {
@@ -17,7 +15,7 @@ function useTotalReadingsForEachSensor(): [TotalReadingsSample, boolean] {
   }, []);
 
   const { data, isLoading } = useScheduledQuery(fetcher, {
-    pollIntervalMs: TOTAL_READINGS_POLL_MS,
+    pollIntervalMs,
     enabled: !!user,
     deps: [],
   });
