@@ -18,6 +18,37 @@ function makeDefinition(overrides: Partial<PropertyDefinition> = {}): PropertyDe
 }
 
 describe('PropertyField', () => {
+  it('reflects the default in the control of a definition carrying no value', () => {
+    render(<PropertyField definition={makeDefinition({ default: 'true' })} onChange={() => {}} />);
+
+    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeChecked();
+  });
+
+  it('states only the saved value for an undescribed property, with no default, chip or consequence note', () => {
+    render(
+      <PropertyField
+        definition={makeDefinition({
+          key: 'mqtt.broker.enabled',
+          label: 'mqtt.broker.enabled',
+          description: '',
+          type: 'string',
+          default: '',
+          apply: 'live',
+        })}
+        described={false}
+        serverValue="true"
+        editedValue="false"
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Saved value true')).toBeInTheDocument();
+    expect(screen.queryByText(/default/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/disconnects connected sensors/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /restart/i })).not.toBeInTheDocument();
+    expect(screen.getAllByText('mqtt.broker.enabled')).toHaveLength(1);
+  });
+
   it('renders a bool property as a switch whose state matches the current value', () => {
     render(<PropertyField definition={makeDefinition()} serverValue="true" onChange={() => {}} />);
 

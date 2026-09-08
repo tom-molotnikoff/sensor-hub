@@ -7,6 +7,7 @@ import { applySegment } from './propertyApplyCopy';
 
 interface PropertyFieldProps {
   definition: PropertyDefinition;
+  described?: boolean;
   serverValue?: string;
   editedValue?: string;
   collided?: boolean;
@@ -18,11 +19,12 @@ interface PropertyFieldProps {
 interface PropertyControlProps {
   definition: PropertyDefinition;
   value: string;
+  unset: boolean;
   onChange: (value: string) => void;
   disabled?: boolean;
 }
 
-function PropertyControl({ definition, value, onChange, disabled }: PropertyControlProps) {
+function PropertyControl({ definition, value, unset, onChange, disabled }: PropertyControlProps) {
   if (definition.readOnly) {
     return <Typography sx={{ fontFamily: 'monospace' }} color="text.secondary">{value}</Typography>;
   }
@@ -30,7 +32,7 @@ function PropertyControl({ definition, value, onChange, disabled }: PropertyCont
   if (definition.type === 'bool') {
     return (
       <Switch
-        checked={value === 'true'}
+        checked={(unset ? definition.default : value) === 'true'}
         onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
         disabled={disabled}
         slotProps={{ input: { role: 'switch', 'aria-label': definition.label } }}
@@ -41,7 +43,7 @@ function PropertyControl({ definition, value, onChange, disabled }: PropertyCont
   if (definition.enum) {
     return (
       <Select
-        value={value}
+        value={unset ? definition.default : value}
         onChange={(e) => onChange(e.target.value)}
         size="small"
         disabled={disabled}
@@ -59,6 +61,7 @@ function PropertyControl({ definition, value, onChange, disabled }: PropertyCont
       <TextField
         type={definition.type === 'int' ? 'number' : 'text'}
         value={value}
+        placeholder={unset ? definition.default : undefined}
         onChange={(e) => onChange(e.target.value)}
         size="small"
         disabled={disabled}
@@ -73,17 +76,20 @@ function shown(value: string): string {
   return value === '' ? '(empty)' : value;
 }
 
-function helperLine(definition: PropertyDefinition, serverValue: string): string {
-  const parts = [`Saved value ${shown(serverValue)}`, `default ${shown(definition.default)}`];
+function helperLine(definition: PropertyDefinition, described: boolean, serverValue: string): string {
+  const saved = `Saved value ${shown(serverValue)}`;
+  if (!described) return saved;
+  const parts = [saved, `default ${shown(definition.default)}`];
   const apply = applySegment(definition, serverValue);
   if (apply) parts.push(apply);
   return parts.join(' · ');
 }
 
-export default function PropertyField({ definition, serverValue, editedValue, collided, onChange, onUndo, disabled }: PropertyFieldProps) {
+export default function PropertyField({ definition, described = true, serverValue, editedValue, collided, onChange, onUndo, disabled }: PropertyFieldProps) {
   const isMobile = useIsMobile();
   const value = editedValue ?? serverValue ?? '';
   const modified = editedValue !== undefined && editedValue !== serverValue;
+  const unset = serverValue === undefined && editedValue === undefined;
 
   return (
     <Box
@@ -101,12 +107,16 @@ export default function PropertyField({ definition, serverValue, editedValue, co
           <Typography sx={{ fontWeight: 500 }} color={modified ? 'primary' : 'textPrimary'}>
             {definition.label}
           </Typography>
-          <ApplyChip definition={definition} />
+          {described && <ApplyChip definition={definition} />}
         </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-          {definition.key}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">{definition.description}</Typography>
+        {described && (
+          <>
+            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+              {definition.key}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">{definition.description}</Typography>
+          </>
+        )}
         {definition.readOnly && (
           <Typography variant="body2" color="text.secondary">
             Set at install time and not changeable at runtime.
@@ -115,17 +125,23 @@ export default function PropertyField({ definition, serverValue, editedValue, co
       </Box>
       <Box sx={{ flex: '1 1 auto' }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <PropertyControl definition={definition} value={value} onChange={onChange} disabled={disabled} />
+          <PropertyControl
+            definition={definition}
+            value={value}
+            unset={unset}
+            onChange={onChange}
+            disabled={disabled}
+          />
           {modified && !collided && onUndo && (
             <IconButton size="small" aria-label={`Undo changes to ${definition.label}`} onClick={onUndo}>
               <UndoIcon fontSize="small" />
             </IconButton>
           )}
         </Stack>
-        <ApplyNote definition={definition} />
+        {described && <ApplyNote definition={definition} />}
         {modified && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {collided ? `Someone else changed this to ${shown(serverValue ?? '')}` : helperLine(definition, serverValue ?? '')}
+            {collided ? `Someone else changed this to ${shown(serverValue ?? '')}` : helperLine(definition, described, serverValue ?? '')}
             {collided && onUndo && (
               <>
                 {' \u00b7 '}
