@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard First Load</title>
+<style>
+  :root {
+    --primary: #D4451A; --primary-light: #ED5125; --primary-dark: #B33612; --on-primary: #fff;
+    --bg: #F5F0EB; --paper: #FFFFFF; --text: #1A1A1A; --text-2: #5C5C5C; --divider: #D9D0C7;
+    --hover: rgba(212,69,26,0.06);
+    --ok: #2E7D32; --ok-bg: rgba(46,125,50,0.10);
+    --warn: #B26A00; --warn-bg: rgba(178,106,0,0.12);
+    --bad: #B3261E; --bad-bg: rgba(179,38,30,0.10);
+    --info: #1B5E9E; --info-bg: rgba(27,94,158,0.10);
+    --wait: #C9BFB5; --code-bg: #F0E9E2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --primary: #ED5125; --primary-light: #F47A56; --primary-dark: #C43D18;
+      --bg: #1A1A1A; --paper: #242424; --text: #E8E8E8; --text-2: #A0A0A0; --divider: #333333;
+      --hover: rgba(237,81,37,0.08);
+      --ok: #7BC67E; --ok-bg: rgba(123,198,126,0.14);
+      --warn: #F0B24A; --warn-bg: rgba(240,178,74,0.16);
+      --bad: #F28B82; --bad-bg: rgba(242,139,130,0.14);
+      --info: #7FB3E8; --info-bg: rgba(127,179,232,0.14);
+      --wait: #4A4A4A; --code-bg: #1F1F1F;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: "Open Sans", Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 80px; display: flex; flex-direction: column; gap: 40px; }
+  :where(.grid, .flex, .row) > * { min-width: 0; }
+  :where(p, h1, h2, h3, h4, li, td, th, dd, .chip) { overflow-wrap: anywhere; }
+  :where(img, svg) { max-width: 100%; height: auto; }
+  h1 { font-size: 30px; line-height: 1.15; margin: 8px 0 6px; }
+  h2 { font-size: 21px; margin: 0 0 4px; }
+  h3 { font-size: 16px; margin: 0 0 4px; }
+  p { margin: 6px 0; }
+  a { color: var(--primary); }
+  .muted { color: var(--text-2); }
+  .small { font-size: 13px; }
+  .card { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; padding: 18px 20px; }
+  .section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .02em; padding: 2px 9px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
+  .chip.primary { background: var(--primary); color: var(--on-primary); }
+  .chip.outline { border-color: var(--divider); color: var(--text-2); }
+  .chip.ok { background: var(--ok-bg); color: var(--ok); }
+  .chip.warn { background: var(--warn-bg); color: var(--warn); }
+  .chip.bad { background: var(--bad-bg); color: var(--bad); }
+  .chip.info { background: var(--info-bg); color: var(--info); }
+  .grid { display: grid; gap: 14px; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .g4 { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .stat { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; padding: 14px 16px; }
+  .stat .v { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat .l { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+  .stat.bad .v { color: var(--bad); } .stat.ok .v { color: var(--ok); } .stat.warn .v { color: var(--warn); }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--divider); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 8px 0; font-size: 12.5px; line-height: 1.45; }
+  pre code { background: none; padding: 0; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--divider); border-radius: 10px; background: var(--paper); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--divider); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); background: var(--hover); }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  figure { margin: 0; }
+  figcaption { font-size: 13px; color: var(--text-2); margin-top: 6px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
+  .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
+  .legend .work::before { background: var(--primary); }
+  .legend .wait::before { background: repeating-linear-gradient(135deg, var(--wait) 0 3px, transparent 3px 6px); border: 1px solid var(--wait); }
+  .legend .tiny::before { background: var(--info); }
+  .callout { border-left: 4px solid var(--primary); background: var(--hover); padding: 12px 16px; border-radius: 0 10px 10px 0; }
+  .callout.disagree { border-left-color: var(--bad); background: var(--bad-bg); }
+  .callout.agree { border-left-color: var(--ok); background: var(--ok-bg); }
+  /* questions */
+  .q { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .q .qid { font-size: 12px; font-weight: 700; color: var(--primary); letter-spacing: .06em; }
+  .q h3 { font-size: 17px; }
+  .opts { display: grid; gap: 8px; margin: 4px 0; }
+  .opt { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--divider); border-radius: 10px; cursor: pointer; background: transparent; }
+  .opt:hover { background: var(--hover); }
+  .opt input { margin-top: 3px; accent-color: var(--primary); }
+  .opt .t { font-weight: 600; }
+  .opt .d { font-size: 13.5px; color: var(--text-2); }
+  .opt .cost { font-size: 12.5px; color: var(--warn); }
+  .rec { border-color: var(--primary); }
+  .rec .t::after { content: "Recommended"; font-size: 11px; font-weight: 700; color: var(--primary); margin-left: 8px; letter-spacing: .04em; text-transform: uppercase; }
+  textarea, select { font: inherit; font-size: 14px; color: var(--text); background: var(--paper); border: 1px solid var(--divider); border-radius: 8px; padding: 8px 10px; }
+  textarea { width: 100%; min-height: 56px; resize: vertical; }
+  .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button.btn { font: inherit; font-weight: 600; font-size: 14px; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--primary); background: var(--primary); color: var(--on-primary); cursor: pointer; }
+  button.btn:hover { background: var(--primary-dark); }
+  .queued { font-size: 13px; color: var(--ok); font-weight: 600; display: none; }
+  .q.is-queued .queued { display: inline; }
+  .q.is-queued { border-color: var(--ok); }
+  .why { font-size: 13.5px; color: var(--text-2); }
+  .why b { color: var(--text); }
+  details { border: 1px solid var(--divider); border-radius: 10px; padding: 8px 14px; background: var(--paper); }
+  summary { cursor: pointer; font-weight: 600; }
+  .mock { border: 1px solid var(--divider); border-radius: 10px; background: var(--paper); padding: 12px 14px; position: relative; }
+  .mock .title { font-size: 13px; color: var(--text-2); }
+  .mock .big { font-size: 34px; font-weight: 700; margin: 4px 0; }
+  .mock.stale .big, .mock.stale .spark { opacity: .45; }
+  .mock .updating { position: absolute; top: 10px; right: 10px; }
+  .mock .skel { height: 14px; border-radius: 6px; background: linear-gradient(90deg, var(--code-bg), var(--divider), var(--code-bg)); background-size: 200% 100%; animation: sh 1.4s infinite; margin: 8px 0; }
+  @keyframes sh { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+  ol.steps { padding-left: 20px; } ol.steps li { margin: 4px 0; }
+  .fact { font-size: 12px; color: var(--text-2); }
+  svg text { font-family: "Open Sans", Roboto, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<main>
+
+<!-- ================= HEADER ================= -->
+<header>
+  <div class="row" style="display:flex;gap:8px;flex-wrap:wrap">
+    <span class="chip primary">Brainstorm · round 2: the design</span>
+    <span class="chip outline">sensor-hub · backend + UI</span>
+    <span class="chip outline">Evidence: OpenObserve, 14 days to 2026-09-08</span>
+  </div>
+  <h1>Dashboards that load fast, and feel fast</h1>
+  <p class="muted" style="max-width:820px">
+    You asked for the query prioritisation to become viewport-aware, for off-screen widgets to neither fetch nor refresh, and for a real look at why a
+    sub-100&nbsp;ms readings query takes 8 seconds on first load. The traces answer the last part precisely, and the answer changes what "prioritisation"
+    can and cannot do. This page lays out the evidence, where I disagree with the original framing, every contributing factor found, and the decisions that are yours.
+    Annotate anything. Each question has its own queue button.
+  </p>
+</header>
+
+<!-- ================= EVIDENCE ================= -->
+<section>
+  <div class="section-head"><h2>1. Where the 9.4 seconds go</h2><span class="chip bad">Root cause found</span></div>
+  <p class="muted">Episode 2026-09-08 09:20:20 UTC. Four requests left the browser in the same millisecond. All four returned in the same instant, 9.2 to 9.5 seconds later.</p>
+
+  <div class="grid g4" style="margin:12px 0">
+    <div class="stat bad"><div class="v">9.17 s</div><div class="l">One SQL statement: <code>GET /measurement-types?has_readings=true</code>, row iteration</div></div>
+    <div class="stat ok"><div class="v">152 ms</div><div class="l">The readings query you were worried about, in the same episode</div></div>
+    <div class="stat bad"><div class="v">8 of 8</div><div class="l"><code>has_readings=true</code> calls in 14 days that took over 8.7 s</div></div>
+    <div class="stat warn"><div class="v">1</div><div class="l"><code>SetMaxOpenConns(1)</code>: every other request waits for that one connection</div></div>
+  </div>
+
+  <figure class="card">
+    <svg viewBox="0 0 960 300" width="100%" role="img" aria-labelledby="wf-title">
+      <title id="wf-title">Waterfall of the four concurrent requests plus one MQTT message on the single SQLite connection</title>
+      <defs>
+        <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(135)">
+          <rect width="6" height="6" fill="none"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--wait)" stroke-width="3"/>
+        </pattern>
+      </defs>
+      <!-- axis: 0..9.6s over x=190..930 (77px per s) -->
+      <g id="axis" fill="var(--text-2)" font-size="11">
+        <line x1="190" y1="22" x2="930" y2="22" stroke="var(--divider)"/>
+        <g><line x1="190" y1="18" x2="190" y2="26" stroke="var(--divider)"/><text x="190" y="13" text-anchor="middle">0 s</text></g>
+        <g><line x1="344" y1="18" x2="344" y2="26" stroke="var(--divider)"/><text x="344" y="13" text-anchor="middle">2 s</text></g>
+        <g><line x1="498" y1="18" x2="498" y2="26" stroke="var(--divider)"/><text x="498" y="13" text-anchor="middle">4 s</text></g>
+        <g><line x1="652" y1="18" x2="652" y2="26" stroke="var(--divider)"/><text x="652" y="13" text-anchor="middle">6 s</text></g>
+        <g><line x1="806" y1="18" x2="806" y2="26" stroke="var(--divider)"/><text x="806" y="13" text-anchor="middle">8 s</text></g>
+        <line id="release" x1="896" y1="26" x2="896" y2="290" stroke="var(--bad)" stroke-dasharray="4 3"/>
+        <text x="896" y="298" text-anchor="middle" fill="var(--bad)" font-size="10">09:20:29.49 release</text>
+      </g>
+      <!-- row 1: holder -->
+      <g id="row-holder">
+        <text x="182" y="52" text-anchor="end" font-size="12" fill="var(--text)">measurement-types</text>
+        <text x="182" y="66" text-anchor="end" font-size="10" fill="var(--text-2)">a46b2ada… 9.172 s</text>
+        <rect x="190" y="40" width="3" height="26" fill="var(--info)"><title>auth chain: 5 queries, 2.1 ms</title></rect>
+        <rect x="193" y="40" width="703" height="26" fill="var(--primary)" rx="3"><title>sql.rows 9168.70 ms: SELECT DISTINCT … INNER JOIN readings, no usable index</title></rect>
+        <text x="540" y="58" text-anchor="middle" font-size="12" fill="#fff" font-weight="700">sql.rows 9 168 ms · full scan of readings</text>
+      </g>
+      <!-- row 2 -->
+      <g id="row-victim-a">
+        <text x="182" y="98" text-anchor="end" font-size="12" fill="var(--text)">readings/between</text>
+        <text x="182" y="112" text-anchor="end" font-size="10" fill="var(--text-2)">8a02f495… 9.326 s</text>
+        <rect x="190" y="86" width="706" height="26" fill="url(#hatch)" stroke="var(--wait)" rx="3"><title>waiting for the connection: 9169 ms, zero child spans</title></rect>
+        <rect x="896" y="86" width="12" height="26" fill="var(--primary)" rx="2"><title>own readings query: 151 ms</title></rect>
+        <text x="540" y="104" text-anchor="middle" font-size="12" fill="var(--text-2)">waiting for the connection · 9 169 ms</text>
+      </g>
+      <!-- row 3 -->
+      <g id="row-victim-b">
+        <text x="182" y="144" text-anchor="end" font-size="12" fill="var(--text)">readings/between</text>
+        <text x="182" y="158" text-anchor="end" font-size="10" fill="var(--text-2)">ff5dbde2… 9.479 s</text>
+        <rect x="190" y="132" width="706" height="26" fill="url(#hatch)" stroke="var(--wait)" rx="3"><title>waiting 9170 ms</title></rect>
+        <rect x="896" y="132" width="12" height="26" fill="url(#hatch)" stroke="var(--wait)"><title>waiting behind the sibling query: 150 ms</title></rect>
+        <rect x="908" y="132" width="12" height="26" fill="var(--primary)" rx="2"><title>own readings query: 152 ms</title></rect>
+        <text x="540" y="150" text-anchor="middle" font-size="12" fill="var(--text-2)">waiting · then waits again behind its sibling</text>
+      </g>
+      <!-- row 4 -->
+      <g id="row-victim-c">
+        <text x="182" y="190" text-anchor="end" font-size="12" fill="var(--text)">properties/ws</text>
+        <text x="182" y="204" text-anchor="end" font-size="10" fill="var(--text-2)">1692ec7f… 9.476 s</text>
+        <rect x="190" y="178" width="706" height="26" fill="url(#hatch)" stroke="var(--wait)" rx="3"><title>blocked mid-auth for 9474 ms; its own SQL is 0.6 ms</title></rect>
+        <rect x="896" y="178" width="2" height="26" fill="var(--info)"><title>own work: 0.6 ms</title></rect>
+        <text x="540" y="196" text-anchor="middle" font-size="12" fill="var(--text-2)">blocked inside the auth middleware · own work 0.6 ms</text>
+      </g>
+      <!-- row 5 mqtt -->
+      <g id="row-mqtt">
+        <text x="182" y="236" text-anchor="end" font-size="12" fill="var(--text)">mqtt.handle_message</text>
+        <text x="182" y="250" text-anchor="end" font-size="10" fill="var(--text-2)">192d3f38… 4.821 s</text>
+        <rect x="549" y="224" width="347" height="26" fill="url(#hatch)" stroke="var(--wait)" rx="3"><title>arrived at +4.66 s, first SQL span at +4510 ms</title></rect>
+        <rect x="896" y="224" width="24" height="26" fill="var(--primary)" rx="2"><title>109 spans of ingest work in 311 ms</title></rect>
+        <text x="722" y="242" text-anchor="middle" font-size="12" fill="var(--text-2)">sensor ingest stalled too</text>
+      </g>
+      <text x="190" y="280" font-size="11" fill="var(--text-2)">Every hatched bar ends at the same vertical line: the instant the holder's row iteration finished and released the connection.</text>
+    </svg>
+    <div class="legend"><span class="work">real work in SQLite</span><span class="wait">waiting in Go's connection queue (no child spans)</span><span class="tiny">auth chain, microseconds</span></div>
+    <figcaption>Metrics agree: <code>db_sql_connection_wait_duration</code> rose by 38 147 ms in that minute across 206 waiters, against a 12 ms baseline. Logs contain zero "database is locked" or SQLITE_BUSY entries in 3 million records, which is expected with one connection: the queue is in <code>database/sql</code>, not in SQLite.</figcaption>
+  </figure>
+
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card">
+      <h3>The statement</h3>
+      <pre><code>SELECT DISTINCT mt.id, mt.name, …
+FROM measurement_types mt
+INNER JOIN readings r ON r.measurement_type_id = mt.id
+LEFT JOIN measurement_type_aggregations mta ON …
+ORDER BY mt.name</code></pre>
+      <p class="small muted">An existence test ("which types have at least one reading") written as a join over the whole readings history and deduplicated. There is no index whose leading column is <code>measurement_type_id</code>, so it's a full scan of a table receiving ~99 000 inserts a day with 90-day retention. The same endpoint without <code>has_readings</code> costs 0.53 ms.</p>
+      <p class="fact">db/measurement_type_repository.go:49 · indexes on readings: time DESC, time ASC, (sensor_id, measurement_type_id, time DESC)</p>
+    </div>
+    <div class="card">
+      <h3>Who calls it, and why it fires on every load</h3>
+      <p class="small">Not a widget. <code>WidgetConfigDialog</code> is always mounted on the dashboard page with <code>open=false</code>, and it calls <code>useMeasurementTypesWithReadings()</code> unconditionally on mount. So the widget-configuration dialog that nobody has opened fires the slowest query in the system, in the same wave as the chart widgets.</p>
+      <p class="fact">ui/…/dashboard/DashboardPage.tsx:121 · WidgetConfigDialog.tsx:60 · hooks/useMeasurementTypes.ts:34</p>
+      <p class="small muted" style="margin-top:8px">This is why viewport prioritisation on its own would not have helped: the call is not attached to anything visible, and once it holds the connection, priority order in the browser is irrelevant.</p>
+    </div>
+  </div>
+
+  <div class="tablewrap" style="margin-top:14px">
+    <table>
+      <thead><tr><th>Dashboard-load episodes, 14 days</th><th>In flight</th><th class="num">Max</th><th>Contains measurement-types?</th></tr></thead>
+      <tbody>
+        <tr><td>2026-08-26 16:50:23</td><td>measurement-types ×2, readings/between ×2, properties/ws ×2</td><td class="num">9.08 s</td><td><span class="chip bad">yes</span></td></tr>
+        <tr><td>2026-08-28 11:19:38</td><td>measurement-types, readings/between ×4, properties/ws</td><td class="num">9.62 s</td><td><span class="chip bad">yes</span></td></tr>
+        <tr><td>2026-08-28 11:54:32</td><td>measurement-types, readings/between, properties/ws</td><td class="num">9.41 s</td><td><span class="chip bad">yes</span></td></tr>
+        <tr><td>2026-08-31 15:11:57</td><td>measurement-types, readings/between ×4, properties/ws</td><td class="num">9.89 s</td><td><span class="chip bad">yes</span></td></tr>
+        <tr><td>2026-09-02 15:22:17</td><td>measurement-types, readings/between ×4, notifications/ws</td><td class="num">9.86 s</td><td><span class="chip bad">yes</span></td></tr>
+        <tr><td>2026-09-08 09:20:20</td><td>measurement-types, readings/between ×2, properties/ws</td><td class="num">9.48 s</td><td><span class="chip bad">yes</span></td></tr>
+        <tr><td>2026-09-08 09:23:54</td><td>measurement-types, readings/between ×2, properties/ws</td><td class="num">9.51 s</td><td><span class="chip bad">yes</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted">readings/between over 639 samples: p50 185 ms, p95 343 ms, p99 9 530 ms. Bimodal, with nothing between 350 ms and 9.3 s. All 20 samples over 1 s fall inside these seven episodes. Fast and slow traces have the identical 24 spans; only the gaps differ.</p>
+  <p class="small muted">Your "10 to 15 queries before the real one" is real and located: 5 auth queries per request (session select, session update, user, roles, permissions) plus 2 to 3 name-to-id lookups, times four concurrent requests. Together they cost about 2.5 ms. You were seeing the queue correctly; the queue was made by a different query.</p>
+</section>
+
+<!-- ================= LOAD CHAIN ================= -->
+<section>
+  <div class="section-head"><h2>2. What the browser fires on first load</h2><span class="chip warn">Contributing factors</span></div>
+  <figure class="card">
+    <svg viewBox="0 0 960 250" width="100%" role="img" aria-labelledby="chain-title">
+      <title id="chain-title">Sequence of requests on first dashboard load, ending in a funnel onto one SQLite connection</title>
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-2)"/></marker></defs>
+      <g id="stage-auth">
+        <rect x="10" y="60" width="130" height="54" rx="10" fill="var(--paper)" stroke="var(--divider)"/>
+        <text x="75" y="82" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">GET /auth/me</text>
+        <text x="75" y="100" text-anchor="middle" font-size="11" fill="var(--text-2)">69 ms · everything waits</text>
+      </g>
+      <line x1="140" y1="87" x2="170" y2="87" stroke="var(--text-2)" marker-end="url(#arr)"/>
+      <g id="stage-shell">
+        <rect x="172" y="30" width="170" height="114" rx="10" fill="var(--paper)" stroke="var(--divider)"/>
+        <text x="257" y="50" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">App shell, parallel</text>
+        <text x="257" y="68" text-anchor="middle" font-size="11" fill="var(--text-2)">notifications ×3</text>
+        <text x="257" y="84" text-anchor="middle" font-size="11" fill="var(--text-2)">sensors/ws · properties/ws</text>
+        <text x="257" y="100" text-anchor="middle" font-size="11" fill="var(--text-2)">GET /dashboards → blank page</text>
+        <text x="257" y="130" text-anchor="middle" font-size="11" fill="var(--ok)">all under 90 ms</text>
+      </g>
+      <line x1="342" y1="87" x2="372" y2="87" stroke="var(--text-2)" marker-end="url(#arr)"/>
+      <g id="stage-widgets">
+        <rect x="374" y="10" width="250" height="230" rx="10" fill="var(--paper)" stroke="var(--divider)"/>
+        <text x="499" y="30" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">Every widget mounts at once</text>
+        <text x="499" y="46" text-anchor="middle" font-size="11" fill="var(--text-2)">on-screen and off-screen alike</text>
+        <g id="w-mt"><rect x="386" y="58" width="226" height="30" rx="6" fill="var(--bad-bg)" stroke="var(--bad)"/>
+          <text x="499" y="72" text-anchor="middle" font-size="11" font-weight="700" fill="var(--bad)">measurement-types?has_readings</text>
+          <text x="499" y="84" text-anchor="middle" font-size="10" fill="var(--bad)">from the closed config dialog · 9.2 s</text></g>
+        <g id="w-charts"><rect x="386" y="94" width="226" height="26" rx="6" fill="var(--hover)" stroke="var(--divider)"/>
+          <text x="499" y="111" text-anchor="middle" font-size="11" fill="var(--text)">readings/between ×N · scheduler, cap 4</text></g>
+        <g id="w-props"><rect x="386" y="126" width="226" height="26" rx="6" fill="var(--warn-bg)" stroke="var(--warn)"/>
+          <text x="499" y="143" text-anchor="middle" font-size="11" fill="var(--warn)">properties/ws · one per widget frame</text></g>
+        <g id="w-live"><rect x="386" y="158" width="226" height="26" rx="6" fill="var(--warn-bg)" stroke="var(--warn)"/>
+          <text x="499" y="175" text-anchor="middle" font-size="11" fill="var(--warn)">readings/ws/current · one per live widget</text></g>
+        <g id="w-other"><rect x="386" y="190" width="226" height="26" rx="6" fill="var(--hover)" stroke="var(--divider)"/>
+          <text x="499" y="207" text-anchor="middle" font-size="11" fill="var(--text)">health, stats, alerts · unscheduled</text></g>
+        <text x="499" y="232" text-anchor="middle" font-size="10" fill="var(--text-2)">the cap covers 5 of ~13 call sites</text>
+      </g>
+      <path d="M624,125 C660,125 660,125 700,125" stroke="var(--text-2)" fill="none" marker-end="url(#arr)"/>
+      <g id="stage-funnel">
+        <path d="M702,40 L790,105 L790,145 L702,210 Z" fill="var(--warn-bg)" stroke="var(--warn)"/>
+        <text x="738" y="120" text-anchor="middle" font-size="11" font-weight="700" fill="var(--warn)">5 auth</text>
+        <text x="738" y="134" text-anchor="middle" font-size="11" font-weight="700" fill="var(--warn)">queries each</text>
+      </g>
+      <g id="stage-db">
+        <rect x="800" y="95" width="150" height="60" rx="10" fill="var(--paper)" stroke="var(--primary)" stroke-width="2"/>
+        <text x="875" y="118" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">1 SQLite connection</text>
+        <text x="875" y="136" text-anchor="middle" font-size="11" fill="var(--text-2)">reads, ingest, VACUUM</text>
+      </g>
+      <text x="875" y="180" text-anchor="middle" font-size="10" fill="var(--text-2)">WAL is on, and unused:</text>
+      <text x="875" y="193" text-anchor="middle" font-size="10" fill="var(--text-2)">one connection means no</text>
+      <text x="875" y="206" text-anchor="middle" font-size="10" fill="var(--text-2)">concurrent readers</text>
+    </svg>
+    <figcaption>Three serial round trips before any widget exists, then a burst whose worst member holds the only connection for 9 seconds while ingest, the other widgets, and the properties socket queue behind it.</figcaption>
+  </figure>
+</section>
+
+<!-- ================= STEELMAN / DISAGREE ================= -->
+<section>
+  <div class="section-head"><h2>3. Your idea, and where I push back</h2></div>
+  <div class="grid g2">
+    <div class="callout agree">
+      <h3>Strongest form of the idea</h3>
+      <p class="small">A dashboard is a scrolling grid; the user only cares about what is on screen. "Fast" means time-to-visible-content, not time-to-everything. Every off-screen request steals a scheduler slot, a server connection turn, and Pi CPU from something the user is actually looking at, and every off-screen poll is pure waste on a phone. So: visible controllable, then visible informational, then nothing else until it scrolls into view, and off-screen widgets stop polling. The scheduler already has the tiers; the PRD for it (#209) even defined <code>normal</code> as "visible read-only charts". It was never wired to visibility.</p>
+    </div>
+    <div class="callout disagree">
+      <h3>Where I disagree, before building on it</h3>
+      <p class="small"><b>Viewport prioritisation would not have fixed this load.</b> Priority in the browser only helps if the server can act on the order. With one connection, whoever grabs it first wins, and the 9 s holder is a request that no widget owns. Even a perfectly prioritised visible set would have sat behind it. So this design has to fix the server-side contention first, and treat visibility as the second win, which it is: once queries cost 15 to 150 ms, "visible first" is what turns a 600 ms load into a 200 ms one.</p>
+      <p class="small"><b>Never fetching off-screen widgets has a cost you will see.</b> Scroll down and you get a skeleton plus the 350 ms minimum loader time added in #219. I suggest a prefetch margin below the fold rather than idle prefetching, which keeps your rule ("don't run queries for what isn't visible") almost intact. Decision D5.</p>
+      <p class="small"><b>What would make me wrong:</b> if your dashboards fit on one screen, visibility gating is a no-op and only the backend work matters; if you routinely open dashboards with 20+ widgets on a phone, it is the bigger win of the two. Both cases are still "backend first".</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FACTORS ================= -->
+<section>
+  <div class="section-head"><h2>4. Every contributing factor found</h2><span class="chip info">Tracked batch</span></div>
+  <p class="muted small">You asked for all of these to be in scope. Each has an ID. Set a disposition per row, then queue the set once. Default is "include". Effect sizes are measured where a number is given.</p>
+  <form id="factors-form" data-lavish-question="factors" onsubmit="queueFactors(event)">
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>ID</th><th>Factor</th><th>Evidence</th><th>Effect</th><th>Disposition</th></tr></thead>
+      <tbody>
+        <tr id="F01"><td class="mono">F01</td><td><b>Full-scan "has readings" query</b> on measurement-types</td><td class="small">8/8 calls 8.8 to 9.3 s; 99.97% in one sql.rows span; no leading index on measurement_type_id</td><td><span class="chip bad">96.7% of the stall</span></td><td><select name="F01"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F02"><td class="mono">F02</td><td><b>Single connection for reads and writes</b>, no busy_timeout, WAL unused</td><td class="small">db/db.go:38-45; wait_duration +38 s in the episode minute; ingest trace blocked 4.5 s</td><td><span class="chip bad">turns one slow query into a page stall</span></td><td><select name="F02"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F03"><td class="mono">F03</td><td><b>Closed config dialog fires the slow query</b> on every dashboard load</td><td class="small">DashboardPage.tsx:121 mounts WidgetConfigDialog; hook runs on mount regardless of open</td><td><span class="chip bad">the trigger</span></td><td><select name="F03"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F04"><td class="mono">F04</td><td><b>VACUUM every 2 h</b> rewrites a 102 MB file to reclaim 892 KB</td><td class="small">161 runs in 14 days, 7.1 to 11.7 s each, exclusive; blocks ingest about half the time</td><td><span class="chip warn">~20 min/day unavailable</span></td><td><select name="F04"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F05"><td class="mono">F05</td><td><b>Boot-time latest-readings query</b> ranks the whole table with ROW_NUMBER()</td><td class="small">43.5 s cold on 2026-09-07 05:01; 41.0 s on 2026-08-31; seeds the readings store</td><td><span class="chip warn">first load after restart</span></td><td><select name="F05"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F06"><td class="mono">F06</td><td><b>Ingest N+1</b>: 2 name lookups + 1 insert per reading, no transaction; alert-rules query repeated 8×</td><td class="small">109 spans per MQTT message; ~600 k avoidable statements/day on the one connection</td><td><span class="chip warn">connection never idle</span></td><td><select name="F06"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F07"><td class="mono">F07</td><td><b>5 auth queries per request</b>, including a session UPDATE</td><td class="small">service/auth_service.go:224-242; ~0.5 ms each, but every one is a turn on the connection</td><td><span class="chip outline">small, structural</span></td><td><select name="F07"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F08"><td class="mono">F08</td><td><b>One properties socket per widget frame</b>, and connect handlers broadcast to the whole topic</td><td class="small">WidgetFrame → useWidgetSubtitle → useProperties; properties_api.go:124, readings_api.go:75, sensor_api.go:327; reconnect storms of ~15 sockets after each stall</td><td><span class="chip warn">N×N messages at the busiest moment</span></td><td><select name="F08"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F09"><td class="mono">F09</td><td><b>One current-readings socket per live widget</b></td><td class="small">useCurrentReadings.ts:119; data is module-cached, the connection is not</td><td><span class="chip outline">redundant connects</span></td><td><select name="F09"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F10"><td class="mono">F10</td><td><b>Scheduler covers 5 of ~13 call sites</b>; the <code>high</code> tier is never used; priority is hard-coded per call site</td><td class="small">requestScheduler.ts:7; measurement types, health, stats, alerts, dashboards all bypass it</td><td><span class="chip warn">the cap does not cap</span></td><td><select name="F10"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F11"><td class="mono">F11</td><td><b>No viewport or tab visibility awareness</b>; every chart owns its own drifting 30 s timer</td><td class="small">DashboardEngine.tsx:70 mounts all; useReadingsData.ts:155; no visibilitychange anywhere</td><td><span class="chip info">your request</span></td><td><select name="F11"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F12"><td class="mono">F12</td><td><b>Wrong query parameter</b>: min/max/avg and heatmap send <code>measurement_type=</code>, the API reads <code>type</code></td><td class="small">MinMaxAvgWidget.tsx:39, HeatmapWidget.tsx:92 vs api/openapi.yaml:94; filter silently dropped, 30 days of every type and sensor pulled then filtered client-side</td><td><span class="chip bad">live bug, largest needless payload</span></td><td><select name="F12"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F13"><td class="mono">F13</td><td><b>Serial cold start</b>: auth → dashboards → mount, with a blank page rather than a skeleton</td><td class="small">DashboardPage.tsx:55 returns null while loading</td><td><span class="chip outline">~150 ms + blank</span></td><td><select name="F13"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F14"><td class="mono">F14</td><td><b>Indented JSON, no gzip</b> on the largest responses</td><td class="small">readings_api.go:66 IndentedJSON; no compression middleware in api/api.go</td><td><span class="chip outline">~2× bytes on the wire</span></td><td><select name="F14"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F15"><td class="mono">F15</td><td><b>Main-thread cost per poll</b>: two full JSON.stringify passes and a nested find</td><td class="small">useReadingsData.ts:109-134</td><td><span class="chip outline">jank on big charts</span></td><td><select name="F15"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F16"><td class="mono">F16</td><td><b>Per-sensor COUNT(*) loop</b> for the reading-stats widget</td><td class="small">service/sensor_service.go:481-495</td><td><span class="chip outline">grows with table size</span></td><td><select name="F16"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F17"><td class="mono">F17</td><td><b>Bundle</b>: react-query bundled but unused; swagger-ui and every widget loaded eagerly</td><td class="small">package.json:25; DashboardPage.tsx:18 registerAllWidgets at module scope</td><td><span class="chip outline">parse time before first paint</span></td><td><select name="F17"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F18"><td class="mono">F18</td><td><b>Minimum 350 ms loader</b> keeps skeletons up even when data arrives in 20 ms</td><td class="small">useLoaderVisibility.ts:3, added in #219 to stop flicker</td><td><span class="chip outline">perceived, once loads are fast</span></td><td><select name="F18"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+        <tr id="F19"><td class="mono">F19</td><td><b>Sensor-to-type join table is never maintained</b>; only a migration backfill ever wrote it</td><td class="small">AssignToSensor has no callers outside db/</td><td><span class="chip outline">hygiene, enables F01 alternative</span></td><td><select name="F19"><option>include</option><option>later</option><option>drop</option></select></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="actions" style="margin-top:10px">
+    <button class="btn" type="submit">Queue factor dispositions</button>
+    <span class="queued">Queued</span>
+    <span class="small muted">Sends one prompt with all 19 IDs. I will account for every ID in the design.</span>
+  </div>
+  </form>
+</section>
+
+<!-- ================= DECISIONS ================= -->
+<section style="display:flex;flex-direction:column;gap:18px">
+  <div class="section-head"><h2>5. Decisions</h2><span class="chip outline">Recommendation first, then your call</span></div>
+
+  <!-- D1 -->
+  <form class="q" id="D1" data-lavish-question="D1" onsubmit="queueAnswer(event, 'D1', 'Success criterion')">
+    <div class="qid">D1 · SUCCESS CRITERION</div>
+    <h3>What does "done" measure?</h3>
+    <p class="why">Today's numbers: 9.2 to 9.9 s on the seven episodes, 185 ms median otherwise, 41 to 44 s for the first load after the 05:01 restart. I want a number the harness in D9 can assert, not a feeling.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="D1" value="visible-populated-1s-warm-2s-cold" checked><span><span class="t">Every visible widget populated within 1 s warm, 2 s cold</span><span class="d">Measured from navigation start on the reference dashboard against a seeded 5M-row database. Cold means the process just restarted. Off-screen widgets excluded by definition.</span></span></label>
+      <label class="opt"><input type="radio" name="D1" value="visible-populated-500ms"><span><span class="t">Every visible widget populated within 500 ms warm</span><span class="d">Achievable once the connection is not shared, but it makes the 350 ms loader floor (F18) a blocker and leaves little room for a Pi under ingest load.</span><span class="cost">Cost: tighter than the Pi can promise under a Zigbee burst.</span></span></label>
+      <label class="opt"><input type="radio" name="D1" value="no-stall-only"><span><span class="t">Only that the stall is gone: p99 of readings/between under 1 s</span><span class="d">A pure backend criterion. It cannot tell whether visibility work helped.</span><span class="cost">Cost: nothing on this page about "feels fast" is measurable.</span></span></label>
+    </div>
+    <textarea name="note" placeholder="Adjust the numbers, or name the reference dashboard you want measured…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <!-- D2 -->
+  <form class="q" id="D2" data-lavish-question="D2" onsubmit="queueAnswer(event, 'D2', 'Connection pool shape')">
+    <div class="qid">D2 · THE CONNECTION</div>
+    <h3>How should the database connection be shaped?</h3>
+    <p class="why">The comment on the pool says "SQLite performs best with a single writer connection". That is true of <b>writers</b>. WAL exists so readers never block on the writer or on each other. One handle for both throws that away. Every option below keeps exactly one writer.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="D2" value="split-pools" checked><span><span class="t">Two handles: a reader pool and a single writer, both with busy_timeout</span><span class="d">Readers: max open 4 (the Pi has 4 cores), <code>busy_timeout(5000)</code>, <code>query_only</code>. Writer: max open 1. Repositories take a reader and a writer explicitly, so a read path can never be handed the writer by accident. A slow read then costs one reader slot, not the app.</span><span class="cost">Cost: touches every repository constructor; one migration-style refactor. The cleanest long-term shape.</span></span></label>
+      <label class="opt"><input type="radio" name="D2" value="single-pool-n"><span><span class="t">One pool, raise max open to 4, add busy_timeout</span><span class="d">Smallest diff. SQLite serialises writers itself and busy_timeout makes concurrent writers wait instead of failing.</span><span class="cost">Cost: writers now compete with each other and with readers for pool slots; "database is locked" becomes possible under bursts and has to be handled everywhere.</span></span></label>
+      <label class="opt"><input type="radio" name="D2" value="keep-one"><span><span class="t">Keep one connection, rely on fixing the slow queries</span><span class="d">Removes the 9 s stall (F01) but keeps the structural coupling: any future slow query, VACUUM, or ingest burst stalls the page again.</span><span class="cost">Cost: the next F01 is one migration away.</span></span></label>
+    </div>
+    <textarea name="note" placeholder="Reader pool size, or anything you know about the Pi that changes this…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <!-- D3 -->
+  <form class="q" id="D3" data-lavish-question="D3" onsubmit="queueAnswer(event, 'D3', 'has_readings source')">
+    <div class="qid">D3 · THE SLOW QUERY</div>
+    <h3>Where should "which measurement types have readings" come from?</h3>
+    <p class="why">The answer is a handful of rows and changes only when a new (sensor, type) pair first reports. Three places could hold it.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="D3" value="readings-store" checked><span><span class="t">The in-memory readings store, no SQL at all</span><span class="d">The store already holds the latest reading per (sensor, type), seeded at boot and updated on every ingest, and it already serves the current-readings snapshot. "Types with readings" is its key set. Cost per call: microseconds.</span><span class="cost">Cost: a type whose readings all aged out under retention still appears until restart. Acceptable.</span></span></label>
+      <label class="opt"><input type="radio" name="D3" value="join-table"><span><span class="t">Maintain the sensor-to-type join table on ingest and query that</span><span class="d">Fixes F19 at the same time and keeps the answer in the database. A dozen-row table.</span><span class="cost">Cost: one more write on first sight of a new pair; still one query on the (now shared) connection; needs a one-off backfill migration.</span></span></label>
+      <label class="opt"><input type="radio" name="D3" value="new-index"><span><span class="t">Add an index on readings(measurement_type_id) and rewrite as EXISTS</span><span class="d">Keeps the current shape of the code.</span><span class="cost">Cost: a new index maintained on every one of ~99 000 daily inserts, for a question with a dozen possible answers. #214 deliberately removed a redundant index for this reason.</span></span></label>
+    </div>
+    <textarea name="note" placeholder="…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <!-- D4 -->
+  <form class="q" id="D4" data-lavish-question="D4" onsubmit="queueAnswer(event, 'D4', 'VACUUM policy')">
+    <div class="qid">D4 · VACUUM</div>
+    <h3>What replaces the two-hourly VACUUM?</h3>
+    <p class="why">Chesterton's fence: it exists so the file shrinks after retention deletes. The stats it logs show 218 free pages out of 24 880. It is doing 9 s of exclusive I/O to move 0.9%.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="D4" value="incremental" checked><span><span class="t">Switch to <code>auto_vacuum=INCREMENTAL</code> and run <code>incremental_vacuum(N)</code> after each cleanup pass</span><span class="d">Reclaims a bounded number of pages per pass in milliseconds, holding the write lock briefly and never the whole file. Keep <code>PRAGMA optimize</code>. One-off: switching the mode needs a final full VACUUM, done in a migration at a quiet time.</span><span class="cost">Cost: one last full VACUUM, and a property to size N.</span></span></label>
+      <label class="opt"><input type="radio" name="D4" value="threshold"><span><span class="t">Keep VACUUM but gate it: only when the freelist exceeds 10% of pages, and only in a configured quiet window</span><span class="d">Minimal change; keeps the existing stats logging meaningful.</span><span class="cost">Cost: still a multi-second global stall when it does run, just rarely.</span></span></label>
+      <label class="opt"><input type="radio" name="D4" value="remove"><span><span class="t">Remove VACUUM entirely; accept freelist reuse</span><span class="d">SQLite reuses free pages for new inserts, so a steady-state ingest workload never grows the file.</span><span class="cost">Cost: the file never shrinks after a retention change.</span></span></label>
+    </div>
+    <textarea name="note" placeholder="…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <!-- D5 -->
+  <form class="q" id="D5" data-lavish-question="D5" onsubmit="queueAnswer(event, 'D5', 'Visibility semantics')">
+    <div class="qid">D5 · VISIBILITY</div>
+    <h3>What counts as "visible", and what happens to the rest?</h3>
+    <p class="why">Mechanism in all cases: <code>WidgetFrame</code> owns an IntersectionObserver and publishes visibility through context; hooks consult it when scheduling and when polling. Widgets stay mounted (unmounting would lose chart state and fight react-grid-layout). This decision is only about the policy.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="D5" value="margin-no-idle" checked><span><span class="t">Visible = in viewport or within one viewport-height below it. Everything else does not fetch until it crosses that line.</span><span class="d">Your rule, with a margin so a widget starts loading as the user scrolls towards it rather than when it arrives. No idle prefetch. On a phone with a long dashboard, most widgets never fetch.</span><span class="cost">Cost: a fast scroll past two screens still lands on skeletons for a moment.</span></span></label>
+      <label class="opt"><input type="radio" name="D5" value="strict"><span><span class="t">Visible = strictly in viewport. Nothing else fetches.</span><span class="d">The literal request. Fewest requests possible.</span><span class="cost">Cost: every scroll reveals a skeleton, then a 350 ms floor. Feels slower than today once the backend is fixed.</span></span></label>
+      <label class="opt"><input type="radio" name="D5" value="margin-idle"><span><span class="t">Margin as above, plus idle prefetch of off-screen widgets at lowest priority once the visible set has loaded</span><span class="d">Scrolling is always instant. Off-screen widgets still do not poll.</span><span class="cost">Cost: contradicts "don't run the queries"; on a 20-widget dashboard the Pi still serves 20 initial queries, just later.</span></span></label>
+    </div>
+    <textarea name="note" placeholder="How many widgets do your real dashboards have, and do they scroll on the devices you use? I could not read the live dashboards table (no permission on the Pi)."></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <!-- D6 -->
+  <form class="q" id="D6" data-lavish-question="D6" onsubmit="queueAnswer(event, 'D6', 'Refresh policy')">
+    <div class="qid">D6 · REFRESH</div>
+    <h3>How do off-screen widgets and hidden tabs refresh?</h3>
+    <p class="why">Depends on D5. Today each chart has its own 30 s timer that runs forever, tab hidden or not. A single scheduler-owned tick that widgets subscribe to (with their own interval) replaces N drifting timers in every option.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="D6" value="pause-refresh-if-stale" checked><span><span class="t">Off-screen and hidden-tab widgets stop polling. On becoming visible, refresh immediately only if the data is older than the widget's interval.</span><span class="d">A widget scrolled away for 10 s comes back without a request; one away for 5 minutes refreshes on reveal. Returning to the tab refreshes visible widgets once.</span><span class="cost">Cost: a "last updated" timestamp per widget becomes load-bearing (it already exists in the frame badge).</span></span></label>
+      <label class="opt"><input type="radio" name="D6" value="pause-always-refresh"><span><span class="t">Stop polling off-screen; always refresh on reveal</span><span class="d">Simplest rule to explain.</span><span class="cost">Cost: scrolling back and forth generates a request per crossing.</span></span></label>
+      <label class="opt"><input type="radio" name="D6" value="slow-poll"><span><span class="t">Off-screen widgets keep polling at a slow cadence (5 min); hidden tab pauses everything</span><span class="d">Data is never very stale when revealed.</span><span class="cost">Cost: contradicts "not currently visible ones should not refresh".</span></span></label>
+    </div>
+    <textarea name="note" placeholder="…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <!-- D7 -->
+  <form class="q" id="D7" data-lavish-question="D7" onsubmit="queueAnswer(event, 'D7', 'Priority model')">
+    <div class="qid">D7 · PRIORITY MODEL</div>
+    <h3>Where does a widget's priority live, and what goes through the scheduler?</h3>
+    <p class="why">Today priority is a string typed at five call sites; eight other call sites bypass the scheduler, so the cap of 4 is fiction. The existing <code>high</code> tier has never been used.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="D7" value="declared-kind-runtime-visibility" checked><span><span class="t">Declare <code>kind: 'controllable' | 'informational'</code> on <code>WidgetDefinition</code>; compute effective priority at runtime from kind × visibility; route every REST read on the dashboard through the scheduler</span><span class="d">Order becomes: commands (existing preempt) → visible controllable → visible informational → near-viewport → held. A widget author sets one field; nothing else needs to know about priorities. The dialog's measurement-types call becomes "on open", scheduled normal.</span><span class="cost">Cost: a small provider or context so hooks can find their frame's visibility; a one-line change per widget definition.</span></span></label>
+      <label class="opt"><input type="radio" name="D7" value="per-call-site"><span><span class="t">Keep per-call-site priorities; only add the visibility gate</span><span class="d">Smaller change.</span><span class="cost">Cost: the next widget repeats the mistake; unscheduled calls still slip past the cap.</span></span></label>
+    </div>
+    <p class="why">Sub-question: should the concurrency cap track the reader pool size from D2 (4 and 4), with the env override kept? I recommend yes, so the browser never queues on the server.</p>
+    <textarea name="note" placeholder="…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <!-- D8 -->
+  <form class="q" id="D8" data-lavish-question="D8" onsubmit="queueAnswer(event, 'D8', 'Perceived-speed extras')">
+    <div class="qid">D8 · FEELING FAST</div>
+    <h3>Which perceived-speed measures do you want in this design?</h3>
+    <p class="why">Multi-select. The first four are cheap and I recommend them. The fifth is the single biggest "feels instant" win available and I recommend it too, with its honesty cost stated. Stripped out on purpose: streaming responses, service workers, server-side rendering.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="checkbox" name="D8" value="layout-cache" checked><span><span class="t">Remember the last dashboard layout locally; paint frames and skeletons before <code>/dashboards</code> returns</span><span class="d">Removes the blank page (F13). The real config replaces it when it lands; a mismatch just re-lays out.</span></span></label>
+      <label class="opt rec"><input type="checkbox" name="D8" value="shared-sockets" checked><span><span class="t">One properties socket and one current-readings socket per page, shared through providers</span><span class="d">Fixes F08 and F09 on the client; the server-side "send to the socket, not the topic" fix is in the factor list.</span></span></label>
+      <label class="opt rec"><input type="checkbox" name="D8" value="mt-provider" checked><span><span class="t">Fetch measurement types once per page, on demand, through the scheduler</span><span class="d">Fixes F03. The dialog asks for the list when it opens.</span></span></label>
+      <label class="opt rec"><input type="checkbox" name="D8" value="gzip-plain-json" checked><span><span class="t">Compress API responses and stop indenting JSON</span><span class="d">Fixes F14. Gin middleware plus one method call.</span></span></label>
+      <label class="opt rec"><input type="checkbox" name="D8" value="stale-while-revalidate" checked><span><span class="t">Show each widget's last known data immediately, dimmed with an "updating" chip, then swap in fresh data</span><span class="d">Persist the last response per widget id locally. The page is fully populated at first paint; the network only changes numbers. Prototype below.</span><span class="cost">Cost: a stale value is briefly on screen. It must be visibly marked, never for controllable state (the toggle keeps its confirmed-only rule from #214), and dropped after a max age.</span></span></label>
+      <label class="opt"><input type="checkbox" name="D8" value="loader-floor"><span><span class="t">Drop the 350 ms loader floor when data arrives within 100 ms</span><span class="d">Fixes F18 for fast loads. The flicker case it guards against is the 100 to 350 ms band, which keeps the floor.</span></span></label>
+      <label class="opt"><input type="checkbox" name="D8" value="progressive-range"><span><span class="t">Progressive charts: fetch the last hour first, then the full range</span><span class="d">Charts show a line within ~30 ms then fill left.</span><span class="cost">Cost: two requests per chart and a visible re-scale. Not worth it once queries are 15 to 150 ms; listed so it is a decision, not an omission.</span></span></label>
+      <label class="opt"><input type="checkbox" name="D8" value="code-split"><span><span class="t">Code-split widgets and drop unused dependencies</span><span class="d">Fixes F17. Less to parse before first paint, especially on a phone.</span></span></label>
+    </div>
+    <div class="grid g3" style="margin:6px 0">
+      <div class="mock stale"><div class="title">Living room · temperature</div><div class="big">21.4°</div><div class="spark" style="height:28px;border-radius:6px;background:linear-gradient(90deg,transparent,var(--primary) 40%,transparent 70%,var(--primary));opacity:.5"></div><span class="chip warn updating">updating</span><div class="small muted">last known · 3 min ago</div></div>
+      <div class="mock"><div class="title">Living room · temperature</div><div class="big">21.6°</div><div class="spark" style="height:28px;border-radius:6px;background:linear-gradient(90deg,transparent,var(--primary) 40%,transparent 70%,var(--primary))"></div><div class="small muted">just now</div></div>
+      <div class="mock"><div class="title">Living room · temperature</div><div class="skel" style="width:40%"></div><div class="skel" style="width:90%;height:28px"></div><div class="small muted">today: skeleton until the network answers</div></div>
+    </div>
+    <p class="fact">Left: stale-while-revalidate at first paint. Middle: after the fresh response. Right: today. Rendered in the app's palette; the chip and dimming are the only new UI.</p>
+    <textarea name="note" placeholder="Max age for stale data? Anything here you find dishonest?"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <!-- D9 -->
+  <form class="q" id="D9" data-lavish-question="D9" onsubmit="queueAnswer(event, 'D9', 'Measurement harness')">
+    <div class="qid">D9 · PROVING IT</div>
+    <h3>How is D1 measured, and what stops F01 from coming back?</h3>
+    <p class="why">Playwright is configured but its tests directory does not exist. The Go side already has a query-plan test pattern (<code>db/readings_repository_query_test.go</code>) that asserts index use with EXPLAIN QUERY PLAN.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="D9" value="e2e-plus-plan-tests" checked><span><span class="t">A first-load benchmark in Playwright against the docker test stack with a seeded 5M-row database, plus query-plan tests for every query this design touches</span><span class="d">The benchmark asserts D1 for visible widgets and asserts that off-screen widgets issued no requests. Plan tests fail the build if any touched query ever scans readings without an index.</span><span class="cost">Cost: a seeding script and a slower CI job (tens of seconds).</span></span></label>
+      <label class="opt"><input type="radio" name="D9" value="plan-tests-only"><span><span class="t">Query-plan tests only; verify the page manually on the Pi and in OpenObserve</span><span class="d">Cheap and catches the regression that matters most.</span><span class="cost">Cost: nothing asserts the visibility behaviour or the 1 s target.</span></span></label>
+      <label class="opt"><input type="radio" name="D9" value="trace-assertion"><span><span class="t">Also add a post-deploy check that queries OpenObserve for readings/between p99</span><span class="d">Turns the platform you already run into the regression gate.</span><span class="cost">Cost: a script with the token; only runs after a deploy.</span></span></label>
+    </div>
+    <textarea name="note" placeholder="…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <!-- D10 -->
+  <form class="q" id="D10" data-lavish-question="D10" onsubmit="queueAnswer(event, 'D10', 'Shape of the work')">
+    <div class="qid">D10 · SHAPE</div>
+    <h3>One design, or two?</h3>
+    <p class="why">The backend contention work and the frontend visibility work are independent to build but not to measure: the frontend numbers are meaningless until the connection is shared. Ordering is a slicing concern, but whether this is one tracked design or two affects what I write next.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="D10" value="one-design" checked><span><span class="t">One design, "dashboard first load", with backend slices as blockers of the frontend measurement slice</span><span class="d">One success criterion, one harness, one place the factor list is accounted for.</span></span></label>
+      <label class="opt"><input type="radio" name="D10" value="two-designs"><span><span class="t">Two designs: "database contention" and "visibility-aware dashboard"</span><span class="d">Smaller documents; the backend one could ship this week.</span><span class="cost">Cost: D1 splits into two criteria and the harness lives in one of them.</span></span></label>
+    </div>
+    <textarea name="note" placeholder="…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+</section>
+
+<!-- ================= AGREED ================= -->
+<section id="agreed">
+  <div class="section-head"><h2>6. Agreed in round 1</h2><span class="chip ok">Settled</span></div>
+  <p class="muted small">Your answers, kept here as the record. The forms above stay as they were; the design below is built on these.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>ID</th><th>Decision</th><th>Your note</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">D1</td><td>Every visible widget populated within 1 s warm, 2 s cold</td><td class="small muted">-</td></tr>
+        <tr><td class="mono">D2</td><td>Two handles: reader pool and single writer, both with busy_timeout</td><td class="small muted">-</td></tr>
+        <tr><td class="mono">D3</td><td>Maintain the sensor-to-type join table on ingest and answer "has readings" from it</td><td class="small muted">-</td></tr>
+        <tr><td class="mono">D4</td><td>auto_vacuum=INCREMENTAL with incremental_vacuum after each cleanup pass</td><td class="small">Refactor cleanly, no leftovers. Not valid unless it reclaims the full set of bytes; the database cannot grow endlessly. Addressed in Q1 below.</td></tr>
+        <tr><td class="mono">D5</td><td>Visible = viewport plus a margin below; nothing else fetches until it crosses the line</td><td class="small">Margin is one third of a viewport height, not one. No dashboard is two viewports tall.</td></tr>
+        <tr><td class="mono">D6</td><td>Off-screen and hidden-tab widgets stop polling; refresh on reveal only if older than the interval</td><td class="small muted">-</td></tr>
+        <tr><td class="mono">D7</td><td>Declared kind on the widget definition, priority from kind × visibility, every REST read scheduled</td><td class="small muted">-</td></tr>
+        <tr><td class="mono">D8</td><td>Shared sockets, one measurement-types fetch, gzip and plain JSON, loader shown only after 100 ms</td><td class="small">Shared sockets are a design bug to fix with a shared helper. Layout cache not needed. No stale data and no updating chip: skeleton is fine if data is quick to follow.</td></tr>
+        <tr><td class="mono">D9</td><td>Playwright first-load benchmark on the docker stack with a seeded 5M-row database, plus query-plan tests</td><td class="small muted">-</td></tr>
+        <tr><td class="mono">D10</td><td>One design; backend slices block the frontend measurement slice</td><td class="small muted">-</td></tr>
+        <tr><td class="mono">F01-F19</td><td>All nineteen factors included</td><td class="small">Receipt in section 7.7. One conflict: F17 included but code-splitting not ticked in D8. See Q2.</td></tr>
+        <tr><td class="mono">note</td><td>"We should add a gauge for this" on the readings row count</td><td class="small">Designed in 7.3, confirmed in Q3.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= DESIGN ================= -->
+<section style="display:flex;flex-direction:column;gap:22px">
+  <div class="section-head"><h2>7. The design</h2><span class="chip outline">Validate each section</span></div>
+  <p class="muted small">Seven sections. Each ends with an approve-or-change control. Where a section leans on an open question in section 8, it says so.</p>
+
+  <!-- 7.1 -->
+  <div class="card" id="S1">
+    <div class="qid">7.1 · DATABASE HANDLES</div>
+    <h3>One file, two handles, reads never wait for writes</h3>
+    <figure>
+      <svg viewBox="0 0 960 230" width="100%" role="img" aria-labelledby="pools-title">
+        <title id="pools-title">Reader pool and writer handle over one SQLite file in WAL mode</title>
+        <defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-2)"/></marker></defs>
+        <g id="callers-read">
+          <rect x="10" y="20" width="220" height="86" rx="10" fill="var(--paper)" stroke="var(--divider)"/>
+          <text x="120" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">Read paths</text>
+          <text x="120" y="60" text-anchor="middle" font-size="11" fill="var(--text-2)">API GETs · session lookup</text>
+          <text x="120" y="76" text-anchor="middle" font-size="11" fill="var(--text-2)">ws connect snapshots · stats sampler</text>
+          <text x="120" y="92" text-anchor="middle" font-size="11" fill="var(--text-2)">store seed at boot</text>
+        </g>
+        <g id="callers-write">
+          <rect x="10" y="130" width="220" height="86" rx="10" fill="var(--paper)" stroke="var(--divider)"/>
+          <text x="120" y="152" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">Write paths</text>
+          <text x="120" y="170" text-anchor="middle" font-size="11" fill="var(--text-2)">ingest batches · commands · PATCHes</text>
+          <text x="120" y="186" text-anchor="middle" font-size="11" fill="var(--text-2)">retention deletes · incremental vacuum</text>
+          <text x="120" y="202" text-anchor="middle" font-size="11" fill="var(--text-2)">migrations · session touch</text>
+        </g>
+        <line x1="230" y1="63" x2="300" y2="63" stroke="var(--text-2)" marker-end="url(#arr2)"/>
+        <line x1="230" y1="173" x2="300" y2="173" stroke="var(--text-2)" marker-end="url(#arr2)"/>
+        <g id="reader-pool">
+          <rect x="302" y="20" width="300" height="86" rx="10" fill="var(--info-bg)" stroke="var(--info)"/>
+          <text x="452" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="var(--info)">Reader · *sql.DB</text>
+          <text x="452" y="60" text-anchor="middle" font-size="11" fill="var(--text)">max open 4 · query_only=1</text>
+          <text x="452" y="76" text-anchor="middle" font-size="11" fill="var(--text)">busy_timeout 5000 · WAL snapshot reads</text>
+          <text x="452" y="92" text-anchor="middle" font-size="11" fill="var(--text-2)">otelsql pool="reader"</text>
+        </g>
+        <g id="writer-handle">
+          <rect x="302" y="130" width="300" height="86" rx="10" fill="var(--warn-bg)" stroke="var(--warn)"/>
+          <text x="452" y="152" text-anchor="middle" font-size="12" font-weight="700" fill="var(--warn)">Writer · *sql.DB</text>
+          <text x="452" y="170" text-anchor="middle" font-size="11" fill="var(--text)">max open 1 · _txlock=immediate</text>
+          <text x="452" y="186" text-anchor="middle" font-size="11" fill="var(--text)">busy_timeout 5000 · foreign_keys · synchronous NORMAL</text>
+          <text x="452" y="202" text-anchor="middle" font-size="11" fill="var(--text-2)">otelsql pool="writer"</text>
+        </g>
+        <line x1="602" y1="63" x2="700" y2="105" stroke="var(--text-2)" marker-end="url(#arr2)"/>
+        <line x1="602" y1="173" x2="700" y2="131" stroke="var(--text-2)" marker-end="url(#arr2)"/>
+        <g id="file">
+          <rect x="702" y="80" width="240" height="76" rx="10" fill="var(--paper)" stroke="var(--primary)" stroke-width="2"/>
+          <text x="822" y="104" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">sensor_hub.db · WAL</text>
+          <text x="822" y="122" text-anchor="middle" font-size="11" fill="var(--text-2)">readers see a snapshot; the writer</text>
+          <text x="822" y="138" text-anchor="middle" font-size="11" fill="var(--text-2)">appends to the WAL without blocking them</text>
+        </g>
+      </svg>
+      <figcaption>A slow read costs one of four reader slots. A write in progress costs nothing to readers. The one remaining way to stall the page is four slow reads at once, which the query-plan tests in 7.6 exist to prevent.</figcaption>
+    </figure>
+    <div class="grid g2" style="margin-top:10px">
+      <div>
+        <h3 class="small">Components</h3>
+        <ul class="small">
+          <li><code>database.Open(cfg, logger) (*Handles, error)</code> returns <code>Handles{Reader, Writer *sql.DB}</code>. Both handles open the same path with the same otelsql-instrumented driver; the pool name is an attribute so the existing <code>db_sql_*</code> metrics split cleanly.</li>
+          <li>Migrations run on the writer before the reader is handed out.</li>
+          <li>Every repository constructor takes <code>*Handles</code>. Read methods use <code>Reader</code>, write methods and every transaction use <code>Writer</code>. There is no method that takes a bare <code>*sql.DB</code> any more, so a read path cannot be handed the writer by accident, and a write on the reader fails loudly under <code>query_only</code>.</li>
+          <li><code>InitialiseDatabase</code> and the single-connection comment go. The test harness and integration suite build <code>Handles</code> the same way over a temp file.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="small">Why these settings</h3>
+        <ul class="small">
+          <li><b>4 readers</b>: the Pi has 4 cores and the browser cap is 4. More readers only queue on CPU.</li>
+          <li><b><code>_txlock=immediate</code></b> on the writer: a write transaction takes the lock at BEGIN, so it can never deadlock trying to upgrade from a read lock mid-transaction.</li>
+          <li><b>busy_timeout</b> on both: a reader can briefly collide with a checkpoint; 5 s of patience replaces an error.</li>
+          <li><b>Checkpointing</b>: with readers always open, SQLite's passive auto-checkpoint can fall behind and the WAL grows. The cleanup pass in 7.3 runs a <code>wal_checkpoint(TRUNCATE)</code> on the writer, best effort.</li>
+        </ul>
+      </div>
+    </div>
+    <form class="q" style="margin-top:12px" id="V1" data-lavish-question="V1" onsubmit="queueAnswer(event, 'V1', 'Validate 7.1 database handles')">
+      <div class="opts"><label class="opt"><input type="radio" name="V1" value="approve" checked><span><span class="t">Approve 7.1 as written</span></span></label><label class="opt"><input type="radio" name="V1" value="change"><span><span class="t">Change it</span><span class="d">Say what in the note.</span></span></label></div>
+      <textarea name="note" placeholder="…"></textarea>
+      <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+    </form>
+  </div>
+
+  <!-- 7.2 -->
+  <div class="card" id="S2">
+    <div class="qid">7.2 · WHICH SERIES EXIST</div>
+    <h3>The join table becomes the truth about (sensor, type) pairs; no query ever scans readings to find out</h3>
+    <ul class="small">
+      <li><b>Meaning change.</b> <code>sensor_measurement_types</code> currently means "assigned at migration time" (every sensor got temperature, nothing since). It becomes "this sensor has reported this type at least once", plus the unit. Q4 asks you to confirm the semantics.</li>
+      <li><b>Backfill.</b> A migration rebuilds the table from readings once: <code>INSERT OR IGNORE … SELECT DISTINCT sensor_id, measurement_type_id FROM readings</code>. This is the last full scan of readings the codebase performs, at migration time, on the writer, before the API is up. Rows that the old backfill added for pairs that never reported are removed by the same migration.</li>
+      <li><b>Maintenance on ingest.</b> The readings repository keeps an in-memory set of known pairs, seeded from the table at boot. On first sight of a new pair inside the ingest transaction it inserts the row, then adds the pair to the set. Steady state cost: a map lookup per reading, zero writes. Sensor deletion already cascades.</li>
+      <li><b>Retention.</b> When every reading of a pair ages out, the pair stays. That is the intended answer to "has this sensor ever reported humidity" for the config dialog, and it is what keeps the boot query in 7.2 honest about series it should look for.</li>
+      <li><b>Queries rewritten onto it</b> (all indexed, all under a millisecond, all with plan tests):
+        <ul>
+          <li><code>GetAllWithReadings</code>: measurement types joined to the pair table, not to readings. F01.</li>
+          <li><code>GetMeasurementTypesWithReadings(sensorId)</code>: same, filtered by sensor.</li>
+          <li><code>GetLatest</code> (F05): one statement, one indexed lookup per pair instead of ranking the table:
+<pre><code>SELECT r.id, s.name, mt.name, r.numeric_value, r.text_state,
+       COALESCE(NULLIF(smt.unit,''), mt.default_unit), r.time
+FROM sensor_measurement_types smt
+JOIN sensors s  ON s.id  = smt.sensor_id
+JOIN measurement_types mt ON mt.id = smt.measurement_type_id
+JOIN readings r ON r.id = (
+  SELECT id FROM readings
+  WHERE sensor_id = smt.sensor_id AND measurement_type_id = smt.measurement_type_id
+  ORDER BY time DESC LIMIT 1)</code></pre>
+            The subquery is a single probe of <code>idx_readings_sensor_type_time</code>. Roughly 60 probes on your data. The 43 s cold start becomes milliseconds, so the readings store is correct before the API accepts its first connection.</li>
+        </ul>
+      </li>
+      <li><b>Frontend.</b> A <code>MeasurementTypesProvider</code> owns both lists (all types, types with readings) and loads each lazily through the scheduler the first time a consumer asks. The config dialog asks when it opens. The comparison chart asks for the plain list. F03 disappears because nothing asks on page load.</li>
+    </ul>
+    <form class="q" style="margin-top:12px" id="V2" data-lavish-question="V2" onsubmit="queueAnswer(event, 'V2', 'Validate 7.2 series truth')">
+      <div class="opts"><label class="opt"><input type="radio" name="V2" value="approve" checked><span><span class="t">Approve 7.2 as written</span></span></label><label class="opt"><input type="radio" name="V2" value="change"><span><span class="t">Change it</span></span></label></div>
+      <textarea name="note" placeholder="…"></textarea>
+      <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+    </form>
+  </div>
+
+  <!-- 7.3 -->
+  <div class="card" id="S3">
+    <div class="qid">7.3 · CLEANUP, SPACE RECLAIM, AND THE GAUGE</div>
+    <h3>Every freed page is returned to the filesystem, without ever locking the whole file</h3>
+    <div class="grid g2">
+      <div>
+        <h3 class="small">How incremental vacuum reclaims everything</h3>
+        <p class="small">With <code>auto_vacuum=INCREMENTAL</code>, SQLite keeps pointer-map pages so it can relocate any page. <code>PRAGMA incremental_vacuum(N)</code> moves up to N free pages to the end of the file and truncates it. Run with no N, or in a loop until <code>freelist_count</code> is zero, it returns <b>every</b> free page. The file shrinks by exactly the bytes the deletes freed. What it does not do is defragment the pages that remain; that was the only thing the full VACUUM added, and on a table that is appended in time order and deleted in time order there is almost nothing to defragment.</p>
+        <p class="small">The loop runs on the writer in chunks of 512 pages (2 MB) with the lock released between chunks, so ingest and readers interleave. After a normal two-hourly retention pass on your data (218 free pages) it is one chunk and a few milliseconds. After a retention change that frees a gigabyte it is a few hundred chunks over a few seconds, none of them blocking.</p>
+        <p class="small"><b>One-time switch.</b> auto_vacuum can only be changed by a VACUUM. Migration <code>000021</code> sets the pragma and runs the last full VACUUM there is. On the Pi that is one 9 to 14 s pause at the next deploy, before the API listens.</p>
+      </div>
+      <div>
+        <h3 class="small">The refactor, so nothing is left over</h3>
+        <ul class="small">
+          <li><code>MaintenanceRepository</code> loses <code>Vacuum</code>. It gains <code>ReclaimFreePages(ctx, chunk) (pagesFreed int, err)</code>, <code>Checkpoint(ctx)</code> and keeps <code>Optimise</code> and <code>DatabaseStats</code>.</li>
+          <li><code>performDatabaseMaintenance</code> becomes: stats → reclaim loop → optimise → checkpoint(TRUNCATE) → stats → one log line with <code>pages_freed</code>, <code>bytes_reclaimed</code>, <code>duration_ms</code>. The "before vacuum" and "after vacuum" log lines and their field names go.</li>
+          <li>The existing gauges <code>sqlite.database.size_bytes</code>, <code>freelist_bytes</code> and <code>freelist_ratio</code> stay and are recorded from the same pass.</li>
+          <li>Tests: insert then delete a block of rows on a temp database, run the pass, assert <code>freelist_count == 0</code> and the file size dropped by at least the freed pages; and a second test that runs the pass concurrently with reads and asserts no read waited longer than the chunk.</li>
+        </ul>
+      </div>
+    </div>
+    <h3 class="small" style="margin-top:12px">The gauge you asked for</h3>
+    <p class="small">A sampler on the reader pool runs at boot and at the end of every cleanup pass: <code>SELECT sensor_id, COUNT(*) FROM readings GROUP BY sensor_id</code>, one index scan. It records <code>sqlite.readings.rows</code> as an observable gauge with a <code>sensor</code> attribute, and the total. The same sample feeds the reading-stats endpoint (F16) with a <code>sampled_at</code> field, replacing the per-sensor COUNT loop on every widget load. Q3 asks whether up-to-two-hours-old counts are acceptable for that widget.</p>
+    <form class="q" style="margin-top:12px" id="V3" data-lavish-question="V3" onsubmit="queueAnswer(event, 'V3', 'Validate 7.3 cleanup and gauge')">
+      <div class="opts"><label class="opt"><input type="radio" name="V3" value="approve" checked><span><span class="t">Approve 7.3 as written</span></span></label><label class="opt"><input type="radio" name="V3" value="change"><span><span class="t">Change it</span></span></label></div>
+      <textarea name="note" placeholder="…"></textarea>
+      <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+    </form>
+  </div>
+
+  <!-- 7.4 -->
+  <div class="card" id="S4">
+    <div class="qid">7.4 · EVERYTHING ELSE ON THE WRITER'S PLATE</div>
+    <h3>Ingest, auth, sockets and payloads: fewer statements, sent to fewer places, in fewer bytes</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Factor</th><th>Today</th><th>Design</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">F06</td><td class="small">Per reading: type lookup, sensor lookup, INSERT. No transaction. Alert rules queried once per reading.</td><td class="small">One <code>BEGIN IMMEDIATE</code> per batch on the writer. Name-to-id lookups from an in-process cache (lower-cased name → id) held by the sensor and measurement-type repositories and invalidated by their own write methods. One prepared INSERT. The threshold processor caches rules per sensor behind the mutex it already has, invalidated by rule writes. A 9-reading message goes from 27+ statements to 1 transaction with 9 inserts.</td></tr>
+          <tr><td class="mono">F07</td><td class="small">5 statements per request: session, session UPDATE, user, roles, permissions.</td><td class="small">One read on the reader pool joining session, user and aggregated permissions. The last-accessed touch becomes a write on the writer only when the stored value is older than 60 s. Validation stays per request; nothing is cached across requests, so revocation is still immediate.</td></tr>
+          <tr><td class="mono">F08</td><td class="small">Connect handlers broadcast the initial payload to every subscriber of the topic.</td><td class="small"><code>createPushWebSocket</code> returns the connection; the hub gains <code>Send(conn, v)</code>; the three connect handlers send their snapshot to the connecting socket only. The sensors handler's per-connect query moves to the reader pool.</td></tr>
+          <tr><td class="mono">F12</td><td class="small">Two widgets send <code>measurement_type=</code>; the API reads <code>type</code>. Filter dropped; 30 days of everything pulled.</td><td class="small">Send <code>type</code> and <code>sensor</code>. The generated client type is tightened so an unknown query key is a compile error. A widget test asserts the request URL.</td></tr>
+          <tr><td class="mono">F14</td><td class="small">IndentedJSON on the largest responses, no compression.</td><td class="small"><code>gin-contrib/gzip</code> on the API group, default level, skipping websocket upgrade paths and <code>/metrics</code>. <code>IndentedJSON</code> replaced by <code>JSON</code> everywhere; the CLI and tests parse either.</td></tr>
+          <tr><td class="mono">F13</td><td class="small">Blank page while <code>/dashboards</code> loads.</td><td class="small">The page shell and a neutral grid skeleton render immediately; the serial auth → dashboards chain stays, since CSRF does not exempt GETs and the chain is under 100 ms. No layout cache, per your note.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <form class="q" style="margin-top:12px" id="V4" data-lavish-question="V4" onsubmit="queueAnswer(event, 'V4', 'Validate 7.4 writer load')">
+      <div class="opts"><label class="opt"><input type="radio" name="V4" value="approve" checked><span><span class="t">Approve 7.4 as written</span></span></label><label class="opt"><input type="radio" name="V4" value="change"><span><span class="t">Change it</span></span></label></div>
+      <textarea name="note" placeholder="…"></textarea>
+      <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+    </form>
+  </div>
+
+  <!-- 7.5 -->
+  <div class="card" id="S5">
+    <div class="qid">7.5 · THE DASHBOARD CLIENT</div>
+    <h3>A widget declares what it is; the frame knows where it is; one hook turns both into requests</h3>
+    <figure>
+      <svg viewBox="0 0 960 300" width="100%" role="img" aria-labelledby="vis-title">
+        <title id="vis-title">Viewport bands and the widget fetch state machine</title>
+        <defs><marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-2)"/></marker></defs>
+        <!-- left: bands -->
+        <g id="bands">
+          <rect x="20" y="20" width="260" height="150" rx="6" fill="var(--ok-bg)" stroke="var(--ok)"/>
+          <text x="150" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ok)">viewport</text>
+          <text x="150" y="60" text-anchor="middle" font-size="11" fill="var(--text)">visible · fetch now · poll</text>
+          <rect x="20" y="172" width="260" height="50" rx="6" fill="var(--info-bg)" stroke="var(--info)"/>
+          <text x="150" y="192" text-anchor="middle" font-size="12" font-weight="700" fill="var(--info)">margin · one third of a viewport</text>
+          <text x="150" y="208" text-anchor="middle" font-size="11" fill="var(--text)">counts as visible · fetch now · poll</text>
+          <rect x="20" y="226" width="260" height="60" rx="6" fill="var(--paper)" stroke="var(--divider)" stroke-dasharray="4 3"/>
+          <text x="150" y="250" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-2)">below</text>
+          <text x="150" y="268" text-anchor="middle" font-size="11" fill="var(--text-2)">held · no request · no timer</text>
+          <text x="150" y="296" text-anchor="middle" font-size="10" fill="var(--text-2)">IntersectionObserver rootMargin "0px 0px 33% 0px"</text>
+        </g>
+        <!-- right: state machine -->
+        <g id="fsm" font-size="11">
+          <rect x="330" y="40" width="110" height="40" rx="20" fill="var(--paper)" stroke="var(--divider)"/><text x="385" y="64" text-anchor="middle" fill="var(--text)">held</text>
+          <rect x="500" y="40" width="110" height="40" rx="20" fill="var(--paper)" stroke="var(--divider)"/><text x="555" y="64" text-anchor="middle" fill="var(--text)">queued</text>
+          <rect x="670" y="40" width="110" height="40" rx="20" fill="var(--paper)" stroke="var(--divider)"/><text x="725" y="64" text-anchor="middle" fill="var(--text)">loading</text>
+          <rect x="840" y="40" width="110" height="40" rx="20" fill="var(--ok-bg)" stroke="var(--ok)"/><text x="895" y="64" text-anchor="middle" fill="var(--ok)">fresh</text>
+          <line x1="440" y1="60" x2="498" y2="60" stroke="var(--text-2)" marker-end="url(#arr3)"/><text x="469" y="52" text-anchor="middle" fill="var(--text-2)">becomes visible</text>
+          <line x1="610" y1="60" x2="668" y2="60" stroke="var(--text-2)" marker-end="url(#arr3)"/><text x="639" y="52" text-anchor="middle" fill="var(--text-2)">slot free</text>
+          <line x1="780" y1="60" x2="838" y2="60" stroke="var(--text-2)" marker-end="url(#arr3)"/><text x="809" y="52" text-anchor="middle" fill="var(--text-2)">response</text>
+          <path d="M555,80 C555,130 385,130 385,80" fill="none" stroke="var(--text-2)" stroke-dasharray="3 3" marker-end="url(#arr3)"/><text x="470" y="128" text-anchor="middle" fill="var(--text-2)">leaves view while queued → abort, back to held</text>
+          <path d="M895,80 C895,180 725,200 690,180" fill="none" stroke="var(--text-2)" marker-end="url(#arr3)"/><text x="850" y="196" text-anchor="middle" fill="var(--text-2)">interval tick, visible and tab shown → poll (low)</text>
+          <rect x="330" y="220" width="620" height="66" rx="8" fill="var(--hover)" stroke="var(--divider)"/>
+          <text x="640" y="242" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)">Priority of the initial fetch = kind × visibility</text>
+          <text x="640" y="260" text-anchor="middle" font-size="11" fill="var(--text)">visible controllable → high · visible informational → normal · polls → low · not visible → not scheduled</text>
+          <text x="640" y="276" text-anchor="middle" font-size="10" fill="var(--text-2)">commands keep the existing preempt path; the scheduler cap stays 4, matching the reader pool</text>
+        </g>
+      </svg>
+      <figcaption>"Fresh" hides a timestamp. On re-entering view, or the tab being shown again, a widget re-queues only if that timestamp is older than its own interval (D6).</figcaption>
+    </figure>
+    <div class="grid g2" style="margin-top:10px">
+      <div>
+        <h3 class="small">Components</h3>
+        <ul class="small">
+          <li><code>WidgetDefinition.kind: 'controllable' | 'informational'</code>, required. Sensor toggle is the only controllable today.</li>
+          <li><code>WidgetFrame</code> owns one IntersectionObserver on its root and provides <code>{ visible, kind }</code> through a <code>WidgetContext</code>. Widgets stay mounted; nothing is unmounted on scroll, so chart state and react-grid-layout are untouched.</li>
+          <li><code>requestScheduler.schedule(priority, fn, { signal })</code>: an aborted waiter is removed from its queue and rejects with the abort reason. No other scheduler change.</li>
+          <li><code>useScheduledQuery(fetcher, { pollIntervalMs, deps })</code>: the one hook that owns the state machine above, reads the widget context, registers with a single page-level <code>PollClock</code> (one 1 s timer; each subscriber has its own due time) instead of a <code>setInterval</code> per widget, and pauses on <code>document.visibilityState</code>. <code>useReadingsData</code>, the min/max/avg, heatmap, alert-summary, uptime, health-timeline, reading-stats and comparison-chart data paths all move onto it. Requests from outside the dashboard (auth, dashboards list, notifications) are not widgets and stay as they are.</li>
+          <li><code>PropertiesProvider</code> and <code>CurrentReadingsProvider</code> in <code>ProviderWrapper</code>, each owning exactly one reconnecting socket; <code>useProperties</code> and <code>useCurrentReadings</code> read context. <code>useProperties</code> gains reconnection for free. The widget subtitle no longer opens anything.</li>
+          <li><code>useLoaderVisibility</code> gains <code>showAfterMs = 100</code>: a load that finishes within 100 ms never shows a loader; one that does not shows it and keeps the existing 350 ms hold. No stale data is ever rendered, per your note.</li>
+          <li><code>useReadingsData</code> merge becomes one pass over a <code>Map&lt;time, Map&lt;sensor, value&gt;&gt;</code> and the two JSON.stringify diffs become a fingerprint (row count, first and last time, last value per sensor). F15.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="small">Error handling</h3>
+        <ul class="small">
+          <li>A fetch that fails leaves the previous data on screen with the existing error state; the next tick retries. Nothing loops faster than the widget's interval.</li>
+          <li>An abort is not an error: the hook returns to held silently.</li>
+          <li>If IntersectionObserver is unavailable (old WebView), the frame reports visible, and behaviour equals today's.</li>
+          <li>A socket drop in a provider reconnects with the existing backoff; consumers see the last snapshot until then.</li>
+          <li>Server side, a reader that hits busy_timeout returns the same 500 as today with the error logged; with 5 s of patience it should not happen, and the trace will say if it does.</li>
+        </ul>
+        <h3 class="small" style="margin-top:10px">Data flow on a load, after this design</h3>
+        <ol class="steps small">
+          <li>Auth, then dashboards, with the shell painted throughout.</li>
+          <li>Frames mount; those in the viewport or the margin report visible.</li>
+          <li>Visible controllable widgets queue high, visible informational queue normal; at most 4 in flight.</li>
+          <li>Each request hits a reader; the writer keeps ingesting.</li>
+          <li>Responses land in 15 to 150 ms; loaders were never shown.</li>
+          <li>Held widgets do nothing until scrolled to.</li>
+        </ol>
+      </div>
+    </div>
+    <form class="q" style="margin-top:12px" id="V5" data-lavish-question="V5" onsubmit="queueAnswer(event, 'V5', 'Validate 7.5 dashboard client')">
+      <div class="opts"><label class="opt"><input type="radio" name="V5" value="approve" checked><span><span class="t">Approve 7.5 as written</span></span></label><label class="opt"><input type="radio" name="V5" value="change"><span><span class="t">Change it</span></span></label></div>
+      <textarea name="note" placeholder="…"></textarea>
+      <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+    </form>
+  </div>
+
+  <!-- 7.6 -->
+  <div class="card" id="S6">
+    <div class="qid">7.6 · PROVING IT AND KEEPING IT</div>
+    <h3>Three layers: query plans, unit behaviour, and one benchmark that asserts D1</h3>
+    <div class="grid g3">
+      <div>
+        <h3 class="small">Go</h3>
+        <ul class="small">
+          <li>Plan tests, following <code>readings_repository_query_test.go</code>: every query this design touches (types with readings, per-sensor types, latest per series, grouped counts, session lookup, retention deletes) asserts no <code>SCAN readings</code>.</li>
+          <li>Handles: a write through the reader fails with the query_only error; a read during an open write transaction returns without waiting.</li>
+          <li>Ingest: one transaction per batch, pair inserted once, cache invalidated on rename.</li>
+          <li>Reclaim: freelist to zero, file shrinks, concurrent reads not blocked beyond a chunk.</li>
+          <li>Hub: connect snapshot reaches only the new socket.</li>
+          <li>Integration suite as today, plus the migration on a copy of a real-shaped database.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="small">UI</h3>
+        <ul class="small">
+          <li>Scheduler: abort removes a waiter; tiers unchanged.</li>
+          <li><code>useScheduledQuery</code> with a fake IntersectionObserver and fake timers: held until visible, abort on leaving while queued, poll only while visible and tab shown, refresh-on-reveal only when stale.</li>
+          <li>Providers: the fake socket harness counts one connection per page however many widgets mount.</li>
+          <li>Loader: nothing shown under 100 ms; hold applies above it.</li>
+          <li>F12: request URL carries <code>type</code> and <code>sensor</code>.</li>
+          <li>Merge: new merge equals old merge on recorded fixtures.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="small">Benchmark</h3>
+        <ul class="small">
+          <li><code>tests/first-load.spec.ts</code>, chromium only, against the docker stack. Playwright's <code>webServer</code> points at the compose stack; the seed is a Go command that writes 5M readings over 8 sensors, 9 types and 90 days straight into the stack's data volume.</li>
+          <li>A reference dashboard of 12 widgets taller than 1.33 viewports at 1280×800, including one toggle.</li>
+          <li>Frames expose <code>data-widget-state</code>; the test waits until every frame that intersects the viewport-plus-margin reports <code>populated</code>, reads the time from navigation start, and asserts under 1000 ms. A second run after restarting the container asserts under 2000 ms.</li>
+          <li>Requests are intercepted and counted: readings requests equal the number of visible chart widgets; zero requests are attributable to held frames.</li>
+          <li>Runs in CI as its own job, tens of seconds.</li>
+        </ul>
+      </div>
+    </div>
+    <form class="q" style="margin-top:12px" id="V6" data-lavish-question="V6" onsubmit="queueAnswer(event, 'V6', 'Validate 7.6 testing')">
+      <div class="opts"><label class="opt"><input type="radio" name="V6" value="approve" checked><span><span class="t">Approve 7.6 as written</span></span></label><label class="opt"><input type="radio" name="V6" value="change"><span><span class="t">Change it</span></span></label></div>
+      <textarea name="note" placeholder="…"></textarea>
+      <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+    </form>
+  </div>
+
+  <!-- 7.7 receipt -->
+  <div class="card" id="S7">
+    <div class="qid">7.7 · FACTOR RECEIPT</div>
+    <h3>Every submitted ID, where it lands</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>ID</th><th>Addressed in</th><th>How</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">F01</td><td>7.2</td><td class="small">Types-with-readings answered from the pair table; plan test forbids scanning readings.</td></tr>
+          <tr><td class="mono">F02</td><td>7.1</td><td class="small">Reader pool of 4 plus single writer, busy_timeout on both.</td></tr>
+          <tr><td class="mono">F03</td><td>7.2</td><td class="small">Measurement types provider loads lazily on dialog open.</td></tr>
+          <tr><td class="mono">F04</td><td>7.3</td><td class="small">Incremental vacuum loop to freelist zero, chunked; full VACUUM removed after the one-time switch. Confirm in Q1.</td></tr>
+          <tr><td class="mono">F05</td><td>7.2</td><td class="small">Latest-per-series as one indexed probe per pair.</td></tr>
+          <tr><td class="mono">F06</td><td>7.4</td><td class="small">One transaction per batch, id caches, rules cached per sensor.</td></tr>
+          <tr><td class="mono">F07</td><td>7.4</td><td class="small">One joined read; last-accessed touched at most once a minute.</td></tr>
+          <tr><td class="mono">F08</td><td>7.4 + 7.5</td><td class="small">Send-to-socket on connect; one properties socket per page.</td></tr>
+          <tr><td class="mono">F09</td><td>7.5</td><td class="small">One current-readings socket per page.</td></tr>
+          <tr><td class="mono">F10</td><td>7.5</td><td class="small">Every dashboard read through <code>useScheduledQuery</code>; kind declared on the definition; high tier used.</td></tr>
+          <tr><td class="mono">F11</td><td>7.5</td><td class="small">Visibility context, hold, abort, poll clock, tab pause, refresh-on-reveal-if-stale.</td></tr>
+          <tr><td class="mono">F12</td><td>7.4</td><td class="small">Correct parameter names; client type tightened; URL test.</td></tr>
+          <tr><td class="mono">F13</td><td>7.4</td><td class="small">Shell and skeleton instead of null. No layout cache.</td></tr>
+          <tr><td class="mono">F14</td><td>7.4</td><td class="small">gzip middleware; plain JSON.</td></tr>
+          <tr><td class="mono">F15</td><td>7.5</td><td class="small">Single-pass merge and fingerprint diff.</td></tr>
+          <tr><td class="mono">F16</td><td>7.3</td><td class="small">Grouped count sampled per cleanup pass, shared with the gauge. Confirm in Q3.</td></tr>
+          <tr><td class="mono">F17</td><td>Q2</td><td class="small">Unused dependency removed; code-splitting scope is your call.</td></tr>
+          <tr><td class="mono">F18</td><td>7.5</td><td class="small">Loader shown only after 100 ms.</td></tr>
+          <tr><td class="mono">F19</td><td>7.2</td><td class="small">Pair table maintained on ingest, backfilled once.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= OPEN QUESTIONS ================= -->
+<section style="display:flex;flex-direction:column;gap:18px">
+  <div class="section-head"><h2>8. Open questions from your answers</h2><span class="chip warn">Four</span></div>
+
+  <form class="q" id="Q1" data-lavish-question="Q1" onsubmit="queueAnswer(event, 'Q1', 'Incremental vacuum reclaim guarantee')">
+    <div class="qid">Q1 · FOLLOWS D4</div>
+    <h3>Does "reclaim the full set of bytes" mean what 7.3 delivers?</h3>
+    <p class="why">7.3 returns every free page to the filesystem after every cleanup pass, so the file never carries freed space forward and can never grow from deletes. It does not rewrite live pages to defragment them, which is the one thing a full VACUUM did that incremental cannot. On this workload (append in time order, delete in time order) live pages are already contiguous, so the difference is a rounding error. If you want defragmentation as well, the only tool is a full VACUUM, and the honest design is a rare scheduled one in a quiet window on top of 7.3.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="Q1" value="incremental-only" checked><span><span class="t">7.3 as written meets the requirement</span><span class="d">All freed bytes returned every pass; no full VACUUM ever again after the switch.</span></span></label>
+      <label class="opt"><input type="radio" name="Q1" value="plus-rare-full"><span><span class="t">7.3 plus a full VACUUM at a configurable quiet time, at most weekly, gated on fragmentation</span><span class="cost">Cost: keeps a global stall in the system, rarely.</span></span></label>
+    </div>
+    <textarea name="note" placeholder="…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <form class="q" id="Q2" data-lavish-question="Q2" onsubmit="queueAnswer(event, 'Q2', 'F17 bundle scope')">
+    <div class="qid">Q2 · F17 VS D8</div>
+    <h3>You included F17 in the batch but left code-splitting unticked. Which scope?</h3>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="Q2" value="deps-and-docs" checked><span><span class="t">Remove the unused react-query dependency and lazy-load only the API docs page (swagger-ui)</span><span class="d">The two parts with no downside. Widgets stay in the main bundle.</span></span></label>
+      <label class="opt"><input type="radio" name="Q2" value="deps-only"><span><span class="t">Only remove the unused dependency</span></span></label>
+      <label class="opt"><input type="radio" name="Q2" value="full-split"><span><span class="t">Also lazy-load each widget component</span><span class="cost">Cost: a suspense boundary per frame and a network round trip before a widget can render.</span></span></label>
+    </div>
+    <textarea name="note" placeholder="…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <form class="q" id="Q3" data-lavish-question="Q3" onsubmit="queueAnswer(event, 'Q3', 'Readings gauge and stats sampling')">
+    <div class="qid">Q3 · THE GAUGE</div>
+    <h3>Is a count sampled at boot and after each cleanup pass the right gauge, and may the reading-stats widget use the same sample?</h3>
+    <p class="why">An exact live count would mean a counter maintained on every insert and delete, which is bookkeeping that can drift. A COUNT(*) per sensor on each widget load is what F16 is today. The sample is exact when taken, cheap, on the reader pool, and off every request path. The stats widget would show counts up to one cleanup interval old, with the sampled time next to them.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="Q3" value="sampled-shared" checked><span><span class="t">Sampled gauge, and the stats widget reads the same sample with its timestamp</span></span></label>
+      <label class="opt"><input type="radio" name="Q3" value="sampled-gauge-live-widget"><span><span class="t">Sampled gauge, but the stats widget keeps counting live on the reader pool</span><span class="cost">Cost: one grouped index scan per widget load; harmless now that it is on a reader, but still the biggest single read on the page.</span></span></label>
+      <label class="opt"><input type="radio" name="Q3" value="maintained-counter"><span><span class="t">A maintained counter: seed at boot, add on insert, subtract deleted rows</span><span class="cost">Cost: correctness depends on every write path remembering to update it.</span></span></label>
+    </div>
+    <textarea name="note" placeholder="Also say if you want the gauge per sensor, per type, or total only."></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+
+  <form class="q" id="Q4" data-lavish-question="Q4" onsubmit="queueAnswer(event, 'Q4', 'Join table semantics')">
+    <div class="qid">Q4 · FOLLOWS D3</div>
+    <h3>Confirm the new meaning of the sensor-to-type table</h3>
+    <p class="why">After 7.2 a row means "this sensor has reported this type at least once since the backfill", and rows survive retention. The config dialog's type list and the per-sensor type list both come from it. Sensors created through the API with a declared type set would also get rows at creation, so a sensor that has not reported yet can still be configured.</p>
+    <div class="opts">
+      <label class="opt rec"><input type="radio" name="Q4" value="ever-reported-plus-declared" checked><span><span class="t">Yes: ever-reported, plus declared-at-creation, rows survive retention</span></span></label>
+      <label class="opt"><input type="radio" name="Q4" value="ever-reported-only"><span><span class="t">Ever-reported only; declared types are not rows until a reading arrives</span></span></label>
+    </div>
+    <textarea name="note" placeholder="…"></textarea>
+    <div class="actions"><button class="btn" type="submit">Queue answer</button><span class="queued">Queued</span></div>
+  </form>
+</section>
+
+<!-- ================= SOURCES ================= -->
+<section>
+  <details>
+    <summary>Sources and things I could not verify</summary>
+    <ul class="small">
+      <li>Full trace report with span-by-span reconstructions: <code>scratchpad/openobserve-report.md</code> (session scratch). Trace ids for the holder and victims are in the waterfall titles.</li>
+      <li>Row count of <code>readings</code> on the Pi: not read directly, the database file is not readable by the SSH user. Estimated from 99 242 inserts on 2026-09-07 and 90-day retention. The June baseline in #214 was 250 k rows, so the table has grown roughly 30× since the scheduler was designed.</li>
+      <li>Real dashboard widget counts: not read, same reason. The 09:20:59 burst shows one dashboard firing 5 chart queries, 2 health queries and 1 measurement-types call.</li>
+      <li>Prior decisions honoured: #209 (scheduler tiers, cap 4, no backend changes at the time), #214 (readings store, confirmed-only toggle state, index hygiene), #219 (loader floor).</li>
+    </ul>
+  </details>
+</section>
+
+</main>
+<script>
+  function markQueued(form) { form.classList.add('is-queued'); }
+  // Round 1 answers are on the record: mark those forms as agreed so they read as settled, not pending.
+  ['factors-form','D1','D2','D3','D4','D5','D6','D7','D8','D9','D10'].forEach(function (id) {
+    var f = document.getElementById(id); if (!f) return;
+    f.classList.add('is-queued');
+    var q = f.querySelector('.queued'); if (q) { q.textContent = 'Agreed in round 1'; }
+    f.querySelectorAll('button.btn').forEach(function (b) { b.textContent = 'Re-queue a changed answer'; });
+  });
+  function lavishQueue(prompt, opts) {
+    if (window.lavish && typeof window.lavish.queuePrompt === 'function') { window.lavish.queuePrompt(prompt, opts); return true; }
+    alert('Open this page through lavish-axi to queue answers. Selection kept locally.');
+    return false;
+  }
+  function queueAnswer(event, id, label) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fd = new FormData(form);
+    const values = fd.getAll(id);
+    const note = (fd.get('note') || '').toString().trim();
+    if (!values.length) { alert('Pick an option first.'); return; }
+    const labels = values.map(v => { const input = form.querySelector('input[value="' + v + '"]'); const t = input && input.closest('.opt') && input.closest('.opt').querySelector('.t'); return t ? t.textContent.replace(/Recommended$/, '').trim() : v; });
+    let prompt = 'Decision ' + id + ' (' + label + '): ' + labels.join(' | ') + (note ? '. Note: ' + note : '');
+    if (lavishQueue(prompt, { tag: 'decision', text: id + ': ' + labels.join(', '), element: form, queueKey: id, data: { question: id, answer: values, note } })) markQueued(form);
+  }
+  function queueFactors(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const items = [...form.querySelectorAll('select')].map(s => ({ id: s.name, label: (s.closest('tr').querySelector('td:nth-child(2) b') || {}).textContent || s.name, disposition: s.value }));
+    const summary = items.map(i => i.id + '=' + i.disposition).join(', ');
+    const prompt = 'Factor dispositions: ' + summary + '. Account for every submitted ID in the design and return an item-by-item receipt before reporting completion.';
+    if (lavishQueue(prompt, { tag: 'tracked-batch', text: 'Factor dispositions for ' + items.length + ' items', element: form, queueKey: 'factors', data: { items } })) markQueued(form);
+  }
+</script>
+</body>
+</html>

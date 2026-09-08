@@ -258,3 +258,6 @@ sensorHub
 *.test
 
 docs/plans
+
+# LLM bot credentials for the observability platform, never commit
+llm-open-observe-token.txt
