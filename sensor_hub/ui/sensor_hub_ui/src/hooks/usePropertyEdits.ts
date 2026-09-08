@@ -19,13 +19,15 @@ function without(state: EditState, keys: string[]): EditState {
 
 export function usePropertyEdits(serverValues: Record<string, string>) {
   const [state, setState] = useState<EditState>(NOTHING_EDITED);
-  const submittedKeys = useRef<string[] | null>(null);
+  const submitted = useRef<Record<string, string> | null>(null);
 
   useEffect(() => {
-    const keys = submittedKeys.current;
-    if (!keys) return;
-    submittedKeys.current = null;
-    setState((prev) => without(prev, keys));
+    const sent = submitted.current;
+    if (!sent) return;
+    submitted.current = null;
+    setState((prev) =>
+      without(prev, Object.keys(sent).filter((key) => prev.values[key] === sent[key])),
+    );
   }, [serverValues]);
 
   const edit = useCallback(
@@ -48,9 +50,9 @@ export function usePropertyEdits(serverValues: Record<string, string>) {
     setState(NOTHING_EDITED);
   }, []);
 
-  const markSubmitted = useCallback(() => {
-    submittedKeys.current = Object.keys(state.values);
-  }, [state.values]);
+  const markSubmitted = useCallback((sent: Record<string, string>) => {
+    submitted.current = sent;
+  }, []);
 
   const modifiedKeys = useMemo(
     () => Object.keys(state.values).filter((key) => state.values[key] !== serverValues[key]),

@@ -116,7 +116,7 @@ export default function PropertyField({ definition, serverValue, editedValue, co
       <Box sx={{ flex: '1 1 auto' }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <PropertyControl definition={definition} value={value} onChange={onChange} disabled={disabled} />
-          {modified && onUndo && (
+          {modified && !collided && onUndo && (
             <IconButton size="small" aria-label={`Undo changes to ${definition.label}`} onClick={onUndo}>
               <UndoIcon fontSize="small" />
             </IconButton>

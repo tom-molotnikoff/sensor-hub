@@ -184,6 +184,9 @@ describe('PropertiesPage', () => {
 
     expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(120);
     expect(screen.getByText(/Someone else changed this to 600/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Undo changes to Collection interval' }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Reset Collection interval to the value someone else saved' }),
@@ -244,6 +247,32 @@ describe('PropertiesPage', () => {
 
     expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(600);
     expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
+  });
+
+  it('keeps a keystroke made while the save is still in flight', async () => {
+    let settlePatch: (value: unknown) => void = () => {};
+    patchMock.mockReturnValue(new Promise((resolve) => { settlePatch = resolve; }));
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+      target: { value: '120' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() => expect(patchMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Collection interval' }), {
+      target: { value: '121' },
+    });
+    await act(async () => { settlePatch({ data: { message: 'ok' } }); });
+
+    act(() => {
+      FakeWebSocket.instances[0].serverSends(
+        JSON.stringify({ ...serverValues, 'sensor.collection.interval': '120' }),
+      );
+    });
+
+    expect(screen.getByRole('spinbutton', { name: 'Collection interval' })).toHaveValue(121);
+    expect(screen.getByText('1 unsaved change')).toBeInTheDocument();
   });
 
   it('disables every control and shows no save control for a user without manage_properties', async () => {

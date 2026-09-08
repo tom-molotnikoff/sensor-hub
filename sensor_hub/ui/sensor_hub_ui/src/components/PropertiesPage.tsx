@@ -33,8 +33,9 @@ export default function PropertiesPage() {
         const value = edits[definition.key] ?? serverValues[definition.key];
         if (value !== undefined) payload[definition.key] = value;
       }
+      const submitted = edits;
       await apiClient.PATCH('/properties', { body: payload as never });
-      markSubmitted();
+      markSubmitted(submitted);
       setSaved(true);
     } catch (e: unknown) {
       let msg: string;
