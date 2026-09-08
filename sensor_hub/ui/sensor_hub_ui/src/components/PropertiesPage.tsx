@@ -3,6 +3,7 @@ import { Alert, Button, CircularProgress, Divider, Paper, Snackbar, Stack, Typog
 import { apiClient } from '../gen/client';
 import { useProperties } from '../hooks/useProperties';
 import { usePropertyDefinitions } from '../hooks/usePropertyDefinitions';
+import { usePropertyEdits } from '../hooks/usePropertyEdits';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';
 import PropertyField from './PropertyField';
@@ -13,14 +14,13 @@ export default function PropertiesPage() {
   const { definitions } = usePropertyDefinitions();
   const { user } = useAuth();
   const canManage = !!user && hasPerm(user, 'manage_properties');
-  const [editedValues, setEditedValues] = useState<Record<string, string>>({});
+  const { edits, collisions, modifiedCount, edit, discard, discardAll, markSubmitted } =
+    usePropertyEdits(serverValues);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   if (!definitions) return null;
-
-  const isDirty = Object.entries(editedValues).some(([key, value]) => serverValues[key] !== value);
 
   const handleSave = async () => {
     setSaving(true);
@@ -30,10 +30,12 @@ export default function PropertiesPage() {
       const payload: Record<string, string> = {};
       for (const definition of definitions.definitions) {
         if (definition.readOnly) continue;
-        const value = editedValues[definition.key] ?? serverValues[definition.key];
+        const value = edits[definition.key] ?? serverValues[definition.key];
         if (value !== undefined) payload[definition.key] = value;
       }
+      const submitted = edits;
       await apiClient.PATCH('/properties', { body: payload as never });
+      markSubmitted(submitted);
       setSaved(true);
     } catch (e: unknown) {
       let msg: string;
@@ -56,7 +58,17 @@ export default function PropertiesPage() {
           {canManage && (
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               {saving && <CircularProgress size={20} />}
-              <Button variant="contained" color="primary" onClick={handleSave} disabled={!isDirty || saving}>
+              {modifiedCount > 0 && (
+                <>
+                  <Typography variant="body2" color="text.secondary">
+                    {modifiedCount === 1 ? '1 unsaved change' : `${modifiedCount} unsaved changes`}
+                  </Typography>
+                  <Button variant="text" color="inherit" onClick={discardAll} disabled={saving}>
+                    Discard
+                  </Button>
+                </>
+              )}
+              <Button variant="contained" color="primary" onClick={handleSave} disabled={modifiedCount === 0 || saving}>
                 Save changes
               </Button>
             </Stack>
@@ -71,26 +83,10 @@ export default function PropertiesPage() {
               key={definition.key}
               definition={definition}
               serverValue={serverValues[definition.key]}
-              editedValue={editedValues[definition.key]}
-              onChange={(value) =>
-                setEditedValues((prev) => {
-                  // An edit landing back on the saved value is no edit at all - a stale
-                  // entry would resurrect as modified when the server value moves.
-                  if (value === serverValues[definition.key]) {
-                    const next = { ...prev };
-                    delete next[definition.key];
-                    return next;
-                  }
-                  return { ...prev, [definition.key]: value };
-                })
-              }
-              onUndo={() =>
-                setEditedValues((prev) => {
-                  const next = { ...prev };
-                  delete next[definition.key];
-                  return next;
-                })
-              }
+              editedValue={edits[definition.key]}
+              collided={collisions.has(definition.key)}
+              onChange={(value) => edit(definition.key, value)}
+              onUndo={() => discard(definition.key)}
               disabled={!canManage}
             />
           ))}

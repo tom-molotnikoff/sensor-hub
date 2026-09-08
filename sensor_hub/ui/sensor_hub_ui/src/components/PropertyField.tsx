@@ -1,4 +1,4 @@
-import { Box, IconButton, MenuItem, Select, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Box, IconButton, Link, MenuItem, Select, Stack, Switch, TextField, Typography } from '@mui/material';
 import UndoIcon from '@mui/icons-material/Undo';
 import type { PropertyDefinition } from '../gen/aliases';
 import { useIsMobile } from '../hooks/useMobile';
@@ -9,6 +9,7 @@ interface PropertyFieldProps {
   definition: PropertyDefinition;
   serverValue?: string;
   editedValue?: string;
+  collided?: boolean;
   onChange: (value: string) => void;
   onUndo?: () => void;
   disabled?: boolean;
@@ -79,7 +80,7 @@ function helperLine(definition: PropertyDefinition, serverValue: string): string
   return parts.join(' · ');
 }
 
-export default function PropertyField({ definition, serverValue, editedValue, onChange, onUndo, disabled }: PropertyFieldProps) {
+export default function PropertyField({ definition, serverValue, editedValue, collided, onChange, onUndo, disabled }: PropertyFieldProps) {
   const isMobile = useIsMobile();
   const value = editedValue ?? serverValue ?? '';
   const modified = editedValue !== undefined && editedValue !== serverValue;
@@ -115,7 +116,7 @@ export default function PropertyField({ definition, serverValue, editedValue, on
       <Box sx={{ flex: '1 1 auto' }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <PropertyControl definition={definition} value={value} onChange={onChange} disabled={disabled} />
-          {modified && onUndo && (
+          {modified && !collided && onUndo && (
             <IconButton size="small" aria-label={`Undo changes to ${definition.label}`} onClick={onUndo}>
               <UndoIcon fontSize="small" />
             </IconButton>
@@ -124,7 +125,21 @@ export default function PropertyField({ definition, serverValue, editedValue, on
         <ApplyNote definition={definition} />
         {modified && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {helperLine(definition, serverValue ?? '')}
+            {collided ? `Someone else changed this to ${shown(serverValue ?? '')}` : helperLine(definition, serverValue ?? '')}
+            {collided && onUndo && (
+              <>
+                {' \u00b7 '}
+                <Link
+                  component="button"
+                  type="button"
+                  variant="body2"
+                  onClick={onUndo}
+                  aria-label={`Reset ${definition.label} to the value someone else saved`}
+                >
+                  Reset
+                </Link>
+              </>
+            )}
           </Typography>
         )}
       </Box>
