@@ -16,7 +16,6 @@ function ruleError(definition: PropertyDefinition, value: string): string | null
   if (definition.readOnly) return null;
 
   if (definition.type === 'int') {
-    if (value === '') return null;
     if (!INTEGER.test(value)) return 'Must be a whole number';
     const parsed = Number(value);
     if (definition.validate === 'positive' && parsed <= 0) return 'Must be greater than 0';

@@ -32,8 +32,8 @@ describe('propertyErrors', () => {
     expect(errorFor(definition, '+12')).toBeUndefined();
   });
 
-  it('leaves an emptied int alone, matching the backend which skips it', () => {
-    expect(errorFor(makeDefinition({ validate: 'positive' }), '')).toBeUndefined();
+  it('rejects an emptied int, which the backend would silently store as zero', () => {
+    expect(errorFor(makeDefinition({ validate: 'positive' }), '')).toBe('Must be a whole number');
   });
 
   it('applies positive and non_negative to int values', () => {

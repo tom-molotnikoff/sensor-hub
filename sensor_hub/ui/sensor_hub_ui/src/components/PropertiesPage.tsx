@@ -63,6 +63,13 @@ export default function PropertiesPage() {
     [allDefinitions, edits, rejection],
   );
 
+  const hiddenErrorCount = useMemo(() => {
+    const rendered = new Set(
+      sections.flatMap((section) => section.rows.map((row) => row.definition.key)),
+    );
+    return [...errors.fields.keys()].filter((key) => !rendered.has(key)).length;
+  }, [sections, errors]);
+
   const currentGroupId = useScrollSpy(sections.map((section) => section.group.id));
 
   const landed = useRef(false);
@@ -158,6 +165,14 @@ export default function PropertiesPage() {
         {definitionsError && (
           <Alert severity="warning">
             Property descriptions and typed controls are unavailable. Every property is editable as text.
+          </Alert>
+        )}
+
+        {hiddenErrorCount > 0 && (
+          <Alert severity="warning">
+            {hiddenErrorCount === 1
+              ? '1 field hidden by the search has an error. Clear the search to correct it.'
+              : `${hiddenErrorCount} fields hidden by the search have errors. Clear the search to correct them.`}
           </Alert>
         )}
 

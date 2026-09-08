@@ -484,6 +484,26 @@ describe('PropertiesPage', () => {
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
 
+  it('says an error is hidden when the search leaves no invalid field on screen', async () => {
+    await renderPage(['view_properties', 'manage_properties']);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
+      target: { value: '' },
+    });
+    expect(screen.getByText('Must be a whole number')).toBeInTheDocument();
+    expect(screen.queryByText(/hidden by the search/)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search properties' }), {
+      target: { value: 'SQLite' },
+    });
+
+    expect(screen.queryByTestId('rail-error-count-sensors')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
+    expect(
+      screen.getByText('1 field hidden by the search has an error. Clear the search to correct it.'),
+    ).toBeInTheDocument();
+  });
+
   it('shows a backend rejection against the offending field and keeps every local edit', async () => {
     patchMock.mockResolvedValue({
       error: { message: 'invalid sensor.collection.interval value: 120', key: 'sensor.collection.interval' },
