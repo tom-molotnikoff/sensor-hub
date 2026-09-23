@@ -13,8 +13,11 @@ func RegisterSPAHandler(router *gin.Engine) {
 	if err != nil {
 		panic("failed to create sub filesystem for embedded UI: " + err.Error())
 	}
+	RegisterSPAHandlerFS(router, stripped)
+}
 
-	fileServer := http.FileServer(http.FS(stripped))
+func RegisterSPAHandlerFS(router *gin.Engine, ui fs.FS) {
+	fileServer := http.FileServer(http.FS(ui))
 
 	router.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
@@ -30,7 +33,7 @@ func RegisterSPAHandler(router *gin.Engine) {
 		}
 
 		// Try to serve the exact file (JS, CSS, images, etc.)
-		if f, err := stripped.Open(strings.TrimPrefix(path, "/")); err == nil {
+		if f, err := ui.Open(strings.TrimPrefix(path, "/")); err == nil {
 			f.Close()
 			if strings.HasPrefix(path, "/assets/") {
 				c.Header("Cache-Control", "public, max-age=31536000, immutable")

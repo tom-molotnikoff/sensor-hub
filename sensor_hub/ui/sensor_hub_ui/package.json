@@ -9,7 +9,8 @@
     "generate:api": "openapi-typescript ../../api/openapi.yaml -o src/gen/schema.d.ts",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:layout": "npm run build && playwright test"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -1,6 +1,5 @@
-/// <reference types="vitest/config" />
-
 import { defineConfig } from 'vite';
+import { configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
@@ -43,5 +42,6 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    exclude: [...configDefaults.exclude, 'tests/**'],
   },
 });

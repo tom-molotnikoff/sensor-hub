@@ -5,6 +5,8 @@ package testharness
 import (
 	"context"
 	"fmt"
+	"io"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -25,6 +27,7 @@ import (
 	"example/sensorHub/notifications"
 	"example/sensorHub/service"
 	"example/sensorHub/smtp"
+	"example/sensorHub/web"
 	"example/sensorHub/ws"
 
 	"github.com/gin-gonic/gin"
@@ -54,7 +57,7 @@ func StartServer(t interface {
 	Fatalf(string, ...any)
 	Cleanup(func())
 }, sensorURLs []string) *Env {
-	env, cleanup, err := startServer(sensorURLs)
+	env, cleanup, err := startServer(serverOptions{})
 	if err != nil {
 		cleanup()
 		if th, ok := t.(interface{ Fatalf(string, ...any) }); ok {
@@ -69,10 +72,16 @@ func StartServer(t interface {
 // StartServerForMain is like StartServer but for use in TestMain where
 // *testing.T is not available. Returns a cleanup function.
 func StartServerForMain(sensorURLs []string) (*Env, func(), error) {
-	return startServer(sensorURLs)
+	return startServer(serverOptions{})
 }
 
-func startServer(sensorURLs []string) (*Env, func(), error) {
+type serverOptions struct {
+	seedPath   string
+	ui         fs.FS
+	listenAddr string
+}
+
+func startServer(opts serverOptions) (*Env, func(), error) {
 	tmpDir, err := os.MkdirTemp("", "sensor-hub-integration-*")
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("failed to create temp dir: %w", err)
@@ -85,6 +94,13 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		cleanupDir()
 		return nil, func() {}, fmt.Errorf("failed to create config dir: %w", err)
+	}
+
+	if opts.seedPath != "" {
+		if err := copyFile(opts.seedPath, dbPath); err != nil {
+			cleanupDir()
+			return nil, func() {}, fmt.Errorf("failed to copy seed database: %w", err)
+		}
 	}
 
 	// Write minimal config files
@@ -181,7 +197,7 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 		connManager,
 	)
 
-	// Build Gin router (mirrors api.go without TLS/OTEL/CORS/SPA)
+	// Build Gin router (mirrors api.go without TLS/OTEL/CORS)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -194,8 +210,15 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 		Middlewares: []gen.MiddlewareFunc{api.RouteAuthAndPermissionMiddleware()},
 	})
 
-	// Start HTTP server on random port
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if opts.ui != nil {
+		web.RegisterSPAHandlerFS(router, opts.ui)
+	}
+
+	listenAddr := opts.listenAddr
+	if listenAddr == "" {
+		listenAddr = "127.0.0.1:0"
+	}
+	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		db.Close()
 		cleanupDir()
@@ -244,6 +267,23 @@ func startServer(sensorURLs []string) (*Env, func(), error) {
 		WSCapture:         wsCapture,
 		EmailCapture:      emailCapture,
 	}, cleanup, nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 func writeFileOrErr(path, content string) {

@@ -139,3 +139,20 @@ jobs:
       - name: Run integration tests
         working-directory: sensor_hub
         run: go test -tags integration -v -timeout 300s ./integration/
+
+      - name: Install Playwright Chromium
+        working-directory: sensor_hub/ui/sensor_hub_ui
+        run: npx playwright install --with-deps chromium
+
+      - name: Run layout contract
+        id: layout-contract
+        working-directory: sensor_hub/ui/sensor_hub_ui
+        timeout-minutes: 10
+        run: npx playwright test
+
+      - name: Upload layout contract failures
+        if: failure() && steps.layout-contract.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: layout-contract-failures
+          path: sensor_hub/ui/sensor_hub_ui/test-results/
