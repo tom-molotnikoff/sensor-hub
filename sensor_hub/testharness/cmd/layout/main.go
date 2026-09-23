@@ -17,7 +17,7 @@ import (
 func main() {
 	seedPath := flag.String("seed", "", "seed database to start from, left untouched")
 	uiDir := flag.String("ui", "", "directory holding the built UI")
-	addr := flag.String("addr", "127.0.0.1:4173", "address to listen on")
+	addr := flag.String("addr", "127.0.0.1:4180", "address to listen on")
 	fixtures := flag.String("fixtures", "", "comma-separated layout fixtures to load")
 	flag.Parse()
 

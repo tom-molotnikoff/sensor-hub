@@ -197,7 +197,7 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		connManager,
 	)
 
-	// Build Gin router (mirrors api.go without TLS/OTEL/CORS/SPA)
+	// Build Gin router (mirrors api.go without TLS/OTEL/CORS)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
