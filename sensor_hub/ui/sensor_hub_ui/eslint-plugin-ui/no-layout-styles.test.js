@@ -18,6 +18,8 @@ ruleTester.run('no-layout-styles', rule, {
     '<Chip style={{ cursor: "pointer" }} />',
     '<Dialog PaperProps={{ elevation: 0 }} />',
     'const extra = { color: "red" }; <Box sx={{ ...extra }} />',
+    'const styles = { root: { color: "red" } }; <Box sx={styles.root} />',
+    '<Tooltip wrapperStyle={{ outline: "none" }} />',
   ],
   invalid: [
     ...bannedKeys.map((key) => ({ code: `<Box sx={{ ${key}: 1 }} />`, errors: layoutKey(key) })),
@@ -34,5 +36,10 @@ ruleTester.run('no-layout-styles', rule, {
     { code: 'const card = { mb: 2 }; <Box sx={card} />', errors: layoutKey('mb') },
     { code: 'const base = { position: "relative" }; <Box sx={{ ...base, color: "red" }} />', errors: layoutKey('position') },
     { code: '<Box sx={{ overflow: "auto" } as const} />', errors: layoutKey('overflow') },
+    { code: '<LayoutCard changes={{ minHeight: 400 }} />', errors: layoutKey('minHeight') },
+    { code: '<Tooltip wrapperStyle={{ width: 120 }} />', errors: layoutKey('width') },
+    { code: '<Legend PaperProps={{ labelStyle: { padding: 0 } }} />', errors: layoutKey('padding') },
+    { code: 'const styles = { root: { gap: 1 } }; <Box sx={styles.root} />', errors: layoutKey('gap') },
+    { code: 'const area = { height: 200 }; <><Box sx={area} /><Box sx={area} /></>', errors: layoutKey('height') },
   ],
 });

@@ -21,12 +21,21 @@ function resolveIdentifier(context, identifier) {
   return null;
 }
 
+function resolveMember(context, member) {
+  if (member.computed || member.property.type !== 'Identifier') return null;
+  const [owner] = objectsIn(context, member.object);
+  const property = owner?.properties.find(
+    (candidate) => candidate.type === 'Property' && propertyName(candidate) === member.property.name,
+  );
+  return property?.value ?? null;
+}
+
 function returnedExpressions(body) {
   if (body.type !== 'BlockStatement') return [body];
   return body.body.filter((statement) => statement.type === 'ReturnStatement' && statement.argument).map((statement) => statement.argument);
 }
 
-export function objectsIn(context, node, seen = new Set()) {
+function objectsIn(context, node, seen = new Set()) {
   if (!node || seen.has(node)) return [];
   seen.add(node);
   switch (node.type) {
@@ -44,23 +53,26 @@ export function objectsIn(context, node, seen = new Set()) {
     case 'TSAsExpression':
     case 'TSSatisfiesExpression':
     case 'TSNonNullExpression':
+      return objectsIn(context, node.expression, seen);
     case 'SpreadElement':
-      return objectsIn(context, node.expression ?? node.argument, seen);
+      return objectsIn(context, node.argument, seen);
     case 'Identifier':
       return objectsIn(context, resolveIdentifier(context, node), seen);
+    case 'MemberExpression':
+      return objectsIn(context, resolveMember(context, node), seen);
     default:
       return [];
   }
 }
 
-export function forEachStyleProperty(context, styleValue, visit, seen = new Set()) {
-  for (const object of objectsIn(context, styleValue, seen)) {
+export function forEachProperty(context, value, visit, seen = new Set()) {
+  for (const object of objectsIn(context, value, seen)) {
     for (const property of object.properties) {
       if (property.type === 'SpreadElement') {
-        forEachStyleProperty(context, property.argument, visit, seen);
+        forEachProperty(context, property.argument, visit, seen);
         continue;
       }
-      if (visit(property) !== false) forEachStyleProperty(context, property.value, visit, seen);
+      if (visit(property) !== false) forEachProperty(context, property.value, visit, seen);
     }
   }
 }

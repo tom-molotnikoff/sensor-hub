@@ -1,10 +1,10 @@
-import { forEachStyleProperty, objectsIn, propertyName } from './style-objects.js';
+import { forEachProperty, propertyName } from './style-objects.js';
 
 const layoutKey =
   /^(display|flex[A-Za-z]*|width|height|min[A-Z][A-Za-z]*|max[A-Z][A-Za-z]*|gap|rowGap|columnGap|grid[A-Za-z]*|position|inset[A-Za-z]*|overflow|overflowX|overflowY|margin[A-Za-z]*|padding[A-Za-z]*|[mp][trblxy]?)$/;
 
-const styleAttribute = /^(sx|style)$/;
-const propsAttribute = /Props$/;
+const styleName = /^(sx|style|changes)$|Style$/;
+const propsName = /Props$/;
 
 export default {
   meta: {
@@ -16,35 +16,33 @@ export default {
     schema: [],
   },
   create(context) {
-    const checkStyle = (styleValue) =>
-      forEachStyleProperty(context, styleValue, (property) => {
+    const reported = new Set();
+
+    const checkStyle = (value) =>
+      forEachProperty(context, value, (property) => {
         const key = propertyName(property);
-        if (key && layoutKey.test(key)) {
+        if (!key || !layoutKey.test(key)) return true;
+        if (!reported.has(property.key)) {
+          reported.add(property.key);
           context.report({ node: property.key, messageId: 'layoutKey', data: { key } });
-          return false;
         }
+        return false;
       });
 
-    const checkProps = (propsValue, seen = new Set()) => {
-      for (const object of objectsIn(context, propsValue, seen)) {
-        for (const property of object.properties) {
-          if (property.type === 'SpreadElement') {
-            checkProps(property.argument, seen);
-            continue;
-          }
-          const key = propertyName(property);
-          if (key && styleAttribute.test(key)) checkStyle(property.value);
-          else checkProps(property.value, seen);
-        }
-      }
-    };
+    const checkProps = (value) =>
+      forEachProperty(context, value, (property) => {
+        const key = propertyName(property);
+        if (!key || !styleName.test(key)) return true;
+        checkStyle(property.value);
+        return false;
+      });
 
     return {
       JSXAttribute(node) {
         if (node.name.type !== 'JSXIdentifier' || node.value?.type !== 'JSXExpressionContainer') return;
         const name = node.name.name;
-        if (styleAttribute.test(name)) checkStyle(node.value.expression);
-        else if (propsAttribute.test(name)) checkProps(node.value.expression);
+        if (styleName.test(name)) checkStyle(node.value.expression);
+        else if (propsName.test(name)) checkProps(node.value.expression);
       },
     };
   },

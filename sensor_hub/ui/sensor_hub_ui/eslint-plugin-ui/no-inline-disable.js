@@ -1,5 +1,12 @@
-const directive = /^\s*(eslint-disable(?:-next-line|-line)?|eslint)\s+([\s\S]*)$/;
+const directive = /^\s*(eslint-disable(?:-next-line|-line)?|eslint)(?:\s+([\s\S]*))?$/;
 const uiRule = /(^|[\s,])ui\//;
+
+function disablesUiRules(comment) {
+  const match = directive.exec(comment.value);
+  if (!match) return false;
+  const rules = (match[2] ?? '').replace(/(^|\s)--(\s[\s\S]*)?$/, '').trim();
+  return uiRule.test(rules) || (match[1] !== 'eslint' && rules === '');
+}
 
 export default {
   meta: {
@@ -14,10 +21,7 @@ export default {
     return {
       Program() {
         for (const comment of context.sourceCode.getAllComments()) {
-          const match = directive.exec(comment.value);
-          if (match && uiRule.test(match[2].split(/\s--\s/)[0])) {
-            context.report({ loc: comment.loc, messageId: 'disabled' });
-          }
+          if (disablesUiRules(comment)) context.report({ loc: comment.loc, messageId: 'disabled' });
         }
       },
     };

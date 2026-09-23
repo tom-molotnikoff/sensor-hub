@@ -1,4 +1,9 @@
 {
+  "src/components/AddNewSensor.tsx": {
+    "ui/no-layout-styles": {
+      "count": 6
+    }
+  },
   "src/components/AlertHistoryDialog.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -25,7 +30,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 9
+      "count": 11
     },
     "ui/no-raw-visuals": {
       "count": 1
@@ -33,7 +38,7 @@
   },
   "src/components/ApiKeysCard.tsx": {
     "ui/no-layout-styles": {
-      "count": 7
+      "count": 8
     },
     "ui/no-raw-visuals": {
       "count": 2
@@ -91,7 +96,7 @@
   },
   "src/components/CurrentTemperatures.tsx": {
     "ui/no-layout-styles": {
-      "count": 7
+      "count": 9
     },
     "ui/no-raw-visuals": {
       "count": 2
@@ -102,7 +107,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 4
+      "count": 6
     },
     "ui/no-raw-visuals": {
       "count": 1
@@ -133,6 +138,11 @@
     },
     "ui/no-layout-styles": {
       "count": 9
+    }
+  },
+  "src/components/EditSensorDetails.tsx": {
+    "ui/no-layout-styles": {
+      "count": 6
     }
   },
   "src/components/EditUserDialog.tsx": {
@@ -167,7 +177,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 6
+      "count": 8
     }
   },
   "src/components/MqttStatsCard.tsx": {
@@ -186,7 +196,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 6
+      "count": 8
     }
   },
   "src/components/NotificationBell.tsx": {
@@ -205,7 +215,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 2
+      "count": 4
     }
   },
   "src/components/NotificationsCard.tsx": {
@@ -213,7 +223,7 @@
       "count": 2
     },
     "ui/no-layout-styles": {
-      "count": 26
+      "count": 28
     },
     "ui/no-raw-visuals": {
       "count": 1
@@ -224,7 +234,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 23
+      "count": 25
     }
   },
   "src/components/PendingSensorsCard.tsx": {
@@ -232,7 +242,7 @@
       "count": 2
     },
     "ui/no-layout-styles": {
-      "count": 17
+      "count": 19
     }
   },
   "src/components/PropertiesPage.tsx": {
@@ -240,7 +250,7 @@
       "count": 2
     },
     "ui/no-layout-styles": {
-      "count": 13
+      "count": 14
     }
   },
   "src/components/PropertyApplyNotice.tsx": {
@@ -264,7 +274,7 @@
       "count": 2
     },
     "ui/no-layout-styles": {
-      "count": 3
+      "count": 4
     }
   },
   "src/components/PropertySearchRail.tsx": {
@@ -276,11 +286,6 @@
     },
     "ui/no-raw-visuals": {
       "count": 2
-    }
-  },
-  "src/components/ReadingsChart.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 5
     }
   },
   "src/components/ReadingsChart.tsx": {
@@ -302,21 +307,11 @@
       "count": 24
     }
   },
-  "src/components/SensorDetailCard.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
-    }
-  },
   "src/components/SensorDetailCard.tsx": {
     "no-restricted-imports": {
       "count": 2
     },
     "ui/no-layout-styles": {
-      "count": 2
-    }
-  },
-  "src/components/SensorHealthCard.test.tsx": {
-    "ui/no-raw-visuals": {
       "count": 4
     }
   },
@@ -325,7 +320,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 7
+      "count": 10
     },
     "ui/no-raw-visuals": {
       "count": 1
@@ -333,12 +328,7 @@
   },
   "src/components/SensorHealthHistory.tsx": {
     "ui/no-layout-styles": {
-      "count": 15
-    }
-  },
-  "src/components/SensorHealthHistoryChart.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 7
+      "count": 17
     }
   },
   "src/components/SensorHealthHistoryChart.tsx": {
@@ -346,7 +336,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 17
+      "count": 13
     },
     "ui/no-raw-visuals": {
       "count": 3
@@ -357,7 +347,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 2
+      "count": 5
     }
   },
   "src/components/SensorHealthPieChart.tsx": {
@@ -373,7 +363,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 29
+      "count": 33
     }
   },
   "src/components/SensorTemperatureDataCard.tsx": {
@@ -381,7 +371,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 6
+      "count": 9
     }
   },
   "src/components/SensorTypeCard.tsx": {
@@ -389,7 +379,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 7
+      "count": 10
     },
     "ui/no-raw-visuals": {
       "count": 1
@@ -405,7 +395,7 @@
   },
   "src/components/SensorsDataGrid.tsx": {
     "ui/no-layout-styles": {
-      "count": 7
+      "count": 9
     },
     "ui/no-raw-visuals": {
       "count": 2
@@ -416,12 +406,12 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 10
+      "count": 12
     }
   },
   "src/components/TotalReadingsForEachSensorCard.tsx": {
     "ui/no-layout-styles": {
-      "count": 8
+      "count": 10
     },
     "ui/no-raw-visuals": {
       "count": 1
@@ -432,12 +422,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 6
-    }
-  },
-  "src/components/WeatherForecastCard.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
+      "count": 8
     }
   },
   "src/components/WeatherForecastCard.tsx": {
@@ -445,7 +430,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 17
+      "count": 21
     }
   },
   "src/dashboard/DashboardEngine.tsx": {
@@ -520,11 +505,6 @@
       "count": 33
     }
   },
-  "src/dashboard/widget-loaders/CascadeRowsLoader.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
-    }
-  },
   "src/dashboard/widget-loaders/CascadeRowsLoader.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -539,11 +519,6 @@
     },
     "ui/no-layout-styles": {
       "count": 3
-    }
-  },
-  "src/dashboard/widget-loaders/IndeterminateBarLoader.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
     }
   },
   "src/dashboard/widget-loaders/IndeterminateBarLoader.tsx": {
@@ -562,11 +537,6 @@
       "count": 5
     }
   },
-  "src/dashboard/widget-loaders/RippleHeatmapLoader.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
-    }
-  },
   "src/dashboard/widget-loaders/RippleHeatmapLoader.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -581,11 +551,6 @@
     },
     "ui/no-layout-styles": {
       "count": 26
-    }
-  },
-  "src/dashboard/widget-loaders/SensorDetailTilesLoader.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
     }
   },
   "src/dashboard/widget-loaders/SensorDetailTilesLoader.tsx": {
@@ -623,11 +588,6 @@
       "count": 4
     }
   },
-  "src/dashboard/widget-loaders/WeatherColumnsLoader.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
-    }
-  },
   "src/dashboard/widget-loaders/WeatherColumnsLoader.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -641,11 +601,6 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 4
-    }
-  },
-  "src/dashboard/widgets/AlertSummaryWidget.test.tsx": {
-    "ui/no-raw-visuals": {
       "count": 4
     }
   },
@@ -668,11 +623,6 @@
       "count": 1
     }
   },
-  "src/dashboard/widgets/CurrentReadingWidget.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 3
-    }
-  },
   "src/dashboard/widgets/CurrentReadingWidget.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -682,11 +632,6 @@
     },
     "ui/no-raw-visuals": {
       "count": 1
-    }
-  },
-  "src/dashboard/widgets/GaugeWidget.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
     }
   },
   "src/dashboard/widgets/GaugeWidget.tsx": {
@@ -700,11 +645,6 @@
       "count": 3
     }
   },
-  "src/dashboard/widgets/GroupSummaryWidget.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
-    }
-  },
   "src/dashboard/widgets/GroupSummaryWidget.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -716,11 +656,6 @@
   "src/dashboard/widgets/HealthTimelineWidget.tsx": {
     "ui/no-layout-styles": {
       "count": 1
-    }
-  },
-  "src/dashboard/widgets/HeatmapWidget.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
     }
   },
   "src/dashboard/widgets/HeatmapWidget.tsx": {
@@ -741,11 +676,6 @@
     "ui/no-layout-styles": {
       "count": 28
     },
-    "ui/no-raw-visuals": {
-      "count": 7
-    }
-  },
-  "src/dashboard/widgets/MinMaxAvgWidget.test.tsx": {
     "ui/no-raw-visuals": {
       "count": 7
     }
@@ -772,11 +702,6 @@
     },
     "ui/no-raw-visuals": {
       "count": 2
-    }
-  },
-  "src/dashboard/widgets/UptimeWidget.test.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 4
     }
   },
   "src/dashboard/widgets/UptimeWidget.tsx": {
@@ -887,7 +812,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 3
+      "count": 6
     }
   },
   "src/tools/Typography.tsx": {
