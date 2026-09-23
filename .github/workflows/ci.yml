@@ -38,6 +38,14 @@ jobs:
           npm ci
           npm run build
 
+      - name: Lint React UI
+        working-directory: sensor_hub/ui/sensor_hub_ui
+        run: npm run lint
+
+      - name: Test React UI
+        working-directory: sensor_hub/ui/sensor_hub_ui
+        run: npm test
+
       - name: Verify generated TS types are up-to-date
         working-directory: sensor_hub/ui/sensor_hub_ui
         run: |
