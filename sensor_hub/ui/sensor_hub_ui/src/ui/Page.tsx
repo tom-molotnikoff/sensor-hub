@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import NavigationSidebar from '../navigation/NavigationSidebar';
 import TopAppBar from '../navigation/TopAppBar';
-import { responsive } from './tiers';
+import { responsive, type TierValues } from './tiers';
 import { density } from './theme/tokens';
 
 interface PageProps {
@@ -11,7 +11,7 @@ interface PageProps {
   children?: ReactNode;
 }
 
-const pixels = (values: { compact: number; wide: number }) =>
+const pixels = (values: TierValues<number>) =>
   responsive({ compact: `${values.compact}px`, wide: `${values.wide}px` });
 
 export default function Page({ title, loading = false, children }: PageProps) {
@@ -22,7 +22,7 @@ export default function Page({ title, loading = false, children }: PageProps) {
       <Box
         component="main"
         data-ui="page"
-        sx={{ display: 'flex', flexDirection: 'column', padding: pixels(density.page), gap: pixels(density.gap) }}
+        sx={{ display: 'flex', flexDirection: 'column', padding: pixels(density.page), gap: 1 }}
       >
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', padding: pixels(density.page) }}>
