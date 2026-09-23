@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensor Hub layout system - design interview</title>
+<style>
+  :root {
+    --primary: #D4451A; --primary-light: #ED5125; --primary-dark: #B33612; --on-primary: #fff;
+    --bg: #F5F0EB; --paper: #FFFFFF; --text: #1A1A1A; --text-2: #5C5C5C; --divider: #D9D0C7;
+    --hover: rgba(212,69,26,0.06);
+    --ok: #2E7D32; --ok-bg: rgba(46,125,50,0.10);
+    --warn: #B26A00; --warn-bg: rgba(178,106,0,0.12);
+    --bad: #B3261E; --bad-bg: rgba(179,38,30,0.10);
+    --info: #1B5E9E; --info-bg: rgba(27,94,158,0.10);
+    --code-bg: #F0E9E2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --primary: #ED5125; --primary-light: #F47A56; --primary-dark: #C43D18;
+      --bg: #1A1A1A; --paper: #242424; --text: #E8E8E8; --text-2: #A0A0A0; --divider: #333333;
+      --hover: rgba(237,81,37,0.08);
+      --ok: #7BC67E; --ok-bg: rgba(123,198,126,0.14);
+      --warn: #F0B24A; --warn-bg: rgba(240,178,74,0.16);
+      --bad: #F28B82; --bad-bg: rgba(242,139,130,0.14);
+      --info: #7FB3E8; --info-bg: rgba(127,179,232,0.14);
+      --code-bg: #1F1F1F;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: Roboto, "Open Sans", Arial, sans-serif; font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  main { max-width: 1120px; margin: 0 auto; padding: 28px 20px 96px; display: flex; flex-direction: column; gap: 44px; }
+  :where(.grid, .flex, .row) > * { min-width: 0; }
+  :where(p, h1, h2, h3, h4, li, td, th, dd, .chip, figcaption) { overflow-wrap: anywhere; }
+  :where(img, svg) { max-width: 100%; height: auto; }
+  h1 { font-size: 30px; line-height: 1.15; margin: 8px 0 6px; }
+  h2 { font-size: 22px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 0 0 4px; }
+  p { margin: 6px 0; }
+  code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  .muted { color: var(--text-2); }
+  .small { font-size: 13px; }
+  .card { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; padding: 18px 20px; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .02em; padding: 2px 9px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
+  .chip.primary { background: var(--primary); color: var(--on-primary); }
+  .chip.outline { border-color: var(--divider); color: var(--text-2); }
+  .chip.ok { background: var(--ok-bg); color: var(--ok); }
+  .chip.warn { background: var(--warn-bg); color: var(--warn); }
+  .chip.bad { background: var(--bad-bg); color: var(--bad); }
+  .chip.info { background: var(--info-bg); color: var(--info); }
+  .grid { display: grid; gap: 14px; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .lede { font-size: 17px; max-width: 760px; }
+  .callout { border-left: 4px solid var(--primary); background: var(--paper); border-radius: 0 12px 12px 0; padding: 14px 18px; }
+  .callout.disagree { border-left-color: var(--warn); }
+  .callout h3 { display: flex; gap: 8px; align-items: center; }
+  .stat { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; padding: 14px 16px; }
+  .stat .v { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat .l { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+  .stat.bad .v { color: var(--bad); }
+
+  /* evidence */
+  .shots { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); align-items: start; }
+  figure { margin: 0; background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; padding: 10px; }
+  figure img { display: block; width: 100%; border-radius: 6px; border: 1px solid var(--divider); }
+  figure.tall img { max-height: 520px; object-fit: cover; object-position: top; }
+  figcaption { font-size: 13px; color: var(--text-2); margin-top: 8px; }
+  figcaption b { color: var(--text); }
+
+  .rc { display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 12px; align-items: start; }
+  .rc .n { width: 36px; height: 36px; border-radius: 50%; background: var(--bad-bg); color: var(--bad); font-weight: 700; display: grid; place-items: center; }
+  .rc ul { margin: 6px 0 0; padding-left: 18px; }
+  .rc li { margin: 2px 0; }
+  .diagram { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; padding: 14px; }
+  .diagram svg { width: 100%; height: auto; display: block; color: var(--text); }
+
+  /* decisions */
+  .decision { background: var(--paper); border: 1px solid var(--divider); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .decision.agreed { border-color: var(--ok); }
+  .decision header { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .decision header .id { font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+  .options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .opt { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--divider); border-radius: 10px; padding: 12px; cursor: pointer; background: var(--bg); }
+  .opt:has(input:checked) { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; background: var(--hover); }
+  .opt input { margin-top: 4px; accent-color: var(--primary); }
+  .opt .t { font-weight: 600; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .opt .d { font-size: 13px; color: var(--text-2); margin-top: 3px; }
+  .opt .cost { font-size: 12.5px; margin-top: 6px; }
+  .opt .cost b { color: var(--bad); font-weight: 600; }
+  .opt .gain b { color: var(--ok); font-weight: 600; }
+  .rec { font-size: 14px; background: var(--info-bg); border-radius: 10px; padding: 10px 12px; }
+  .rec b { color: var(--info); }
+  .wrong { font-size: 13px; color: var(--text-2); border-top: 1px dashed var(--divider); padding-top: 8px; }
+  .wrong b { color: var(--warn); }
+  .answer-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .answer-row textarea { flex: 1 1 280px; min-height: 42px; resize: vertical; font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--divider); background: var(--bg); color: var(--text); }
+  button.q { font: inherit; font-weight: 600; font-size: 14px; letter-spacing: .02em; text-transform: uppercase; padding: 9px 16px; border-radius: 6px; border: none; background: var(--primary); color: var(--on-primary); cursor: pointer; }
+  button.q:hover { background: var(--primary-dark); }
+  .queued { font-size: 12.5px; color: var(--ok); font-weight: 600; display: none; }
+  .queued.show { display: inline; }
+
+  /* phone mockups (app look: MUI + Sensor Hub palette) */
+  .phones { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .phone-wrap { flex: 0 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .phone-wrap .cap { font-size: 13px; font-weight: 600; }
+  .phone-wrap .cap span { font-weight: 400; color: var(--text-2); }
+  .phone { width: 100%; max-width: 300px; border: 8px solid #2b2b2b; border-radius: 26px; overflow: hidden; background: var(--bg); font-size: 12px; }
+  .phone .scr { height: 540px; overflow-y: auto; overflow-x: hidden; }
+  .appbar { background: var(--primary); color: #fff; display: flex; align-items: center; gap: 8px; padding: 10px 10px; box-shadow: 0 2px 4px rgba(0,0,0,.25); position: sticky; top: 0; z-index: 2; }
+  .appbar .ttl { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: end; }
+  .appbar .ic { width: 20px; height: 20px; flex: 0 0 auto; display: grid; place-items: center; position: relative; }
+  .appbar .badge { position: absolute; top: -6px; right: -8px; background: #C62828; color: #fff; font-size: 8px; border-radius: 8px; padding: 0 3px; }
+  .appbar .av { width: 22px; height: 22px; border-radius: 50%; background: #bdbdbd; color: #fff; display: grid; place-items: center; font-size: 11px; flex: 0 0 auto; }
+  .pg { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .mc { background: var(--paper); border: 1px solid var(--divider); border-radius: 8px; padding: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.12); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .mc h4 { margin: 0; font-size: 15px; }
+  .mc .fld { border: 1px solid var(--divider); border-radius: 4px; padding: 7px 8px; color: var(--text-2); }
+  .mc .btns { display: flex; gap: 8px; }
+  .mc .btn { border: 1px solid var(--primary); color: var(--primary); border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 600; }
+  .mc .btn.dis { border-color: var(--divider); color: var(--text-2); background: var(--code-bg); }
+  .donut { height: 150px; display: grid; place-items: center; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 11.5px; table-layout: fixed; }
+  .tbl th { text-align: left; font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--divider); }
+  .tbl td { padding: 6px 4px; border-bottom: 1px solid var(--divider); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tbl .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 4px; }
+  .lst { display: flex; flex-direction: column; }
+  .lst .it { display: flex; justify-content: space-between; gap: 8px; padding: 7px 2px; border-bottom: 1px solid var(--divider); }
+  .lst .it .a { min-width: 0; }
+  .lst .it .a div:first-child { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lst .it .a div:last-child { color: var(--text-2); font-size: 11px; }
+  .pill { font-size: 10px; border-radius: 10px; padding: 1px 7px; background: var(--ok-bg); color: var(--ok); align-self: center; white-space: nowrap; }
+  .wf { background: var(--paper); border: 1px solid var(--divider); border-radius: 8px; overflow: hidden; }
+  .wf .wh { font-size: 10px; color: var(--text-2); padding: 4px 8px; border-bottom: 1px solid var(--divider); display: flex; justify-content: space-between; gap: 6px; }
+  .wf .wb { display: grid; place-items: center; }
+  .wf.edit { border: 1px dashed var(--primary); }
+  .wf.edit .wh { background: var(--hover); }
+  .gauge { font-size: 20px; font-weight: 700; }
+  .addw { border: 1px dashed var(--primary); color: var(--primary); border-radius: 8px; padding: 8px; text-align: center; font-weight: 600; font-size: 11px; }
+  .toolbar-m { display: flex; gap: 6px; align-items: center; }
+  .toolbar-m .sel { flex: 1; border: 1px solid var(--divider); border-radius: 4px; padding: 5px 7px; background: var(--paper); }
+  .note-m { font-size: 10.5px; color: var(--text-2); background: var(--info-bg); border-radius: 6px; padding: 6px 8px; }
+
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tabs button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--divider); background: var(--paper); color: var(--text); cursor: pointer; }
+  .tabs button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .hidden { display: none !important; }
+  .toc { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+  .toc a { color: var(--primary); text-decoration: none; border: 1px solid var(--divider); border-radius: 999px; padding: 3px 10px; background: var(--paper); }
+  .ptable { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .ptable th, .ptable td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--divider); }
+  .ptable th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); }
+  .subq { border-top: 1px solid var(--divider); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .subq h4 { margin: 0; font-size: 15px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chartarea { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text); }
+  .legend { display: flex; gap: 10px; font-size: 10.5px; flex-wrap: wrap; justify-content: center; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+  .mc .ch { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .inset { background: var(--bg); border: 1px solid var(--divider); border-radius: 6px; padding: 8px; font-size: 11.5px; }
+  .metric { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .metric span { font-size: 16px; font-weight: 500; margin-left: 2px; color: var(--text-2); }
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sw { font-size: 12px; font-weight: 600; border-radius: 999px; padding: 4px 12px; }
+  .slot { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--info-bg); color: var(--info); border-radius: 4px; padding: 0 4px; }
+  .kebab { font-size: 16px; color: var(--text-2); padding: 0 4px; align-self: center; }
+  .menu { align-self: flex-end; background: var(--paper); border: 1px solid var(--divider); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.18); font-size: 12px; margin-top: -60px; margin-right: 18px; }
+  .menu div { padding: 7px 14px; }
+  /* token playground */
+  .tk.flat .mc { box-shadow: none; }
+  .tk.raised .mc { box-shadow: 0 2px 6px rgba(0,0,0,.18), 0 1px 2px rgba(0,0,0,.12); }
+  .tk.left .mc .ch { justify-content: space-between; text-align: left; }
+  .tk.centre .mc .ch { flex-direction: column; align-items: center; text-align: center; }
+  .tk.dense .pg { padding: 8px; gap: 8px; }
+  .tk.dense .mc { padding: 8px; }
+  .tk.roomy .pg { padding: 11px; gap: 11px; }
+  .tk.roomy .mc { padding: 11px; }
+  .tk .mc h4 { font-size: 13.5px; font-weight: 600; }
+  @media (max-width: 760px) { #tokgrid { grid-template-columns: minmax(0,1fr) !important; } #tokgrid .phone-wrap { position: static !important; } }
+</style>
+</head>
+<body>
+<main>
+
+<!-- ============ HEADER ============ -->
+<header>
+  <div class="section-head"><span class="chip primary">Design interview</span><span class="chip ok">Design agreed 2026-09-23</span><span class="chip outline">2 rounds</span></div>
+  <h1>A layout system that cannot break mobile</h1>
+  <p class="lede muted">You want to stop fixing mobile piecemeal and get one central, consistent system that makes new components safe on phone and desktop by default. This page has what I found in the code and on your live instance at phone width, then the decisions I need from you. This is the record of the interview. Every decision is shown with the option that was agreed.</p>
+  <nav class="toc"><a href="#ask">The ask</a><a href="#evidence">What is broken</a><a href="#causes">Five root causes</a><a href="#decisions">Decisions</a><a href="#round2">Round 2</a></nav>
+</header>
+
+<!-- ============ THE ASK ============ -->
+<section id="ask">
+  <div class="section-head"><h2>The ask, and where I disagree with it</h2></div>
+  <div class="grid g2">
+    <div class="callout">
+      <h3>Steelman</h3>
+      <p>Layout decisions are scattered through about 500 <code>sx</code> blocks and 48 <code>isMobile ?</code> ternaries. Nobody can predict how a change behaves at another width, so every fix adds another override. Move every layout decision into one small, named vocabulary that owns responsiveness. Then feature components only <i>compose</i>, and a component built from that vocabulary is correct on mobile without anyone having to think about mobile.</p>
+    </div>
+    <div class="callout disagree">
+      <h3><span class="chip warn">Disagree</span> "Design system" is the wrong target if it means tokens</h3>
+      <p>None of your bugs come from inconsistent colours, spacing or typography. Every one is a <b>layout-contract</b> bug: nothing says who owns a component's height, who is allowed to shrink, or which of the <b>three</b> breakpoint systems applies. A token catalogue plus a component library leaves every one of these bugs in place. The system has to be <b>layout contracts, plus primitives that carry them out, plus enforcement</b>. Enforcement is what makes it "can't break", not just "shouldn't break". Visual tokens are optional on top (see D1).</p>
+      <p class="small muted"><b>What would make me wrong:</b> if a large part of the "madness" is visual drift (headings, spacing, colours that differ card to card) rather than things collapsing and overflowing. <code>Typography.tsx</code> does hardcode <code>#666</code> and <code>28px</code>, so there is some of this.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EVIDENCE ============ -->
+<section id="evidence">
+  <div class="section-head"><h2>What is broken at 390px</h2><span class="muted small">Live instance (home.sensor-hub), captured read-only today with Playwright at 390×844, phone emulation</span></div>
+  <div class="grid g3" style="margin-bottom:14px">
+    <div class="stat bad"><div class="v">430px</div><div class="l">page width on Sensors Overview in a 390px viewport</div></div>
+    <div class="stat bad"><div class="v">461px</div><div class="l">page width on Alerts &amp; Notifications</div></div>
+    <div class="stat bad"><div class="v">405px</div><div class="l">page width on Data Retention</div></div>
+  </div>
+  <div class="shots">
+    <figure class="tall"><img src="shots/crop-sensors.png" alt="Sensors overview at 390px"><figcaption><b>Sensors Overview.</b> Add Sensor has a large gap under the buttons. Sensor Health and Sensor Types show only their headings. The Summary grid is clipped on the right, and the avatar sits off-screen.</figcaption></figure>
+    <figure class="tall"><img src="shots/crop-dashboard.png" alt="Main dashboard at 390px"><figcaption><b>Main Dashboard.</b> The gauges (<code>w=3</code> of 12 on desktop) render at 3 of 4 columns. That is 75% width, pushed alternately left and right, with no room for anything beside them.</figcaption></figure>
+    <figure><img src="shots/crop-appbar.png" alt="App bar overflow"><figcaption><b>App bar.</b> The title has <code>minWidth: fit-content</code>, so it can never shrink, and the icons get pushed off the edge. This is why most pages scroll sideways.</figcaption></figure>
+    <figure class="tall"><img src="shots/crop-retention.png" alt="Data retention grid"><figcaption><b>Data Retention.</b> The retention grid has an "Effective" column that is cut off, so the grid scrolls sideways inside a page that also scrolls sideways.</figcaption></figure>
+    <figure><img src="shots/crop-sensor-health.png" alt="Sensor health history chart"><figcaption><b>Not in your list:</b> the Sensor Health History chart on the sensor page renders as an empty box. It is a sizing problem of the same kind as the pie cards.</figcaption></figure>
+  </div>
+  <p class="small muted" style="margin-top:10px">You mentioned SensorRetentionCard's grid. <code>SensorRetentionCard</code> has no grid, and nothing imports it: it's dead code. The grid in the screenshot is <code>DataRetentionCard</code> on the Data Retention page. Its column minimums add up to 400px, and it only hides the Driver column at first mount, so resizing the window doesn't update it. I've assumed that's the one you meant.</p>
+</section>
+
+<!-- ============ ROOT CAUSES ============ -->
+<section id="causes">
+  <div class="section-head"><h2>Five root causes behind all of it</h2><span class="muted small">Each is checked against the code. File references are below each one.</span></div>
+
+  <div class="grid" style="gap:18px">
+
+    <div class="card rc" id="rc1"><div class="n">1</div><div>
+      <h3>Charts borrow their height from their neighbours</h3>
+      <p>The pie charts use recharts <code>ResponsiveContainer height="100%"</code>, inside a <code>flex:1; minHeight:0</code> box, inside a card with <code>height:100%</code>. None of these has a height of its own. On desktop, the Grid row stretches every card to match its tallest sibling, the Add Sensor form (which has <code>minHeight: 400</code>), and the chart fills that space. On mobile each card sits alone in its row, so there is no neighbour to borrow from and the chart comes out at 0px tall.</p>
+      <div class="diagram" style="margin-top:10px">
+        <svg viewBox="0 0 760 236" role="img" aria-label="Height borrowed from neighbours">
+          <title>Desktop row stretch versus mobile stack</title>
+          <text x="10" y="18" font-size="13" font-weight="700" fill="currentColor">Desktop: one row, tallest card sets height</text>
+          <g id="d-row">
+            <title>Grid row with align-items stretch</title>
+            <rect x="10" y="30" width="110" height="170" rx="8" fill="none" stroke="var(--divider)" stroke-width="2"/>
+            <text x="20" y="50" font-size="11" fill="currentColor">Add Sensor</text>
+            <text x="20" y="66" font-size="10" fill="var(--text-2)">minHeight 400</text>
+            <rect x="130" y="30" width="110" height="170" rx="8" fill="none" stroke="var(--divider)" stroke-width="2"/>
+            <text x="140" y="50" font-size="11" fill="currentColor">Sensor Health</text>
+            <circle cx="185" cy="125" r="40" fill="none" stroke="var(--ok)" stroke-width="14"/>
+            <rect x="250" y="30" width="110" height="170" rx="8" fill="none" stroke="var(--divider)" stroke-width="2"/>
+            <text x="260" y="50" font-size="11" fill="currentColor">Sensor Types</text>
+            <circle cx="305" cy="125" r="40" fill="none" stroke="var(--info)" stroke-width="14"/>
+            <path d="M 60 205 L 60 212 L 305 212 L 305 205" fill="none" stroke="var(--ok)" stroke-width="1.5"/>
+            <text x="112" y="230" font-size="10" fill="var(--ok)">stretch gives charts height</text>
+          </g>
+          <line x1="385" y1="20" x2="385" y2="210" stroke="var(--divider)" stroke-dasharray="4 4"/>
+          <text x="405" y="18" font-size="13" font-weight="700" fill="currentColor">Mobile: one card per row, nothing to borrow</text>
+          <g id="m-stack">
+            <title>Mobile stacked cards</title>
+            <rect x="405" y="30" width="340" height="60" rx="8" fill="none" stroke="var(--divider)" stroke-width="2"/>
+            <text x="415" y="50" font-size="11" fill="currentColor">Add Sensor (400px min, so empty space)</text>
+            <rect x="405" y="100" width="340" height="34" rx="8" fill="none" stroke="var(--bad)" stroke-width="2"/>
+            <text x="415" y="121" font-size="11" fill="currentColor">Sensor Health: chart = 0px</text>
+            <rect x="405" y="144" width="340" height="34" rx="8" fill="none" stroke="var(--bad)" stroke-width="2"/>
+            <text x="415" y="165" font-size="11" fill="currentColor">Sensor Types: chart = 0px</text>
+          </g>
+        </svg>
+      </div>
+      <p class="small">The same pattern breaks the <b>Total Readings</b> grid on mobile, and the <b>Sensor Health History</b> and <b>Readings</b> charts on the sensor page. Those two have only <code>minHeight: 400</code> on the card, and a minimum height doesn't give <code>height:100%</code> anything to measure against. It likely breaks on <b>desktop</b> too, for any user without <code>manage_sensors</code>: without the Add Sensor card in the row, there's nothing to stretch the pie cards.</p>
+      <ul class="small muted">
+        <li><code>components/SensorHealthCard.tsx:17,29</code>, <code>SensorTypeCard.tsx:18,32</code>, <code>SensorHealthPieChart.tsx:31</code>, <code>TotalReadingsForEachSensorCard.tsx:49,69</code>, <code>SensorHealthHistoryChart.tsx:133</code>, <code>ReadingsChart.tsx:103</code></li>
+        <li><code>pages/sensors-overview/SensorsOverview.tsx:25</code> (<code>alignItems: "stretch"</code>)</li>
+        <li>Dashboard widgets are fine: <code>WidgetFrame</code> gets a real pixel height from the grid, so these same components work there.</li>
+      </ul>
+    </div></div>
+
+    <div class="card rc" id="rc2"><div class="n">2</div><div>
+      <h3>Fixed minimums that ignore the content</h3>
+      <p><code>AddNewSensor</code> and <code>EditSensorDetails</code> both set <code>height: 100%; minHeight: 400</code> on a card that stacks its content from the top, so any spare height lands under the buttons. On mobile the 400px minimum stays, and picking a driver adds only a couple of fields, so the gap mostly remains. On the sensor page, Edit Sensor Details also stretches to match the much taller Sensor Info card beside it. Elsewhere, <code>AllSensorsCard</code> passes <code>cardHeight="500px"</code> to both the card <i>and</i> its inner div, so heading + padding + 500px sit in a 500px card. The UI has 86 hardcoded pixel heights in total.</p>
+      <ul class="small muted"><li><code>components/AddNewSensor.tsx:17</code>, <code>EditSensorDetails.tsx:23</code>, <code>SensorsDataGrid.tsx:121,125</code></li></ul>
+    </div></div>
+
+    <div class="card rc" id="rc3"><div class="n">3</div><div>
+      <h3>Nothing is allowed to shrink</h3>
+      <p>The app bar title is <code>minWidth: fit-content</code> and shows the full page title next to five fixed-width icons. DataGrid columns set <code>minWidth</code> values that add up to more than a phone's width (Sensor Summary: 100+100+100+200+80 = 580px across 5 columns, in a card about 330px wide). Nothing in the page shell uses <code>minWidth: 0</code> or <code>overflow</code> containment, so any one overflowing child makes the whole page scroll sideways.</p>
+      <ul class="small muted"><li><code>navigation/TopAppBar.tsx:110,122</code>, <code>components/SensorsDataGrid.tsx:669-673</code>, 12 DataGrid call sites with their own column widths</li></ul>
+    </div></div>
+
+    <div class="card rc" id="rc4"><div class="n">4</div><div>
+      <h3>The dashboard stores one layout but renders three, and saves whichever one you're looking at</h3>
+      <p><code>DashboardEngine</code> passes only an <code>lg</code> layout. react-grid-layout <i>derives</i> the <code>md</code> (8 col) and <code>sm</code> (4 col) layouts by clamping and compacting it, so <code>w=3</code> stays 3 columns wide, which is 75% of a 4-column phone. It then fires <code>onLayoutChange</code> with that derived layout. <code>handleLayoutChange</code> writes it back as <i>the</i> widget layout, <b>even when you are not editing</b>. When you then Save (for example after adding a widget on your phone), the squashed 4-column layout replaces the desktop one. The stored <code>config.breakpoints</code> is never read, because the engine uses constants.</p>
+      <div class="diagram" style="margin-top:10px">
+        <svg viewBox="0 0 760 130" role="img" aria-label="Dashboard layout overwrite flow">
+          <title>How a phone edit overwrites the desktop layout</title>
+          <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+          <g id="f1"><title>Stored layout</title><rect x="5" y="35" width="130" height="56" rx="8" fill="var(--info-bg)" stroke="var(--info)"/><text x="15" y="58" font-size="12" font-weight="700" fill="currentColor">Stored layout</text><text x="15" y="76" font-size="11" fill="var(--text-2)">12 col (lg only)</text></g>
+          <g id="f2"><title>RGL derives sm</title><rect x="160" y="35" width="140" height="56" rx="8" fill="none" stroke="var(--divider)" stroke-width="2"/><text x="170" y="58" font-size="12" font-weight="700" fill="currentColor">RGL derives sm</text><text x="170" y="76" font-size="11" fill="var(--text-2)">4 col, w=3 kept</text></g>
+          <g id="f3"><title>onLayoutChange</title><rect x="325" y="35" width="140" height="56" rx="8" fill="var(--bad-bg)" stroke="var(--bad)"/><text x="335" y="58" font-size="12" font-weight="700" fill="currentColor">onLayoutChange</text><text x="335" y="76" font-size="11" fill="var(--text-2)">writes sm into state</text></g>
+          <g id="f4"><title>Save in edit mode</title><rect x="490" y="35" width="120" height="56" rx="8" fill="none" stroke="var(--divider)" stroke-width="2"/><text x="500" y="58" font-size="12" font-weight="700" fill="currentColor">Save (PUT)</text><text x="500" y="76" font-size="11" fill="var(--text-2)">whole config</text></g>
+          <g id="f5"><title>Desktop broken</title><rect x="635" y="35" width="120" height="56" rx="8" fill="var(--bad-bg)" stroke="var(--bad)"/><text x="645" y="58" font-size="12" font-weight="700" fill="currentColor">Desktop now</text><text x="645" y="76" font-size="11" fill="var(--text-2)">4-col layout</text></g>
+          <g color="var(--text-2)"><line x1="135" y1="63" x2="158" y2="63" stroke="currentColor" marker-end="url(#ar)"/><line x1="300" y1="63" x2="323" y2="63" stroke="currentColor" marker-end="url(#ar)"/><line x1="465" y1="63" x2="488" y2="63" stroke="currentColor" marker-end="url(#ar)"/><line x1="610" y1="63" x2="633" y2="63" stroke="currentColor" marker-end="url(#ar)"/></g>
+          <text x="325" y="112" font-size="11" fill="var(--bad)">fires on every render at phone width, not only while dragging</text>
+        </svg>
+      </div>
+      <ul class="small muted"><li><code>dashboard/DashboardEngine.tsx:27-55</code>, <code>dashboard/constants.ts</code>, <code>DashboardProvider.tsx:75,96</code>, <code>DashboardPage.tsx:115</code></li></ul>
+    </div></div>
+
+    <div class="card rc" id="rc5"><div class="n">5</div><div>
+      <h3>Three breakpoint systems, and layout is decided in JavaScript</h3>
+      <div class="grid g3" style="margin:8px 0">
+        <div class="stat"><div class="v">950px</div><div class="l"><code>useIsMobile</code>, 25 files, 48 ternaries, all in JS</div></div>
+        <div class="stat"><div class="v">600 / 900 / 1200</div><div class="l">MUI theme defaults, used in 6 places</div></div>
+        <div class="stat"><div class="v">480 / 768 / 1200</div><div class="l">react-grid-layout <code>GRID_BREAKPOINTS</code></div></div>
+      </div>
+      <p>So an 800px tablet counts as "mobile" for pages but "md, 8 columns" for the dashboard. The existing primitives don't help much:</p>
+      <ul class="small">
+        <li><code>LayoutCard</code> takes a <code>changes</code> escape hatch (31 call sites) that lets any caller override its layout, so it guarantees nothing.</li>
+        <li><code>CenteredFlex</code>, <code>LoadingContentBlock</code> and three of the five <code>Typography</code> helpers have zero uses.</li>
+        <li><code>DesktopRowMobileColumn</code> is used once, in a component nothing imports.</li>
+        <li>Mobile table columns are handled <b>five different ways</b> across 13 DataGrids.</li>
+      </ul>
+      <p>There are 498 <code>sx</code> blocks. The vitest setup stubs <code>matchMedia</code> and <code>ResizeObserver</code>, so unit tests can't see real layout. <code>playwright.config.ts</code> points at a <code>./tests</code> directory that doesn't exist, so no test ever renders a page at phone width.</p>
+    </div></div>
+  </div>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <div class="section-head"><h2>Decisions, round 1</h2><span class="chip ok">Settled</span></div>
+
+  <div class="grid" style="gap:20px">
+
+  <!-- D1 -->
+  <form class="decision agreed" data-lavish-question="D1" id="D1">
+    <header><span class="id">D1</span><h3>What does "design system" cover?</h3><span class="chip ok">Agreed: B - layout system plus a full visual token pass</span></header>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="A: layout contracts + primitives + enforcement"><div><div class="t">A. Layout system <span class="chip info">Recommended</span></div><div class="d">Breakpoints, height and width rules, page/section/card/chart/table primitives, and a lint rule plus tests. Card titles use theme typography variants, so the hardcoded <code>28px</code>/<code>#666</code> goes as a side effect.</div><div class="cost gain"><b>Gain:</b> fixes every listed bug at its root, and the scope stays tight.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="B: A + full visual token pass" checked><div><div class="t">B. A, plus a visual token pass</div><div class="d">Also a type scale, spacing scale, surface/elevation rules and status colours, applied to every component.</div><div class="cost"><b>Cost:</b> touches every component a second time, for consistency problems you haven't reported.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="C: full component library"><div><div class="t">C. Full component library</div><div class="d">Wrap every MUI input, button and dialog in house components.</div><div class="cost"><b>Cost:</b> a large layer that duplicates MUI's API, for no layout benefit.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> if, once layout is fixed, the app still feels inconsistent. The primitives would then need visual variants anyway, and B done up front would have been cheaper than B done later.</div>
+    <div class="rec"><b>Agreed.</b> You chose B over my recommendation. My "what would make A wrong" case applies. The token pass is designed in round 2, section S3.</div>
+  </form>
+
+  <!-- D2 -->
+  <form class="decision agreed" data-lavish-question="D2" id="D2">
+    <header><span class="id">D2</span><h3>What is it built on?</h3><span class="chip ok">Agreed: A - MUI theme + our primitives</span></header>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="A: MUI theme + in-house layout primitives in src/ui" checked><div><div class="t">A. MUI theme + our own primitives <span class="chip info">Recommended</span></div><div class="d">The theme becomes the one source of breakpoints and component defaults (Paper, DataGrid, Card). A <code>src/ui/</code> folder holds the layout primitives. Responsive values use MUI's <code>{ xs: …, md: … }</code> objects, which compile to CSS media queries rather than JS <code>isMobile</code> checks.</div><div class="cost gain"><b>Gain:</b> one styling engine. DataGrid, date pickers and dialogs all follow the same breakpoints. No SSR/hydration flash from JS media checks.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="B: Tailwind utilities alongside MUI"><div><div class="t">B. Tailwind alongside MUI</div><div class="d">Utility classes for layout, MUI for widgets.</div><div class="cost"><b>Cost:</b> two styling systems with separate breakpoint configs, which is how you got three today. It also doesn't stop ad-hoc layout, it just makes it terser.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="C: CSS Modules / vanilla-extract with tokens"><div><div class="t">C. CSS Modules with tokens</div><div class="d">Stylesheets per primitive, with the theme mirrored as CSS variables.</div><div class="cost"><b>Cost:</b> a second source of truth for breakpoints that has to be kept in sync with MUI's.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> if you planned to move off MUI entirely. Then investing in its theme would be wasted.</div>
+    <div class="rec"><b>Agreed.</b></div>
+  </form>
+
+  <!-- D3 -->
+  <form class="decision agreed" data-lavish-question="D3" id="D3">
+    <header><span class="id">D3</span><h3>How many layout tiers, and where is the line?</h3><span class="chip ok">Agreed: A - two tiers, line at 900px</span></header>
+    <p class="small muted">One set of breakpoints, used by pages, cards, tables and the dashboard alike. <code>useIsMobile</code> would either go or be derived from the theme and kept for <i>behaviour</i> only (for example, which table columns to show), never for layout.</p>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="A: two tiers, compact < 900 / wide >= 900" checked><div><div class="t">A. Two tiers: compact &lt;900, wide ≥900 <span class="chip info">Recommended</span></div><div class="d">Compact means one column: every card and widget full width, content-height. Wide means today's desktop layout. 900 is MUI's <code>md</code> and close to today's 950.</div><div class="cost gain"><b>Gain:</b> half the states to test and reason about. Anything not verified on both tiers is easy to spot.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="B: three tiers, phone < 600 / tablet 600-900 / desktop"><div><div class="t">B. Three tiers: phone, tablet, desktop</div><div class="d">Tablet portrait gets two columns.</div><div class="cost"><b>Cost:</b> a third layout for every page and every dashboard, for a device class you haven't mentioned using.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> if you actually use a tablet or narrow desktop window between 600 and 900px, where one column would look sparse.</div>
+    <div class="rec"><b>Agreed.</b> Your note: "if this is implemented correctly it should not be challenging to add a tablet layout later?" Yes for pages, cards and tables, as long as they take per-tier values keyed by tier <i>name</i> (never pixel checks). Then a tablet tier is one new breakpoint plus a value for it in each primitive, with no call-site changes. That rule is written into S1 below. The one real cost is dashboards: a tablet projection with 2+ columns needs a packing rule. It still needs no stored layout, because D7 keeps compact as a projection.</div>
+  </form>
+
+  <!-- D4 -->
+  <form class="decision agreed" data-lavish-question="D4" id="D4">
+    <header><span class="id">D4</span><h3>Who owns a card's height?</h3><span class="chip ok">Agreed: A - content decides, charts declare</span></header>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="A: content-sized by default; charts declare a size; equal-height rows opt-in on wide" checked><div><div class="t">A. Content decides, charts declare <span class="chip info">Recommended</span></div><div class="d">Every card is as tall as its content, at every width. Anything without a natural height (charts, gauges, grids) must declare one from a small size scale, e.g. <code>&lt;ChartArea size="md"/&gt;</code> = 280px. Equal-height rows are something a <i>page</i> asks for on wide only. No card can depend on a neighbour for its height.</div><div class="cost gain"><b>Gain:</b> the pie-card collapse and the Add Sensor gap become impossible to write, rather than just fixed.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="B: fixed card heights per slot"><div><div class="t">B. Fixed heights per slot</div><div class="d">Each page slot has a fixed height and cards scroll inside.</div><div class="cost"><b>Cost:</b> gaps and inner scrollbars on mobile, which is the Add Sensor problem at scale.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="C: keep stretch, add compact min-heights"><div><div class="t">C. Keep stretch, patch compact</div><div class="d">Leave the current model and add minimum heights at the compact tier.</div><div class="cost"><b>Cost:</b> this is the piecemeal patching you said you don't want.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> if you value perfectly aligned card bottoms on desktop above everything else. A still offers that, but only as an opt-in per page.</div>
+    <div class="rec"><b>Agreed.</b></div>
+  </form>
+
+  <!-- D5 -->
+  <form class="decision agreed" data-lavish-question="D5" id="D5">
+    <header><span class="id">D5</span><h3>How is it enforced?</h3><span class="chip ok">Agreed: A - lint + layout-contract tests</span></header>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="A: lint rule on layout keys outside src/ui + Playwright layout-contract tests at 390 and 1440" checked><div><div class="t">A. Lint + layout-contract tests <span class="chip info">Recommended</span></div><div class="d">An ESLint rule rejects layout keys (<code>display, flex*, width, height, min/max*, gap, grid*, position, overflow</code>) in <code>sx</code>/<code>style</code> outside <code>src/ui/</code>. Colour and typography in <code>sx</code> stay allowed. Plus a Playwright suite that loads every route at 390px and 1440px and asserts: no horizontal page overflow, and every card body taller than its heading. Dashboard tests also check that saving at 390px leaves the desktop layout unchanged.</div><div class="cost gain"><b>Gain:</b> each bug in your list would have failed CI.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="B: lint only"><div><div class="t">B. Lint only</div><div class="d">Catches ad-hoc layout. Doesn't catch a primitive being used wrongly.</div><div class="cost"><b>Cost:</b> the dashboard save bug and the grid overflow would still get through.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="C: convention + code review"><div><div class="t">C. Convention</div><div class="d">Documented rules, reviewed by hand.</div><div class="cost"><b>Cost:</b> this is how things work today.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> if the Playwright suite can't run against a seeded backend in CI. Then it becomes a local-only check that people forget to run. I'll check the CI setup before the spec.</div>
+    <div class="rec"><b>Agreed.</b> Checked since: CI runs neither <code>eslint</code> nor <code>vitest</code> for the UI today, only <code>npm run build</code>. Both pass locally (lint clean, 204/204 tests), so adding them to CI is safe. The Go test harness can already generate a seeded DB (<code>testharness/cmd/seed</code>) and start a server that embeds the built UI, which is what Playwright needs in CI. Details are in S6.</div>
+  </form>
+
+  <!-- D6 -->
+  <form class="decision agreed" data-lavish-question="D6" id="D6">
+    <header><span class="id">D6</span><h3>What does a data table become on compact?</h3><span class="chip ok">Agreed: B - list rows on compact</span></header>
+    <p class="small muted">There are 13 DataGrids, handling mobile five different ways. Either option below replaces that with one shared <code>DataTable</code> wrapper, where each column declares how it behaves on compact. There's already a precedent for B: Alert Rules shows a card list on mobile instead of its grid (<code>AlertRulesCard.tsx:72</code>). Here are both options with your Sensor Summary data at phone width:</p>
+    <div class="phones">
+      <div class="phone-wrap"><div class="cap">A. Priority columns <span>DataGrid kept, 2 columns</span></div>
+        <div class="phone"><div class="scr">
+          <div class="appbar"><span class="ic">☰</span><span class="ttl">Sensors Overview</span><span class="ic">🔔<span class="badge">36</span></span><span class="av">T</span></div>
+          <div class="pg"><div class="mc"><h4>Sensor Summary</h4>
+            <div class="small muted" style="display:flex;justify-content:flex-end;gap:10px">⫼ ⚲ ⤓</div>
+            <table class="tbl"><thead><tr><th style="width:62%">Sensor Name</th><th>Health</th></tr></thead><tbody>
+              <tr><td>Attic_Temp_Hum</td><td><span class="dot"></span>good</td></tr>
+              <tr><td>attic-bulb</td><td><span class="dot"></span>good</td></tr>
+              <tr><td>attic-light-switch</td><td><span class="dot"></span>good</td></tr>
+              <tr><td>back-door-contact</td><td><span class="dot"></span>good</td></tr>
+              <tr><td>front-door-contact</td><td><span class="dot"></span>good</td></tr>
+            </tbody></table>
+            <div class="small muted" style="text-align:right">1–5 of 9 ‹ ›</div>
+            <div class="note-m">Tap a row: the existing menu (View Details / Trigger Reading). Driver, reason and enabled are on the detail page.</div>
+          </div></div>
+        </div></div>
+      </div>
+      <div class="phone-wrap"><div class="cap">B. List rows <span>compact renders a list, no grid</span></div>
+        <div class="phone"><div class="scr">
+          <div class="appbar"><span class="ic">☰</span><span class="ttl">Sensors Overview</span><span class="ic">🔔<span class="badge">36</span></span><span class="av">T</span></div>
+          <div class="pg"><div class="mc"><h4>Sensor Summary</h4>
+            <div class="fld">🔍 Search sensors</div>
+            <div class="lst">
+              <div class="it"><div class="a"><div>Attic_Temp_Hum</div><div>mqtt-zigbee2mqtt · enabled</div></div><span class="pill">good</span></div>
+              <div class="it"><div class="a"><div>attic-bulb</div><div>mqtt-zigbee2mqtt · enabled</div></div><span class="pill">good</span></div>
+              <div class="it"><div class="a"><div>attic-light-switch</div><div>mqtt-zigbee2mqtt · enabled</div></div><span class="pill">good</span></div>
+              <div class="it"><div class="a"><div>back-door-contact</div><div>mqtt-zigbee2mqtt · enabled</div></div><span class="pill">good</span></div>
+              <div class="it"><div class="a"><div>front-door-contact</div><div>mqtt-zigbee2mqtt · enabled</div></div><span class="pill">good</span></div>
+            </div>
+            <div class="small muted" style="text-align:center">Show 4 more</div>
+          </div></div>
+        </div></div>
+      </div>
+    </div>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="A: priority columns - DataGrid kept, compact shows primary columns only"><div><div class="t">A. Priority columns <span class="chip info">Recommended</span></div><div class="d">Columns are marked <code>primary</code> or <code>wide-only</code>, with at most 2 primary. It's the same component at every width, so sort, filter and export keep working.</div><div class="cost gain"><b>Gain:</b> one rendering path to maintain and test.</div><div class="cost"><b>Cost:</b> it still looks like a desktop grid, just narrower.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="B: list rows on compact" checked><div><div class="t">B. List rows on compact</div><div class="d">Title, a secondary line and a status pill. A search box replaces the toolbar.</div><div class="gain cost"><b>Gain:</b> reads like a phone app and shows more information per row.</div><div class="cost"><b>Cost:</b> two renderers per table, and compact loses sort, filter and export.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> if you use the tables on your phone to <i>scan</i> for things like driver or health reason. Two columns would then be too few, and B's secondary line is the better fit.</div>
+    <div class="rec"><b>Agreed.</b> You chose B over my recommendation. Row anatomy and what compact keeps (search, sort, paging) are decided in round 2, section S4.</div>
+  </form>
+
+  <!-- D7 -->
+  <form class="decision agreed" data-lavish-question="D7" id="D7">
+    <header><span class="id">D7</span><h3>Dashboards on compact: view and edit</h3><span class="chip ok">Agreed: A - compact is a projection</span></header>
+    <div class="phones">
+      <div class="phone-wrap"><div class="cap">A. Viewing <span>stack in desktop reading order</span></div>
+        <div class="phone"><div class="scr">
+          <div class="appbar"><span class="ic">☰</span><span class="ttl">Dashboards</span><span class="ic">🔔<span class="badge">36</span></span><span class="av">T</span></div>
+          <div class="pg">
+            <div class="toolbar-m"><span class="sel">Main Dashboard ▾</span><span class="btn" style="border:1px solid var(--primary);color:var(--primary);border-radius:4px;padding:4px 8px;font-size:10px;font-weight:600">EDIT</span></div>
+            <div class="wf"><div class="wh"><span>Readings Chart</span><span>just now</span></div><div class="wb" style="height:170px"><svg viewBox="0 0 200 80" width="92%"><polyline points="0,60 20,50 40,55 60,30 80,40 100,20 120,35 140,25 160,45 180,30 200,35" fill="none" stroke="#ED5125" stroke-width="2"/><polyline points="0,65 20,62 40,60 60,50 80,55 100,45 120,50 140,40 160,55 180,48 200,50" fill="none" stroke="#1B5E9E" stroke-width="2"/></svg></div></div>
+            <div class="wf"><div class="wh"><span>Gauge: Attic_Temp_Hum</span><span>just now</span></div><div class="wb" style="height:130px"><div class="gauge">20.7°C</div></div></div>
+            <div class="wf"><div class="wh"><span>Gauge: Office_Temp_Hum</span><span>just now</span></div><div class="wb" style="height:130px"><div class="gauge">20.9°C</div></div></div>
+            <div class="wf"><div class="wh"><span>Gauge: LR_Temp_Hum</span><span>just now</span></div><div class="wb" style="height:130px"><div class="gauge">20.0°C</div></div></div>
+            <div class="wf"><div class="wh"><span>Gauge: Kitchen_Temp_Hum</span><span>just now</span></div><div class="wb" style="height:130px"><div class="gauge">21.3°C</div></div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="phone-wrap"><div class="cap">A. Editing <span>no drag, layout untouched</span></div>
+        <div class="phone"><div class="scr">
+          <div class="appbar"><span class="ic">☰</span><span class="ttl">Dashboards</span><span class="ic">🔔<span class="badge">36</span></span><span class="av">T</span></div>
+          <div class="pg">
+            <div class="toolbar-m"><span class="sel">Main Dashboard ▾</span><span class="btn" style="background:var(--primary);color:#fff;border-radius:4px;padding:4px 8px;font-size:10px;font-weight:600">SAVE</span></div>
+            <div class="note-m">Editing on a phone: add, configure and remove widgets. Arrange the layout on a wider screen.</div>
+            <div class="wf edit"><div class="wh"><span>Readings Chart</span><span>⚙ ✕</span></div><div class="wb" style="height:60px;color:var(--text-2)">Readings Chart</div></div>
+            <div class="wf edit"><div class="wh"><span>Gauge: Attic_Temp_Hum</span><span>⚙ ✕</span></div><div class="wb" style="height:60px;color:var(--text-2)">Gauge</div></div>
+            <div class="wf edit"><div class="wh"><span>Gauge: Office_Temp_Hum</span><span>⚙ ✕</span></div><div class="wb" style="height:60px;color:var(--text-2)">Gauge</div></div>
+            <div class="addw">+ ADD WIDGET</div>
+            <div class="note-m">New widgets are placed at the bottom of the desktop layout, at their default desktop size.</div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="A: compact is a read-only projection of the desktop layout; compact edit = add/configure/remove only" checked><div><div class="t">A. Compact is a projection <span class="chip info">Recommended</span></div><div class="d">Only the desktop layout is stored. Compact shows it as one column, ordered top-to-bottom then left-to-right, every widget full width. It never writes layout back. Editing on compact can add, configure and remove widgets. New widgets go at the bottom of the desktop layout.</div><div class="cost gain"><b>Gain:</b> the phone can't damage the desktop layout, and there's nothing extra to keep in sync.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="B: separate stored compact layout, editable on the phone"><div><div class="t">B. Separate stored compact layout</div><div class="d">Each dashboard stores a desktop layout and a compact layout, and the compact one is arranged on the phone.</div><div class="cost"><b>Cost:</b> every added widget has to be placed in both layouts, and the two drift apart. It needs an API schema change.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="C: no editing on compact at all"><div><div class="t">C. No editing on compact</div><div class="d">The Edit button is hidden below 900px.</div><div class="cost"><b>Cost:</b> you lose something you already use, adding a widget from your phone.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> if you want a <i>different order</i> on the phone than the desktop reading order, e.g. toggles first on the phone but charts first on the desktop. That needs B. A can later be extended with per-widget "compact order" or "hide on compact" settings without a second layout.</div>
+    <div class="rec"><b>Agreed.</b></div>
+  </form>
+
+  <!-- D7b -->
+  <form class="decision agreed" data-lavish-question="D7b" id="D7b">
+    <header><span class="id">D7b</span><h3>How tall is a widget in the compact stack?</h3><span class="chip ok">Agreed: A - per widget type</span></header>
+    <p class="small muted">On desktop, height is <code>h × 80px</code> as set by you. Your gauges are <code>h=3</code> (272px), a size chosen for a quarter-width tile. At full phone width that same height isn't necessarily right. The gauge dial is also a fixed <code>140px</code> (<code>GaugeWidget.tsx:42-67</code>), so it doesn't grow with the tile at any width. Whichever option you pick, the gauge should scale to fit its box.</p>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="A: per-widget-type compact height in the widget registry" checked><div><div class="t">A. Per widget type <span class="chip info">Recommended</span></div><div class="d">The registry says gauge = 200px, chart = 280px, toggle = 120px, and so on. Every gauge on a phone looks the same, whatever size it has on desktop.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="B: keep desktop h x row height"><div><div class="t">B. Keep desktop height</div><div class="d">Whatever height you gave it on desktop.</div><div class="cost"><b>Cost:</b> a widget you squashed on desktop is squashed on the phone too.</div></div></label>
+    </div>
+    <div class="rec"><b>Agreed.</b></div>
+  </form>
+
+  <!-- D8 -->
+  <form class="decision agreed" data-lavish-question="D8" id="D8">
+    <header><span class="id">D8</span><h3>The app bar on compact</h3><span class="chip ok">Agreed: A - compact only</span></header>
+    <div class="phones">
+      <div class="phone-wrap"><div class="cap">Today <span>461px wide</span></div>
+        <div class="phone" style="max-width:300px"><div style="overflow:hidden"><div class="appbar" style="width:355px"><span class="ic">☰</span><span style="font-size:15px;white-space:nowrap;flex:1;text-align:end">Alerts &amp; Notifications</span><span class="ic">🔔<span class="badge">36</span></span><span class="ic">💻</span><span class="ic">?</span><span class="av">T</span></div></div><div style="height:30px"></div></div>
+      </div>
+      <div class="phone-wrap"><div class="cap">A. Title truncates, theme + docs move to the avatar menu</div>
+        <div class="phone"><div class="appbar"><span class="ic">☰</span><span class="ttl">Alerts &amp; Notifications</span><span class="ic">🔔<span class="badge">36</span></span><span class="av">T</span></div><div style="padding:8px;font-size:11px;color:var(--text-2)">Avatar menu: Theme ▸ · Documentation · My sessions · Change password · Logout</div></div>
+      </div>
+    </div>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="A: compact - title truncates; theme + docs move into avatar menu; wide unchanged" checked><div><div class="t">A. Compact only <span class="chip info">Recommended</span></div><div class="d">On compact: menu, title (ellipsis), bell, avatar. The desktop bar is unchanged.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="B: move theme + docs into avatar menu at all widths"><div><div class="t">B. Same bar at every width</div><div class="d">One app bar with no responsive differences. Desktop loses two one-click buttons.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="C: keep all icons, truncate title hard"><div><div class="t">C. Keep all icons</div><div class="d">The title gets about 90px on a 390px phone, e.g. "Alerts &amp; N…".</div></div></label>
+    </div>
+    <div class="rec"><b>Agreed.</b></div>
+  </form>
+
+  <!-- D9 -->
+  <form class="decision" style="opacity:.6" data-lavish-question="D9" id="D9">
+    <header><span class="id">D9</span><h3>How do we get from here to there?</h3><span class="chip outline">Withdrawn - slicing is not part of the design</span></header>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="A: ratchet - primitives + lint at error with a baseline of today's violations; migrate page by page until baseline is empty"><div><div class="t">A. Ratchet to zero <span class="chip info">Recommended</span></div><div class="d">The first slice ships the primitives, the lint rule (as an error) and the Playwright suite, with a baseline file listing today's violations. Each later slice migrates one page and removes its entries. New violations fail from day one, and the job is done when the baseline file is gone.</div><div class="cost gain"><b>Gain:</b> small reviewable slices, and it can't slide back.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="B: one big-bang migration"><div><div class="t">B. Big bang</div><div class="d">All around 60 components migrated in one change.</div><div class="cost"><b>Cost:</b> a very large diff with every page changing at once, which is hard to review.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="C: new code only"><div><div class="t">C. New code only</div><div class="d">Existing components stay as they are until someone touches them.</div><div class="cost"><b>Cost:</b> your listed bugs stay until someone happens to touch those components.</div></div></label>
+    </div>
+    <div class="rec"><b>Withdrawn.</b> Your note: "you don't need to determine slices in the design." Migration order and slicing are left for spec-to-issues. The design only says what the end state is and how it is enforced.</div>
+  </form>
+
+  </div>
+</section>
+
+<!-- ============ ROUND 2 ============ -->
+<section id="round2">
+  <div class="section-head"><h2>Round 2: the design, section by section</h2><span class="chip ok">Settled</span></div>
+  <p class="lede muted">This is the agreed direction turned into a concrete design. Each section ends with either a decision (radio options) or a check ("Looks right" / "Change it"). The two new decision branches come from your round-1 picks: the visual tokens (S3, from D1=B) and the compact list (S4, from D6=B).</p>
+  <nav class="toc"><a href="#target">Target</a><a href="#s1">S1 Tiers</a><a href="#s2">S2 Primitives</a><a href="#s3">S3 Visual tokens</a><a href="#s4">S4 Tables on compact</a><a href="#s5">S5 Dashboards</a><a href="#s6">S6 Enforcement</a></nav>
+</section>
+
+<!-- TARGET -->
+<section id="target">
+  <div class="section-head"><h3 style="font-size:18px">Where this lands: Sensors Overview on a phone</h3><span class="muted small">All agreed decisions applied, with my recommendations used for the open ones in S3/S4</span></div>
+  <div class="phones">
+    <div class="phone-wrap"><div class="cap">Today</div>
+      <div class="phone"><div class="scr"><img src="shots/crop-sensors.png" alt="today" style="width:100%;display:block"></div></div>
+    </div>
+    <div class="phone-wrap"><div class="cap">Target <span>same data, 390px, no sideways scroll</span></div>
+      <div class="phone"><div class="scr tk flat left dense">
+        <div class="appbar"><span class="ic">☰</span><span class="ttl">Sensors Overview</span><span class="ic">🔔<span class="badge">36</span></span><span class="av">T</span></div>
+        <div class="pg">
+          <div class="mc"><div class="ch"><h4>Add Sensor</h4></div>
+            <div class="fld">Name</div><div class="fld">Sensor Driver ▾</div>
+            <div class="btns" style="justify-content:flex-end"><span class="btn">RESET</span><span class="btn dis">CREATE</span></div>
+          </div>
+          <div class="mc"><div class="ch"><h4>Sensor Health</h4></div>
+            <div class="chartarea" style="height:180px"><svg viewBox="0 0 120 120" width="130"><circle cx="60" cy="60" r="40" fill="none" stroke="var(--ok)" stroke-width="16" stroke-dasharray="226 251"/><circle cx="60" cy="60" r="40" fill="none" stroke="var(--bad)" stroke-width="16" stroke-dasharray="14 251" stroke-dashoffset="-230"/><text x="60" y="65" text-anchor="middle" font-size="16" font-weight="700" fill="currentColor">9</text></svg><div class="legend"><span><i style="background:var(--ok)"></i>Good 8</span><span><i style="background:var(--bad)"></i>Bad 1</span><span><i style="background:var(--warn)"></i>Unknown 0</span></div></div>
+          </div>
+          <div class="mc"><div class="ch"><h4>Sensor Types</h4></div>
+            <div class="chartarea" style="height:180px"><svg viewBox="0 0 120 120" width="130"><circle cx="60" cy="60" r="40" fill="none" stroke="var(--primary)" stroke-width="16" stroke-dasharray="200 251"/><circle cx="60" cy="60" r="40" fill="none" stroke="var(--info)" stroke-width="16" stroke-dasharray="46 251" stroke-dashoffset="-203"/></svg><div class="legend"><span><i style="background:var(--primary)"></i>zigbee2mqtt 7</span><span><i style="background:var(--info)"></i>http-temp 2</span></div></div>
+          </div>
+          <div class="mc"><div class="ch"><h4>Sensor Summary</h4></div>
+            <div class="fld">🔍 Search sensors</div>
+            <div class="lst">
+              <div class="it"><div class="a"><div>Attic_Temp_Hum</div><div>mqtt-zigbee2mqtt · enabled</div></div><span class="pill">good</span></div>
+              <div class="it"><div class="a"><div>attic-bulb</div><div>mqtt-zigbee2mqtt · enabled</div></div><span class="pill">good</span></div>
+              <div class="it"><div class="a"><div>attic-light-switch</div><div>mqtt-zigbee2mqtt · enabled</div></div><span class="pill">good</span></div>
+            </div>
+            <div class="small muted" style="text-align:center">Show more (6)</div>
+          </div>
+          <div class="mc"><div class="ch"><h4>Total Readings</h4><span class="muted" style="font-size:10px">Sampled 22:03</span></div>
+            <div class="lst">
+              <div class="it"><div class="a"><div>Office_Temp_Hum</div></div><span style="font-variant-numeric:tabular-nums;align-self:center">154,384</span></div>
+              <div class="it"><div class="a"><div>Kitchen_Temp_Hum</div></div><span style="font-variant-numeric:tabular-nums;align-self:center">151,716</span></div>
+              <div class="it"><div class="a"><div>Attic_Temp_Hum</div></div><span style="font-variant-numeric:tabular-nums;align-self:center">144,112</span></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- S1 -->
+<section id="s1">
+  <form class="decision agreed" data-lavish-question="S1" id="S1f">
+    <header><span class="id">S1</span><h3>Tiers and responsive rules</h3><span class="chip ok">Agreed</span></header>
+    <ul>
+      <li><b>Two named tiers, <code>compact</code> and <code>wide</code></b>, defined once in <code>src/ui/tiers.ts</code>. They map onto MUI's own keys (<code>compact</code> = <code>xs</code>, <code>wide</code> = <code>md</code>, 900px). MUI's keys stay as they are because MUI's own components use them internally (Toolbar height, for example). Renaming them would break those.</li>
+      <li><b>Primitives take per-tier values by name</b>, e.g. <code>span={{ wide: 4 }}</code> or <code>gap="md"</code>. They never take pixel breakpoints. That's what keeps a later <code>tablet</code> tier cheap: one new tier entry plus a default in each primitive, and no call-site changes.</li>
+      <li><b>Responsive layout is CSS, not JS.</b> Primitives turn tier values into MUI responsive <code>sx</code> objects, which become media queries. <code>useTier()</code> in <code>src/ui</code> replaces <code>useIsMobile</code> for the few <i>behaviour</i> differences left (DataTable choosing a renderer, the dashboard choosing grid or stack, the app bar choosing its icons). It's backed by the same theme breakpoint.</li>
+      <li><b>No overflow clipping at the page level.</b> The page shell does not hide horizontal overflow. It would hide the bug instead of fixing it. Overflow is a test failure (S6).</li>
+      <li><b>Deleted:</b> <code>hooks/useMobile.ts</code>, <code>DesktopRowMobileColumn</code>, <code>CenteredFlex</code>, <code>LoadingContentBlock</code>, the unused <code>Typography</code> helpers, <code>react-grid-layout</code>'s md/sm breakpoints and the dead <code>SensorRetentionCard</code> (the retention form in <code>EditSensorDetails</code> already replaced it).</li>
+    </ul>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="Looks right" checked><div><div class="t">Looks right</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="Change it (see note)"><div><div class="t">Change it</div><div class="d">Say what in the note</div></div></label>
+    </div>
+    <div class="rec"><b>Agreed.</b></div>
+  </form>
+</section>
+
+<!-- S2 -->
+<section id="s2">
+  <form class="decision agreed" data-lavish-question="S2" id="S2f">
+    <header><span class="id">S2</span><h3>The primitive vocabulary in <code>src/ui/</code></h3><span class="chip ok">Agreed</span></header>
+    <p class="small muted">These are the only components allowed to make layout decisions. Feature components compose them and pass no style props for layout. None of them has a <code>changes</code>/<code>sx</code> escape hatch for layout. If a need isn't covered, the primitive gets a new named option, not a one-off override.</p>
+    <div style="overflow-x:auto">
+    <table class="ptable">
+      <thead><tr><th>Primitive</th><th>Replaces</th><th>Contract</th><th>Sketch</th></tr></thead>
+      <tbody>
+        <tr><td><b>Page</b></td><td><code>PageContainer</code></td><td>Owns the app bar, nav drawer, page padding (a density token), and the loading state.</td><td><code>&lt;Page title="Sensors Overview"&gt;</code></td></tr>
+        <tr><td><b>PageGrid</b></td><td>MUI <code>Grid</code> + <code>isMobile ? 12 : 4</code></td><td>Compact: always one column, in source order. Wide: 12-column spans. <code>equalHeight</code> is an opt-in for wide only (D4).</td><td><code>&lt;PageGrid equalHeight&gt;&lt;PageGrid.Item span={{ wide: 4 }}&gt;</code></td></tr>
+        <tr><td><b>Card</b></td><td><code>LayoutCard</code> + 31 <code>changes</code> overrides</td><td>Content-sized. Header slot has title, optional subtitle and trailing actions. The body grows only when a parent grid asks for equal heights. The <code>inset</code> variant is for panels nested in a card (Device Info, alert rule items).</td><td><code>&lt;Card title="Sensor Health" actions={…}&gt;</code></td></tr>
+        <tr><td><b>ChartArea</b></td><td><code>flex:1; minHeight:0</code> + <code>ResponsiveContainer 100%</code> chains</td><td>The <i>only</i> way a chart, gauge, heatmap or grid gets height. On a page it takes a fixed height from a size token for the current tier. Inside a <b>bounded</b> parent (a dashboard widget) it fills that parent.</td><td><code>&lt;ChartArea size="md"&gt;{chart}&lt;/ChartArea&gt;</code></td></tr>
+        <tr><td><b>DataTable</b></td><td>13 DataGrids, 5 mobile strategies</td><td>Wide: DataGrid with theme defaults. Compact: list rows (S4). Columns declare their compact role.</td><td><code>{ field, headerName, compact: 'title' | 'meta' | 'status' | 'hidden' }</code></td></tr>
+        <tr><td><b>Stack / Inline</b></td><td>~200 <code>Box display:flex</code> blocks</td><td>Vertical and horizontal flow with a <code>gap</code> token (<code>xs sm md lg</code>) and alignment. <code>Inline</code> always wraps, so a row of buttons or chips can never push the page wider.</td><td><code>&lt;Inline gap="sm" justify="end"&gt;</code></td></tr>
+        <tr><td><b>Metric</b></td><td>Hand-sized numbers in gauge, current reading, group summary, min/max/avg</td><td>A value, a unit and a label, on the type scale (S3). In a bounded parent it scales to fit, which fixes the fixed 140px gauge.</td><td><code>&lt;Metric value={20.7} unit="°C" label="Attic" /&gt;</code></td></tr>
+        <tr><td><b>Bounded</b> (internal)</td><td><code>'&amp; &gt; *': {height:'100%'}</code> in WidgetFrame</td><td>A context that WidgetFrame provides. <code>Card</code>, <code>ChartArea</code> and <code>Metric</code> read it to decide "fill my parent" vs "size myself". It's how the same <code>SensorHealthCard</code> works on a page and in a widget.</td><td>Internal only</td></tr>
+        <tr><td><b>EmptyState</b></td><td>(moves in)</td><td>Unchanged, apart from its default <code>minHeight:200</code>, which becomes a token.</td><td></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="small"><b>Decision: dialogs on compact.</b> There are 19 dialogs and none is full-screen on a phone. Create Alert and Widget Config have long forms that will be cramped in a centred box at 390px.</p>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="Primitives look right; dialogs full-screen on compact via theme default" checked><div><div class="t">Primitives look right, dialogs full-screen on compact <span class="chip info">Recommended</span></div><div class="d">Set once as a theme/Dialog default, so all 19 dialogs get it with no per-dialog code.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="Primitives look right; dialogs unchanged"><div><div class="t">Primitives look right, dialogs unchanged</div><div class="d">Leave dialogs as centred boxes at every width.</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="Change the primitives (see note)"><div><div class="t">Change the primitives</div><div class="d">Add, cut or rename. Say what in the note.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make this set wrong:</b> if a real screen can't be built from it without an escape hatch. The properties page (search rail beside the sections on wide, stacked on compact) is the likeliest case. It would need a <code>Split</code> primitive (side rail + main), which I've left out until a second screen needs it.</div>
+    <div class="rec"><b>Agreed.</b></div>
+  </form>
+</section>
+
+<!-- S3 -->
+<section id="s3">
+  <div class="decision" id="S3">
+    <header><span class="id">S3</span><h3>Visual tokens (from D1 = B)</h3><span class="chip ok">Agreed</span></header>
+    <p class="small muted">What's there today: 90 hex/rgb colour literals and 47 hand-set font sizes across the components. Card titles are raw <code>&lt;h2&gt;</code> at the browser's default ~24px, centred on 4 cards and left-aligned on the rest. <code>LayoutCard</code> is elevation 2 + border, while widget frames are elevation 1 + border. Health colours live in <code>theme/chartColours.ts</code> but chips use MUI's <code>success</code>/<code>error</code>, so the same "good" is two different greens.</p>
+    <p class="small"><b>Live preview:</b> the phone on the right updates as you change T1-T3.</p>
+    <div class="grid" style="grid-template-columns:minmax(0,1fr) 300px;gap:18px" id="tokgrid">
+      <div class="grid" style="gap:14px">
+        <form class="subq" data-lavish-question="T1">
+          <h4>T1. Card surface <span class="chip ok">Agreed</span></h4>
+          <div class="options">
+            <label class="opt"><input type="radio" disabled name="v" value="A: flat - paper + 1px divider border, no shadow" data-tk="flat" checked><div><div class="t">A. Flat + border <span class="chip info">Recommended</span></div><div class="d">The border does the separating. Shadows barely show in dark mode anyway. Matches your dashboard widget frames.</div></div></label>
+            <label class="opt"><input type="radio" disabled name="v" value="B: raised - paper + border + shadow" data-tk="raised"><div><div class="t">B. Raised</div><div class="d">Today's LayoutCard look, applied everywhere including widgets.</div></div></label>
+          </div>
+          <div class="rec"><b>Agreed.</b></div>
+  </form>
+        <form class="subq" data-lavish-question="T2">
+          <h4>T2. Card header <span class="chip ok">Agreed</span></h4>
+          <div class="options">
+            <label class="opt"><input type="radio" disabled name="v" value="A: left-aligned title, 18px compact / 20px wide, 600 weight, actions on the right" data-tk="left" checked><div><div class="t">A. Left title, actions right <span class="chip info">Recommended</span></div><div class="d">18px on compact, 20px on wide. Leaves room for an action or a timestamp on the same line.</div></div></label>
+            <label class="opt"><input type="radio" disabled name="v" value="B: centred title" data-tk="centre"><div><div class="t">B. Centred title</div><div class="d">What 4 cards do today. Actions have to go on a line of their own.</div></div></label>
+          </div>
+          <div class="rec"><b>Agreed.</b></div>
+  </form>
+        <form class="subq" data-lavish-question="T3">
+          <h4>T3. Density <span class="chip ok">Agreed</span></h4>
+          <div class="options">
+            <label class="opt"><input type="radio" disabled name="v" value="A: tier-scaled - compact page/card/gap 12/12/12, wide 24/20/16" data-tk="dense" checked><div><div class="t">A. Tighter on compact <span class="chip info">Recommended</span></div><div class="d">Compact: page 12, card 12, gap 12px. Wide: page 24, card 20, gap 16px. Today's 20px page padding + 16px card padding use about 18% of a 390px screen on margins.</div></div></label>
+            <label class="opt"><input type="radio" disabled name="v" value="B: uniform 16px everywhere" data-tk="roomy"><div><div class="t">B. The same at every width</div><div class="d">16px for everything.</div></div></label>
+          </div>
+          <div class="rec"><b>Agreed.</b></div>
+  </form>
+      </div>
+      <div class="phone-wrap" style="position:sticky;top:12px;align-self:start"><div class="cap">Preview</div>
+        <div class="phone"><div class="scr tk flat left dense" id="tkprev" style="height:560px">
+          <div class="appbar"><span class="ic">☰</span><span class="ttl">Sensor</span><span class="ic">🔔<span class="badge">36</span></span><span class="av">T</span></div>
+          <div class="pg">
+            <div class="mc"><div class="ch"><h4>office-plug</h4><span class="pill">good</span></div>
+              <div class="inset"><div class="muted" style="font-size:10.5px">Manufacturer</div><div>SONOFF</div><div class="muted" style="font-size:10.5px;margin-top:4px">Model</div><div>S60ZBTPG</div></div>
+              <div class="btns"><span class="btn" style="background:var(--bad);border-color:var(--bad);color:#fff">DELETE</span><span class="btn">DISABLE</span></div>
+            </div>
+            <div class="mc"><div class="ch"><h4>Health History</h4><span class="muted" style="font-size:10px">7d</span></div>
+              <div class="chartarea" style="height:120px"><svg viewBox="0 0 200 60" width="95%"><rect x="0" y="20" width="150" height="20" fill="var(--ok)"/><rect x="150" y="20" width="6" height="20" fill="var(--bad)"/><rect x="156" y="20" width="44" height="20" fill="var(--ok)"/></svg></div>
+            </div>
+            <div class="mc"><div class="ch"><h4>Current</h4></div><div class="metric">20.7<span>°C</span></div><div class="muted" style="font-size:11px">Attic_Temp_Hum</div></div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+
+    <form class="subq" data-lavish-question="T4" style="margin-top:6px">
+      <h4>T4. Type scale <span class="chip ok">Agreed</span></h4>
+      <p class="small muted">Defined as theme typography variants so they're used through <code>&lt;Typography variant="cardTitle"&gt;</code>, never as raw sizes. Sizes are compact / wide.</p>
+      <div style="overflow-x:auto"><table class="ptable">
+        <thead><tr><th>Variant</th><th>Size</th><th>Weight</th><th>Used for</th></tr></thead>
+        <tbody>
+          <tr><td><code>pageTitle</code></td><td>18 / 20</td><td>500</td><td>App bar title (truncates)</td></tr>
+          <tr><td><code>cardTitle</code></td><td>18 / 20</td><td>600</td><td>Card header</td></tr>
+          <tr><td><code>sectionTitle</code></td><td>15 / 15</td><td>600</td><td>Sub-headings inside a card ("Device Info", "Measurement Types")</td></tr>
+          <tr><td><code>body</code> / <code>bodySmall</code></td><td>15 / 13</td><td>400</td><td>Text, list row titles / list row meta, helper text</td></tr>
+          <tr><td><code>caption</code></td><td>12</td><td>400</td><td>Widget frame titles, timestamps, axis labels</td></tr>
+          <tr><td><code>metricSm</code> / <code>Md</code> / <code>Lg</code></td><td>24 / 36 / 56</td><td>700, tabular numbers</td><td>Big values: current reading, gauge, group average, min/max/avg</td></tr>
+        </tbody>
+      </table></div>
+      <div class="options">
+        <label class="opt"><input type="radio" disabled name="v" value="Looks right" checked><div><div class="t">Looks right</div></div></label>
+        <label class="opt"><input type="radio" disabled name="v" value="Change it (see note)"><div><div class="t">Change it</div></div></label>
+      </div>
+      <div class="rec"><b>Agreed.</b></div>
+  </form>
+
+    <form class="subq" data-lavish-question="T5" style="margin-top:6px">
+      <h4>T5. Semantic colours <span class="chip ok">Agreed</span></h4>
+      <p class="small muted">One status palette in the theme (<code>palette.status.ok | warn | bad | unknown | info</code>), each with a strong colour and a soft background, in light and dark. Health pies, chips, pills, alert badges and uptime bars all read from it. <code>chartColours.health</code> becomes a view onto it, and the categorical chart palette moves into the theme alongside it. So "good" is the same green on every screen.</p>
+      <div class="swatches">
+        <span class="sw" style="background:var(--ok-bg);color:var(--ok)">ok · good</span>
+        <span class="sw" style="background:var(--warn-bg);color:var(--warn)">warn · unknown</span>
+        <span class="sw" style="background:var(--bad-bg);color:var(--bad)">bad</span>
+        <span class="sw" style="background:var(--info-bg);color:var(--info)">info</span>
+        <span class="sw" style="background:var(--code-bg);color:var(--text-2)">neutral · disabled</span>
+      </div>
+      <div class="options">
+        <label class="opt"><input type="radio" disabled name="v" value="Looks right" checked><div><div class="t">Looks right</div></div></label>
+        <label class="opt"><input type="radio" disabled name="v" value="Change it (see note)"><div><div class="t">Change it</div></div></label>
+      </div>
+      <div class="rec"><b>Agreed.</b></div>
+  </form>
+
+    <form class="subq" data-lavish-question="T6" style="margin-top:6px">
+      <h4>T6. Do the lint rules cover visual values too? <span class="chip ok">Agreed</span></h4>
+      <div class="options">
+        <label class="opt"><input type="radio" disabled name="v" value="A: yes - ban hex/rgb literals and numeric fontSize/fontWeight outside src/ui/theme" checked><div><div class="t">A. Yes <span class="chip info">Recommended</span></div><div class="d">Colour literals and numeric font sizes/weights are rejected outside <code>src/ui/theme</code>. Theme paths (<code>"text.secondary"</code>, <code>"status.ok"</code>) and typography variants stay allowed.</div><div class="cost gain"><b>Gain:</b> the token pass stays done, which is the same reason the layout rule exists.</div></div></label>
+        <label class="opt"><input type="radio" disabled name="v" value="B: no - layout keys only"><div><div class="t">B. Layout only</div><div class="d">Tokens exist, but nothing stops a raw <code>#666</code> from coming back.</div></div></label>
+      </div>
+      <div class="rec"><b>Agreed.</b></div>
+  </form>
+  </div>
+</section>
+
+<!-- S4 -->
+<section id="s4">
+  <div class="decision" id="S4">
+    <header><span class="id">S4</span><h3>Tables on compact: the list row (from D6 = B)</h3><span class="chip ok">Agreed</span></header>
+    <p class="small muted">One <code>DataTable</code>. Each column declares its compact role, and compact renders these rows with no DataGrid. Here are three of your real tables in it:</p>
+    <div class="phones">
+      <div class="phone-wrap"><div class="cap">Anatomy</div>
+        <div class="phone"><div class="scr tk flat left dense" style="height:auto;min-height:0"><div class="pg"><div class="mc">
+          <div class="lst"><div class="it anat"><div class="a"><div><span class="slot">title</span> Attic_Temp_Hum</div><div><span class="slot">meta</span> mqtt-zigbee2mqtt · enabled</div></div><span style="display:flex;gap:6px;align-items:center"><span class="pill">good</span><span class="slot">status</span></span></div></div>
+          <div class="lst"><div class="it anat"><div class="a"><div>office-plug</div><div>zigbee2mqtt · Custom 2 days</div></div><span style="display:flex;gap:4px;align-items:center"><span class="kebab">⋮</span><span class="slot">actions</span></span></div></div>
+          <ul class="small" style="margin:4px 0 0;padding-left:16px;font-size:11px">
+            <li><b>title</b>: exactly 1 column, required</li>
+            <li><b>meta</b>: 0-2 columns, joined with " · "</li>
+            <li><b>status</b>: 0-1 column, shown as a status-palette pill (T5)</li>
+            <li><b>actions</b>: a ⋮ menu with the same row actions as wide</li>
+            <li>Tapping the row does what clicking it does on wide</li>
+          </ul>
+        </div></div></div></div>
+      </div>
+      <div class="phone-wrap"><div class="cap">Data Retention <span>405px today</span></div>
+        <div class="phone"><div class="scr tk flat left dense" style="height:auto;min-height:0">
+          <div class="appbar"><span class="ic">☰</span><span class="ttl">Data Retention</span><span class="ic">🔔<span class="badge">36</span></span><span class="av">T</span></div>
+          <div class="pg"><div class="mc"><div class="ch"><h4>Sensor Retention</h4></div><div class="muted" style="font-size:11px">Global default: 90 days. Tap a sensor to edit.</div>
+            <div class="fld">🔍 Search</div>
+            <div class="lst">
+              <div class="it"><div class="a"><div>Attic_Temp_Hum</div><div>effective 30 days</div></div><span class="pill" style="background:var(--hover);color:var(--primary)">30 days</span></div>
+              <div class="it"><div class="a"><div>attic-bulb</div><div>effective 5 days</div></div><span class="pill" style="background:var(--hover);color:var(--primary)">5 days</span></div>
+              <div class="it"><div class="a"><div>attic-light-switch</div><div>effective 90 days</div></div><span class="pill" style="background:var(--code-bg);color:var(--text-2)">default</span></div>
+              <div class="it"><div class="a"><div>back-door-contact</div><div>effective 30 days</div></div><span class="pill" style="background:var(--hover);color:var(--primary)">30 days</span></div>
+            </div>
+            <div class="small muted" style="text-align:center">Show more (5)</div>
+          </div></div>
+        </div></div>
+      </div>
+      <div class="phone-wrap"><div class="cap">Pending Sensors <span>row actions</span></div>
+        <div class="phone"><div class="scr tk flat left dense" style="height:auto;min-height:0">
+          <div class="appbar"><span class="ic">☰</span><span class="ttl">MQTT</span><span class="ic">🔔<span class="badge">36</span></span><span class="av">T</span></div>
+          <div class="pg"><div class="mc"><div class="ch"><h4>Pending Sensors</h4></div>
+            <div class="lst">
+              <div class="it"><div class="a"><div>0xa4c1380b2e11ffff</div><div>mqtt-zigbee2mqtt</div></div><span class="kebab">⋮</span></div>
+              <div class="it"><div class="a"><div>rtl_433/Acurite-Tower/1204</div><div>mqtt-rtl433</div></div><span class="kebab">⋮</span></div>
+            </div>
+            <div class="menu"><div>✓ Approve</div><div>✕ Dismiss</div></div>
+          </div></div>
+        </div></div>
+      </div>
+    </div>
+    <form class="subq" data-lavish-question="L1">
+      <h4>L1. Row anatomy <span class="chip ok">Agreed</span></h4>
+      <div class="options">
+        <label class="opt"><input type="radio" disabled name="v" value="Looks right" checked><div><div class="t">Looks right</div></div></label>
+        <label class="opt"><input type="radio" disabled name="v" value="Change it (see note)"><div><div class="t">Change it</div></div></label>
+      </div>
+      <div class="rec"><b>Agreed.</b></div>
+  </form>
+    <form class="subq" data-lavish-question="L2">
+      <h4>L2. What the list keeps from the grid <span class="chip ok">Agreed</span></h4>
+      <div class="options">
+        <label class="opt"><input type="radio" disabled name="v" value="A: search + the table's default sort; filter/export/column picker wide only" checked><div><div class="t">A. Search, default order <span class="chip info">Recommended</span></div><div class="d">A search box that matches any column. Rows keep the table's default sort. Filter, export and the column picker are wide only.</div><div class="cost"><b>Cost:</b> you can't re-sort on a phone, e.g. by readings count.</div></div></label>
+        <label class="opt"><input type="radio" disabled name="v" value="B: search + a sort select"><div><div class="t">B. Search + sort select</div><div class="d">Adds a "Sort by" dropdown built from the sortable columns.</div></div></label>
+        <label class="opt"><input type="radio" disabled name="v" value="C: full parity in a bottom sheet"><div><div class="t">C. Full parity</div><div class="d">Sort, filter and export in a sheet.</div><div class="cost"><b>Cost:</b> a second implementation of the DataGrid toolbar.</div></div></label>
+      </div>
+      <div class="rec"><b>Agreed.</b></div>
+  </form>
+    <form class="subq" data-lavish-question="L3">
+      <h4>L3. Long lists <span class="chip ok">Agreed</span></h4>
+      <div class="options">
+        <label class="opt"><input type="radio" disabled name="v" value="A: first 10, then 'Show more' adds 10" checked><div><div class="t">A. "Show more" <span class="chip info">Recommended</span></div><div class="d">Shows 10 rows, then a button adds 10 more. Scrolling stays natural and page height stays bounded.</div></div></label>
+        <label class="opt"><input type="radio" disabled name="v" value="B: pages with prev/next like wide"><div><div class="t">B. Pages ‹ ›</div><div class="d">Same paging as wide.</div></div></label>
+        <label class="opt"><input type="radio" disabled name="v" value="C: all rows"><div><div class="t">C. Everything</div><div class="d">Fine for 9 sensors, not for sessions or history.</div></div></label>
+      </div>
+      <div class="rec"><b>Agreed.</b></div>
+  </form>
+  </div>
+</section>
+
+<!-- S5 -->
+<section id="s5">
+  <form class="decision agreed" data-lavish-question="S5" id="S5f">
+    <header><span class="id">S5</span><h3>Dashboards: how D7 is built</h3><span class="chip ok">Agreed</span></header>
+    <div class="diagram">
+      <svg viewBox="0 0 760 170" role="img" aria-label="Dashboard render paths">
+        <title>Stored layout feeds two render paths; only wide editing writes</title>
+        <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <g id="s5-store"><title>Stored layout</title><rect x="10" y="57" width="150" height="56" rx="8" fill="var(--info-bg)" stroke="var(--info)"/><text x="22" y="80" font-size="12" font-weight="700" fill="currentColor">Stored layout</text><text x="22" y="98" font-size="11" fill="var(--text-2)">12 columns, only one</text></g>
+        <g id="s5-wide"><title>Wide path</title><rect x="240" y="12" width="220" height="56" rx="8" fill="none" stroke="var(--divider)" stroke-width="2"/><text x="252" y="35" font-size="12" font-weight="700" fill="currentColor">Wide: GridLayout, 12 col</text><text x="252" y="53" font-size="11" fill="var(--text-2)">one breakpoint, no derivation</text></g>
+        <g id="s5-compact"><title>Compact path</title><rect x="240" y="102" width="220" height="56" rx="8" fill="none" stroke="var(--divider)" stroke-width="2"/><text x="252" y="125" font-size="12" font-weight="700" fill="currentColor">Compact: Stack, no grid lib</text><text x="252" y="143" font-size="11" fill="var(--text-2)">sort (y, x) · compactHeight</text></g>
+        <g id="s5-edit"><title>Layout writes</title><rect x="540" y="12" width="210" height="56" rx="8" fill="var(--ok-bg)" stroke="var(--ok)"/><text x="552" y="35" font-size="12" font-weight="700" fill="currentColor">Drag/resize writes layout</text><text x="552" y="53" font-size="11" fill="var(--text-2)">only while editing on wide</text></g>
+        <g id="s5-ro"><title>Compact never writes</title><rect x="540" y="102" width="210" height="56" rx="8" fill="var(--code-bg)" stroke="var(--divider)"/><text x="552" y="125" font-size="12" font-weight="700" fill="currentColor">Add / configure / remove</text><text x="552" y="143" font-size="11" fill="var(--text-2)">new widget → bottom, x=0</text></g>
+        <g color="var(--text-2)"><path d="M160 78 L238 44" stroke="currentColor" fill="none" marker-end="url(#ar2)"/><path d="M160 92 L238 128" stroke="currentColor" fill="none" marker-end="url(#ar2)"/><line x1="460" y1="40" x2="538" y2="40" stroke="currentColor" marker-end="url(#ar2)"/><line x1="460" y1="130" x2="538" y2="130" stroke="currentColor" marker-end="url(#ar2)"/></g>
+      </svg>
+    </div>
+    <ul>
+      <li><b>Compact doesn't mount react-grid-layout at all.</b> It renders a <code>Stack</code> of <code>WidgetFrame</code>s, sorted by desktop <code>y</code> and then <code>x</code>. With no grid library on compact there's no <code>onLayoutChange</code> to fire, so the overwrite bug is impossible there by construction rather than guarded against.</li>
+      <li><b>Wide uses the plain (non-responsive) <code>GridLayout</code>, 12 columns at every wide width.</b> The md/8-column derivation between 768 and 1200px goes, so what you arrange is what every wide screen shows. As a second guard, layout changes are only accepted while editing.</li>
+      <li><b>Registry gains <code>compactHeight</code></b>: a pixel value, or <code>'content'</code> for widgets that size to their content. Proposed: readings/comparison chart 280, heatmap 260, gauge 200, health/type pie 220, min/max/avg 160, current reading 140, uptime 140, toggle 120. Markdown note, alert summary, notifications feed and group summary are <code>'content'</code>.</li>
+      <li><b>Widgets fill a bounded frame</b> via <code>ChartArea</code>/<code>Metric</code> (S2), so the gauge dial scales to its tile instead of being fixed at 140px.</li>
+      <li><b>Adding a widget on compact</b> places it at <code>x=0</code>, below the lowest widget, at its default desktop size. On wide it shows up at the bottom, ready to move.</li>
+      <li><b><code>config.breakpoints</code></b>: the UI stops writing it. The API still accepts it and ignores it, and it's marked deprecated in <code>openapi.yaml</code>. The sensor-hub skill docs and CLI examples stop showing it. That avoids breaking any saved dashboard or script that sends it.</li>
+    </ul>
+    <div class="options">
+      <label class="opt"><input type="radio" disabled name="v" value="Looks right" checked><div><div class="t">Looks right</div></div></label>
+      <label class="opt"><input type="radio" disabled name="v" value="Change it (see note)"><div><div class="t">Change it</div><div class="d">For example, the compact heights</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make this wrong:</b> if you ever arrange a dashboard on a narrow laptop window (900-1200px) and expect it to look different from a 1440px screen. With one 12-column layout it scales down proportionally instead.</div>
+    <div class="rec"><b>Agreed.</b></div>
+  </form>
+</section>
+
+<!-- S6 -->
+<section id="s6">
+  <div class="decision" id="S6">
+    <header><span class="id">S6</span><h3>Enforcement: how D5 is built</h3><span class="chip ok">Agreed</span></header>
+    <div class="grid g2">
+      <div class="card" style="background:var(--bg)">
+        <h4 style="margin:0 0 6px">Lint (a local ESLint plugin)</h4>
+        <ul class="small" style="margin:0;padding-left:18px">
+          <li><code>ui/no-layout-styles</code>: rejects layout keys (<code>display, flex*, width, height, min/max*, gap, grid*, position, inset, overflow, margin, padding</code>) in <code>sx</code>, <code>style</code> or any <code>*Props</code> style object outside <code>src/ui/</code>.</li>
+          <li><code>ui/no-raw-visuals</code> (if T6 = A): rejects hex/rgb colour literals and numeric font sizes/weights outside <code>src/ui/theme</code>.</li>
+          <li><code>no-restricted-imports</code>: <code>Grid</code>, <code>Stack</code>, <code>Box</code>, <code>Paper</code>, <code>Card</code> and <code>useMediaQuery</code> from MUI, and <code>react-grid-layout</code>, are only importable inside <code>src/ui/</code> (and the dashboard engine for the grid).</li>
+          <li>The Recharts <code>ResponsiveContainer</code> is only importable in <code>ChartArea</code>.</li>
+        </ul>
+      </div>
+      <div class="card" style="background:var(--bg)">
+        <h4 style="margin:0 0 6px">Playwright layout contract</h4>
+        <ul class="small" style="margin:0;padding-left:18px">
+          <li>Every route, logged in as admin <i>and</i> as a view-only user (a missing card changes the layout, as root cause 1 showed), at <b>390×844</b> and <b>1440×900</b>, light and dark.</li>
+          <li><b>No sideways scroll:</b> <code>scrollWidth ≤ innerWidth</code>.</li>
+          <li><b>Nothing collapsed:</b> every <code>[data-ui=card]</code> body and every <code>[data-ui=chart-area]</code> is taller than 0 and at least its token height.</li>
+          <li><b>Dashboard edits:</b> save at 390 (add a widget), then fetch the dashboard. Existing widgets' layouts must be byte-identical. Then load at 1440 and repeat the page checks.</li>
+          <li>Runs against the Go harness with the seeded DB (<code>testharness/cmd/seed</code>) serving the built UI, in the CI integration job. Traces and screenshots are uploaded on failure.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="small"><b>CI also gains</b> <code>npm run lint</code> and <code>npm test</code> in the unit-tests job. Neither runs in CI today, although both pass. Without that, a lint rule doesn't enforce anything.</p>
+    <form class="subq" data-lavish-question="E0">
+      <h4>E0. The above <span class="chip ok">Agreed</span></h4>
+      <div class="options">
+        <label class="opt"><input type="radio" disabled name="v" value="Looks right" checked><div><div class="t">Looks right</div></div></label>
+        <label class="opt"><input type="radio" disabled name="v" value="Change it (see note)"><div><div class="t">Change it</div></div></label>
+      </div>
+      <div class="rec"><b>Agreed.</b></div>
+  </form>
+    <form class="subq" data-lavish-question="E1">
+      <h4>E1. Screenshot baselines as well? <span class="chip ok">Agreed</span></h4>
+      <div class="options">
+        <label class="opt"><input type="radio" disabled name="v" value="A: no - contract assertions only" checked><div><div class="t">A. No, contracts only <span class="chip info">Recommended</span></div><div class="d">The assertions catch every bug class you reported. Pixel baselines fail on each deliberate visual change and on time-based text ("just now", "Sampled 22:03"), so they get re-approved without anyone really looking.</div></div></label>
+        <label class="opt"><input type="radio" disabled name="v" value="B: yes - toHaveScreenshot baselines per route per tier"><div><div class="t">B. Yes, baselines too</div><div class="d">Catches visual drift the assertions can't see, like a token used in the wrong place.</div><div class="cost"><b>Cost:</b> needs clock-freezing, and a baseline refresh for every visual change.</div></div></label>
+      </div>
+      <div class="wrong"><b>What would make A wrong:</b> if the token pass (D1=B) matters to you as much as the layout fixes. Only a picture catches a card that's using the wrong colour.</div>
+      <div class="rec"><b>Agreed.</b></div>
+  </form>
+  </div>
+</section>
+
+
+</main>
+<script>
+  document.querySelectorAll('form[data-lavish-question]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const q = form.dataset.lavishQuestion;
+      const data = new FormData(form);
+      const choice = data.get('v');
+      const note = (data.get('note') || '').toString().trim();
+      if (!choice && !note) return;
+      const title = form.querySelector('h3, h4')?.textContent || q;
+      const text = choice ? `${q} (${title}): ${choice}${note ? ' - note: ' + note : ''}` : `${q}: ${note}`;
+      if (window.lavish && window.lavish.queuePrompt) {
+        window.lavish.queuePrompt(text, { tag: 'choice', text, element: form, queueKey: q, data: { question: q, answer: choice, note } });
+      }
+      form.querySelector('.queued')?.classList.add('show');
+    });
+  });
+  const prev = document.getElementById('tkprev');
+  const target = document.querySelector('#target .tk');
+  const groups = { T1: ['flat','raised'], T2: ['left','centre'], T3: ['dense','roomy'] };
+  document.querySelectorAll('input[data-tk]').forEach((input) => {
+    input.addEventListener('change', () => {
+      const q = input.closest('form').dataset.lavishQuestion;
+      [prev].forEach((el) => { groups[q].forEach((c) => el.classList.remove(c)); el.classList.add(input.dataset.tk); });
+    });
+  });
+</script>
+</body>
+</html>
