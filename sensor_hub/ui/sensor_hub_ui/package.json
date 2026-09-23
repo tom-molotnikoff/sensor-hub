@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "generate:api": "openapi-typescript ../../api/openapi.yaml -o src/gen/schema.d.ts",
-    "lint": "eslint .",
+    "lint": "eslint . && eslint --no-inline-config --pass-on-unpruned-suppressions --config eslint.inline-guard.config.js src",
     "preview": "vite preview",
     "test": "vitest run",
     "test:layout": "npm run build && playwright test"
