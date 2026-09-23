@@ -1,10 +1,10 @@
-import PageContainer from '../../tools/PageContainer';
+import Page from '../../ui/Page';
 import ChangePasswordCard from '../../components/ChangePasswordCard';
 
 export default function ChangePasswordPage() {
   return (
-    <PageContainer titleText="Change password">
+    <Page title="Change password">
       <ChangePasswordCard />
-    </PageContainer>
+    </Page>
   );
 }

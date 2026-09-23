@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import SensorDetailTilesLoader from './SensorDetailTilesLoader';
 
-vi.mock('../../theme/chartColours', () => ({
+vi.mock('../../ui/theme/chartColours', () => ({
   useChartColours: () => ({ categorical: ['#D4451A'], health: ['', '', ''], stat: ['', '', ''], grid: '#000', axisText: '#000', noData: '#E0D8D0' }),
 }));
 

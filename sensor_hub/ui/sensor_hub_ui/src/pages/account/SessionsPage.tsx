@@ -1,10 +1,10 @@
-import PageContainer from '../../tools/PageContainer';
+import Page from '../../ui/Page';
 import SessionsCard from '../../components/SessionsCard';
 
 export default function SessionsPage() {
   return (
-    <PageContainer titleText="Active sessions">
+    <Page title="Active sessions">
       <SessionsCard />
-    </PageContainer>
+    </Page>
   );
 }

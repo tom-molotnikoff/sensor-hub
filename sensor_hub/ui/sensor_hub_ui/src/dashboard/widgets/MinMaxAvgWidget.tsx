@@ -4,7 +4,7 @@ import { Box, Paper, Typography } from '@mui/material';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { useScheduledQuery } from '../../hooks/useScheduledQuery';
 import { apiClient } from '../../gen/client';
-import { useChartColours } from '../../theme/chartColours';
+import { useChartColours } from '../../ui/theme/chartColours';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { resolveTimeRange } from '../timeRange';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';

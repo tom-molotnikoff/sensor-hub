@@ -4,7 +4,7 @@ import { Box, Typography } from '@mui/material';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { apiClient } from '../../gen/client';
 import { useScheduledQuery } from '../../hooks/useScheduledQuery';
-import { useIsDark } from '../../theme/useIsDark';
+import { useIsDark } from '../../ui/theme/useIsDark';
 import { parseUTCTime } from '../../tools/Utils';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';

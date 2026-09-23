@@ -1,5 +1,5 @@
-import { Box, Grid } from '@mui/material';
-import PageContainer from '../../tools/PageContainer';
+import { Grid } from '@mui/material';
+import Page from '../../ui/Page';
 import { useAuth } from '../../providers/AuthContext';
 import { hasPerm } from '../../tools/Utils';
 import { useIsMobile } from '../../hooks/useMobile';
@@ -10,21 +10,13 @@ function DataRetentionPage() {
   const isMobile = useIsMobile();
 
   return (
-    <PageContainer titleText="Data Retention" loading={user === undefined}>
-      <Box sx={{ flexGrow: 1 }}>
-        <Grid
-          container
-          spacing={2}
-          sx={{
-            alignItems: "stretch",
-            minHeight: '100%'
-          }}>
-          {hasPerm(user, 'view_sensors') && (
-            <Grid size={isMobile ? 12 : 12}><DataRetentionCard /></Grid>
-          )}
-        </Grid>
-      </Box>
-    </PageContainer>
+    <Page title="Data Retention" loading={user === undefined}>
+      <Grid container spacing={2}>
+        {hasPerm(user, 'view_sensors') && (
+          <Grid size={isMobile ? 12 : 12}><DataRetentionCard /></Grid>
+        )}
+      </Grid>
+    </Page>
   );
 }
 

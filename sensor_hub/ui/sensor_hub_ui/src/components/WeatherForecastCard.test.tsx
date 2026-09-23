@@ -11,7 +11,7 @@ vi.mock('../hooks/useWeatherApi', () => ({ useWeatherApi: () => weatherMock() })
 vi.mock('../hooks/useMobile', () => ({ useIsMobile: () => false }));
 vi.mock('./DayForecastCard', () => ({ default: () => <div data-testid="day-card" /> }));
 vi.mock('./HourlyForecastDetail', () => ({ default: () => <div data-testid="hourly" /> }));
-vi.mock('../theme/chartColours', () => ({
+vi.mock('../ui/theme/chartColours', () => ({
   useChartColours: () => ({ categorical: ['#D4451A'], health: ['', '', ''], stat: ['', '', ''], grid: '#000', axisText: '#000', noData: '#E0D8D0' }),
 }));
 

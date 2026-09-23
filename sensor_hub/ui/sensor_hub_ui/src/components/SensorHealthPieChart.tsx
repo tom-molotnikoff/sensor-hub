@@ -1,6 +1,6 @@
 import {Cell, Legend, Pie, PieChart, LabelList, ResponsiveContainer} from 'recharts';
 import type {Sensor} from "../gen/aliases";
-import { useChartColours } from "../theme/chartColours";
+import { useChartColours } from "../ui/theme/chartColours";
 
 interface SensorHealthPieChartProps {
   sensors: Sensor[]

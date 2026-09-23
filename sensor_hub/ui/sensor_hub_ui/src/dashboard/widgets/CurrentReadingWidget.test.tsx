@@ -24,7 +24,7 @@ vi.mock('../WidgetUpdateContext', () => ({
   useReportWidgetUpdate: () => reportUpdateMock,
 }));
 
-vi.mock('../../theme/chartColours', () => ({
+vi.mock('../../ui/theme/chartColours', () => ({
   useChartColours: () => ({
     categorical: [],
     health: ['', '', ''],

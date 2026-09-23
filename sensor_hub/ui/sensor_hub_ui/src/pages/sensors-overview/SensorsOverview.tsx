@@ -1,6 +1,6 @@
-import PageContainer from '../../tools/PageContainer';
+import Page from '../../ui/Page';
 import { useIsMobile } from '../../hooks/useMobile';
-import { Grid, Box } from '@mui/material';
+import { Grid } from '@mui/material';
 import SensorHealthCard from '../../components/SensorHealthCard';
 import AddNewSensor from '../../components/AddNewSensor';
 import SensorTypeCard from '../../components/SensorTypeCard';
@@ -15,34 +15,24 @@ function SensorsOverview() {
   const { user } = useAuth();
 
   return (
-    <PageContainer titleText="Sensors Overview" loading={user === undefined}>
-      <Box sx={{ width: '100%', flexGrow: 1 }}>
-        <Grid
-          container
-          spacing={2}
-          sx={{
-            alignItems: "stretch",
-            minHeight: '100%',
-            width: '100%',
-            flexGrow: 1
-          }}>
-          {hasPerm(user, 'manage_sensors') && (
-            <Grid size={isMobile ? 12 : 4}><AddNewSensor /></Grid>
-          )}
-          {hasPerm(user, 'view_sensors') && (
-            <>
-              <Grid size={isMobile ? 12 : 4}><SensorHealthCard /></Grid>
-              <Grid size={isMobile ? 12 : 4}><SensorTypeCard /></Grid>
-              <Grid size={isMobile ? 12 : 8}><AllSensorsCard /></Grid>
-              <Grid size={isMobile ? 12 : 4}><TotalReadingsForEachSensorCard /></Grid>
-            </>
-          )}
-          {hasPerm(user, 'manage_sensors') && (
-            <Grid size={12}><PendingSensorsCard /></Grid>
-          )}
-        </Grid>
-      </Box>
-    </PageContainer>
+    <Page title="Sensors Overview" loading={user === undefined}>
+      <Grid container spacing={2}>
+        {hasPerm(user, 'manage_sensors') && (
+          <Grid size={isMobile ? 12 : 4}><AddNewSensor /></Grid>
+        )}
+        {hasPerm(user, 'view_sensors') && (
+          <>
+            <Grid size={isMobile ? 12 : 4}><SensorHealthCard /></Grid>
+            <Grid size={isMobile ? 12 : 4}><SensorTypeCard /></Grid>
+            <Grid size={isMobile ? 12 : 8}><AllSensorsCard /></Grid>
+            <Grid size={isMobile ? 12 : 4}><TotalReadingsForEachSensorCard /></Grid>
+          </>
+        )}
+        {hasPerm(user, 'manage_sensors') && (
+          <Grid size={12}><PendingSensorsCard /></Grid>
+        )}
+      </Grid>
+    </Page>
   );
 }
 

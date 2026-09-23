@@ -11,7 +11,7 @@ const { scheduleMock, getMock, reportUpdateMock } = vi.hoisted(() => ({
 vi.mock('../WidgetUpdateContext', () => ({ useReportWidgetUpdate: () => reportUpdateMock }));
 vi.mock('../../scheduler/requestScheduler', () => ({ requestScheduler: { schedule: scheduleMock } }));
 vi.mock('../../gen/client', () => ({ apiClient: { GET: getMock } }));
-vi.mock('../../theme/chartColours', () => ({
+vi.mock('../../ui/theme/chartColours', () => ({
   useChartColours: () => ({ categorical: ['#D4451A'], health: ['', '', ''], stat: ['', '', ''], grid: '#000', axisText: '#000', noData: '#E0D8D0' }),
 }));
 

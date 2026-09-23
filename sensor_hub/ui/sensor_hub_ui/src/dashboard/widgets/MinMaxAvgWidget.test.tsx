@@ -15,7 +15,7 @@ vi.mock('../../hooks/useSensorContext', () => ({ useSensorContext: () => ({ sens
 vi.mock('../WidgetUpdateContext', () => ({ useReportWidgetUpdate: () => reportUpdateMock }));
 vi.mock('../../scheduler/requestScheduler', () => ({ requestScheduler: { schedule: scheduleMock } }));
 vi.mock('../../gen/client', () => ({ apiClient: { GET: vi.fn() } }));
-vi.mock('../../theme/chartColours', () => ({
+vi.mock('../../ui/theme/chartColours', () => ({
   useChartColours: () => ({ categorical: ['#D4451A'], health: ['', '', ''], stat: ['#0288D1', '#5C5C5C', '#C62828'], grid: '#000', axisText: '#000', noData: '#E0D8D0' }),
 }));
 

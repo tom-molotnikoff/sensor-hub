@@ -1,6 +1,10 @@
 import { expect, type Page } from '@playwright/test';
 import type { LayoutCheck } from './routes';
 
+export type Tier = 'compact' | 'wide';
+
+const pagePadding: Record<Tier, number> = { compact: 12, wide: 24 };
+
 async function noSidewaysScroll(page: Page) {
   const { scrollWidth, innerWidth } = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -29,7 +33,24 @@ async function noCollapsedContent(page: Page) {
   expect(problems, 'collapsed cards and chart areas').toEqual([]);
 }
 
-export const checks: Record<LayoutCheck, (page: Page) => Promise<void>> = {
+async function shell(page: Page, tier: Tier) {
+  const root = page.locator('[data-ui=page]');
+  await expect(root, 'page root').toHaveCount(1);
+
+  const padding = await root.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft];
+  });
+  expect(padding, 'page padding').toEqual(Array(4).fill(`${pagePadding[tier]}px`));
+
+  const overflowX = await root.evaluate((element) =>
+    [document.documentElement, document.body, element].map((node) => getComputedStyle(node).overflowX),
+  );
+  expect(overflowX.filter((value) => value === 'hidden' || value === 'clip'), 'hidden overflow on html, body or page').toEqual([]);
+}
+
+export const checks: Record<LayoutCheck, (page: Page, tier: Tier) => Promise<void>> = {
   noSidewaysScroll,
   noCollapsedContent,
+  shell,
 };

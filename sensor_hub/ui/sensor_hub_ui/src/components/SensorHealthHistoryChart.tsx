@@ -14,7 +14,7 @@ import {
   ReferenceArea,
 } from "recharts";
 import { useIsMobile } from "../hooks/useMobile";
-import { useChartColours } from "../theme/chartColours";
+import { useChartColours } from "../ui/theme/chartColours";
 import { buildHealthWindowModel, formatDurationShort, formatWindowLabel } from "../health/healthWindow";
 import { useProperties } from "../hooks/useProperties.ts";
 import { SignalTraceLoader } from "../dashboard/widget-loaders";

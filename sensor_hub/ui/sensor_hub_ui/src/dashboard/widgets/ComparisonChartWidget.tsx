@@ -14,7 +14,7 @@ import {
     Legend,
     ResponsiveContainer,
 } from 'recharts';
-import { useChartColours } from '../../theme/chartColours';
+import { useChartColours } from '../../ui/theme/chartColours';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { resolveTimeRange } from '../timeRange';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';

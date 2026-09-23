@@ -4,8 +4,8 @@ import { layoutChecks, routes } from './routes';
 import { signIn } from './users';
 
 const viewports = [
-  { width: 390, height: 844 },
-  { width: 1440, height: 900 },
+  { tier: 'compact', width: 390, height: 844 },
+  { tier: 'wide', width: 1440, height: 900 },
 ] as const;
 
 const colorSchemes = ['light', 'dark'] as const;
@@ -15,7 +15,7 @@ for (const route of routes) {
     for (const viewport of viewports) {
       for (const colorScheme of colorSchemes) {
         test.describe(`${route.path} as ${user} at ${viewport.width}x${viewport.height} in ${colorScheme}`, () => {
-          test.use({ viewport, colorScheme });
+          test.use({ viewport: { width: viewport.width, height: viewport.height }, colorScheme });
 
           test('holds the layout contract', async ({ page }) => {
             await signIn(page, user);
@@ -24,7 +24,7 @@ for (const route of routes) {
             await expect(page).toHaveURL(new RegExp(`${route.path}$`));
             await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
             for (const check of route.checks ?? layoutChecks) {
-              await checks[check](page);
+              await checks[check](page, viewport.tier);
             }
           });
         });

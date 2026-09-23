@@ -10,7 +10,7 @@ vi.mock('../hooks/useReadingsData', () => ({
   useReadingsData: () => readingsDataMock(),
 }));
 
-vi.mock('../theme/chartColours', () => ({
+vi.mock('../ui/theme/chartColours', () => ({
   useChartColours: () => ({
     categorical: ['#D4451A', '#0288D1'],
     health: ['', '', ''],

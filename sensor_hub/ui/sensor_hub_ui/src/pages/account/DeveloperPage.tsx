@@ -1,4 +1,4 @@
-import PageContainer from '../../tools/PageContainer';
+import Page from '../../ui/Page';
 import ApiKeysCard from '../../components/ApiKeysCard';
 import ApiReferenceCard from '../../components/ApiReferenceCard';
 import { useApiKeys } from '../../hooks/useApiKeys';
@@ -10,13 +10,13 @@ export default function DeveloperPage() {
   const { user } = useAuth();
 
   return (
-    <PageContainer titleText="Developer">
+    <Page title="Developer">
       {hasPerm(user, 'manage_api_keys') && (
         <ApiKeysCard apiKeys={apiKeys} loaded={loaded} onRefresh={refresh} />
       )}
       {hasPerm(user, 'view_api_docs') && (
         <ApiReferenceCard />
       )}
-    </PageContainer>
+    </Page>
   );
 }

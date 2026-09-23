@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { useChartColours } from '../../theme/chartColours';
+import { useChartColours } from '../../ui/theme/chartColours';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion';
 import { indeterminate } from './keyframes';
 import LoaderShell from './LoaderShell';
