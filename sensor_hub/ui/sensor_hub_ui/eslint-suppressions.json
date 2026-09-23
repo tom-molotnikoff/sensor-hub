@@ -1,0 +1,903 @@
+{
+  "src/components/AlertHistoryDialog.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 6
+    }
+  },
+  "src/components/AlertRuleCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 4
+    }
+  },
+  "src/components/AlertRuleDataGrid.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/AlertRulesCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 9
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/ApiKeysCard.tsx": {
+    "ui/no-layout-styles": {
+      "count": 7
+    },
+    "ui/no-raw-visuals": {
+      "count": 2
+    }
+  },
+  "src/components/ApiReferenceCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 7
+    },
+    "ui/no-raw-visuals": {
+      "count": 56
+    }
+  },
+  "src/components/ChangePasswordCard.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 10
+    }
+  },
+  "src/components/CreateAlertDialog.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 12
+    }
+  },
+  "src/components/CreateApiKeyDialog.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 8
+    }
+  },
+  "src/components/CreateBrokerDialog.tsx": {
+    "ui/no-layout-styles": {
+      "count": 9
+    }
+  },
+  "src/components/CreateSubscriptionDialog.tsx": {
+    "ui/no-layout-styles": {
+      "count": 5
+    }
+  },
+  "src/components/CreateUserDialog.tsx": {
+    "ui/no-layout-styles": {
+      "count": 4
+    }
+  },
+  "src/components/CurrentTemperatures.tsx": {
+    "ui/no-layout-styles": {
+      "count": 7
+    },
+    "ui/no-raw-visuals": {
+      "count": 2
+    }
+  },
+  "src/components/DataRetentionCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 4
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/DayForecastCard.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 20
+    },
+    "ui/no-raw-visuals": {
+      "count": 6
+    }
+  },
+  "src/components/EditAlertDialog.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 11
+    }
+  },
+  "src/components/EditRetentionDialog.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 9
+    }
+  },
+  "src/components/EditUserDialog.tsx": {
+    "ui/no-layout-styles": {
+      "count": 2
+    }
+  },
+  "src/components/EmptyState.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 8
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/HourlyForecastDetail.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 16
+    },
+    "ui/no-raw-visuals": {
+      "count": 5
+    }
+  },
+  "src/components/MqttBrokersCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 6
+    }
+  },
+  "src/components/MqttStatsCard.tsx": {
+    "no-restricted-imports": {
+      "count": 3
+    },
+    "ui/no-layout-styles": {
+      "count": 5
+    },
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/components/MqttSubscriptionsCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 6
+    }
+  },
+  "src/components/NotificationBell.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 16
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/NotificationPreferencesCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 2
+    }
+  },
+  "src/components/NotificationsCard.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 26
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/OAuthConfigCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 23
+    }
+  },
+  "src/components/PendingSensorsCard.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 17
+    }
+  },
+  "src/components/PropertiesPage.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 13
+    }
+  },
+  "src/components/PropertyApplyNotice.tsx": {
+    "ui/no-layout-styles": {
+      "count": 1
+    }
+  },
+  "src/components/PropertyField.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 11
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/PropertyGroupSection.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 3
+    }
+  },
+  "src/components/PropertySearchRail.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 6
+    },
+    "ui/no-raw-visuals": {
+      "count": 2
+    }
+  },
+  "src/components/ReadingsChart.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 5
+    }
+  },
+  "src/components/ReadingsChart.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 5
+    },
+    "ui/no-raw-visuals": {
+      "count": 8
+    }
+  },
+  "src/components/RolePermissionsCard.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 24
+    }
+  },
+  "src/components/SensorDetailCard.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/components/SensorDetailCard.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 2
+    }
+  },
+  "src/components/SensorHealthCard.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/components/SensorHealthCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 7
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/SensorHealthHistory.tsx": {
+    "ui/no-layout-styles": {
+      "count": 15
+    }
+  },
+  "src/components/SensorHealthHistoryChart.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 7
+    }
+  },
+  "src/components/SensorHealthHistoryChart.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 17
+    },
+    "ui/no-raw-visuals": {
+      "count": 3
+    }
+  },
+  "src/components/SensorHealthHistoryChartCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 2
+    }
+  },
+  "src/components/SensorHealthPieChart.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/SensorInfoCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 29
+    }
+  },
+  "src/components/SensorTemperatureDataCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 6
+    }
+  },
+  "src/components/SensorTypeCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 7
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/SensorTypePieChart.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/SensorsDataGrid.tsx": {
+    "ui/no-layout-styles": {
+      "count": 7
+    },
+    "ui/no-raw-visuals": {
+      "count": 2
+    }
+  },
+  "src/components/SessionsCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 10
+    }
+  },
+  "src/components/TotalReadingsForEachSensorCard.tsx": {
+    "ui/no-layout-styles": {
+      "count": 8
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/components/UserManagementCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 6
+    }
+  },
+  "src/components/WeatherForecastCard.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/components/WeatherForecastCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 17
+    }
+  },
+  "src/dashboard/DashboardEngine.tsx": {
+    "ui/no-layout-styles": {
+      "count": 1
+    }
+  },
+  "src/dashboard/DashboardPage.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 2
+    },
+    "ui/no-raw-visuals": {
+      "count": 2
+    }
+  },
+  "src/dashboard/DashboardSkeleton.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 4
+    }
+  },
+  "src/dashboard/DashboardToolbar.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 7
+    }
+  },
+  "src/dashboard/NeedsConfiguration.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 5
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/dashboard/RelativeTime.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/dashboard/WidgetConfigDialog.tsx": {
+    "ui/no-layout-styles": {
+      "count": 17
+    }
+  },
+  "src/dashboard/WidgetErrorBoundary.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 8
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/dashboard/WidgetFrame.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 33
+    }
+  },
+  "src/dashboard/widget-loaders/CascadeRowsLoader.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widget-loaders/CascadeRowsLoader.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 19
+    }
+  },
+  "src/dashboard/widget-loaders/CircularDrawLoader.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 3
+    }
+  },
+  "src/dashboard/widget-loaders/IndeterminateBarLoader.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widget-loaders/IndeterminateBarLoader.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 17
+    }
+  },
+  "src/dashboard/widget-loaders/LoaderShell.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 5
+    }
+  },
+  "src/dashboard/widget-loaders/RippleHeatmapLoader.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widget-loaders/RippleHeatmapLoader.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 6
+    }
+  },
+  "src/dashboard/widget-loaders/ScanLineLoader.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 26
+    }
+  },
+  "src/dashboard/widget-loaders/SensorDetailTilesLoader.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widget-loaders/SensorDetailTilesLoader.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 12
+    }
+  },
+  "src/dashboard/widget-loaders/SignalTraceLoader.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 3
+    }
+  },
+  "src/dashboard/widget-loaders/SkeletonTilesLoader.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 13
+    }
+  },
+  "src/dashboard/widget-loaders/ValuePlaceholderLoader.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 6
+    },
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widget-loaders/WeatherColumnsLoader.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widget-loaders/WeatherColumnsLoader.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 15
+    }
+  },
+  "src/dashboard/widget-loaders/WidgetSwap.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widgets/AlertSummaryWidget.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widgets/AlertSummaryWidget.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 9
+    }
+  },
+  "src/dashboard/widgets/ComparisonChartWidget.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 6
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/dashboard/widgets/CurrentReadingWidget.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 3
+    }
+  },
+  "src/dashboard/widgets/CurrentReadingWidget.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 4
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/dashboard/widgets/GaugeWidget.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widgets/GaugeWidget.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 9
+    },
+    "ui/no-raw-visuals": {
+      "count": 3
+    }
+  },
+  "src/dashboard/widgets/GroupSummaryWidget.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widgets/GroupSummaryWidget.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 12
+    }
+  },
+  "src/dashboard/widgets/HealthTimelineWidget.tsx": {
+    "ui/no-layout-styles": {
+      "count": 1
+    }
+  },
+  "src/dashboard/widgets/HeatmapWidget.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widgets/HeatmapWidget.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 16
+    },
+    "ui/no-raw-visuals": {
+      "count": 6
+    }
+  },
+  "src/dashboard/widgets/MarkdownNoteWidget.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 28
+    },
+    "ui/no-raw-visuals": {
+      "count": 7
+    }
+  },
+  "src/dashboard/widgets/MinMaxAvgWidget.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 7
+    }
+  },
+  "src/dashboard/widgets/MinMaxAvgWidget.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 13
+    }
+  },
+  "src/dashboard/widgets/ReadingsChartWidget.tsx": {
+    "ui/no-layout-styles": {
+      "count": 5
+    }
+  },
+  "src/dashboard/widgets/SensorToggleWidget.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 19
+    },
+    "ui/no-raw-visuals": {
+      "count": 2
+    }
+  },
+  "src/dashboard/widgets/UptimeWidget.test.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 4
+    }
+  },
+  "src/dashboard/widgets/UptimeWidget.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 9
+    }
+  },
+  "src/forms/SensorForm.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 9
+    },
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  },
+  "src/navigation/NavigationSidebar.tsx": {
+    "ui/no-layout-styles": {
+      "count": 3
+    }
+  },
+  "src/navigation/TopAppBar.tsx": {
+    "ui/no-layout-styles": {
+      "count": 12
+    }
+  },
+  "src/pages/Login.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 13
+    }
+  },
+  "src/pages/admin/UsersPage.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 2
+    }
+  },
+  "src/pages/data-retention/DataRetentionPage.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 2
+    }
+  },
+  "src/pages/mqtt/MqttPage.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 2
+    }
+  },
+  "src/pages/notifications/NotificationsPage.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 2
+    }
+  },
+  "src/pages/sensor/SensorPage.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 4
+    }
+  },
+  "src/pages/sensors-overview/SensorsOverview.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    },
+    "ui/no-layout-styles": {
+      "count": 5
+    }
+  },
+  "src/providers/ProviderWrapper.tsx": {
+    "ui/no-raw-visuals": {
+      "count": 20
+    }
+  },
+  "src/theme/chartColours.ts": {
+    "ui/no-raw-visuals": {
+      "count": 34
+    }
+  },
+  "src/tools/LayoutCard.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 4
+    }
+  },
+  "src/tools/PageContainer.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "ui/no-layout-styles": {
+      "count": 3
+    }
+  },
+  "src/tools/Typography.tsx": {
+    "ui/no-layout-styles": {
+      "count": 1
+    }
+  },
+  "src/tools/scrollToAndHighlight.ts": {
+    "ui/no-raw-visuals": {
+      "count": 1
+    }
+  }
+}
