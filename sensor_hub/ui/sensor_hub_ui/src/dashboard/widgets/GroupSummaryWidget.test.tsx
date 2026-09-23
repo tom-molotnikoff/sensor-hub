@@ -13,7 +13,7 @@ vi.mock('../../hooks/useCurrentReadings', () => ({
   useCurrentReadingsReady: () => readyMock(),
 }));
 vi.mock('../WidgetUpdateContext', () => ({ useReportWidgetUpdate: () => reportUpdateMock }));
-vi.mock('../../theme/chartColours', () => ({
+vi.mock('../../ui/theme/chartColours', () => ({
   useChartColours: () => ({ categorical: ['#D4451A'], health: ['', '', ''], stat: ['', '', ''], grid: '#000', axisText: '#000', noData: '#E0D8D0' }),
 }));
 

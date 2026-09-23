@@ -438,17 +438,6 @@
       "count": 1
     }
   },
-  "src/dashboard/DashboardPage.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 2
-    },
-    "ui/no-raw-visuals": {
-      "count": 2
-    }
-  },
   "src/dashboard/DashboardSkeleton.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -743,60 +732,32 @@
   },
   "src/pages/admin/UsersPage.tsx": {
     "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 2
+      "count": 1
     }
   },
   "src/pages/data-retention/DataRetentionPage.tsx": {
     "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 2
+      "count": 1
     }
   },
   "src/pages/mqtt/MqttPage.tsx": {
     "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 2
+      "count": 1
     }
   },
   "src/pages/notifications/NotificationsPage.tsx": {
     "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 2
+      "count": 1
     }
   },
   "src/pages/sensor/SensorPage.tsx": {
     "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 4
+      "count": 1
     }
   },
   "src/pages/sensors-overview/SensorsOverview.tsx": {
     "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 5
-    }
-  },
-  "src/providers/ProviderWrapper.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 20
-    }
-  },
-  "src/theme/chartColours.ts": {
-    "ui/no-raw-visuals": {
-      "count": 34
+      "count": 1
     }
   },
   "src/tools/LayoutCard.tsx": {
@@ -805,14 +766,6 @@
     },
     "ui/no-layout-styles": {
       "count": 4
-    }
-  },
-  "src/tools/PageContainer.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 6
     }
   },
   "src/tools/Typography.tsx": {

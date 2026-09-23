@@ -7,7 +7,7 @@ const { getMock, readingsMock } = vi.hoisted(() => ({ getMock: vi.fn(), readings
 
 vi.mock('../gen/client', () => ({ apiClient: { GET: getMock } }));
 vi.mock('../hooks/useCurrentReadings', () => ({ useCurrentReadings: () => readingsMock() }));
-vi.mock('../theme/chartColours', () => ({
+vi.mock('../ui/theme/chartColours', () => ({
   useChartColours: () => ({ categorical: ['#D4451A'], health: ['', '', ''], stat: ['', '', ''], grid: '#000', axisText: '#000', noData: '#E0D8D0' }),
 }));
 

@@ -13,10 +13,10 @@ const sensors: Sensor[] = [];
 
 vi.mock('../../hooks/useSensorContext', () => ({ useSensorContext: () => ({ sensors }) }));
 vi.mock('../WidgetUpdateContext', () => ({ useReportWidgetUpdate: () => reportUpdateMock }));
-vi.mock('../../theme/useIsDark', () => ({ useIsDark: () => false }));
+vi.mock('../../ui/theme/useIsDark', () => ({ useIsDark: () => false }));
 vi.mock('../../scheduler/requestScheduler', () => ({ requestScheduler: { schedule: scheduleMock } }));
 vi.mock('../../gen/client', () => ({ apiClient: { GET: vi.fn() } }));
-vi.mock('../../theme/chartColours', () => ({
+vi.mock('../../ui/theme/chartColours', () => ({
   useChartColours: () => ({ categorical: ['#D4451A'], health: ['', '', ''], stat: ['', '', ''], grid: '#000', axisText: '#000', noData: '#E0D8D0' }),
 }));
 

@@ -21,7 +21,7 @@ vi.mock('../hooks/useMobile', () => ({
   useIsMobile: () => false,
 }));
 
-vi.mock('../theme/chartColours', () => ({
+vi.mock('../ui/theme/chartColours', () => ({
   useChartColours: () => ({
     categorical: ['#D4451A'],
     grid: '#ccc',

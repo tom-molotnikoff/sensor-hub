@@ -1,4 +1,4 @@
-import PageContainer from '../../tools/PageContainer';
+import Page from '../../ui/Page';
 import { useAuth } from '../../providers/AuthContext';
 import PropertiesPage from '../../components/PropertiesPage';
 
@@ -6,8 +6,8 @@ export default function PropertiesOverview() {
   const { user } = useAuth();
 
   return (
-    <PageContainer titleText="Properties Overview" loading={user === undefined}>
+    <Page title="Properties Overview" loading={user === undefined}>
       <PropertiesPage />
-    </PageContainer>
+    </Page>
   );
 }

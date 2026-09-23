@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
+import { Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import PageContainer from '../tools/PageContainer';
+import Page from '../ui/Page';
 import { useDashboard } from './DashboardContext';
 import { DashboardProvider } from './DashboardProvider';
 import DashboardEngine from './DashboardEngine';
@@ -68,7 +68,7 @@ function DashboardPageInner() {
         return (
             <>
                 <EmptyState
-                    icon={<DashboardIcon sx={{ fontSize: 48 }} />}
+                    icon={<DashboardIcon fontSize="large" />}
                     title="No dashboards yet"
                     description={canManage ? 'Create your first dashboard to get started.' : 'No dashboards are available.'}
                     actionLabel={canManage ? 'Create Dashboard' : undefined}
@@ -90,7 +90,7 @@ function DashboardPageInner() {
             <>
                 <DashboardToolbar onAddWidget={() => setPickerOpen(true)} />
                 <EmptyState
-                    icon={<DashboardIcon sx={{ fontSize: 48 }} />}
+                    icon={<DashboardIcon fontSize="large" />}
                     title="Empty dashboard"
                     description={canManage ? 'Click Edit then Add Widget to populate this dashboard.' : 'This dashboard has no widgets yet.'}
                 />
@@ -103,11 +103,12 @@ function DashboardPageInner() {
             <DashboardToolbar onAddWidget={() => setPickerOpen(true)} />
 
             {config.widgets.length === 0 && isEditing ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                    <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setPickerOpen(true)}>
-                        Add your first widget
-                    </Button>
-                </Box>
+                <EmptyState
+                    icon={<AddIcon fontSize="large" />}
+                    title="Empty dashboard"
+                    actionLabel="Add your first widget"
+                    onAction={() => setPickerOpen(true)}
+                />
             ) : (
                 <DashboardEngine
                     config={config}
@@ -128,10 +129,10 @@ export default function DashboardPage() {
     const { user } = useAuth();
 
     return (
-        <PageContainer titleText="Dashboards" loading={user === undefined}>
+        <Page title="Dashboards" loading={user === undefined}>
             <DashboardProvider>
                 <DashboardPageInner />
             </DashboardProvider>
-        </PageContainer>
+        </Page>
     );
 }

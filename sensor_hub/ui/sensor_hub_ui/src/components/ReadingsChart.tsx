@@ -21,7 +21,7 @@ import type {Sensor} from "../gen/aliases";
 import type { DateTime } from "luxon";
 import EmptyState from "./EmptyState";
 import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
-import { useChartColours } from "../theme/chartColours";
+import { useChartColours } from "../ui/theme/chartColours";
 import { WidgetSwap, SignalTraceLoader } from "../dashboard/widget-loaders";
 
 const ReadingsChart = React.memo(function ReadingsChart({

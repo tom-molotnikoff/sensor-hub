@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { useChartColours } from '../../theme/chartColours';
+import { useChartColours } from '../../ui/theme/chartColours';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion';
 import { keyframes } from '@mui/system';
 import LoaderShell from './LoaderShell';

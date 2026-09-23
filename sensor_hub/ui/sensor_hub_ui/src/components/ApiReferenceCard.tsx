@@ -4,7 +4,7 @@ import { Box } from '@mui/material';
 import { TypographyH2 } from '../tools/Typography';
 import { API_BASE } from '../environment/Environment';
 import { useCallback } from 'react';
-import { useIsDark } from '../theme/useIsDark';
+import { useIsDark } from '../ui/theme/useIsDark';
 
 export default function ApiReferenceCard() {
   const isDark = useIsDark();
