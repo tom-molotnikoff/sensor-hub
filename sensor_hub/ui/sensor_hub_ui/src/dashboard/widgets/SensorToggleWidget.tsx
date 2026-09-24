@@ -71,6 +71,8 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
   const pendingCommandRef = useRef<{ id: number; previousValue: string | null } | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
+  // useCurrentReadings keeps callbacks in refs, so this needs no memoization.
+
   const handleCommandStatus = (message: CommandStatusMessage) => {
     const pendingCommand = pendingCommandRef.current;
     if (!pendingCommand || !sensor || !property) return;
@@ -87,6 +89,8 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
 
   const readings = useCurrentReadings({ onDataUpdate: reportUpdate, onCommandStatus: handleCommandStatus });
   const reading = sensor && property ? readings[sensor.name]?.[property] : undefined;
+
+  // Drop the optimistic value once the server confirms it (adjust-during-render).
 
   if (
     optimisticValue != null
@@ -114,6 +118,10 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
 
     setOptimisticValue(nextValue);
     reportUpdate(new Date());
+
+    // Send the command immediately and pause low-priority background polls for its duration,
+
+    // so the command (and its confirmation) aren't queued behind the read-only chart flood.
 
     const { data, error } = await requestScheduler.runWithPreemption(() => apiClient.POST('/sensors/{id}/command', {
       params: { path: { id: sensor.id } },

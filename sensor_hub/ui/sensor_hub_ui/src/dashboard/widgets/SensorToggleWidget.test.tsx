@@ -325,7 +325,7 @@ describe('SensorToggleWidget', () => {
     );
   });
 
-  it('renders as a read-only switch when the user lacks toggle permission', () => {
+  it('renders as a read-only switch when the user lacks control permission', () => {
     sensors.splice(0, sensors.length, makeSensor());
     currentReadings['office-plug'] = { state: makeReading() };
     authUser = {

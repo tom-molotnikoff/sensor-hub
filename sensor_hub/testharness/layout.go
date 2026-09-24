@@ -181,7 +181,11 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 	note.Layout.Y, note.Layout.W, note.Layout.H = 36, 4, 3
 	heatmap := gen.DashboardWidget{Id: "heatmap", Type: "heatmap", Config: map[string]interface{}{"sensorId": 1, "measurementType": "temperature", "scaleMin": 10, "scaleMax": 30}}
 	heatmap.Layout.X, heatmap.Layout.Y, heatmap.Layout.W, heatmap.Layout.H = 4, 36, 4, 4
-	toggle := gen.DashboardWidget{Id: "sensor-toggle", Type: "sensor-toggle", Config: map[string]interface{}{"sensorId": 1, "property": "state"}}
+	var plugId int
+	if err := env.DB.Writer.QueryRowContext(ctx, "SELECT id FROM sensors WHERE name = 'kitchen-plug'").Scan(&plugId); err != nil {
+		return fmt.Errorf("the dashboard fixture needs the sensors fixture applied first: %w", err)
+	}
+	toggle := gen.DashboardWidget{Id: "sensor-toggle", Type: "sensor-toggle", Config: map[string]interface{}{"sensorId": plugId, "property": "state"}}
 	toggle.Layout.X, toggle.Layout.Y, toggle.Layout.W, toggle.Layout.H = 8, 36, 4, 2
 	detail := gen.DashboardWidget{Id: "sensor-detail", Type: "sensor-detail", Config: map[string]interface{}{"sensorId": 1}}
 	detail.Layout.Y, detail.Layout.W, detail.Layout.H = 40, 6, 4
@@ -235,23 +239,25 @@ func createLayoutHealthHistory(ctx context.Context, env *Env) error {
 }
 
 func createLayoutSensors(ctx context.Context, env *Env) error {
+	const switchExposes = `{"exposes":[{"type":"binary","property":"state","name":"state","access":7,"value_on":"ON","value_off":"OFF"}]}`
 	sensors := []struct {
 		name, driver, health string
 		enabled              bool
 		retentionHours       *int
+		metadata             string
 	}{
-		{"attic-bulb", "mqtt-zigbee2mqtt", "good", true, ptr(120)},
-		{"back-door-contact", "mqtt-zigbee2mqtt", "bad", true, ptr(720)},
-		{"garage-temp", "mqtt-zigbee2mqtt", "unknown", true, nil},
-		{"hallway-motion", "mqtt-zigbee2mqtt", "good", false, nil},
-		{"kitchen-plug", "mqtt-zigbee2mqtt", "good", true, ptr(48)},
-		{"loft-hygrometer", "sensor-hub-http-temperature", "bad", false, nil},
-		{"porch-light", "mqtt-zigbee2mqtt", "good", true, nil},
+		{"attic-bulb", "mqtt-zigbee2mqtt", "good", true, ptr(120), "{}"},
+		{"back-door-contact", "mqtt-zigbee2mqtt", "bad", true, ptr(720), "{}"},
+		{"garage-temp", "mqtt-zigbee2mqtt", "unknown", true, nil, "{}"},
+		{"hallway-motion", "mqtt-zigbee2mqtt", "good", false, nil, "{}"},
+		{"kitchen-plug", "mqtt-zigbee2mqtt", "good", true, ptr(48), switchExposes},
+		{"loft-hygrometer", "sensor-hub-http-temperature", "bad", false, nil, "{}"},
+		{"porch-light", "mqtt-zigbee2mqtt", "good", true, nil, "{}"},
 	}
 	for _, sensor := range sensors {
 		if _, err := env.DB.Writer.ExecContext(ctx,
-			"INSERT INTO sensors (name, sensor_driver, config, health_status, health_reason, enabled, retention_hours) VALUES (?, ?, '{}', ?, 'fixture', ?, ?)",
-			sensor.name, sensor.driver, sensor.health, sensor.enabled, sensor.retentionHours); err != nil {
+			"INSERT INTO sensors (name, sensor_driver, config, health_status, health_reason, enabled, retention_hours, metadata) VALUES (?, ?, '{}', ?, 'fixture', ?, ?, ?)",
+			sensor.name, sensor.driver, sensor.health, sensor.enabled, sensor.retentionHours, sensor.metadata); err != nil {
 			return fmt.Errorf("failed to insert sensor %s: %w", sensor.name, err)
 		}
 	}

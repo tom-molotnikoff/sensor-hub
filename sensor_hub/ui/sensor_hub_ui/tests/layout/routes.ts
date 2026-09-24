@@ -14,7 +14,7 @@ const signedIn = ['admin', 'viewer'] as const;
 
 export const routes: readonly LayoutRoute[] = [
   { path: '/login', users: ['anonymous'], fixtures: [], checks: ['noSidewaysScroll', 'noCollapsedContent'] },
-  { path: '/dashboard', users: signedIn, fixtures: ['dashboard', 'health-history', 'current-readings', 'alerts', 'notifications'] },
+  { path: '/dashboard', users: signedIn, fixtures: ['sensors', 'dashboard', 'health-history', 'current-readings', 'alerts', 'notifications'] },
   { path: '/sensors-overview', users: signedIn, fixtures: ['sensors', 'pending-sensors'] },
   { path: '/sensor/1', users: signedIn, fixtures: ['health-history'] },
   { path: '/sensor/9', users: signedIn, fixtures: ['sensors'] },
