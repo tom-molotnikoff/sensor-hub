@@ -4,7 +4,7 @@ import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurr
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { useWidgetStateReport } from '../WidgetContext';
-import { WidgetSwap, CircularDrawLoader } from '../widget-loaders';
+import { WidgetSwap, CircularDrawLoader } from '../../ui/loaders';
 import Metric from '../../ui/Metric';
 
 export default function GaugeWidget({ config }: WidgetProps) {

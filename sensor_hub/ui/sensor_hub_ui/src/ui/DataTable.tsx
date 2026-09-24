@@ -59,7 +59,7 @@ export default function DataTable<R extends TableRow, const C extends readonly D
     );
 
   return bounded ? (
-    <Box sx={{ height: '100%', minHeight: 0, overflow: 'auto', paddingX: responsivePixels(density.card), paddingBottom: 1 }}>
+    <Box data-ui="data-table-scroll" sx={{ height: '100%', minHeight: 0, overflow: 'auto', paddingX: responsivePixels(density.card), paddingBottom: 1 }}>
       {table}
     </Box>
   ) : (

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { isDeepStrictEqual } from 'node:util';
+import { expect, test, type Page } from './test';
 import {
   copyLayoutDashboard,
   dashboardId,
@@ -65,11 +66,15 @@ test.describe('Wide dashboard', () => {
     await page.mouse.up();
 
     await expect.poll(async () => (await renderedLayouts(page))['uptime'].w).toBe(5);
-    const shown = await renderedLayouts(page);
     await page.getByRole('button', { name: 'Save' }).click();
     await page.waitForLoadState('networkidle');
 
-    await expect.poll(() => storedLayouts(page, copy.id)).toEqual(shown);
+    await expect
+      .poll(async () => {
+        const [stored, shown] = [await storedLayouts(page, copy.id), await renderedLayouts(page)];
+        return { stored, matchesScreen: isDeepStrictEqual(stored, shown) };
+      })
+      .toMatchObject({ stored: { uptime: { w: 5 } }, matchesScreen: true });
     await copy.remove();
   });
 });

@@ -1,6 +1,8 @@
 import { Box, Typography, Button } from '@mui/material';
-import { useNavigate } from 'react-router';
+import { Link as RouterLink } from 'react-router';
 import { theme } from './theme';
+import Inline from './Inline';
+import { useBounded } from './useBounded';
 import { emptyStateMinHeight, type EmptyStateSize } from './theme/tokens';
 
 interface EmptyStateProps {
@@ -11,6 +13,7 @@ interface EmptyStateProps {
   actionHref?: string;
   onAction?: () => void;
   size?: EmptyStateSize;
+  actions?: React.ReactNode;
 }
 
 export default function EmptyState({
@@ -21,16 +24,9 @@ export default function EmptyState({
   actionHref,
   onAction,
   size = 'md',
+  actions,
 }: EmptyStateProps) {
-  const navigate = useNavigate();
-
-  const handleClick = () => {
-    if (onAction) {
-      onAction();
-    } else if (actionHref) {
-      navigate(actionHref);
-    }
-  };
+  const bounded = useBounded();
 
   return (
     <Box
@@ -40,10 +36,9 @@ export default function EmptyState({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: emptyStateMinHeight[size],
         gap: 1.5,
-        py: 4,
         px: 2,
+        ...(bounded ? { height: '100%', py: 1 } : { minHeight: emptyStateMinHeight[size], py: 4 }),
         textAlign: 'center',
       }}
     >
@@ -62,10 +57,16 @@ export default function EmptyState({
         </Typography>
       )}
       {actionLabel && (onAction || actionHref) && (
-        <Button variant="outlined" size="small" onClick={handleClick} sx={{ mt: 1 }}>
+        <Button
+          variant="outlined"
+          size="small"
+          sx={{ mt: 1 }}
+          {...(onAction ? { onClick: onAction } : { component: RouterLink, to: actionHref })}
+        >
           {actionLabel}
         </Button>
       )}
+      {actions && <Inline>{actions}</Inline>}
     </Box>
   );
 }

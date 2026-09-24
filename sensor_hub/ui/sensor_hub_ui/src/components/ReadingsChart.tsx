@@ -22,7 +22,7 @@ import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
 import { useChartColours } from "../ui/theme/chartColours";
 import { theme } from "../ui/theme";
 import ChartArea from "../ui/ChartArea";
-import { WidgetSwap, SignalTraceLoader } from "../dashboard/widget-loaders";
+import { WidgetSwap, SignalTraceLoader } from "../ui/loaders";
 
 const ReadingsChart = React.memo(function ReadingsChart({
   sensors,

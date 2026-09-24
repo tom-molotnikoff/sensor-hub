@@ -21,17 +21,15 @@ export default function ReadingsChartWidget({ config }: WidgetProps) {
         ? config.refreshInterval * 1000 : undefined;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, width: '100%' }}>
-            <ReadingsChart
-                sensors={sensors}
-                startDate={null}
-                endDate={null}
-                measurementType={measurementType}
-                aggregationFunction={aggregationFunction}
-                pollIntervalMs={pollIntervalMs}
-                resolveTimeRange={resolveRange}
-                onDataUpdate={reportUpdate}
-            />
-        </div>
+        <ReadingsChart
+            sensors={sensors}
+            startDate={null}
+            endDate={null}
+            measurementType={measurementType}
+            aggregationFunction={aggregationFunction}
+            pollIntervalMs={pollIntervalMs}
+            resolveTimeRange={resolveRange}
+            onDataUpdate={reportUpdate}
+        />
     );
 }

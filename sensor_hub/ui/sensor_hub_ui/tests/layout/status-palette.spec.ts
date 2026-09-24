@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './test';
 import { signIn } from './users';
 
 async function healthPieGoodColour(page: Page) {
@@ -17,7 +17,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
   test.describe(`status colours in ${colorScheme}`, () => {
     test.use({ viewport: { width: 1440, height: 900 }, colorScheme });
 
-    test('a good sensor is the same colour on the health pie, the sensor page chip and the uptime bar', async ({ page }) => {
+    test('a good sensor is the same colour on the health pie, the sensor page chip and the uptime figure', async ({ page }) => {
       await signIn(page, 'admin');
       const good = await healthPieGoodColour(page);
 
@@ -27,7 +27,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expect(healthChip).toHaveCSS('color', good);
 
       await page.goto('/dashboard');
-      await expect(page.locator('.MuiLinearProgress-bar')).toHaveCSS('background-color', good);
+      await expect(page.locator('[data-widget-id=uptime] [data-ui=metric-value]')).toHaveCSS('color', good);
     });
   });
 }

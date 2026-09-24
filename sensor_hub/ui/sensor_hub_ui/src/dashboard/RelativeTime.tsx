@@ -28,14 +28,7 @@ export default function RelativeTime({ date }: RelativeTimeProps) {
 
     return (
         <Tooltip title={date.toLocaleString()} arrow>
-            <Typography
-                variant="caption"
-                sx={{
-                    color: "text.disabled",
-                    whiteSpace: 'nowrap',
-                    cursor: 'default',
-                    fontSize: '0.65rem'
-                }}>
+            <Typography variant="caption" color="text.disabled" noWrap sx={{ cursor: 'default' }}>
                 {formatRelative(date)}
             </Typography>
         </Tooltip>

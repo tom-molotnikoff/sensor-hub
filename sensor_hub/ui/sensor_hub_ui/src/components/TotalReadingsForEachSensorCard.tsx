@@ -4,7 +4,7 @@ import { Typography } from "@mui/material";
 import Card from "../ui/Card";
 import DataTable from "../ui/DataTable";
 import EmptyState from '../ui/EmptyState';
-import { WidgetSwap, CascadeRowsLoader } from "../dashboard/widget-loaders";
+import { WidgetSwap, CascadeRowsLoader } from "../ui/loaders";
 
 function formatSampledAt(sampledAt: string): string {
   const parsed = new Date(sampledAt);

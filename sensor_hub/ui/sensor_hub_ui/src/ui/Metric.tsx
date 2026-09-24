@@ -58,7 +58,7 @@ const fill = {
 
 function Value({ value, unit, tone, size }: { value: string; unit?: string; tone?: string; size: MetricSize }) {
   return (
-    <Typography variant={variants[size]} data-ui="metric-value" color={tone} noWrap>
+    <Typography variant={variants[size]} data-ui="metric-value" noWrap sx={tone ? { color: tone } : undefined}>
       {value}
       {unit && (
         <Typography component="span" variant="body" color="text.secondary" sx={{ fontWeight: 'fontWeightMedium', marginLeft: '2px' }}>

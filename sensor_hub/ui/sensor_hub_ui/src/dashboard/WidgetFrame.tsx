@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Paper, IconButton, Box, Typography, Skeleton } from '@mui/material';
+import { IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SettingsIcon from '@mui/icons-material/Settings';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { getWidget } from './WidgetRegistry';
 import { useWidgetSubtitle } from './useWidgetSubtitle';
 import { WidgetErrorBoundary } from './WidgetErrorBoundary';
 import { useWidgetLastUpdated } from './WidgetUpdateContext';
 import { WidgetUpdateProvider } from './WidgetUpdateProvider';
 import RelativeTime from './RelativeTime';
-import Bounded from '../ui/Bounded';
+import EmptyState from '../ui/EmptyState';
+import Frame, { FramePlaceholder } from '../ui/Frame';
 import type { ReactNode } from 'react';
 import {
     WidgetStateReportContext,
@@ -19,30 +19,6 @@ import {
 } from './WidgetContext';
 import type { WidgetProps } from './types';
 import type { DashboardWidget } from '../gen/aliases';
-
-function EditPlaceholder({ label }: { label: string }) {
-    return (
-        <Box sx={{
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 1,
-            p: 2,
-            opacity: 0.5,
-        }}>
-            <Typography variant="body2" sx={{
-                color: "text.secondary"
-            }}>{label}</Typography>
-            <Box sx={{ width: '80%', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                <Skeleton variant="rectangular" height={8} />
-                <Skeleton variant="rectangular" height={8} width="60%" />
-                <Skeleton variant="rectangular" height={8} width="40%" />
-            </Box>
-        </Box>
-    );
-}
 
 export const WIDGET_VISIBILITY_MARGIN = '0px 0px 33% 0px';
 
@@ -112,14 +88,16 @@ export default function WidgetFrame({ widget, isEditing, draggable, onRemove, on
 
     if (!definition) {
         return (
-            <Paper data-widget-state="error" sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Typography color="error">Unknown widget: {widget.type}</Typography>
-                {isEditing && (
+            <Frame
+                state="error"
+                actions={isEditing && (
                     <IconButton size="small" aria-label="Remove widget" onClick={() => onRemove(widget.id)}>
                         <CloseIcon fontSize="small" />
                     </IconButton>
                 )}
-            </Paper>
+            >
+                <EmptyState title={`Unknown widget: ${widget.type}`} />
+            </Frame>
         );
     }
 
@@ -134,77 +112,35 @@ export default function WidgetFrame({ widget, isEditing, draggable, onRemove, on
 
     return (
         <WidgetFrameProviders viewport={viewport} reportState={reportState}>
-            <Paper
+            <Frame
                 ref={observeFrame}
-                data-widget-state={isEditing ? 'populated' : reportedState}
-                elevation={isEditing ? 3 : 1}
-                sx={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                    border: isEditing ? '1px dashed' : '1px solid',
-                    borderColor: isEditing ? 'primary.main' : 'divider',
-                    borderRadius: 2,
-                    position: 'relative',
-                    userSelect: isEditing ? 'none' : 'auto',
-                }}
-            >
-                <Box
-                    className={isEditing && draggable ? 'drag-handle' : undefined}
-                    sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        px: 1.5,
-                        py: 0.5,
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                        flexShrink: 0,
-                        ...(isEditing && { bgcolor: 'action.hover' }),
-                        ...(isEditing && draggable && { cursor: 'grab' }),
-                    }}
-                >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                        {isEditing && draggable && <DragIndicatorIcon fontSize="small" color="action" />}
-                        <Typography variant="caption" noWrap sx={{
-                            color: "text.secondary"
-                        }}>{titleText}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                        {!isEditing && <WidgetLastUpdatedBadge />}
-                        {isEditing && (
-                            <>
-                                {hasConfig && (
-                                    <IconButton size="small" aria-label="Configure widget" onClick={() => onConfigure(widget.id)}>
-                                        <SettingsIcon fontSize="small" />
-                                    </IconButton>
-                                )}
-                                <IconButton size="small" aria-label="Remove widget" onClick={() => onRemove(widget.id)}>
-                                    <CloseIcon fontSize="small" />
-                                </IconButton>
-                            </>
+                state={isEditing ? 'populated' : reportedState}
+                title={titleText}
+                editing={isEditing}
+                dragHandle={draggable}
+                actions={isEditing ? (
+                    <>
+                        {hasConfig && (
+                            <IconButton size="small" aria-label="Configure widget" onClick={() => onConfigure(widget.id)}>
+                                <SettingsIcon fontSize="small" />
+                            </IconButton>
                         )}
-                    </Box>
-                </Box>
-                <Box sx={{
-                    flex: 1,
-                    minHeight: 0,
-                    overflow: 'hidden',
-                    p: isEditing ? 1 : 0,
-                    '& > *': { height: '100%', width: '100%' },
-                }}>
-                    {isEditing ? (
-                        <EditPlaceholder label={definition.label} />
-                    ) : (
-                        <WidgetErrorBoundary widgetId={widget.id} onRemove={onRemove} onConfigure={hasConfig ? () => onConfigure(widget.id) : undefined}>
-                            <Bounded>
-                                <Component {...widgetProps} />
-                            </Bounded>
-                        </WidgetErrorBoundary>
-                    )}
-                </Box>
-            </Paper>
+                        <IconButton size="small" aria-label="Remove widget" onClick={() => onRemove(widget.id)}>
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
+                    </>
+                ) : (
+                    <WidgetLastUpdatedBadge />
+                )}
+            >
+                {isEditing ? (
+                    <FramePlaceholder label={definition.label} />
+                ) : (
+                    <WidgetErrorBoundary widgetId={widget.id} onRemove={onRemove} onConfigure={hasConfig ? () => onConfigure(widget.id) : undefined}>
+                        <Component {...widgetProps} />
+                    </WidgetErrorBoundary>
+                )}
+            </Frame>
         </WidgetFrameProviders>
     );
 }

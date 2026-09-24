@@ -7,6 +7,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers';
 import { DateTime } from 'luxon';
 import { getWidget } from './WidgetRegistry';
+import Stack from '../ui/Stack';
 import { useDashboard } from './DashboardContext';
 import { useSensorContext } from '../hooks/useSensorContext';
 import { useSensorMeasurementTypes, useMeasurementTypesWithReadings } from '../hooks/useMeasurementTypes';
@@ -127,223 +128,221 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
     return (
         <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
             <DialogTitle>Configure {definition.label}</DialogTitle>
-            <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {definition.configFields.map((field) => {
-                    const value = localConfig[field.key] ?? field.defaultValue ?? '';
+            <DialogContent>
+                <Stack>
+                    {definition.configFields.map((field) => {
+                        const value = localConfig[field.key] ?? field.defaultValue ?? '';
 
-                    switch (field.type) {
-                        case 'text':
-                            return (
-                                <TextField
-                                    key={field.key} label={field.label} fullWidth
-                                    sx={{ mt: 1 }}
-                                    value={value as string}
-                                    onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value })}
-                                />
-                            );
-                        case 'textarea':
-                            return (
-                                <TextField
-                                    key={field.key} label={field.label} fullWidth multiline minRows={3} maxRows={10}
-                                    sx={{ mt: 1 }}
-                                    value={value as string}
-                                    onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value })}
-                                />
-                            );
-                        case 'number':
-                            return (
-                                <TextField
-                                    key={field.key} label={field.label} fullWidth type="number"
-                                    sx={{ mt: 1 }}
-                                    value={value as number}
-                                    onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: Number(e.target.value) })}
-                                />
-                            );
-                        case 'boolean':
-                            return (
-                                <FormControlLabel
-                                    key={field.key}
-                                    sx={{ mt: 1 }}
-                                    control={
-                                        <Switch
-                                            checked={Boolean(value)}
-                                            onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.checked })}
-                                        />
-                                    }
-                                    label={field.label}
-                                />
-                            );
-                        case 'select':
-                            return (
-                                <FormControl sx={{ mt: 1 }} key={field.key} fullWidth>
-                                    <InputLabel>{field.label}</InputLabel>
-                                    <Select
-                                        value={value as string} label={field.label}
+                        switch (field.type) {
+                            case 'text':
+                                return (
+                                    <TextField
+                                        key={field.key} label={field.label} fullWidth
+                                        value={value as string}
                                         onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value })}
-                                    >
-                                        {field.options?.map((opt) => (
-                                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            );
-                        case 'sensor-select':
-                        case 'controllable-sensor-select': {
-                            const selectableSensors = field.type === 'controllable-sensor-select' ? controllableSensors : sensors;
-                            return (
-                                <FormControl sx={{ mt: 1 }} key={field.key} fullWidth>
-                                    <InputLabel>{field.label}</InputLabel>
-                                    <Select
-                                        value={(value as number) || ''} label={field.label}
+                                    />
+                                );
+                            case 'textarea':
+                                return (
+                                    <TextField
+                                        key={field.key} label={field.label} fullWidth multiline minRows={3} maxRows={10}
+                                        value={value as string}
+                                        onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value })}
+                                    />
+                                );
+                            case 'number':
+                                return (
+                                    <TextField
+                                        key={field.key} label={field.label} fullWidth type="number"
+                                        value={value as number}
                                         onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: Number(e.target.value) })}
-                                    >
-                                        {selectableSensors.map((s) => (
-                                            <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            );
-                        }
-                        case 'binary-capability-select':
-                            return (
-                                <FormControl sx={{ mt: 1 }} key={field.key} fullWidth disabled={selectedSensor == null || binaryCapabilities.length === 0}>
-                                    <InputLabel>{field.label}</InputLabel>
-                                    <Select
-                                        value={(value as string) || ''} label={field.label}
-                                        onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value })}
-                                    >
-                                        {binaryCapabilities.map((capability) => (
-                                            <MenuItem key={capability.property} value={capability.property}>{capability.property}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            );
-                        case 'multi-sensor-select': {
-                            const selected = (Array.isArray(value) ? value : []) as number[];
-                            return (
-                                <FormControl sx={{ mt: 1 }} key={field.key} fullWidth>
-                                    <InputLabel>{field.label}</InputLabel>
-                                    <Select<number[]>
-                                        multiple
-                                        value={selected}
+                                    />
+                                );
+                            case 'boolean':
+                                return (
+                                    <FormControlLabel
+                                        key={field.key}
+                                        control={
+                                            <Switch
+                                                checked={Boolean(value)}
+                                                onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.checked })}
+                                            />
+                                        }
                                         label={field.label}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setLocalConfig({ ...localConfig, [field.key]: typeof val === 'string' ? val.split(',').map(Number) : val });
-                                        }}
-                                        renderValue={(sel) => sensors.filter((s) => sel.includes(s.id)).map((s) => s.name).join(', ')}
-                                    >
-                                        {sensors.map((s) => (
-                                            <MenuItem key={s.id} value={s.id}>
-                                                <Checkbox checked={selected.includes(s.id)} />
-                                                <ListItemText primary={s.name} />
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            );
-                        }
-                        case 'date': {
-                            const dt = typeof value === 'string' && value
-                                ? DateTime.fromISO(value as string)
-                                : null;
-                            return (
-                                <DatePicker
-                                    key={field.key}
-                                    label={field.label}
-                                    value={dt}
-                                    onChange={(newVal: DateTime | null) => {
-                                        setLocalConfig({
-                                            ...localConfig,
-                                            [field.key]: newVal?.toISODate() ?? '',
-                                        });
-                                    }}
-                                    slotProps={{ textField: { fullWidth: true, sx: { mt: 1 } } }}
-                                />
-                            );
-                        }
-                        case 'time-range': {
-                            const rangeValue = (localConfig.timeRange as string) || '24h';
-                            const isCustom = rangeValue === 'custom';
-                            const customStart = typeof localConfig.customStart === 'string' && localConfig.customStart
-                                ? DateTime.fromISO(localConfig.customStart) : null;
-                            const customEnd = typeof localConfig.customEnd === 'string' && localConfig.customEnd
-                                ? DateTime.fromISO(localConfig.customEnd) : null;
-                            return (
-                                <div key={field.key}>
-                                    <FormControl sx={{ mt: 1 }} fullWidth>
+                                    />
+                                );
+                            case 'select':
+                                return (
+                                    <FormControl key={field.key} fullWidth>
                                         <InputLabel>{field.label}</InputLabel>
                                         <Select
-                                            value={rangeValue}
-                                            label={field.label}
-                                            onChange={(e) => setLocalConfig({ ...localConfig, timeRange: e.target.value })}
+                                            value={value as string} label={field.label}
+                                            onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value })}
                                         >
-                                            {TIME_RANGE_PRESETS.map((p) => (
-                                                <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>
+                                            {field.options?.map((opt) => (
+                                                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                                             ))}
                                         </Select>
                                     </FormControl>
-                                    {isCustom && (
-                                        <>
-                                            <DatePicker
-                                                label="Start Date"
-                                                value={customStart}
-                                                onChange={(v: DateTime | null) =>
-                                                    setLocalConfig({ ...localConfig, customStart: v?.toISODate() ?? '' })
-                                                }
-                                                slotProps={{ textField: { fullWidth: true, sx: { mt: 1 } } }}
-                                            />
-                                            <DatePicker
-                                                label="End Date"
-                                                value={customEnd}
-                                                onChange={(v: DateTime | null) =>
-                                                    setLocalConfig({ ...localConfig, customEnd: v?.toISODate() ?? '' })
-                                                }
-                                                slotProps={{ textField: { fullWidth: true, sx: { mt: 1 } } }}
-                                            />
-                                        </>
-                                    )}
-                                </div>
-                            );
+                                );
+                            case 'sensor-select':
+                            case 'controllable-sensor-select': {
+                                const selectableSensors = field.type === 'controllable-sensor-select' ? controllableSensors : sensors;
+                                return (
+                                    <FormControl key={field.key} fullWidth>
+                                        <InputLabel>{field.label}</InputLabel>
+                                        <Select
+                                            value={(value as number) || ''} label={field.label}
+                                            onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: Number(e.target.value) })}
+                                        >
+                                            {selectableSensors.map((s) => (
+                                                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                );
+                            }
+                            case 'binary-capability-select':
+                                return (
+                                    <FormControl key={field.key} fullWidth disabled={selectedSensor == null || binaryCapabilities.length === 0}>
+                                        <InputLabel>{field.label}</InputLabel>
+                                        <Select
+                                            value={(value as string) || ''} label={field.label}
+                                            onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value })}
+                                        >
+                                            {binaryCapabilities.map((capability) => (
+                                                <MenuItem key={capability.property} value={capability.property}>{capability.property}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                );
+                            case 'multi-sensor-select': {
+                                const selected = (Array.isArray(value) ? value : []) as number[];
+                                return (
+                                    <FormControl key={field.key} fullWidth>
+                                        <InputLabel>{field.label}</InputLabel>
+                                        <Select<number[]>
+                                            multiple
+                                            value={selected}
+                                            label={field.label}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setLocalConfig({ ...localConfig, [field.key]: typeof val === 'string' ? val.split(',').map(Number) : val });
+                                            }}
+                                            renderValue={(sel) => sensors.filter((s) => sel.includes(s.id)).map((s) => s.name).join(', ')}
+                                        >
+                                            {sensors.map((s) => (
+                                                <MenuItem key={s.id} value={s.id}>
+                                                    <Checkbox checked={selected.includes(s.id)} />
+                                                    <ListItemText primary={s.name} />
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                );
+                            }
+                            case 'date': {
+                                const dt = typeof value === 'string' && value
+                                    ? DateTime.fromISO(value as string)
+                                    : null;
+                                return (
+                                    <DatePicker
+                                        key={field.key}
+                                        label={field.label}
+                                        value={dt}
+                                        onChange={(newVal: DateTime | null) => {
+                                            setLocalConfig({
+                                                ...localConfig,
+                                                [field.key]: newVal?.toISODate() ?? '',
+                                            });
+                                        }}
+                                        slotProps={{ textField: { fullWidth: true } }}
+                                    />
+                                );
+                            }
+                            case 'time-range': {
+                                const rangeValue = (localConfig.timeRange as string) || '24h';
+                                const isCustom = rangeValue === 'custom';
+                                const customStart = typeof localConfig.customStart === 'string' && localConfig.customStart
+                                    ? DateTime.fromISO(localConfig.customStart) : null;
+                                const customEnd = typeof localConfig.customEnd === 'string' && localConfig.customEnd
+                                    ? DateTime.fromISO(localConfig.customEnd) : null;
+                                return (
+                                    <Stack key={field.key}>
+                                        <FormControl fullWidth>
+                                            <InputLabel>{field.label}</InputLabel>
+                                            <Select
+                                                value={rangeValue}
+                                                label={field.label}
+                                                onChange={(e) => setLocalConfig({ ...localConfig, timeRange: e.target.value })}
+                                            >
+                                                {TIME_RANGE_PRESETS.map((p) => (
+                                                    <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                        {isCustom && (
+                                            <>
+                                                <DatePicker
+                                                    label="Start Date"
+                                                    value={customStart}
+                                                    onChange={(v: DateTime | null) =>
+                                                        setLocalConfig({ ...localConfig, customStart: v?.toISODate() ?? '' })
+                                                    }
+                                                    slotProps={{ textField: { fullWidth: true } }}
+                                                />
+                                                <DatePicker
+                                                    label="End Date"
+                                                    value={customEnd}
+                                                    onChange={(v: DateTime | null) =>
+                                                        setLocalConfig({ ...localConfig, customEnd: v?.toISODate() ?? '' })
+                                                    }
+                                                    slotProps={{ textField: { fullWidth: true } }}
+                                                />
+                                            </>
+                                        )}
+                                    </Stack>
+                                );
+                            }
+                            case 'measurement-type-select':
+                                return (
+                                    <FormControl key={field.key} fullWidth>
+                                        <InputLabel>{field.label}</InputLabel>
+                                        <Select
+                                            value={(value as string) || ''} label={field.label}
+                                            onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value, aggregationFunction: '' })}
+                                        >
+                                            {filteredMeasurementTypes.map((mt) => (
+                                                <MenuItem key={mt.name} value={mt.name}>{mt.display_name} ({mt.unit})</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                );
+                            case 'aggregation-function-select': {
+                                const selectedMT = localConfig.measurementType as string | undefined;
+                                const mtInfo = selectedMT ? filteredMeasurementTypes.find(mt => mt.name === selectedMT) : null;
+                                const supported = mtInfo?.supported_aggregation_functions ?? [];
+                                const labels: Record<string, string> = { avg: 'Average', min: 'Minimum', max: 'Maximum', sum: 'Sum', count: 'Count', last: 'Last' };
+                                return (
+                                    <FormControl key={field.key} fullWidth disabled={supported.length === 0}>
+                                        <InputLabel>{field.label}</InputLabel>
+                                        <Select
+                                            value={(value as string) || ''} label={field.label}
+                                            onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value })}
+                                        >
+                                            <MenuItem value="">Auto (default for type)</MenuItem>
+                                            {supported.map((fn) => (
+                                                <MenuItem key={fn} value={fn}>{labels[fn] ?? fn}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                );
+                            }
+                            default:
+                                return null;
                         }
-                        case 'measurement-type-select':
-                            return (
-                                <FormControl sx={{ mt: 1 }} key={field.key} fullWidth>
-                                    <InputLabel>{field.label}</InputLabel>
-                                    <Select
-                                        value={(value as string) || ''} label={field.label}
-                                        onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value, aggregationFunction: '' })}
-                                    >
-                                        {filteredMeasurementTypes.map((mt) => (
-                                            <MenuItem key={mt.name} value={mt.name}>{mt.display_name} ({mt.unit})</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            );
-                        case 'aggregation-function-select': {
-                            const selectedMT = localConfig.measurementType as string | undefined;
-                            const mtInfo = selectedMT ? filteredMeasurementTypes.find(mt => mt.name === selectedMT) : null;
-                            const supported = mtInfo?.supported_aggregation_functions ?? [];
-                            const labels: Record<string, string> = { avg: 'Average', min: 'Minimum', max: 'Maximum', sum: 'Sum', count: 'Count', last: 'Last' };
-                            return (
-                                <FormControl sx={{ mt: 1 }} key={field.key} fullWidth disabled={supported.length === 0}>
-                                    <InputLabel>{field.label}</InputLabel>
-                                    <Select
-                                        value={(value as string) || ''} label={field.label}
-                                        onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value })}
-                                    >
-                                        <MenuItem value="">Auto (default for type)</MenuItem>
-                                        {supported.map((fn) => (
-                                            <MenuItem key={fn} value={fn}>{labels[fn] ?? fn}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            );
-                        }
-                        default:
-                            return null;
-                    }
-                })}
+                    })}
+                </Stack>
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>Cancel</Button>

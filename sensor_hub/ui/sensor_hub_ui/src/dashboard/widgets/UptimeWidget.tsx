@@ -1,14 +1,16 @@
 import { useEffect, useMemo } from 'react';
 import type { WidgetProps } from '../types';
-import { Box, LinearProgress, Typography } from '@mui/material';
+import TuneIcon from '@mui/icons-material/Tune';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import useSensorHealthHistory from '../../hooks/useSensorHealthHistory';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { useWidgetStateReport } from '../WidgetContext';
 import { buildHealthWindowModel, formatDurationShort, formatWindowLabel } from '../../health/healthWindow';
 import { useProperties } from '../../hooks/useProperties';
-import { WidgetSwap, IndeterminateBarLoader } from '../widget-loaders';
+import { WidgetSwap, IndeterminateBarLoader } from '../../ui/loaders';
 import type { StatusKey } from '../../ui/theme';
+import EmptyState from '../../ui/EmptyState';
+import Metric from '../../ui/Metric';
 
 export default function UptimeWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
@@ -50,51 +52,17 @@ export default function UptimeWidget({ config }: WidgetProps) {
     const status = getStatus(uptime);
 
     if (!sensor) {
-        return (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                <Typography sx={{
-                    color: "text.secondary"
-                }}>Configure sensor</Typography>
-            </Box>
-        );
+        return <EmptyState size="sm" icon={<TuneIcon fontSize="large" />} title="Configure sensor" />;
     }
 
     return (
         <WidgetSwap loading={historyLoading && !model} loader={<IndeterminateBarLoader />}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 2, gap: 2 }}>
-            <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
-                {model ? `${uptime.toFixed(1)}%` : '—'}
-            </Typography>
-            <Box sx={{ width: '80%' }}>
-                <LinearProgress
-                    variant="determinate"
-                    value={uptime}
-                    sx={{
-                        height: 10,
-                        borderRadius: 5,
-                        bgcolor: `status.${status}.soft`,
-                        '& .MuiLinearProgress-bar': { bgcolor: `status.${status}.strong` },
-                    }}
-                />
-            </Box>
-            {model && (
-                <>
-                    <Typography variant="body2" align="center" sx={{
-                        color: "text.secondary"
-                    }}>
-                        Good for {formatDurationShort(model.durationsMs.good)} of last {formatWindowLabel(model.windowDurationMs)}
-                    </Typography>
-                    <Typography variant="caption" align="center" sx={{
-                        color: "text.secondary"
-                    }}>
-                        Bad {formatDurationShort(model.durationsMs.bad)} · Unknown {formatDurationShort(model.durationsMs.unknown)}
-                    </Typography>
-                </>
-            )}
-            <Typography variant="subtitle2" sx={{
-                color: "text.secondary"
-            }}>{sensor.name}</Typography>
-        </Box>
+            <Metric
+                value={model ? `${uptime.toFixed(1)}%` : null}
+                tone={model ? `status.${status}.strong` : undefined}
+                label={model ? `Good for ${formatDurationShort(model.durationsMs.good)} of last ${formatWindowLabel(model.windowDurationMs)}` : undefined}
+                caption={model ? `Bad ${formatDurationShort(model.durationsMs.bad)} · Unknown ${formatDurationShort(model.durationsMs.unknown)}` : undefined}
+            />
         </WidgetSwap>
     );
 }

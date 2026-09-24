@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from 'react';
-import { Paper, Typography, Button, Box } from '@mui/material';
+import { Button } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import EmptyState from '../ui/EmptyState';
 import { useWidgetStateReport } from './WidgetContext';
 
 interface Props {
@@ -40,30 +41,25 @@ function WidgetErrorFallback({ widgetId, onRemove, onConfigure }: FallbackProps)
     useWidgetStateReport('error');
 
     return (
-        <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-            <WarningAmberIcon color="warning" sx={{ fontSize: 40 }} />
-            <Typography variant="subtitle2" align="center" sx={{
-                color: "text.secondary"
-            }}>
-                This widget encountered an error.
-            </Typography>
-            <Typography variant="caption" align="center" sx={{
-                color: "text.secondary"
-            }}>
-                Try editing its configuration or removing it.
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                {onConfigure && (
-                    <Button size="small" variant="outlined" onClick={() => onConfigure(widgetId)}>
-                        Reconfigure
-                    </Button>
-                )}
-                {onRemove && (
-                    <Button size="small" color="error" onClick={() => onRemove(widgetId)}>
-                        Remove
-                    </Button>
-                )}
-            </Box>
-        </Paper>
+        <EmptyState
+            size="sm"
+            icon={<WarningAmberIcon color="warning" fontSize="large" />}
+            title="This widget encountered an error."
+            description="Try editing its configuration or removing it."
+            actions={(onConfigure || onRemove) && (
+                <>
+                    {onConfigure && (
+                        <Button size="small" variant="outlined" onClick={() => onConfigure(widgetId)}>
+                            Reconfigure
+                        </Button>
+                    )}
+                    {onRemove && (
+                        <Button size="small" color="error" onClick={() => onRemove(widgetId)}>
+                            Remove
+                        </Button>
+                    )}
+                </>
+            )}
+        />
     );
 }

@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { lighten } from '@mui/material/styles';
-import { useChartColours } from '../../ui/theme/chartColours';
+import { useChartColours } from '../theme/chartColours';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion';
 import { shimmer, pulse } from './keyframes';
 import LoaderShell from './LoaderShell';
@@ -28,9 +28,8 @@ export default function ValuePlaceholderLoader({ unit, variant = 'block' }: Valu
       <LoaderShell>
         <Typography
           component="div"
+          variant="metricMd"
           sx={{
-            fontSize: '3rem',
-            fontWeight: 'bold',
             color: 'text.secondary',
             letterSpacing: 2,
             ...(reduced ? {} : { animation: `${pulse} 1.6s ease-in-out infinite` }),
@@ -38,9 +37,9 @@ export default function ValuePlaceholderLoader({ unit, variant = 'block' }: Valu
         >
           —.—
           {unit ? (
-            <Box component="span" sx={{ fontSize: '1.4rem', ml: 0.5 }}>
+            <Typography component="span" variant="sectionTitle" sx={{ ml: 0.5 }}>
               {unit}
-            </Box>
+            </Typography>
           ) : null}
         </Typography>
       </LoaderShell>
@@ -67,7 +66,7 @@ export default function ValuePlaceholderLoader({ unit, variant = 'block' }: Valu
           }}
         />
         {unit ? (
-          <Typography component="span" sx={{ fontSize: '1.4rem', fontWeight: 700, color: 'text.secondary' }}>
+          <Typography component="span" variant="sectionTitle" sx={{ color: 'text.secondary' }}>
             {unit}
           </Typography>
         ) : null}

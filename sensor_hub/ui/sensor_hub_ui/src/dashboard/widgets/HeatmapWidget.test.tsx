@@ -38,7 +38,7 @@ describe('HeatmapWidget loading state', () => {
   });
 
   it('shows the ripple loader while the fetch is in flight', async () => {
-    scheduleMock.mockReturnValue(new Promise(() => {})); // never resolves
+    scheduleMock.mockReturnValue(new Promise(() => {}));
     render(<HeatmapWidget id="w" isEditing={false} config={config} />);
     expect(await screen.findByTestId('widget-loader')).toBeInTheDocument();
     expect(screen.getAllByTestId('heatmap-cell').length).toBe(30);

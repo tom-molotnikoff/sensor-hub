@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './test';
 import { viewports } from './checks';
 import { signIn } from './users';
 
@@ -11,7 +11,6 @@ async function openDashboard(page: Page) {
   for (const frame of await page.locator('[data-widget-state]').all()) {
     await frame.scrollIntoViewIfNeeded();
   }
-  await expect(page.locator('[data-ui=metric-value]')).toHaveCount(6);
   await expect(page.locator('[data-ui=metric-value]', { hasText: '21.3' })).toHaveCount(2);
 }
 

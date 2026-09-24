@@ -4,9 +4,8 @@ import type { Sensor, MeasurementTypeInfo } from '../gen/aliases';
 import { apiClient } from '../gen/client';
 import { useCurrentReadings } from '../hooks/useCurrentReadings';
 import { useScheduledQuery } from '../hooks/useScheduledQuery';
-import LayoutCard from '../tools/LayoutCard';
-import { TypographyH2 } from '../tools/Typography';
-import { WidgetSwap, SensorDetailTilesLoader } from '../dashboard/widget-loaders';
+import { WidgetSwap, SensorDetailTilesLoader } from '../ui/loaders';
+import Card from '../ui/Card';
 
 interface SensorDetailCardProps {
     sensor: Sensor;
@@ -35,9 +34,8 @@ export default function SensorDetailCard({ sensor, onDataUpdate }: SensorDetailC
     return (
         <WidgetSwap loading={isLoading} loader={<SensorDetailTilesLoader />}>
             {measurementTypes.length === 0 ? null : (
-            <LayoutCard variant="secondary" changes={{ height: '100%', width: '100%' }}>
-            <TypographyH2>{sensor.name}: Details</TypographyH2>
-            <Grid container spacing={1} sx={{ mt: 1 }}>
+            <Card title={`${sensor.name}: Details`}>
+            <Grid container spacing={1}>
                 {measurementTypes.map((mt) => {
                     const reading = sensorReadings[mt.name];
                     return (
@@ -58,7 +56,7 @@ export default function SensorDetailCard({ sensor, onDataUpdate }: SensorDetailC
                     );
                 })}
             </Grid>
-        </LayoutCard>
+        </Card>
             )}
         </WidgetSwap>
     );
