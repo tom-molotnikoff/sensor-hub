@@ -1,9 +1,4 @@
 {
-  "src/components/AddNewSensor.tsx": {
-    "ui/no-layout-styles": {
-      "count": 6
-    }
-  },
   "src/components/AlertHistoryDialog.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -148,17 +143,6 @@
   "src/components/EditUserDialog.tsx": {
     "ui/no-layout-styles": {
       "count": 2
-    }
-  },
-  "src/components/EmptyState.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 8
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
     }
   },
   "src/components/HourlyForecastDetail.tsx": {
@@ -692,17 +676,6 @@
       "count": 9
     }
   },
-  "src/forms/SensorForm.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 9
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
-    }
-  },
   "src/navigation/NavigationSidebar.tsx": {
     "ui/no-layout-styles": {
       "count": 3
@@ -737,11 +710,6 @@
     }
   },
   "src/pages/sensor/SensorPage.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/pages/sensors-overview/SensorsOverview.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

@@ -4,7 +4,7 @@ import { TypographyH2 } from "../tools/Typography";
 import LayoutCard from "../tools/LayoutCard.tsx";
 import { useIsMobile } from "../hooks/useMobile";
 import { useSensorContext } from "../hooks/useSensorContext";
-import EmptyState from "./EmptyState";
+import EmptyState from '../ui/EmptyState';
 import ThermostatOutlinedIcon from "@mui/icons-material/ThermostatOutlined";
 import { CascadeRowsLoader } from "../dashboard/widget-loaders";
 

@@ -10,7 +10,7 @@ import DashboardSkeleton from './DashboardSkeleton';
 import DashboardToolbar from './DashboardToolbar';
 import WidgetPickerDialog from './WidgetPickerDialog';
 import WidgetConfigDialog from './WidgetConfigDialog';
-import EmptyState from '../components/EmptyState';
+import EmptyState from '../ui/EmptyState';
 import { registerAllWidgets } from './widgets';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';

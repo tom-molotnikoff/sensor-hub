@@ -11,7 +11,7 @@ import { useWeatherApi } from "../hooks/useWeatherApi.ts";
 import { useIsMobile } from "../hooks/useMobile.ts";
 import DayForecastCard from "./DayForecastCard.tsx";
 import HourlyForecastDetail from "./HourlyForecastDetail.tsx";
-import EmptyState from "./EmptyState.tsx";
+import EmptyState from '../ui/EmptyState';
 import { WeatherColumnsLoader } from "../dashboard/widget-loaders";
 import { useWidgetStateReport } from "../dashboard/WidgetContext";
 
@@ -45,7 +45,7 @@ export default function WeatherForecastCard({ showTitle = true }: { showTitle?: 
           description="Set weather.latitude, weather.longitude, and weather.location.name in Settings → Application Properties."
           actionLabel="Go to Settings"
           actionHref="/settings"
-          minHeight={120}
+          size="sm"
         />
       )}
       {hasLocation && loading && !data && (
