@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+const statusClientClosedRequest = 499
 
 // Query parameters arrive pre-parsed in params; start/end are still normalised here.
 func (s *Server) GetReadingsBetweenDates(c *gin.Context, params gen.GetReadingsBetweenDatesParams) {
@@ -54,6 +57,11 @@ func (s *Server) GetReadingsBetweenDates(c *gin.Context, params gen.GetReadingsB
 	response, err := s.readingsService.ServiceGetBetweenDates(ctx, startStr, endStr, sensorName, measurementType, overrideInterval, overrideFunction)
 
 	if err != nil {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			slog.Debug("client cancelled readings request", "error", err)
+			c.Status(statusClientClosedRequest)
+			return
+		}
 		var unsupported *service.ErrUnsupportedAggregationFunction
 		if errors.As(err, &unsupported) || errors.Is(err, service.ErrMeasurementTypeRequiredForFunction) {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
