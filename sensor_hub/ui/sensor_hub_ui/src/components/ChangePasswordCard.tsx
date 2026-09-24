@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { apiClient } from '../gen/client';
 import { useNavigate } from 'react-router';
-import { Container, Box, TextField, Button, Typography, Alert, Avatar, Paper, CircularProgress } from '@mui/material';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import { TextField, Button, Alert, CircularProgress } from '@mui/material';
+import Card from '../ui/Card';
+import Inline from '../ui/Inline';
+import Stack from '../ui/Stack';
 
 function extractErrorMessage(err: unknown): string | null {
   if (!err) return null;
@@ -42,23 +44,19 @@ export default function ChangePasswordCard() {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Paper elevation={4} sx={{ p: 4, borderRadius: 2, mt: 4 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <Avatar sx={{ bgcolor: 'primary.main' }}><LockOutlinedIcon /></Avatar>
-          <Typography component="h1" variant="h5">Change password</Typography>
-          {error && <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>}
-          <Box component="form" onSubmit={submit} sx={{ mt: 1, width: '100%' }}>
-            <TextField label="New password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} fullWidth margin="normal" disabled={loading} required />
-            <TextField label="Confirm password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} fullWidth margin="normal" disabled={loading} required />
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress color="inherit" size={18} /> : undefined}>
-                {loading ? 'Saving...' : 'Change password'}
-              </Button>
-            </Box>
-          </Box>
-        </Box>
-      </Paper>
-    </Container>
+    <Card title="Change password">
+      <form onSubmit={submit}>
+        <Stack>
+          {error && <Alert severity="error">{error}</Alert>}
+          <TextField label="New password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} fullWidth disabled={loading} required />
+          <TextField label="Confirm password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} fullWidth disabled={loading} required />
+          <Inline>
+            <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress color="inherit" size={18} /> : undefined}>
+              {loading ? 'Saving...' : 'Change password'}
+            </Button>
+          </Inline>
+        </Stack>
+      </form>
+    </Card>
   );
 }

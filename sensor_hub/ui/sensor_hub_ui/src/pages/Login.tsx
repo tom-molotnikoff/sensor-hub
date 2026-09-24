@@ -4,18 +4,11 @@ import { apiClient } from '../gen/client';
 import type { LoginResponse } from '../gen/aliases';
 import { setCsrfToken } from '../api/Csrf';
 import { useAuth } from '../providers/AuthContext.tsx';
-import {
-  Container,
-  Box,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  CircularProgress,
-  Avatar,
-  Paper,
-} from '@mui/material';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import { TextField, Button, Alert, CircularProgress } from '@mui/material';
+import Card from '../ui/Card';
+import Inline from '../ui/Inline';
+import Stack from '../ui/Stack';
+import StandalonePage from '../ui/StandalonePage';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -54,60 +47,43 @@ export default function LoginPage() {
   };
 
   return (
-    <Box sx={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      bgcolor: 'background.default',
-      padding: 2
-    }}>
-      <Container maxWidth="xs">
-        <Paper elevation={6} sx={{ p: 4, borderRadius: 2 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <Avatar sx={{ bgcolor: 'primary.main' }}>
-              <LockOutlinedIcon />
-            </Avatar>
-            <Typography component="h1" variant="h5">Sign in</Typography>
-            {error && <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>}
-            <Box component="form" onSubmit={submit} sx={{ mt: 1, width: '100%' }}>
-              <TextField
-                label="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                fullWidth
-                margin="normal"
-                autoComplete="username"
+    <StandalonePage title="Sign in">
+      <Card>
+        <form onSubmit={submit}>
+          <Stack>
+            {error && <Alert severity="error">{error}</Alert>}
+            <TextField
+              label="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              fullWidth
+              autoComplete="username"
+              disabled={loading}
+              required
+            />
+            <TextField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              fullWidth
+              autoComplete="current-password"
+              disabled={loading}
+              required
+            />
+            <Inline>
+              <Button
+                type="submit"
+                variant="contained"
                 disabled={loading}
-                required
-              />
-              <TextField
-                label="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                fullWidth
-                margin="normal"
-                autoComplete="current-password"
-                disabled={loading}
-                required
-              />
-
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  disabled={loading}
-                  startIcon={loading ? <CircularProgress color="inherit" size={18} /> : undefined}
-                  sx={{ px: 3 }}
-                >
-                  {loading ? 'Signing in...' : 'Sign in'}
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-        </Paper>
-      </Container>
-    </Box>
+                startIcon={loading ? <CircularProgress color="inherit" size={18} /> : undefined}
+              >
+                {loading ? 'Signing in...' : 'Sign in'}
+              </Button>
+            </Inline>
+          </Stack>
+        </form>
+      </Card>
+    </StandalonePage>
   );
 }

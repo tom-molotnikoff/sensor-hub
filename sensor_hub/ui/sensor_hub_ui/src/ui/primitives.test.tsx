@@ -9,6 +9,7 @@ import EmptyState from './EmptyState';
 import Inline from './Inline';
 import PageGrid from './PageGrid';
 import Stack from './Stack';
+import StandalonePage from './StandalonePage';
 import { theme } from './theme';
 import { chartAreaHeight, emptyStateMinHeight } from './theme/tokens';
 
@@ -156,6 +157,12 @@ describe('primitive props', () => {
       <Inline className="nowrap" />,
       // @ts-expect-error Inline takes no wrap override
       <Inline wrap={false} />,
+      // @ts-expect-error StandalonePage takes no sx
+      <StandalonePage title="t" sx={{ maxWidth: 600 }} />,
+      // @ts-expect-error StandalonePage takes no style
+      <StandalonePage title="t" style={{ maxWidth: 600 }} />,
+      // @ts-expect-error StandalonePage takes no className
+      <StandalonePage title="t" className="wide" />,
       // @ts-expect-error EmptyState takes no sx
       <EmptyState title="t" sx={{ minHeight: 0 }} />,
       // @ts-expect-error EmptyState takes no style
@@ -175,6 +182,6 @@ describe('primitive props', () => {
       // @ts-expect-error ChartArea takes no height
       <ChartArea size="md" height={100} />,
     ];
-    expect(overrides).toHaveLength(29);
+    expect(overrides).toHaveLength(32);
   });
 });
