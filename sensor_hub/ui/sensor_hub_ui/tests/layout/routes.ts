@@ -22,7 +22,7 @@ export const routes: readonly LayoutRoute[] = [
   { path: '/data-retention', users: signedIn, fixtures: ['sensors'] },
   { path: '/notifications', users: signedIn, fixtures: ['alerts', 'notifications'] },
   { path: '/mqtt', users: signedIn, fixtures: ['pending-sensors', 'mqtt'] },
-  { path: '/admin', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },
+  { path: '/admin', users: signedIn, fixtures: ['users'] },
   { path: '/account/sessions', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },
   { path: '/account/change-password', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },
   { path: '/account/developer', users: signedIn, fixtures: ['api-keys'] },

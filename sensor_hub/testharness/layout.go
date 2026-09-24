@@ -38,6 +38,7 @@ var layoutFixtures = map[string]layoutFixture{
 	"mqtt":            createLayoutMQTT,
 	"alerts":          createLayoutAlerts,
 	"notifications":   createLayoutNotifications,
+	"users":           createLayoutExtraUsers,
 	"api-keys":        createLayoutApiKeys,
 }
 
@@ -328,6 +329,22 @@ func createLayoutNotifications(ctx context.Context, env *Env) error {
 			"INSERT INTO user_notifications (user_id, notification_id, is_read) SELECT id, ?, ? FROM users WHERE username IN (?, ?)",
 			id, index >= 6, env.AdminUser, layoutViewerUser); err != nil {
 			return fmt.Errorf("failed to assign notification %q: %w", notification.title, err)
+		}
+	}
+	return nil
+}
+
+func createLayoutExtraUsers(ctx context.Context, env *Env) error {
+	users := service.NewUserService(database.NewUserRepository(env.DB, slog.Default()), nil, slog.Default())
+	names := []string{"alex", "bea", "cal", "dee", "eli", "fern", "gus", "hana", "ivo", "jun", "kit"}
+	for index, name := range names {
+		role := service.RoleViewer
+		if index%4 == 0 {
+			role = service.RoleUser
+		}
+		if _, err := users.CreateUser(ctx,
+			gen.User{Username: name, Email: name + "@household.example", Roles: []string{role}}, "fixturepassword123"); err != nil {
+			return fmt.Errorf("failed to create user %s: %w", name, err)
 		}
 	}
 	return nil
