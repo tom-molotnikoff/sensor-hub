@@ -6,9 +6,11 @@ async function healthPieGoodColour(page: Page) {
   await page.waitForLoadState('networkidle');
   const card = page.getByRole('heading', { name: 'Sensor Health', exact: true }).locator('xpath=..');
   const goodSlice = card.locator('.recharts-sector').first();
-  const fill = () => goodSlice.evaluate((slice) => getComputedStyle(slice).fill);
-  await expect.poll(fill).toMatch(/^rgb/);
-  return fill();
+  let fill = '';
+  await expect
+    .poll(async () => (fill = await goodSlice.evaluate((slice) => getComputedStyle(slice).fill)))
+    .toMatch(/^rgb/);
+  return fill;
 }
 
 for (const colorScheme of ['light', 'dark'] as const) {
@@ -20,7 +22,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const good = await healthPieGoodColour(page);
 
       await page.goto('/sensor/1');
-      await expect(page.getByText('good', { exact: true })).toHaveCSS('color', good);
+      const healthChip = page.getByText('Health', { exact: true }).locator('xpath=..').locator('.MuiChip-root');
+      await expect(healthChip).toHaveText('good');
+      await expect(healthChip).toHaveCSS('color', good);
 
       await page.goto('/dashboard');
       await expect(page.locator('.MuiLinearProgress-bar')).toHaveCSS('background-color', good);
