@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
-  Button, Dialog, DialogActions, DialogContent, DialogTitle,
+  Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle,
   TextField, FormControlLabel, Switch, FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material';
 import { apiClient } from '../gen/client';
 import type { MQTTBroker } from '../gen/aliases';
 import { logger } from '../tools/logger';
+import Stack from '../ui/Stack';
 
 interface Props {
   open: boolean;
@@ -61,28 +62,30 @@ export default function CreateSubscriptionDialog({ open, onClose, onCreated }: P
     <Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth>
       <DialogTitle>Add MQTT Subscription</DialogTitle>
       <DialogContent>
-        <FormControl fullWidth sx={{ mt: 1 }}>
-          <InputLabel>Broker</InputLabel>
-          <Select value={brokerId || ''} label="Broker" onChange={e => setBrokerId(Number(e.target.value))}>
-            {brokers.map(b => (
-              <MenuItem key={b.id} value={b.id}>{b.name} ({b.host}:{b.port})</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <TextField fullWidth label="Topic Pattern" value={topicPattern}
-          onChange={e => setTopicPattern(e.target.value)} sx={{ mt: 1 }} required
-          helperText="e.g. zigbee2mqtt/# or rtl_433/+/events" />
-        <FormControl fullWidth sx={{ mt: 1 }}>
-          <InputLabel>Driver</InputLabel>
-          <Select value={driverType} label="Driver" onChange={e => setDriverType(e.target.value)}>
-            {KNOWN_DRIVERS.map(d => (
-              <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControlLabel control={<Switch checked={enabled} onChange={e => setEnabled(e.target.checked)} />}
-          label="Enabled" sx={{ mt: 1 }} />
-        {error && <p style={{ color: 'red', marginTop: 8 }}>{error}</p>}
+        <Stack>
+          <FormControl fullWidth>
+            <InputLabel>Broker</InputLabel>
+            <Select value={brokerId || ''} label="Broker" onChange={e => setBrokerId(Number(e.target.value))}>
+              {brokers.map(b => (
+                <MenuItem key={b.id} value={b.id}>{b.name} ({b.host}:{b.port})</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField fullWidth label="Topic Pattern" value={topicPattern}
+            onChange={e => setTopicPattern(e.target.value)} required
+            helperText="e.g. zigbee2mqtt/# or rtl_433/+/events" />
+          <FormControl fullWidth>
+            <InputLabel>Driver</InputLabel>
+            <Select value={driverType} label="Driver" onChange={e => setDriverType(e.target.value)}>
+              {KNOWN_DRIVERS.map(d => (
+                <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControlLabel control={<Switch checked={enabled} onChange={e => setEnabled(e.target.checked)} />}
+            label="Enabled" />
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleCancel}>Cancel</Button>

@@ -1,7 +1,7 @@
 import Page from '../../ui/Page';
+import PageGrid from '../../ui/PageGrid';
 import { useAuth } from '../../providers/AuthContext';
 import { hasPerm } from '../../tools/Utils';
-import { Grid } from '@mui/material';
 import MqttBrokersCard from '../../components/MqttBrokersCard';
 import MqttSubscriptionsCard from '../../components/MqttSubscriptionsCard';
 import MqttStatsCard from '../../components/MqttStatsCard';
@@ -12,20 +12,20 @@ export default function MqttPage() {
 
   return (
     <Page title="MQTT" loading={user === undefined}>
-      <Grid container spacing={2}>
+      <PageGrid>
         {hasPerm(user, 'view_mqtt') && (
-          <Grid size={12}><MqttStatsCard /></Grid>
+          <PageGrid.Item><MqttStatsCard /></PageGrid.Item>
         )}
         {hasPerm(user, 'view_sensors') && (
-          <Grid size={12}><PendingSensorsCard /></Grid>
+          <PageGrid.Item><PendingSensorsCard /></PageGrid.Item>
         )}
         {hasPerm(user, 'view_mqtt') && (
           <>
-            <Grid size={12}><MqttBrokersCard /></Grid>
-            <Grid size={12}><MqttSubscriptionsCard /></Grid>
+            <PageGrid.Item><MqttBrokersCard /></PageGrid.Item>
+            <PageGrid.Item><MqttSubscriptionsCard /></PageGrid.Item>
           </>
         )}
-      </Grid>
+      </PageGrid>
     </Page>
   );
 }

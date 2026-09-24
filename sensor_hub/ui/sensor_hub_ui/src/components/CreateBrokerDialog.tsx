@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { apiClient } from '../gen/client';
 import { logger } from '../tools/logger';
+import Stack from '../ui/Stack';
 
 type CreateBrokerPayload = {
   name: string;
@@ -65,23 +66,25 @@ export default function CreateBrokerDialog({ open, onClose, onCreated }: Props) 
     <Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth>
       <DialogTitle>Add MQTT Broker</DialogTitle>
       <DialogContent>
-        <TextField fullWidth label="Name" value={name} onChange={e => setName(e.target.value)} sx={{ mt: 1 }} required />
-        <FormControl fullWidth sx={{ mt: 1 }}>
-          <InputLabel>Type</InputLabel>
-          <Select value={type} label="Type" onChange={e => setType(e.target.value)}>
-            <MenuItem value="external">External</MenuItem>
-            <MenuItem value="embedded">Embedded</MenuItem>
-          </Select>
-        </FormControl>
-        <TextField fullWidth label="Host" value={type === 'embedded' ? 'localhost' : host} onChange={e => setHost(e.target.value)} sx={{ mt: 1 }}
-          disabled={type === 'embedded'} helperText={type === 'embedded' ? 'Embedded brokers always use localhost' : ''} />
-        <TextField fullWidth label="Port" type="number" value={port} onChange={e => setPort(Number(e.target.value))} sx={{ mt: 1 }} />
-        <TextField fullWidth label="Username" value={username} onChange={e => setUsername(e.target.value)} sx={{ mt: 1 }} />
-        <TextField fullWidth label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} sx={{ mt: 1 }} />
-        <TextField fullWidth label="Client ID" value={clientId} onChange={e => setClientId(e.target.value)} sx={{ mt: 1 }}
-          helperText="Optional. Auto-generated if blank." />
-        <FormControlLabel control={<Switch checked={enabled} onChange={e => setEnabled(e.target.checked)} />} label="Enabled" sx={{ mt: 1 }} />
-        {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
+        <Stack>
+          <TextField fullWidth label="Name" value={name} onChange={e => setName(e.target.value)} required />
+          <FormControl fullWidth>
+            <InputLabel>Type</InputLabel>
+            <Select value={type} label="Type" onChange={e => setType(e.target.value)}>
+              <MenuItem value="external">External</MenuItem>
+              <MenuItem value="embedded">Embedded</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField fullWidth label="Host" value={type === 'embedded' ? 'localhost' : host} onChange={e => setHost(e.target.value)}
+            disabled={type === 'embedded'} helperText={type === 'embedded' ? 'Embedded brokers always use localhost' : ''} />
+          <TextField fullWidth label="Port" type="number" value={port} onChange={e => setPort(Number(e.target.value))} />
+          <TextField fullWidth label="Username" value={username} onChange={e => setUsername(e.target.value)} />
+          <TextField fullWidth label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+          <TextField fullWidth label="Client ID" value={clientId} onChange={e => setClientId(e.target.value)}
+            helperText="Optional. Auto-generated if blank." />
+          <FormControlLabel control={<Switch checked={enabled} onChange={e => setEnabled(e.target.checked)} />} label="Enabled" />
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleCancel}>Cancel</Button>
