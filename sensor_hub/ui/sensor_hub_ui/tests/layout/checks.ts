@@ -82,12 +82,11 @@ export async function appBarTitle(page: Page) {
   });
 }
 
-async function appBar(page: Page, tier: Tier, user: LayoutUser) {
-  const bell = user === 'admin' ? ['notifications'] : [];
+async function appBar(page: Page, tier: Tier) {
   const expected =
     tier === 'compact'
-      ? ['menu', ...bell, 'account']
-      : ['menu', ...bell, 'theme switcher', 'documentation', 'account'];
+      ? ['menu', 'notifications', 'account']
+      : ['menu', 'notifications', 'theme switcher', 'documentation', 'account'];
   const controls = await appBarControls(page);
   expect(controls.map((control) => control.label), 'app bar controls').toEqual(expected);
   expect(controls.filter((control) => !control.inViewport), 'app bar controls outside the viewport').toEqual([]);

@@ -1,50 +1,10 @@
 {
-  "src/components/AlertHistoryDialog.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 6
-    }
-  },
-  "src/components/AlertRuleCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 4
-    }
-  },
-  "src/components/AlertRuleDataGrid.tsx": {
-    "ui/no-raw-visuals": {
-      "count": 1
-    }
-  },
-  "src/components/AlertRulesCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 11
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
-    }
-  },
   "src/components/ChangePasswordCard.tsx": {
     "no-restricted-imports": {
       "count": 2
     },
     "ui/no-layout-styles": {
       "count": 10
-    }
-  },
-  "src/components/CreateAlertDialog.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 12
     }
   },
   "src/components/CreateUserDialog.tsx": {
@@ -69,14 +29,6 @@
     },
     "ui/no-raw-visuals": {
       "count": 6
-    }
-  },
-  "src/components/EditAlertDialog.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 11
     }
   },
   "src/components/EditUserDialog.tsx": {
@@ -104,33 +56,6 @@
     },
     "ui/no-raw-visuals": {
       "count": 1
-    }
-  },
-  "src/components/NotificationPreferencesCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 4
-    }
-  },
-  "src/components/NotificationsCard.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 28
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
-    }
-  },
-  "src/components/OAuthConfigCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 25
     }
   },
   "src/components/PropertiesPage.tsx": {
@@ -492,11 +417,6 @@
     }
   },
   "src/pages/admin/UsersPage.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/pages/notifications/NotificationsPage.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
