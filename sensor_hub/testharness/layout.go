@@ -4,6 +4,8 @@ package testharness
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -228,11 +230,21 @@ func createLayoutHealthHistory(ctx context.Context, env *Env) error {
 		entries = append(entries, entry{"good", fmt.Sprintf("-%d days", day)})
 	}
 	entries = append(entries, entry{"bad", "-2 days"}, entry{"good", "-47 hours"})
-	for _, row := range entries {
-		if _, err := env.DB.Writer.ExecContext(ctx,
-			"INSERT INTO sensor_health_history (sensor_id, health_status, recorded_at) VALUES (1, ?, datetime('now', ?))",
-			row.status, row.at); err != nil {
-			return fmt.Errorf("failed to insert health history: %w", err)
+	sensorIds := []int{1}
+	var bulbId int
+	switch err := env.DB.Writer.QueryRowContext(ctx, "SELECT id FROM sensors WHERE name = 'attic-bulb'").Scan(&bulbId); {
+	case err == nil:
+		sensorIds = append(sensorIds, bulbId)
+	case !errors.Is(err, sql.ErrNoRows):
+		return fmt.Errorf("failed to look up attic-bulb: %w", err)
+	}
+	for _, sensorId := range sensorIds {
+		for _, row := range entries {
+			if _, err := env.DB.Writer.ExecContext(ctx,
+				"INSERT INTO sensor_health_history (sensor_id, health_status, recorded_at) VALUES (?, ?, datetime('now', ?))",
+				sensorId, row.status, row.at); err != nil {
+				return fmt.Errorf("failed to insert health history: %w", err)
+			}
 		}
 	}
 	return nil

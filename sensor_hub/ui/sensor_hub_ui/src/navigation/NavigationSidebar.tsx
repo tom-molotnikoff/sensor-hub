@@ -19,6 +19,22 @@ import { useAuth } from '../providers/AuthContext.tsx';
 import { apiClient } from '../gen/client';
 import { setCsrfToken } from '../api/Csrf';
 import {hasPerm} from "../tools/Utils.ts";
+import Inline from '../ui/Inline';
+
+function SidebarHeader({ onClose }: { onClose: () => void }) {
+  return (
+    <Toolbar variant="regular">
+      <Inline>
+        <IconButton edge="start" color="inherit" aria-label="menu" onClick={onClose}>
+          <CloseIcon />
+        </IconButton>
+        <Typography variant="h6" component="div" color="inherit">
+          Sensor Hub
+        </Typography>
+      </Inline>
+    </Toolbar>
+  );
+}
 
 function NavigationSidebar() {
   const {open, setOpen} = useContext(SidebarContext);
@@ -29,7 +45,7 @@ function NavigationSidebar() {
   const handleNavigate = (path: string) => { setOpen(false); navigate(path); };
 
   const doLogout = async () => {
-    try { await apiClient.POST('/auth/logout'); } catch { /* ignore */ }
+    await apiClient.POST('/auth/logout').catch(() => undefined);
     setCsrfToken(null);
     await refresh();
     setOpen(false);
@@ -45,20 +61,11 @@ function NavigationSidebar() {
       open={open}
       onClose={() => setOpen(false)}
     >
-      <Toolbar variant="regular">
-        <IconButton edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }} onClick={() => setOpen(!open)}>
-          <CloseIcon />
-        </IconButton>
-        <Typography variant="h6" component="div" sx={{
-          color: "inherit"
-        }}>
-          Sensor Hub
-        </Typography>
-      </Toolbar>
+      <SidebarHeader onClose={() => setOpen(!open)} />
       <Divider />
       <List>
-        <ListItem disablePadding>
-          <ListItemText primary="Loading..." sx={{ padding: 2 }} />
+        <ListItem>
+          <ListItemText primary="Loading..." />
         </ListItem>
       </List>
       <Divider />
@@ -75,16 +82,7 @@ function NavigationSidebar() {
       open={open}
       onClose={() => setOpen(false)}
     >
-      <Toolbar variant="regular">
-        <IconButton edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }} onClick={() => setOpen(!open)}>
-          <CloseIcon />
-        </IconButton>
-        <Typography variant="h6" component="div" sx={{
-          color: "inherit"
-        }}>
-          Sensor Hub
-        </Typography>
-      </Toolbar>
+      <SidebarHeader onClose={() => setOpen(!open)} />
       <Divider />
       <List>
         { (hasPerm(user, 'view_dashboards') && (
