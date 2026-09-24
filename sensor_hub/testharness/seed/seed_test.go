@@ -107,3 +107,16 @@ func TestGenerate_FullSeed(t *testing.T) {
 		"SELECT time FROM readings WHERE sensor_id = 1 AND measurement_type_id = 1 ORDER BY time DESC LIMIT 1").Scan(&latest))
 	assert.NotEmpty(t, latest)
 }
+
+func TestSeriesValue_DiffersBetweenSensors(t *testing.T) {
+	for other := 1; other < Default.Sensors; other++ {
+		same := true
+		for row := 0; row < 200; row++ {
+			if seriesValue(0, 0, row) != seriesValue(other, 0, row) {
+				same = false
+				break
+			}
+		}
+		assert.False(t, same, "sensor %d repeats sensor 0's series", other)
+	}
+}

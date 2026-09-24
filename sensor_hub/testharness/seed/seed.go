@@ -16,7 +16,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const Version = 1
+const Version = 2
 
 const insertBatchRows = 500
 
@@ -250,7 +250,7 @@ func insertReadings(ctx context.Context, db *sql.DB, shape Shape, sensorIDs, typ
 			}
 			for row := range rows {
 				at := start.Add(time.Duration(row) * step).Round(time.Second)
-				batch = append(batch, sensorID, typeID, seriesValue(typeIndex, row), at.Format("2006-01-02 15:04:05"))
+				batch = append(batch, sensorID, typeID, seriesValue(sensorIndex, typeIndex, row), at.Format("2006-01-02 15:04:05"))
 				written++
 
 				if len(batch) == insertBatchRows*4 {
@@ -292,7 +292,9 @@ func insertStatement(rows int) string {
 	return b.String()
 }
 
-func seriesValue(typeIndex, row int) float64 {
-	base := 10.0 + float64(typeIndex)*10.0
-	return math.Round((base+5.0*math.Sin(float64(row)/64.0))*100) / 100
+func seriesValue(sensorIndex, typeIndex, row int) float64 {
+	base := 10.0 + float64(typeIndex)*10.0 + float64(sensorIndex%4)*1.5 - float64(sensorIndex/4)*1.0
+	amplitude := 5.0 - float64(sensorIndex%3)
+	phase := float64(sensorIndex) * 0.9
+	return math.Round((base+amplitude*math.Sin(float64(row)/64.0+phase))*100) / 100
 }
