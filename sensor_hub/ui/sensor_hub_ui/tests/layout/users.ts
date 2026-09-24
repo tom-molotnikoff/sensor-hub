@@ -8,8 +8,9 @@ export const credentials = {
 export type SignedInUser = keyof typeof credentials;
 export type LayoutUser = SignedInUser | 'anonymous';
 
-export async function signIn(page: Page, user: LayoutUser) {
-  if (user === 'anonymous') return;
+export async function signIn(page: Page, user: LayoutUser): Promise<string | undefined> {
+  if (user === 'anonymous') return undefined;
   const response = await page.request.post('/api/auth/login', { data: credentials[user] });
   expect(response.status(), `sign in as ${user}`).toBe(200);
+  return ((await response.json()) as { csrf_token: string }).csrf_token;
 }

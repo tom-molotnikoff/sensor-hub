@@ -1,11 +1,11 @@
 import { useCallback, useMemo } from 'react';
-import { ResponsiveGridLayout, useContainerWidth, type Layout, type LayoutItem } from 'react-grid-layout';
+import { GridLayout, useContainerWidth, type Layout, type LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import WidgetFrame from './WidgetFrame';
 import { getWidget } from './WidgetRegistry';
 import type { DashboardConfig, DashboardWidget } from '../gen/aliases';
-import { GRID_BREAKPOINTS, GRID_COLS, GRID_ROW_HEIGHT } from './constants';
+import { GRID_COLUMNS, GRID_ROW_HEIGHT } from './constants';
 import DashboardSlot from '../ui/DashboardSlot';
 import Stack from '../ui/Stack';
 import { useTier } from '../ui/tiers';
@@ -55,25 +55,27 @@ function WideDashboard({
 }: DashboardEngineProps) {
     const { width, containerRef } = useContainerWidth();
 
-    const layouts = useMemo(() => {
-        const lg: LayoutItem[] = config.widgets.map((w) => ({
-            i: w.id,
-            x: w.layout.x,
-            y: w.layout.y,
-            w: w.layout.w,
-            h: w.layout.h,
-            minW: getWidget(w.type)?.minW,
-            minH: getWidget(w.type)?.minH,
-            maxW: getWidget(w.type)?.maxW,
-            maxH: getWidget(w.type)?.maxH,
-        }));
-        return { lg };
-    }, [config.widgets]);
+    const layout = useMemo(
+        (): LayoutItem[] =>
+            config.widgets.map((w) => ({
+                i: w.id,
+                x: w.layout.x,
+                y: w.layout.y,
+                w: w.layout.w,
+                h: w.layout.h,
+                minW: getWidget(w.type)?.minW,
+                minH: getWidget(w.type)?.minH,
+                maxW: getWidget(w.type)?.maxW,
+                maxH: getWidget(w.type)?.maxH,
+            })),
+        [config.widgets],
+    );
 
     const handleLayoutChange = useCallback(
-        (layout: Layout) => {
+        (changed: Layout) => {
+            if (!isEditing) return;
             const updated = config.widgets.map((widget) => {
-                const item = layout.find((l) => l.i === widget.id);
+                const item = changed.find((l) => l.i === widget.id);
                 if (!item) return widget;
                 return {
                     ...widget,
@@ -82,24 +84,21 @@ function WideDashboard({
             });
             onLayoutChange(updated);
         },
-        [config.widgets, onLayoutChange],
+        [config.widgets, isEditing, onLayoutChange],
     );
 
     return (
         <div ref={containerRef} style={{ paddingBottom: isEditing ? 200 : 0 }}>
-            <ResponsiveGridLayout
+            <GridLayout
                 width={width}
-                layouts={layouts}
-                breakpoints={GRID_BREAKPOINTS}
-                cols={GRID_COLS}
-                rowHeight={GRID_ROW_HEIGHT}
+                layout={layout}
+                gridConfig={{ cols: GRID_COLUMNS, rowHeight: GRID_ROW_HEIGHT, margin: [16, 16] }}
                 dragConfig={{ enabled: isEditing, handle: '.drag-handle' }}
                 resizeConfig={{ enabled: isEditing }}
                 onLayoutChange={handleLayoutChange}
-                margin={[16, 16]}
             >
                 {config.widgets.map((widget) => (
-                    <div key={widget.id}>
+                    <div key={widget.id} data-widget-id={widget.id}>
                         <WidgetFrame
                             widget={widget}
                             isEditing={isEditing}
@@ -109,7 +108,7 @@ function WideDashboard({
                         />
                     </div>
                 ))}
-            </ResponsiveGridLayout>
+            </GridLayout>
         </div>
     );
 }
