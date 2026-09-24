@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Typography, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Alert } from '@mui/material';
-import LayoutCard from '../tools/LayoutCard';
+import { Typography, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Alert } from '@mui/material';
 import { useNotifications } from '../providers/NotificationContext';
 import type { NotificationCategory, ChannelPreference } from '../gen/aliases';
-import {TypographyH2} from "../tools/Typography.tsx";
+import Card from '../ui/Card';
+import Stack from '../ui/Stack';
 
 interface CategoryConfig {
   category: NotificationCategory;
@@ -59,50 +59,46 @@ export default function NotificationPreferencesCard() {
   };
 
   return (
-    <LayoutCard variant="secondary" changes={{ alignItems: 'stretch', height: '100%', width: '100%' }}>
-      <TypographyH2>Notification Preferences</TypographyH2>
-      <Typography
-        variant="body2"
-        sx={{
-          color: "text.secondary",
-          mb: 3
-        }}>
-        Configure which notifications you receive via email and in-app notifications.
-      </Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-      <TableContainer component={Paper} variant="outlined">
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell><strong>Category</strong></TableCell>
-              <TableCell align="center"><strong>Email</strong></TableCell>
-              <TableCell align="center"><strong>In-App</strong></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {CATEGORIES.map(({ category, label, description }) => {
-              const pref = localPrefs[category];
-              if (!pref) return null;
-              return (
-                <TableRow key={category}>
-                  <TableCell>
-                    <Typography variant="subtitle2">{label}</Typography>
-                    <Typography variant="caption" sx={{
-                      color: "text.secondary"
-                    }}>{description}</Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Switch checked={pref.email_enabled} onChange={(e) => handleToggle(category, 'email', e.target.checked)} disabled={saving === `${category}-email`} />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Switch checked={pref.inapp_enabled} onChange={(e) => handleToggle(category, 'inapp', e.target.checked)} disabled={saving === `${category}-inapp`} />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </LayoutCard>
+    <Card title="Notification Preferences">
+      <Stack>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Configure which notifications you receive via email and in-app notifications.
+        </Typography>
+        {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell><strong>Category</strong></TableCell>
+                <TableCell align="center"><strong>Email</strong></TableCell>
+                <TableCell align="center"><strong>In-App</strong></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {CATEGORIES.map(({ category, label, description }) => {
+                const pref = localPrefs[category];
+                if (!pref) return null;
+                return (
+                  <TableRow key={category}>
+                    <TableCell>
+                      <Typography variant="subtitle2">{label}</Typography>
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>{description}</Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Switch checked={pref.email_enabled} onChange={(e) => handleToggle(category, 'email', e.target.checked)} disabled={saving === `${category}-email`} />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Switch checked={pref.inapp_enabled} onChange={(e) => handleToggle(category, 'inapp', e.target.checked)} disabled={saving === `${category}-inapp`} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Stack>
+    </Card>
   );
 }

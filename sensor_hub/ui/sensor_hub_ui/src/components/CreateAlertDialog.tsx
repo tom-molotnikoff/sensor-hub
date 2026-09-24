@@ -1,5 +1,4 @@
 import {
-  Box,
   Button,
   Dialog,
   DialogActions,
@@ -16,6 +15,8 @@ import {useState} from "react";
 import {useSensorContext} from "../hooks/useSensorContext.ts";
 import {useSensorMeasurementTypes} from "../hooks/useMeasurementTypes.ts";
 import { logger } from '../tools/logger';
+import PageGrid from '../ui/PageGrid';
+import Stack from '../ui/Stack';
 
 interface CreateAlertDialogProps {
   open: boolean;
@@ -86,131 +87,128 @@ export default function CreateAlertDialog({open, onClose, onCreated}: CreateAler
     <Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth>
       <DialogTitle>Create Alert Rule</DialogTitle>
       <DialogContent>
-        <FormControl fullWidth sx={{ mt: 1 }}>
-          <InputLabel id="create-sensor-label">Sensor</InputLabel>
-          <Select
-            labelId="create-sensor-label"
-            value={createSensorId}
-            label="Sensor"
-            onChange={(e) => {
-              setCreateSensorId(Number(e.target.value));
-              setCreateMeasurementTypeId(0);
-            }}
-          >
-            {sensors.map(s => (
-              <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {createSensorId > 0 && (
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel id="create-mt-label">Measurement Type</InputLabel>
+        <Stack>
+          <FormControl fullWidth>
+            <InputLabel id="create-sensor-label">Sensor</InputLabel>
             <Select
-              labelId="create-mt-label"
-              value={createMeasurementTypeId}
-              label="Measurement Type"
+              labelId="create-sensor-label"
+              value={createSensorId}
+              label="Sensor"
               onChange={(e) => {
-                const id = Number(e.target.value);
-                setCreateMeasurementTypeId(id);
-                const mt = measurementTypes.find(m => m.id === id);
-                if (mt) setCreateAlertType(mt.category === 'binary' ? 'status_based' : 'numeric_range');
+                setCreateSensorId(Number(e.target.value));
+                setCreateMeasurementTypeId(0);
               }}
             >
-              {measurementTypes.map(mt => (
-                <MenuItem key={mt.id} value={mt.id}>{mt.display_name} ({mt.unit || mt.category})</MenuItem>
+              {sensors.map(s => (
+                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
               ))}
             </Select>
           </FormControl>
-        )}
 
-        {createMeasurementTypeId > 0 && (
-          <>
-            <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel id="create-type-label">Alert Type</InputLabel>
+          {createSensorId > 0 && (
+            <FormControl fullWidth>
+              <InputLabel id="create-mt-label">Measurement Type</InputLabel>
               <Select
-                labelId="create-type-label"
-                value={createAlertType}
-                label="Alert Type"
-                onChange={(e) => setCreateAlertType(e.target.value as 'numeric_range' | 'status_based')}
+                labelId="create-mt-label"
+                value={createMeasurementTypeId}
+                label="Measurement Type"
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  setCreateMeasurementTypeId(id);
+                  const mt = measurementTypes.find(m => m.id === id);
+                  if (mt) setCreateAlertType(mt.category === 'binary' ? 'status_based' : 'numeric_range');
+                }}
               >
-                {selectedMT?.category !== 'binary' && (
-                  <MenuItem value="numeric_range">Numeric Range</MenuItem>
-                )}
-                <MenuItem value="status_based">Status Based</MenuItem>
+                {measurementTypes.map(mt => (
+                  <MenuItem key={mt.id} value={mt.id}>{mt.display_name} ({mt.unit || mt.category})</MenuItem>
+                ))}
               </Select>
             </FormControl>
+          )}
 
-            {createAlertType === 'numeric_range' ? (
-              <>
-                <TextField
-                  fullWidth
-                  label="High Threshold"
-                  type="number"
-                  value={createHighThreshold}
-                  onChange={(e) => setCreateHighThreshold(e.target.value)}
-                  sx={{ mt: 2 }}
-                />
-                <TextField
-                  fullWidth
-                  label="Low Threshold"
-                  type="number"
-                  value={createLowThreshold}
-                  onChange={(e) => setCreateLowThreshold(e.target.value)}
-                  sx={{ mt: 2 }}
-                />
-              </>
-            ) : (
-              <TextField
-                fullWidth
-                label="Trigger Status"
-                value={createTriggerStatus}
-                onChange={(e) => setCreateTriggerStatus(e.target.value)}
-                sx={{ mt: 2 }}
-                helperText="e.g., 'true', 'false', 'open', 'closed'"
-              />
-            )}
-
-            <Box
-              sx={{
-                display: "flex",
-                gap: 2,
-                mt: 2
-              }}>
-              <TextField
-                label="Rate Limit"
-                type="number"
-                value={createRateLimit}
-                onChange={(e) => setCreateRateLimit(e.target.value)}
-                sx={{ flex: 1 }}
-              />
-              <FormControl sx={{ minWidth: 120 }}>
-                <InputLabel id="create-rate-unit-label">Unit</InputLabel>
+          {createMeasurementTypeId > 0 && (
+            <>
+              <FormControl fullWidth>
+                <InputLabel id="create-type-label">Alert Type</InputLabel>
                 <Select
-                  labelId="create-rate-unit-label"
-                  value={createRateLimitUnit}
-                  label="Unit"
-                  onChange={(e) => setCreateRateLimitUnit(e.target.value as 'seconds' | 'minutes' | 'hours')}
+                  labelId="create-type-label"
+                  value={createAlertType}
+                  label="Alert Type"
+                  onChange={(e) => setCreateAlertType(e.target.value as 'numeric_range' | 'status_based')}
                 >
-                  <MenuItem value="seconds">Seconds</MenuItem>
-                  <MenuItem value="minutes">Minutes</MenuItem>
-                  <MenuItem value="hours">Hours</MenuItem>
+                  {selectedMT?.category !== 'binary' && (
+                    <MenuItem value="numeric_range">Numeric Range</MenuItem>
+                  )}
+                  <MenuItem value="status_based">Status Based</MenuItem>
                 </Select>
               </FormControl>
-            </Box>
 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={createEnabled}
-                  onChange={(e) => setCreateEnabled(e.target.checked)}
+              {createAlertType === 'numeric_range' ? (
+                <>
+                  <TextField
+                    fullWidth
+                    label="High Threshold"
+                    type="number"
+                    value={createHighThreshold}
+                    onChange={(e) => setCreateHighThreshold(e.target.value)}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Low Threshold"
+                    type="number"
+                    value={createLowThreshold}
+                    onChange={(e) => setCreateLowThreshold(e.target.value)}
+                  />
+                </>
+              ) : (
+                <TextField
+                  fullWidth
+                  label="Trigger Status"
+                  value={createTriggerStatus}
+                  onChange={(e) => setCreateTriggerStatus(e.target.value)}
+                  helperText="e.g., 'true', 'false', 'open', 'closed'"
                 />
-              }
-              label="Enabled"
-              sx={{ mt: 2 }}
-            />
-          </>
-        )}
+              )}
+
+              <PageGrid>
+                <PageGrid.Item span={{ wide: 8 }}>
+                  <TextField
+                    label="Rate Limit"
+                    type="number"
+                    value={createRateLimit}
+                    onChange={(e) => setCreateRateLimit(e.target.value)}
+                    fullWidth
+                  />
+                </PageGrid.Item>
+                <PageGrid.Item span={{ wide: 4 }}>
+                  <FormControl fullWidth>
+                    <InputLabel id="create-rate-unit-label">Unit</InputLabel>
+                    <Select
+                      labelId="create-rate-unit-label"
+                      value={createRateLimitUnit}
+                      label="Unit"
+                      onChange={(e) => setCreateRateLimitUnit(e.target.value as 'seconds' | 'minutes' | 'hours')}
+                    >
+                      <MenuItem value="seconds">Seconds</MenuItem>
+                      <MenuItem value="minutes">Minutes</MenuItem>
+                      <MenuItem value="hours">Hours</MenuItem>
+                    </Select>
+                  </FormControl>
+                </PageGrid.Item>
+              </PageGrid>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={createEnabled}
+                    onChange={(e) => setCreateEnabled(e.target.checked)}
+                  />
+                }
+                label="Enabled"
+              />
+            </>
+          )}
+        </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleCancel}>Cancel</Button>
