@@ -120,7 +120,7 @@ for (const viewport of viewports) {
         return Array.from(element.children).filter((child) => child.getBoundingClientRect().right > right + 0.5).length;
       });
       expect(overflowing).toBe(0);
-      if (viewport.tier === 'wide') await checks.noSidewaysScroll(page, viewport.tier, 'admin');
+      await checks.noSidewaysScroll(page, viewport.tier, 'admin');
     });
   });
 }

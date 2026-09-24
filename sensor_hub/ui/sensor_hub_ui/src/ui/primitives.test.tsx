@@ -30,7 +30,8 @@ describe('Card', () => {
     const header = card.querySelector('[data-ui=card-header]')!;
     expect(header.firstElementChild).toHaveTextContent('Add Sensor');
     expect(header.lastElementChild).toContainElement(screen.getByRole('button', { name: 'Refresh' }));
-    expect(getComputedStyle(header).flexWrap).not.toBe('wrap');
+    expect(header).toHaveStyle({ display: 'flex', alignItems: 'center' });
+    expect(header.lastElementChild).toHaveStyle({ marginLeft: 'auto' });
     expect(card.querySelector('[data-ui=card-body]')).toHaveTextContent('body');
     expect(screen.getByRole('heading', { name: 'Add Sensor' })).toHaveClass('MuiTypography-cardTitle');
   });
@@ -58,13 +59,18 @@ describe('PageGrid', () => {
 });
 
 describe('EmptyState', () => {
+  it('keeps its title in the body variant at weight 600', () => {
+    renderUi(<EmptyState title="Nothing here" />);
+
+    const title = screen.getByText('Nothing here');
+    expect(title).toHaveClass('MuiTypography-body1');
+    expect(title).toHaveStyle({ fontWeight: '600' });
+  });
+
   it('takes its default minimum height from the token', () => {
     const { container } = renderUi(<EmptyState title="Nothing here" />);
 
-    expect(container.querySelector('[data-ui=empty-state]')).toHaveAttribute(
-      'data-ui-min-height',
-      String(emptyStateMinHeight.md),
-    );
+    expect(container.querySelector('[data-ui=empty-state]')).toHaveStyle({ minHeight: `${emptyStateMinHeight.md}px` });
   });
 });
 
