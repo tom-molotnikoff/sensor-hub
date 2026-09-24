@@ -156,17 +156,16 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 }
 
 func createLayoutHealthHistory(ctx context.Context, env *Env) error {
-	entries := []struct{ status, at string }{{"good", "-29 days"}}
-	for day := 27; day >= 3; day -= 2 {
-		entries = append(entries, struct{ status, at string }{"good", fmt.Sprintf("-%d days", day)})
+	type entry struct{ status, at string }
+	var entries []entry
+	for day := 29; day >= 3; day -= 2 {
+		entries = append(entries, entry{"good", fmt.Sprintf("-%d days", day)})
 	}
-	entries = append(entries,
-		struct{ status, at string }{"bad", "-2 days"},
-		struct{ status, at string }{"good", "-47 hours"})
-	for _, entry := range entries {
+	entries = append(entries, entry{"bad", "-2 days"}, entry{"good", "-47 hours"})
+	for _, row := range entries {
 		if _, err := env.DB.Writer.ExecContext(ctx,
 			"INSERT INTO sensor_health_history (sensor_id, health_status, recorded_at) VALUES (1, ?, datetime('now', ?))",
-			entry.status, entry.at); err != nil {
+			row.status, row.at); err != nil {
 			return fmt.Errorf("failed to insert health history: %w", err)
 		}
 	}
