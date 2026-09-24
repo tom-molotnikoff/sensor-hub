@@ -74,16 +74,6 @@
       "count": 8
     }
   },
-  "src/components/CreateBrokerDialog.tsx": {
-    "ui/no-layout-styles": {
-      "count": 9
-    }
-  },
-  "src/components/CreateSubscriptionDialog.tsx": {
-    "ui/no-layout-styles": {
-      "count": 5
-    }
-  },
   "src/components/CreateUserDialog.tsx": {
     "ui/no-layout-styles": {
       "count": 4

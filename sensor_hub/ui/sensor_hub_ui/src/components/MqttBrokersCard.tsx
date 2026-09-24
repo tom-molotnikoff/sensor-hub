@@ -61,7 +61,7 @@ export default function MqttBrokersCard() {
       >
         <DataTable
           rows={brokers}
-          onRowClick={handleRowClick}
+          onRowClick={canManage ? handleRowClick : undefined}
           columns={[
             { field: 'id', headerName: 'ID', width: 60, compact: 'hidden' },
             { field: 'name', headerName: 'Name', flex: 1, minWidth: 140, compact: 'title' },
@@ -75,8 +75,8 @@ export default function MqttBrokersCard() {
               compact: 'status',
               statusOf: (row) => (row.enabled ? 'ok' : 'unknown'),
               valueFormatter: (value: boolean) => (value ? 'Enabled' : 'Disabled'),
-              renderCell: ({ row }) => (
-                <Chip label={row.enabled ? 'Enabled' : 'Disabled'} color={row.enabled ? 'success' : 'default'} size="small" />
+              renderCell: ({ row, formattedValue }) => (
+                <Chip label={formattedValue} color={row.enabled ? 'success' : 'default'} size="small" />
               ),
             },
           ]}

@@ -52,3 +52,19 @@ test.describe('MQTT subscriptions at 390x844', () => {
     await expect(subscriptions.locator('[data-ui=status-pill][data-status=unknown]')).toHaveCount(3);
   });
 });
+
+test.describe('MQTT as a viewer at 390x844', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('rows are not tappable without manage_mqtt', async ({ page }) => {
+    await signIn(page, 'viewer');
+    await page.goto('/mqtt');
+    await page.waitForLoadState('networkidle');
+
+    for (const { title } of lists) {
+      const list = card(page, title);
+      await expect(list.locator('[data-ui=data-table-row]').first()).toBeVisible();
+      await expect(list.locator('[data-ui=data-table-row] button')).toHaveCount(0);
+    }
+  });
+});
