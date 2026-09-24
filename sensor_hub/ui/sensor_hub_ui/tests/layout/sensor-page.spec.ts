@@ -58,3 +58,30 @@ for (const viewport of viewports) {
     });
   });
 }
+
+function historyTable(page: Page) {
+  return page.locator('[data-ui=card]', { has: page.getByRole('button', { name: 'Refresh' }) });
+}
+
+test.describe('sensor health history table', () => {
+  test('is a list with status pills behind "Show more" at 390', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openSensor(page);
+    const history = historyTable(page);
+    const rows = history.locator('[data-ui=data-table-row]');
+
+    await expect(history.locator('.MuiDataGrid-root')).toHaveCount(0);
+    await expect(rows).toHaveCount(10);
+    await history.getByRole('button', { name: /^Show more \(\d+\)$/ }).click();
+    await expect(rows).not.toHaveCount(10);
+    await expect(history.getByRole('button', { name: /^Show more/ })).toHaveCount(0);
+    await expect(rows.locator('[data-ui=status-pill][data-status=bad]')).toHaveText(['bad']);
+  });
+
+  test('is a DataGrid at 1440', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openSensor(page);
+
+    await expect(historyTable(page).locator('.MuiDataGrid-root [role=gridcell]').first()).toBeVisible();
+  });
+});

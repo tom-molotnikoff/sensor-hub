@@ -275,11 +275,6 @@
       "count": 4
     }
   },
-  "src/components/SensorHealthHistory.tsx": {
-    "ui/no-layout-styles": {
-      "count": 17
-    }
-  },
   "src/components/SessionsCard.tsx": {
     "no-restricted-imports": {
       "count": 1
