@@ -22,6 +22,7 @@ import SensorToggleWidget from './SensorToggleWidget';
 export function registerAllWidgets(): void {
     registerWidget({
         type: 'readings-chart',
+        compactHeight: 280,
         label: 'Readings Chart',
         description: 'Line chart for any measurement type with configurable date range',
         kind: 'informational',
@@ -41,6 +42,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'live-readings',
+        compactHeight: 'content',
         label: 'Live Readings Table',
         description: 'Real-time sensor readings data grid',
         kind: 'informational',
@@ -53,6 +55,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'weather-forecast',
+        compactHeight: 'content',
         label: 'Weather Forecast',
         description: 'External weather forecast from configured provider',
         kind: 'informational',
@@ -65,6 +68,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'sensor-health-pie',
+        compactHeight: 220,
         label: 'Sensor Health',
         description: 'Pie chart showing sensor health status distribution',
         kind: 'informational',
@@ -77,6 +81,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'sensor-type-pie',
+        compactHeight: 220,
         label: 'Sensor Types',
         description: 'Pie chart showing sensor type distribution',
         kind: 'informational',
@@ -89,6 +94,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'health-timeline',
+        compactHeight: 220,
         label: 'Health Timeline',
         description: 'Retained-window health status timeline for a sensor',
         kind: 'informational',
@@ -104,6 +110,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'reading-stats',
+        compactHeight: 'content',
         label: 'Reading Statistics',
         description: 'Total readings per sensor data grid',
         kind: 'informational',
@@ -116,6 +123,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'notifications-feed',
+        compactHeight: 'content',
         label: 'Notifications',
         description: 'Recent notifications feed',
         kind: 'informational',
@@ -128,6 +136,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'markdown-note',
+        compactHeight: 'content',
         label: 'Markdown Note',
         description: 'User-defined text block for notes or labels',
         kind: 'informational',
@@ -143,6 +152,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'current-reading',
+        compactHeight: 140,
         label: 'Current Reading',
         description: 'Big number display for a single sensor',
         kind: 'informational',
@@ -159,6 +169,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'min-max-avg',
+        compactHeight: 160,
         label: 'Min / Max / Avg',
         description: 'Period statistics (min, max, average) for a sensor and measurement type',
         kind: 'informational',
@@ -176,6 +187,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'gauge',
+        compactHeight: 200,
         label: 'Gauge',
         description: 'Visual circular gauge for a single sensor',
         kind: 'informational',
@@ -194,6 +206,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'comparison-chart',
+        compactHeight: 280,
         label: 'Comparison Chart',
         description: 'Multi-sensor overlay line chart for any measurement type',
         kind: 'informational',
@@ -213,6 +226,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'group-summary',
+        compactHeight: 'content',
         label: 'Group Summary',
         description: 'Average reading for a measurement type across all sensors',
         kind: 'informational',
@@ -228,6 +242,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'alert-summary',
+        compactHeight: 'content',
         label: 'Alert Summary',
         description: 'Compact list of configured alert rules',
         kind: 'informational',
@@ -240,6 +255,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'uptime',
+        compactHeight: 140,
         label: 'Sensor Uptime',
         description: 'Time-weighted uptime over the retained health window',
         kind: 'informational',
@@ -255,6 +271,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'heatmap',
+        compactHeight: 260,
         label: 'Heatmap',
         description: 'Colour-coded 30-day grid for any measurement type',
         kind: 'informational',
@@ -273,6 +290,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'sensor-detail',
+        compactHeight: 'content',
         label: 'Sensor Detail',
         description: 'Latest readings grid for all measurement types of a sensor',
         kind: 'informational',
@@ -288,6 +306,7 @@ export function registerAllWidgets(): void {
 
     registerWidget({
         type: 'sensor-toggle',
+        compactHeight: 120,
         label: 'Sensor Toggle',
         description: 'Large on/off switch for a controllable binary sensor property',
         kind: 'controllable',

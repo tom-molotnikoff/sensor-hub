@@ -7,7 +7,7 @@ import DashboardPage from './DashboardPage';
 const dashboardState = {
   dashboards: [],
   activeDashboard: null,
-  config: { widgets: [], breakpoints: {} } as unknown as DashboardConfig,
+  config: { widgets: [] } as DashboardConfig,
   isEditing: false,
   loading: true,
   setIsEditing: vi.fn(),

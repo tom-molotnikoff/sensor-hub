@@ -15,6 +15,7 @@ export interface WidgetDefinition {
     component: ComponentType<WidgetProps>;
     defaultConfig: Record<string, unknown>;
     defaultLayout: { w: number; h: number };
+    compactHeight: number | 'content';
     minW?: number;
     minH?: number;
     maxW?: number;

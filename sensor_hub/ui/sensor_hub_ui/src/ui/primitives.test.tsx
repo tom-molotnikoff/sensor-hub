@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import Bounded from './Bounded';
 import Card from './Card';
+import DashboardSlot from './DashboardSlot';
 import ChartArea from './ChartArea';
 import EmptyState from './EmptyState';
 import Inline from './Inline';
@@ -163,6 +164,12 @@ describe('primitive props', () => {
       <StandalonePage title="t" style={{ maxWidth: 600 }} />,
       // @ts-expect-error StandalonePage takes no className
       <StandalonePage title="t" className="wide" />,
+      // @ts-expect-error DashboardSlot takes no sx
+      <DashboardSlot height={100} sx={{ height: 50 }} />,
+      // @ts-expect-error DashboardSlot takes no style
+      <DashboardSlot height={100} style={{ height: 50 }} />,
+      // @ts-expect-error DashboardSlot needs a height
+      <DashboardSlot />,
       // @ts-expect-error EmptyState takes no sx
       <EmptyState title="t" sx={{ minHeight: 0 }} />,
       // @ts-expect-error EmptyState takes no style
@@ -182,6 +189,6 @@ describe('primitive props', () => {
       // @ts-expect-error ChartArea takes no height
       <ChartArea size="md" height={100} />,
     ];
-    expect(overrides).toHaveLength(32);
+    expect(overrides).toHaveLength(35);
   });
 });

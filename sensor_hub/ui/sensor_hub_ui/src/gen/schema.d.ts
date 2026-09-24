@@ -2396,7 +2396,8 @@ export interface components {
         /** @description Widget layout and configuration stored as the dashboard config */
         DashboardConfig: {
             widgets: components["schemas"]["DashboardWidget"][];
-            breakpoints: {
+            /** @deprecated */
+            breakpoints?: {
                 lg: number;
                 md: number;
                 sm: number;
