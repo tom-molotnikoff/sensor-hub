@@ -48,3 +48,5 @@ const fallback: WeatherInfo = { icon: CloudOutlined, label: "Unknown" };
 export function getWeatherInfo(code: number): WeatherInfo {
   return weatherCodeMap[code] ?? fallback;
 }
+
+export const inlineIcon = { verticalAlign: "middle" } as const;

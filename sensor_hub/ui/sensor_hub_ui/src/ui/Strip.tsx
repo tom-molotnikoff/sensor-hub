@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Paper } from '@mui/material';
+import { stripCells as cells, stripNarrowWidth } from './theme/tokens';
 
 export type StripSize = 'sm' | 'md';
 
@@ -19,24 +20,6 @@ interface StripDetailProps {
   children?: ReactNode;
 }
 
-export const stripNarrowWidth = 480;
-
-const cells = {
-  sm: {
-    gap: 1,
-    minWidth: 56,
-    padding: 1,
-    radius: 2,
-    narrow: { minWidth: 48, paddingX: 0.75, paddingY: 0.75, radius: 3 },
-  },
-  md: {
-    gap: 1.5,
-    minWidth: 100,
-    padding: 1.5,
-    radius: 2,
-    narrow: { minWidth: 72, paddingX: 1.5, paddingY: 1, radius: 3 },
-  },
-} as const;
 
 export default function Strip({ label, size, children }: StripProps) {
   const cell = cells[size];

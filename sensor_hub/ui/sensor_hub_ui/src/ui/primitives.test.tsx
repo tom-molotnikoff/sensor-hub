@@ -20,12 +20,12 @@ import Prose from './Prose';
 import Stack from './Stack';
 import StandalonePage from './StandalonePage';
 import StatGrid from './StatGrid';
-import Strip, { StripCell, StripDetail, stripNarrowWidth } from './Strip';
+import Strip, { StripCell, StripDetail } from './Strip';
 import SlideSwitch from './SlideSwitch';
 import Sticky, { StickyBar } from './Sticky';
 import TileGrid from './TileGrid';
 import { theme } from './theme';
-import { chartAreaHeight, emptyStateMinHeight } from './theme/tokens';
+import { chartAreaHeight, emptyStateMinHeight, stripNarrowWidth } from './theme/tokens';
 
 function renderUi(ui: React.ReactElement) {
   return render(

@@ -1,7 +1,7 @@
 import Typography from "@mui/material/Typography";
 import WaterDropOutlined from "@mui/icons-material/WaterDropOutlined";
 import AirOutlined from "@mui/icons-material/AirOutlined";
-import { getWeatherInfo } from "../tools/weatherIcons.ts";
+import { getWeatherInfo, inlineIcon } from "../tools/weatherIcons.ts";
 import type { HourlyForecast } from "../hooks/useWeatherApi.ts";
 import Strip, { StripCell, StripDetail } from "../ui/Strip";
 
@@ -18,7 +18,6 @@ function formatHour(timeStr: string): string {
   });
 }
 
-const inlineIcon = { verticalAlign: "middle" } as const;
 
 export default function HourlyForecastDetail({ hours }: HourlyForecastDetailProps) {
   if (hours.length === 0) {
@@ -35,11 +34,11 @@ export default function HourlyForecastDetail({ hours }: HourlyForecastDetailProp
         const { icon: WeatherIcon } = getWeatherInfo(h.weatherCode);
         return (
           <StripCell key={h.time} surface="outlined">
-            <Typography variant="caption" sx={{ fontWeight: "bold" }}>
+            <Typography variant="caption" sx={{ fontWeight: "fontWeightBold" }}>
               {formatHour(h.time)}
             </Typography>
             <WeatherIcon fontSize="small" sx={{ color: "primary.main" }} />
-            <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+            <Typography variant="body2" sx={{ fontWeight: "fontWeightBold" }}>
               {Math.round(h.temperature)}°
             </Typography>
             <StripDetail>

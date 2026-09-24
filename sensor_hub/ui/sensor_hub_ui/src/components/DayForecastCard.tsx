@@ -1,7 +1,7 @@
 import Typography from "@mui/material/Typography";
 import WaterDropOutlined from "@mui/icons-material/WaterDropOutlined";
 import AirOutlined from "@mui/icons-material/AirOutlined";
-import { getWeatherInfo } from "../tools/weatherIcons.ts";
+import { getWeatherInfo, inlineIcon } from "../tools/weatherIcons.ts";
 import type { DailyForecast } from "../hooks/useWeatherApi.ts";
 import { StripCell, StripDetail } from "../ui/Strip";
 
@@ -20,14 +20,13 @@ function formatShortDate(dateStr: string): string {
   return date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-const inlineIcon = { verticalAlign: "middle" } as const;
 
 export default function DayForecastCard({ day, isToday }: DayForecastCardProps) {
   const { icon: WeatherIcon, label } = getWeatherInfo(day.weatherCode);
 
   return (
     <StripCell highlighted={isToday}>
-      <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: "fontWeightBold" }}>
         {isToday ? "Today" : formatDayName(day.date)}
       </Typography>
       <StripDetail>
@@ -41,7 +40,7 @@ export default function DayForecastCard({ day, isToday }: DayForecastCardProps) 
           {label}
         </Typography>
       </StripDetail>
-      <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+      <Typography variant="body2" sx={{ fontWeight: "fontWeightBold" }}>
         {Math.round(day.tempMax)}° / {Math.round(day.tempMin)}°
       </Typography>
       <Typography variant="caption">
