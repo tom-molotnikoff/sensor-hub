@@ -1,4 +1,4 @@
-import {Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography} from "@mui/material";
+import {Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, List, ListItem, ListItemText, Typography} from "@mui/material";
 import {useEffect, useState} from "react";
 import type {AlertHistoryEntry, AlertRule} from "../gen/aliases";
 import { apiClient } from "../gen/client";
@@ -40,40 +40,20 @@ export default function AlertHistoryDialog({open, onClose, selectedAlert}: Alert
       <DialogTitle>Alert History - {selectedAlert?.SensorName}</DialogTitle>
       <DialogContent>
         {historyLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-            Loading...
-          </Box>
+          <LinearProgress />
         ) : historyData.length === 0 ? (
-          <Box sx={{ p: 2 }}>
-            <Typography>No alert history found for this sensor.</Typography>
-          </Box>
+          <Typography>No alert history found for this sensor.</Typography>
         ) : (
-          <Box sx={{ mt: 1 }}>
-            {historyData.map((h) => (
-              <Box
-                key={h.id}
-                sx={{
-                  p: 2,
-                  mb: 1,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                }}
-              >
-                <Typography variant="body2">
-                  <strong>Type:</strong> {h.alert_type}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Value:</strong> {h.reading_value}
-                </Typography>
-                <Typography variant="body2" sx={{
-                  color: "text.secondary"
-                }}>
-                  <strong>Sent:</strong> {new Date(h.sent_at).toLocaleString()}
-                </Typography>
-              </Box>
+          <List disablePadding>
+            {historyData.map((h, index) => (
+              <ListItem key={h.id} disableGutters divider={index < historyData.length - 1}>
+                <ListItemText
+                  primary={`Value: ${h.reading_value}`}
+                  secondary={`Type: ${h.alert_type} · Sent: ${new Date(h.sent_at).toLocaleString()}`}
+                />
+              </ListItem>
             ))}
-          </Box>
+          </List>
         )}
       </DialogContent>
       <DialogActions>

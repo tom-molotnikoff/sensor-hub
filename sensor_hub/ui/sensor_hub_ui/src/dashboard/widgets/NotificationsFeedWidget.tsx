@@ -9,5 +9,5 @@ export default function NotificationsFeedWidget(_props: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
     useWidgetStateReport(useNotifications().loading ? 'loading' : 'populated');
     useEffect(() => { reportUpdate(new Date()); }, [reportUpdate]);
-    return <NotificationsCard showTitle={false} />;
+    return <NotificationsCard />;
 }
