@@ -47,8 +47,8 @@ export default function LoginPage() {
   };
 
   return (
-    <StandalonePage title="Sign in">
-      <Card>
+    <StandalonePage>
+      <Card title="Sign in">
         <form onSubmit={submit}>
           <Stack>
             {error && <Alert severity="error">{error}</Alert>}

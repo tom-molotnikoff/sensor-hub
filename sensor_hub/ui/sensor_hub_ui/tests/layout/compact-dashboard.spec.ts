@@ -99,6 +99,25 @@ test.describe('Dashboard at 390x844', () => {
     expect(overflowing).toBe(false);
   });
 
+  test('every table in a widget frame is inset the same distance from the frame', async ({ page }) => {
+    await openDashboard(page);
+    for (const frame of await page.locator('[data-widget-state]').all()) {
+      await frame.scrollIntoViewIfNeeded();
+    }
+    const tables = page.locator('[data-ui=frame-body] [data-ui=data-table]');
+    await expect(tables).toHaveCount(2);
+    const insets = await tables.evaluateAll((elements) =>
+      elements.map((table) => {
+        const body = table.closest('[data-ui=frame-body]')!.getBoundingClientRect();
+        const box = table.getBoundingClientRect();
+        return { left: Math.round(box.left - body.left), right: Math.round(body.right - box.right) };
+      }),
+    );
+    expect(insets).toEqual([insets[0], insets[0]]);
+    expect(insets[0].left).toBe(insets[0].right);
+    expect(insets[0].left).toBeGreaterThan(0);
+  });
+
   test('sends no write request for a minute outside edit mode', async ({ page }) => {
     await page.clock.install();
     const writes = recordDashboardWrites(page);

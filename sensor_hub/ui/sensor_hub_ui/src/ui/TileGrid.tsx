@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useBounded } from './useBounded';
+import { useInsetApplied } from './inset';
+import { responsivePixels } from './tiers';
+import { density } from './theme/tokens';
 
 export interface Tile {
   key: string | number;
@@ -28,6 +31,7 @@ function tileSide(columns: number, rows: number, bounded: boolean) {
 
 export default function TileGrid({ columns, tiles, caption }: TileGridProps) {
   const bounded = useBounded();
+  const insetApplied = useInsetApplied();
   const rows = Math.max(1, Math.ceil(tiles.length / columns));
 
   return (
@@ -37,7 +41,7 @@ export default function TileGrid({ columns, tiles, caption }: TileGridProps) {
         display: 'flex',
         flexDirection: 'column',
         gap: 0.5,
-        padding: 1,
+        padding: bounded && !insetApplied ? responsivePixels(density.card) : 1,
         boxSizing: 'border-box',
         minWidth: 0,
         ...(bounded && { height: '100%', minHeight: 0, overflow: 'hidden' }),

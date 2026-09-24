@@ -32,9 +32,9 @@ export default function AlertSummaryWidget(_props: WidgetProps) {
                 <EmptyState size="sm" title="No alert rules configured" />
             ) : (
                 <Card>
-                    <List dense>
+                    <List dense disablePadding>
                         {rules.map((rule) => (
-                            <ListItem key={rule.ID}>
+                            <ListItem key={rule.ID} disableGutters>
                                 <ListItemText
                                     primary={rule.SensorName}
                                     secondary={`${rule.AlertType} — threshold: ${rule.HighThreshold ?? rule.LowThreshold ?? '—'}${rule.LastAlertSentAt ? ` · last: ${new Date(rule.LastAlertSentAt).toLocaleDateString()}` : ''}`}

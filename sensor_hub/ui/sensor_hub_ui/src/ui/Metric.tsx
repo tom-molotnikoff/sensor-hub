@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useBounded } from './useBounded';
+import { useInsetApplied } from './inset';
 import { responsivePixels } from './tiers';
 import { theme } from './theme';
 import { density, metricDialSize, metricFit, metricMinHeight } from './theme/tokens';
@@ -100,6 +101,7 @@ function Dial({ dial, bounded, size, children }: { dial: MetricDial; bounded: bo
 
 export default function Metric({ value, unit, label, caption, size = 'md', tone, dial }: MetricProps) {
   const bounded = useBounded();
+  const insetApplied = useInsetApplied();
   const text = formatted(value);
   const shown = <Value value={text} unit={unit} tone={tone} size={bounded ? 'sm' : size} />;
 
@@ -118,7 +120,7 @@ export default function Metric({ value, unit, label, caption, size = 'md', tone,
           flex: '1 1 0',
           height: '100%',
           minHeight: metricMinHeight,
-          padding: responsivePixels(density.card),
+          padding: insetApplied ? 0 : responsivePixels(density.card),
           boxSizing: 'border-box',
         }),
       }}

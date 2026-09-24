@@ -1,14 +1,13 @@
 import type { ReactNode } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import { responsivePixels } from './tiers';
 import { density, standalonePageWidth } from './theme/tokens';
 
 interface StandalonePageProps {
-  title: string;
   children?: ReactNode;
 }
 
-export default function StandalonePage({ title, children }: StandalonePageProps) {
+export default function StandalonePage({ children }: StandalonePageProps) {
   return (
     <Box
       component="main"
@@ -32,9 +31,6 @@ export default function StandalonePage({ title, children }: StandalonePageProps)
           minWidth: 0,
         }}
       >
-        <Typography variant="pageTitle" component="h1">
-          {title}
-        </Typography>
         {children}
       </Box>
     </Box>

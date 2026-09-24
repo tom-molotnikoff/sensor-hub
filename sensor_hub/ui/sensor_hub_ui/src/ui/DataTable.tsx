@@ -4,9 +4,10 @@ import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import CompactList from './dataTable/CompactList';
 import RowActionButtons from './dataTable/RowActionButtons';
 import { assertColumnRoles, type ColumnRules, type DataTableColumn, type RowAction, type TableRow } from './dataTable/columns';
-import { responsivePixels, useTier } from './tiers';
+import { responsive, responsivePixels, useTier } from './tiers';
 import { density } from './theme/tokens';
 import { useBounded } from './useBounded';
+import { useBleed } from './inset';
 
 export type { DataTableColumn, RowAction } from './dataTable/columns';
 
@@ -28,6 +29,7 @@ export default function DataTable<R extends TableRow, const C extends readonly D
   if (import.meta.env.DEV) assertColumnRoles(columns);
   const tier = useTier();
   const bounded = useBounded();
+  useBleed(bounded);
   const gridColumns = useMemo<GridColDef<R>[]>(() => {
     if (!rowActions) return [...columns];
     const actionsColumn: GridColDef<R> = {
@@ -59,7 +61,16 @@ export default function DataTable<R extends TableRow, const C extends readonly D
     );
 
   return bounded ? (
-    <Box data-ui="data-table-scroll" sx={{ height: '100%', minHeight: 0, overflow: 'auto', paddingX: responsivePixels(density.card), paddingBottom: 1 }}>
+    <Box
+      sx={{
+        height: '100%',
+        minHeight: 0,
+        overflow: 'auto',
+        paddingX: responsivePixels(density.card),
+        paddingTop: responsive({ compact: `${density.card.compact}px`, wide: '0px' }),
+        paddingBottom: 1,
+      }}
+    >
       {table}
     </Box>
   ) : (

@@ -10,6 +10,7 @@ import Card from './Card';
 import DashboardCanvas from './DashboardCanvas';
 import DashboardSlot from './DashboardSlot';
 import ChartArea from './ChartArea';
+import DataTable from './DataTable';
 import EmptyState from './EmptyState';
 import Frame from './Frame';
 import Inline from './Inline';
@@ -74,6 +75,43 @@ describe('Card in a bounded parent', () => {
     expect(card.querySelector('[data-ui=card-header]')).toBeNull();
     expect(screen.queryByText('Sensor Health')).toBeNull();
     expect(card.querySelector('[data-ui=card-body]')).toHaveTextContent('body');
+  });
+});
+
+describe('Card inset in a bounded parent', () => {
+  it('insets raw content once', () => {
+    const { container } = renderUi(
+      <Bounded>
+        <Card>
+          <p>raw</p>
+          <Metric value={1} />
+        </Card>
+      </Bounded>,
+    );
+
+    expect(container.querySelector('[data-ui=card-body]')).toHaveAttribute('data-ui-inset', 'true');
+    expect(container.querySelector('[data-ui=metric]')).toHaveStyle({ padding: '0px' });
+  });
+
+  it('leaves the inset to a table or chart however deeply it is wrapped', () => {
+    const { container } = renderUi(
+      <Bounded>
+        <Card>
+          <div>
+            <DataTable rows={[{ id: 1, name: 'a' }]} columns={[{ field: 'name', compact: 'title' }]} />
+          </div>
+        </Card>
+        <Card>
+          <section>
+            <ChartArea size="md" placeholder={<span>loading</span>} />
+          </section>
+        </Card>
+      </Bounded>,
+    );
+
+    for (const body of container.querySelectorAll('[data-ui=card-body]')) {
+      expect(body).not.toHaveAttribute('data-ui-inset');
+    }
   });
 });
 
@@ -579,11 +617,11 @@ describe('primitive props', () => {
       // @ts-expect-error Inline takes no wrap override
       <Inline wrap={false} />,
       // @ts-expect-error StandalonePage takes no sx
-      <StandalonePage title="t" sx={{ maxWidth: 600 }} />,
+      <StandalonePage sx={{ maxWidth: 600 }} />,
       // @ts-expect-error StandalonePage takes no style
-      <StandalonePage title="t" style={{ maxWidth: 600 }} />,
+      <StandalonePage style={{ maxWidth: 600 }} />,
       // @ts-expect-error StandalonePage takes no className
-      <StandalonePage title="t" className="wide" />,
+      <StandalonePage className="wide" />,
       // @ts-expect-error DashboardSlot takes no sx
       <DashboardSlot height={100} sx={{ height: 50 }} />,
       // @ts-expect-error DashboardSlot takes no style
