@@ -197,14 +197,6 @@
       "count": 25
     }
   },
-  "src/components/PendingSensorsCard.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 19
-    }
-  },
   "src/components/PropertiesPage.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -275,14 +267,6 @@
     },
     "ui/no-layout-styles": {
       "count": 12
-    }
-  },
-  "src/components/TotalReadingsForEachSensorCard.tsx": {
-    "ui/no-layout-styles": {
-      "count": 10
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
     }
   },
   "src/components/UserManagementCard.tsx": {
