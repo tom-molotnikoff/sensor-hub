@@ -27,6 +27,7 @@ func TestReloadConfig_ConcurrentWithReads_IsRaceFree(t *testing.T) {
 
 	total := 0
 	for {
+		total += AppConfig().SensorCollectionInterval
 		select {
 		case <-done:
 			if total == 0 {
@@ -34,7 +35,6 @@ func TestReloadConfig_ConcurrentWithReads_IsRaceFree(t *testing.T) {
 			}
 			return
 		default:
-			total += AppConfig().SensorCollectionInterval
 		}
 	}
 }
