@@ -71,7 +71,10 @@ func (s *ReadingsService) ServiceGetBetweenDates(ctx context.Context, startDate,
 }
 
 func (s *ReadingsService) resolveFunction(ctx context.Context, measurementType, overrideFunction string) (database.AggregationFunction, error) {
-	if measurementType == "" && overrideFunction == "" {
+	if measurementType == "" {
+		if overrideFunction != "" {
+			return "", ErrMeasurementTypeRequiredForFunction
+		}
 		return database.AggregationFunctionAvg, nil
 	}
 

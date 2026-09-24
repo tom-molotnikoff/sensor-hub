@@ -124,6 +124,16 @@ func TestReadingsService_ServiceGetBetweenDates_UnsupportedFunction(t *testing.T
 	assert.Equal(t, []string{"count", "last"}, unsupported.Supported)
 }
 
+func TestReadingsService_ServiceGetBetweenDates_OverrideFunctionWithoutMeasurementType(t *testing.T) {
+	svc, _, mtRepo := setupReadingsService()
+
+	result, err := svc.ServiceGetBetweenDates(context.Background(), "2025-01-15 00:00:00", "2025-01-18 00:00:00", "", "", "", "count")
+
+	assert.Nil(t, result)
+	assert.ErrorIs(t, err, ErrMeasurementTypeRequiredForFunction)
+	mtRepo.AssertNotCalled(t, "GetAggregationsForMeasurementType", mock.Anything, mock.Anything)
+}
+
 func TestReadingsService_ServiceGetBetweenDates_DisabledAggregation(t *testing.T) {
 	repo := new(MockReadingsRepository)
 	mtRepo := new(MockMeasurementTypeRepository)

@@ -55,7 +55,7 @@ func (s *Server) GetReadingsBetweenDates(c *gin.Context, params gen.GetReadingsB
 
 	if err != nil {
 		var unsupported *service.ErrUnsupportedAggregationFunction
-		if errors.As(err, &unsupported) {
+		if errors.As(err, &unsupported) || errors.Is(err, service.ErrMeasurementTypeRequiredForFunction) {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}

@@ -1,6 +1,9 @@
 package service
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 // ============================================================================
 // Aggregation tier — internal config type for the readings service
@@ -15,6 +18,8 @@ type AggregationTier struct {
 // ============================================================================
 // Aggregation error
 // ============================================================================
+
+var ErrMeasurementTypeRequiredForFunction = errors.New("a measurement type is required to override the aggregation function")
 
 // ErrUnsupportedAggregationFunction is returned when a requested aggregation
 // function is not supported for the given measurement type.

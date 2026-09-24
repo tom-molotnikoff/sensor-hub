@@ -1208,7 +1208,7 @@ type GetReadingsBetweenDatesParams struct {
 	// Aggregation Override the automatic aggregation interval. Use an ISO 8601 duration such as `PT5M` (5 minutes) or `PT1H` (1 hour). Pass `raw` to force unaggregated readings regardless of span.
 	Aggregation *GetReadingsBetweenDatesParamsAggregation `form:"aggregation,omitempty" json:"aggregation,omitempty"`
 
-	// AggregationFunction Override the aggregation function. Defaults are looked up per-measurement-type (e.g. `avg` for temperature, `last` for binary sensors). Only meaningful when aggregation is not `raw`.
+	// AggregationFunction Override the aggregation function. Defaults are looked up per-measurement-type (e.g. `avg` for temperature, `last` for binary sensors). Only meaningful when aggregation is not `raw`. Requires `type`; the request is rejected with 400 without it.
 	AggregationFunction *GetReadingsBetweenDatesParamsAggregationFunction `form:"aggregation_function,omitempty" json:"aggregation_function,omitempty"`
 }
 
