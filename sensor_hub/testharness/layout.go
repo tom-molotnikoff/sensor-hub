@@ -152,7 +152,9 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 	timeline.Layout.Y, timeline.Layout.W, timeline.Layout.H = 8, 6, 4
 	stats := gen.DashboardWidget{Id: "reading-stats", Type: "reading-stats", Config: map[string]interface{}{}}
 	stats.Layout.X, stats.Layout.Y, stats.Layout.W, stats.Layout.H = 6, 8, 6, 4
-	config.Widgets = []gen.DashboardWidget{readings, uptime, healthPie, typePie, timeline, stats}
+	retired := gen.DashboardWidget{Id: "retired", Type: "retired-widget", Config: map[string]interface{}{}}
+	retired.Layout.Y, retired.Layout.W, retired.Layout.H = 12, 4, 2
+	config.Widgets = []gen.DashboardWidget{retired, readings, uptime, healthPie, typePie, stats, timeline}
 
 	dashboards := service.NewDashboardService(database.NewDashboardRepository(env.DB, slog.Default()), slog.Default())
 	if _, err := dashboards.ServiceCreateDashboard(ctx, admin.Id, gen.CreateDashboardRequest{Name: "Layout", Config: config}); err != nil {
