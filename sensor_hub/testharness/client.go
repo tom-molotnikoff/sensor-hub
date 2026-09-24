@@ -422,8 +422,17 @@ func (c *Client) ListRoles() (json.RawMessage, int) {
 // object with only `name`); we use the *WithBody variant because the typed
 // `gen.CreateDashboardRequest` requires a non-nil Config.
 func (c *Client) CreateDashboard(name string) (json.RawMessage, int) {
-	body := strings.NewReader(mustMarshal(map[string]string{"name": name}))
-	return c.consume(c.gen.CreateDashboardWithBody(c.ctx(), "application/json", body))
+	return c.CreateDashboardWithBody(map[string]string{"name": name})
+}
+
+func (c *Client) CreateDashboardWithBody(body any) (json.RawMessage, int) {
+	r := strings.NewReader(mustMarshal(body))
+	return c.consume(c.gen.CreateDashboardWithBody(c.ctx(), "application/json", r))
+}
+
+func (c *Client) UpdateDashboardWithBody(id int, body any) (json.RawMessage, int) {
+	r := strings.NewReader(mustMarshal(body))
+	return c.consume(c.gen.UpdateDashboardWithBody(c.ctx(), id, "application/json", r))
 }
 
 func (c *Client) ListDashboards() (json.RawMessage, int) {

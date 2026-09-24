@@ -137,7 +137,6 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 	}
 
 	var config gen.DashboardConfig
-	config.Breakpoints.Lg, config.Breakpoints.Md, config.Breakpoints.Sm = 12, 8, 4
 	readings := gen.DashboardWidget{Id: "readings-chart", Type: "readings-chart", Config: map[string]interface{}{"measurementType": "temperature"}}
 	readings.Layout.W, readings.Layout.H = 12, 4
 	uptime := gen.DashboardWidget{Id: "uptime", Type: "uptime", Config: map[string]interface{}{"sensorId": 1}}
