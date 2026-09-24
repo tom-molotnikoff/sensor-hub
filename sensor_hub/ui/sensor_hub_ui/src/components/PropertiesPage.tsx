@@ -198,7 +198,7 @@ export default function PropertiesPage() {
           </Inline>
         ) : (
           <PageGrid equalHeight>
-            <PageGrid.Item span={{ wide: 2 }}>
+            <PageGrid.Item span={{ wide: 3 }}>
               <PropertySearchRail
                 groups={railGroups}
                 currentGroupId={currentGroupId}
@@ -207,7 +207,7 @@ export default function PropertiesPage() {
                 stickyOffset={railOffset(headerHeight)}
               />
             </PageGrid.Item>
-            <PageGrid.Item span={{ wide: 10 }}>
+            <PageGrid.Item span={{ wide: 9 }}>
               <AnchorStack landingOffset={landingLine}>
                 {sections.map(({ group, rows }) => (
                   <PropertyGroupSection key={group.id} group={group}>
