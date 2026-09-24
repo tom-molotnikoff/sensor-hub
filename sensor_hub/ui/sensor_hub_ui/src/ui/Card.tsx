@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Typography } from '@mui/material';
+import { useBounded } from './useBounded';
 import { responsivePixels } from './tiers';
 import { density } from './theme/tokens';
 
@@ -11,7 +12,18 @@ interface CardProps {
   children?: ReactNode;
 }
 
+const surface = {
+  padding: responsivePixels(density.card),
+  border: 1,
+  borderColor: 'divider',
+  borderRadius: 2,
+  boxShadow: 'none',
+};
+
 export default function Card({ title, actions, variant = 'default', id, children }: CardProps) {
+  const bounded = useBounded();
+  const heading = bounded ? undefined : title;
+
   return (
     <Box
       id={id}
@@ -21,19 +33,16 @@ export default function Card({ title, actions, variant = 'default', id, children
         flexDirection: 'column',
         gap: responsivePixels(density.gap),
         minWidth: 0,
-        padding: responsivePixels(density.card),
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: 2,
-        boxShadow: 'none',
-        bgcolor: variant === 'inset' ? 'background.default' : 'background.paper',
+        ...(bounded
+          ? { height: '100%', minHeight: 0 }
+          : { ...surface, bgcolor: variant === 'inset' ? 'background.default' : 'background.paper' }),
       }}
     >
-      {(title || actions) && (
+      {(heading || actions) && (
         <Box data-ui="card-header" sx={{ display: 'flex', alignItems: 'center', gap: responsivePixels(density.gap) }}>
-          {title && (
+          {heading && (
             <Typography variant="cardTitle" noWrap>
-              {title}
+              {heading}
             </Typography>
           )}
           {actions && (
@@ -41,7 +50,14 @@ export default function Card({ title, actions, variant = 'default', id, children
           )}
         </Box>
       )}
-      <Box data-ui="card-body" sx={{ flex: '1 1 auto', minWidth: 0 }}>
+      <Box
+        data-ui="card-body"
+        sx={{
+          flex: '1 1 auto',
+          minWidth: 0,
+          ...(bounded && { display: 'flex', flexDirection: 'column', minHeight: 0 }),
+        }}
+      >
         {children}
       </Box>
     </Box>

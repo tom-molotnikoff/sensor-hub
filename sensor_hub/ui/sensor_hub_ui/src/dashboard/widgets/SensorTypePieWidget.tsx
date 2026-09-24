@@ -9,5 +9,5 @@ export default function SensorTypePieWidget(_props: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
     useWidgetStateReport(useSensorContext().loaded ? 'populated' : 'loading');
     useEffect(() => { reportUpdate(new Date()); }, [reportUpdate]);
-    return <SensorTypeCard showTitle={false} />;
+    return <SensorTypeCard />;
 }

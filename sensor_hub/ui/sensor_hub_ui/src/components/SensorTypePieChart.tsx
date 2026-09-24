@@ -1,4 +1,4 @@
-import { Cell, Legend, Pie, PieChart, LabelList, ResponsiveContainer } from "recharts";
+import { Cell, Legend, Pie, PieChart, LabelList } from "recharts";
 import type { Sensor, DriverInfo } from "../gen/aliases";
 import { useChartColours } from "../ui/theme/chartColours";
 
@@ -29,30 +29,27 @@ function SensorTypePieChart({ sensors, drivers }: SensorTypePieChartProps) {
     .sort((a, b) => b.value - a.value);
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <PieChart>
-        <Pie
-          data={data}
-          innerRadius="40%"
-          outerRadius="55%"
-          fill="#8884d8"
-          paddingAngle={5}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-        >
-          <Legend verticalAlign="top" height={36} />
-          <LabelList dataKey="value" position="outside" />
-          {data.map((entry, index) => (
-            <Cell
-              key={`cell-${entry.name}`}
-              fill={COLORS[index % COLORS.length]}
-            />
-          ))}
-        </Pie>
-      </PieChart>
-    </ResponsiveContainer>
+    <PieChart>
+      <Pie
+        data={data}
+        innerRadius="40%"
+        outerRadius="55%"
+        paddingAngle={5}
+        dataKey="value"
+        nameKey="name"
+        cx="50%"
+        cy="50%"
+      >
+        <Legend verticalAlign="top" height={36} />
+        <LabelList dataKey="value" position="outside" />
+        {data.map((entry, index) => (
+          <Cell
+            key={`cell-${entry.name}`}
+            fill={COLORS[index % COLORS.length]}
+          />
+        ))}
+      </Pie>
+    </PieChart>
   );
 }
 

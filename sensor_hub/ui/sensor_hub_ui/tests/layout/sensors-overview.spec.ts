@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { chartAreaHeight } from '../../src/ui/theme/tokens';
 import { checks, viewports, type Tier } from './checks';
-import { signIn } from './users';
+import { signIn, type SignedInUser } from './users';
 
 const cardPadding: Record<Tier, number> = { compact: 12, wide: 20 };
 const gap: Record<Tier, number> = { compact: 12, wide: 16 };
@@ -45,6 +46,20 @@ async function gridItems(page: Page) {
       return { left: box.left, top: box.top, width: box.width, height: box.height, contentHeight: content.height };
     }),
   );
+}
+
+async function pieChartHeights(page: Page, user: SignedInUser) {
+  await signIn(page, user);
+  await page.goto('/sensors-overview');
+  await page.waitForLoadState('networkidle');
+  const heights = [];
+  for (const title of ['Sensor Health', 'Sensor Types']) {
+    const card = page.locator('[data-ui=card]', { has: page.getByRole('heading', { name: title, exact: true }) });
+    const area = card.locator('[data-ui=chart-area]');
+    await expect(area.locator('.recharts-wrapper > svg')).toBeVisible();
+    heights.push((await area.boundingBox())!.height);
+  }
+  return heights;
 }
 
 for (const viewport of viewports) {
@@ -96,13 +111,19 @@ for (const viewport of viewports) {
         for (const [index, item] of items.entries()) {
           const span = adminSpans[index];
           expect(item.width).toBeCloseTo(span * column + (span - 1) * grid.gap, 0);
-        }
-        for (const item of items) {
-          const rowStart = items.find((other) => Math.round(other.top) === Math.round(item.top))!;
-          expect(item.height).toBeCloseTo(rowStart.height, 0);
+          expect(item.height).toBeCloseTo(item.contentHeight, 0);
         }
       }
     });
+
+    for (const user of ['admin', 'viewer'] as const) {
+      test(`Sensor Health and Sensor Types charts are their token height as ${user}`, async ({ page }) => {
+        expect(await pieChartHeights(page, user)).toEqual([
+          chartAreaHeight.md[viewport.tier],
+          chartAreaHeight.md[viewport.tier],
+        ]);
+      });
+    }
 
     test('an Inline with more items than fit wraps inside its width', async ({ page }) => {
       const card = await openOverview(page);

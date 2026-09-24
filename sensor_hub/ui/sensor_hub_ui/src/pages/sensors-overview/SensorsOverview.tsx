@@ -14,7 +14,7 @@ function SensorsOverview() {
 
   return (
     <Page title="Sensors Overview" loading={user === undefined}>
-      <PageGrid equalHeight>
+      <PageGrid>
         {hasPerm(user, 'manage_sensors') && (
           <PageGrid.Item span={{ wide: 4 }}><AddNewSensor /></PageGrid.Item>
         )}

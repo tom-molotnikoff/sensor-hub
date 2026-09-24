@@ -9,5 +9,5 @@ export default function SensorHealthPieWidget(_props: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
     useWidgetStateReport(useSensorContext().loaded ? 'populated' : 'loading');
     useEffect(() => { reportUpdate(new Date()); }, [reportUpdate]);
-    return <SensorHealthCard showTitle={false} />;
+    return <SensorHealthCard />;
 }

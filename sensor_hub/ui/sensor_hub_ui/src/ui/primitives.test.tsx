@@ -2,13 +2,15 @@ import { ThemeProvider } from '@mui/material';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
+import Bounded from './Bounded';
 import Card from './Card';
+import ChartArea from './ChartArea';
 import EmptyState from './EmptyState';
 import Inline from './Inline';
 import PageGrid from './PageGrid';
 import Stack from './Stack';
 import { theme } from './theme';
-import { emptyStateMinHeight } from './theme/tokens';
+import { chartAreaHeight, emptyStateMinHeight } from './theme/tokens';
 
 function renderUi(ui: React.ReactElement) {
   return render(
@@ -41,6 +43,43 @@ describe('Card', () => {
 
     expect(container.querySelector('[data-ui=card-header]')).toBeNull();
     expect(container.querySelector('[data-ui=card-body]')).toHaveTextContent('body');
+  });
+});
+
+describe('Card in a bounded parent', () => {
+  it('fills the parent without a title or surface of its own', () => {
+    const { container } = renderUi(
+      <Bounded>
+        <Card title="Sensor Health">body</Card>
+      </Bounded>,
+    );
+
+    const card = container.querySelector('[data-ui=card]')!;
+    expect(card).toHaveStyle({ height: '100%' });
+    expect(card.querySelector('[data-ui=card-header]')).toBeNull();
+    expect(screen.queryByText('Sensor Health')).toBeNull();
+    expect(card.querySelector('[data-ui=card-body]')).toHaveTextContent('body');
+  });
+});
+
+describe('ChartArea', () => {
+  it('declares its token height on a page', () => {
+    const { container } = renderUi(<ChartArea size="md" />);
+
+    const area = container.querySelector('[data-ui=chart-area]')!;
+    expect(area).toHaveAttribute('data-ui-min-height', String(chartAreaHeight.md.compact));
+  });
+
+  it('fills a bounded parent and ignores its size', () => {
+    const { container } = renderUi(
+      <Bounded>
+        <ChartArea size="lg" />
+      </Bounded>,
+    );
+
+    const area = container.querySelector('[data-ui=chart-area]')!;
+    expect(area).not.toHaveAttribute('data-ui-min-height');
+    expect(area).toHaveStyle({ height: '100%' });
   });
 });
 
@@ -125,7 +164,17 @@ describe('primitive props', () => {
       <EmptyState title="t" className="short" />,
       // @ts-expect-error EmptyState takes no minHeight
       <EmptyState title="t" minHeight={120} />,
+      // @ts-expect-error ChartArea needs a size
+      <ChartArea />,
+      // @ts-expect-error ChartArea takes no sx
+      <ChartArea size="md" sx={{ height: 100 }} />,
+      // @ts-expect-error ChartArea takes no style
+      <ChartArea size="md" style={{ height: 100 }} />,
+      // @ts-expect-error ChartArea takes no className
+      <ChartArea size="md" className="tall" />,
+      // @ts-expect-error ChartArea takes no height
+      <ChartArea size="md" height={100} />,
     ];
-    expect(overrides).toHaveLength(24);
+    expect(overrides).toHaveLength(29);
   });
 });

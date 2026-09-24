@@ -4,7 +4,7 @@ import { signIn } from './users';
 async function healthPieGoodColour(page: Page) {
   await page.goto('/sensors-overview');
   await page.waitForLoadState('networkidle');
-  const card = page.getByRole('heading', { name: 'Sensor Health', exact: true }).locator('xpath=..');
+  const card = page.locator('[data-ui=card]', { has: page.getByRole('heading', { name: 'Sensor Health', exact: true }) });
   const goodSlice = card.locator('.recharts-sector').first();
   let fill = '';
   await expect
