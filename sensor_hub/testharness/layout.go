@@ -8,10 +8,12 @@ import (
 	"io/fs"
 	"log/slog"
 	"slices"
+	"time"
 
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
+	"example/sensorHub/ws"
 )
 
 const (
@@ -31,16 +33,17 @@ type LayoutOptions struct {
 type layoutFixture func(ctx context.Context, env *Env) error
 
 var layoutFixtures = map[string]layoutFixture{
-	"dashboard":       createLayoutDashboard,
-	"health-history":  createLayoutHealthHistory,
-	"sensors":         createLayoutSensors,
-	"pending-sensors": createLayoutPendingSensors,
-	"mqtt":            createLayoutMQTT,
-	"alerts":          createLayoutAlerts,
-	"notifications":   createLayoutNotifications,
-	"users":           createLayoutExtraUsers,
-	"api-keys":        createLayoutApiKeys,
-	"sessions":        createLayoutSessions,
+	"dashboard":        createLayoutDashboard,
+	"health-history":   createLayoutHealthHistory,
+	"sensors":          createLayoutSensors,
+	"pending-sensors":  createLayoutPendingSensors,
+	"mqtt":             createLayoutMQTT,
+	"alerts":           createLayoutAlerts,
+	"notifications":    createLayoutNotifications,
+	"users":            createLayoutExtraUsers,
+	"api-keys":         createLayoutApiKeys,
+	"sessions":         createLayoutSessions,
+	"current-readings": publishLayoutCurrentReadings,
 }
 
 func StartLayoutServer(ctx context.Context, opts LayoutOptions) (*Env, func(), error) {
@@ -156,12 +159,40 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 	stats.Layout.X, stats.Layout.Y, stats.Layout.W, stats.Layout.H = 6, 8, 6, 4
 	retired := gen.DashboardWidget{Id: "retired", Type: "retired-widget", Config: map[string]interface{}{}}
 	retired.Layout.Y, retired.Layout.W, retired.Layout.H = 12, 4, 2
-	config.Widgets = []gen.DashboardWidget{retired, readings, uptime, healthPie, typePie, stats, timeline}
+	current := gen.DashboardWidget{Id: "current-reading", Type: "current-reading", Config: map[string]interface{}{"sensorId": 1, "measurementType": "temperature"}}
+	current.Layout.X, current.Layout.Y, current.Layout.W, current.Layout.H = 6, 12, 3, 3
+	group := gen.DashboardWidget{Id: "group-summary", Type: "group-summary", Config: map[string]interface{}{"measurementType": "temperature"}}
+	group.Layout.X, group.Layout.Y, group.Layout.W, group.Layout.H = 9, 12, 3, 5
+	gauge := gen.DashboardWidget{Id: "gauge", Type: "gauge", Config: map[string]interface{}{"sensorId": 1, "measurementType": "temperature", "min": 0, "max": 40}}
+	gauge.Layout.Y, gauge.Layout.W, gauge.Layout.H = 14, 6, 5
+	minMaxAvg := gen.DashboardWidget{Id: "min-max-avg", Type: "min-max-avg", Config: map[string]interface{}{"sensorId": 1, "measurementType": "temperature", "timeRange": "7d"}}
+	minMaxAvg.Layout.Y, minMaxAvg.Layout.W, minMaxAvg.Layout.H = 19, 6, 3
+	config.Widgets = []gen.DashboardWidget{retired, readings, uptime, healthPie, typePie, stats, timeline, current, group, gauge, minMaxAvg}
 
 	dashboards := service.NewDashboardService(database.NewDashboardRepository(env.DB, slog.Default()), slog.Default())
-	if _, err := dashboards.ServiceCreateDashboard(ctx, admin.Id, gen.CreateDashboardRequest{Name: "Layout", Config: config}); err != nil {
+	id, err := dashboards.ServiceCreateDashboard(ctx, admin.Id, gen.CreateDashboardRequest{Name: "Layout", Config: config})
+	if err != nil {
 		return fmt.Errorf("failed to create dashboard: %w", err)
 	}
+	if err := dashboards.ServiceSetDefaultDashboard(ctx, admin.Id, id); err != nil {
+		return fmt.Errorf("failed to make the layout dashboard the default: %w", err)
+	}
+	return nil
+}
+
+func publishLayoutCurrentReadings(_ context.Context, _ *Env) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	var readings []gen.Reading
+	for i, value := range []float64{21.3, 19.8, 22.4} {
+		readings = append(readings, gen.Reading{
+			SensorName:      fmt.Sprintf("seed-sensor-%02d", i+1),
+			MeasurementType: "temperature",
+			NumericValue:    &value,
+			Unit:            "°C",
+			Time:            now,
+		})
+	}
+	ws.PublishReadings(readings)
 	return nil
 }
 

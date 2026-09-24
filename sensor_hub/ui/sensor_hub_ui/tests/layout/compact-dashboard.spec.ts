@@ -17,7 +17,7 @@ test.describe('Dashboard at 390x844', () => {
 
     const stack = page.locator('[data-ui=stack]', { has: page.locator('[data-ui=dashboard-slot]') });
     const items = stack.locator('[data-ui=dashboard-slot]');
-    await expect(items).toHaveCount(7);
+    await expect(items).toHaveCount(11);
 
     const titles = await items.evaluateAll((elements) =>
       elements.map((element) => (element.querySelector('.MuiTypography-caption, .MuiTypography-root')?.textContent ?? '').split(':')[0]),
@@ -30,6 +30,10 @@ test.describe('Dashboard at 390x844', () => {
       'Health Timeline',
       'Reading Statistics',
       'Unknown widget',
+      'Current Reading',
+      'Group Summary',
+      'Gauge',
+      'Min / Max / Avg',
     ]);
 
     const stackWidth = await stack.evaluate((element) => element.getBoundingClientRect().width);
@@ -41,7 +45,7 @@ test.describe('Dashboard at 390x844', () => {
   test('frames are their compact height, or their content height', async ({ page }) => {
     await openDashboard(page);
     const items = page.locator('[data-ui=dashboard-slot]');
-    await expect(items).toHaveCount(7);
+    await expect(items).toHaveCount(11);
 
     const frames = await items.evaluateAll((elements) =>
       elements.map((element) => {
@@ -54,7 +58,7 @@ test.describe('Dashboard at 390x844', () => {
         };
       }),
     );
-    expect(frames.map((frame) => frame.token)).toEqual(['280', '140', '220', '220', '220', null, null]);
+    expect(frames.map((frame) => frame.token)).toEqual(['280', '140', '220', '220', '220', null, null, '140', null, '200', '160']);
     for (const frame of frames) {
       if (frame.token) {
         expect(frame.height).toBe(Number(frame.token));
@@ -68,7 +72,7 @@ test.describe('Dashboard at 390x844', () => {
 
   test('an unknown widget type shows the Unknown widget frame at its content height', async ({ page }) => {
     await openDashboard(page);
-    const unknown = page.locator('[data-ui=dashboard-slot]').last();
+    const unknown = page.locator('[data-ui=dashboard-slot]', { hasText: 'Unknown widget' });
     await expect(unknown).toContainText('Unknown widget: retired-widget');
     await expect(unknown).not.toHaveAttribute('data-ui-height');
     const { height, contentHeight } = await unknown.evaluate((element) => ({

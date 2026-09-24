@@ -1,5 +1,4 @@
 import type { WidgetProps } from '../types';
-import { Box, Typography } from '@mui/material';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurrentReadings';
 import { parseUTCTime } from '../../tools/Utils';
@@ -7,6 +6,7 @@ import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { useWidgetStateReport } from '../WidgetContext';
 import { WidgetSwap, ValuePlaceholderLoader } from '../widget-loaders';
+import Metric from '../../ui/Metric';
 
 export default function CurrentReadingWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
@@ -30,25 +30,12 @@ export default function CurrentReadingWidget({ config }: WidgetProps) {
 
     return (
         <WidgetSwap loading={isLoading} loader={<ValuePlaceholderLoader />}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 2 }}>
-                <Typography variant="subtitle1" sx={{
-                    color: "text.secondary"
-                }}>{sensor.name}</Typography>
-                <Typography variant="h1" sx={{ fontSize: '4rem', fontWeight: 'bold', textAlign: 'center' }}>
-                    {reading
-                        ? reading.numeric_value != null
-                            ? `${reading.numeric_value.toFixed(1)}${reading.unit ? ` ${reading.unit}` : ''}`
-                            : reading.text_state ?? '—'
-                        : '—'}
-                </Typography>
-                {reading && (
-                    <Typography variant="caption" sx={{
-                        color: "text.secondary"
-                    }}>
-                        {parseUTCTime(reading.time).toLocaleString()}
-                    </Typography>
-                )}
-            </Box>
+            <Metric
+                value={reading ? reading.numeric_value ?? reading.text_state ?? null : null}
+                unit={reading?.numeric_value != null ? reading.unit || undefined : undefined}
+                label={sensor.name}
+                caption={reading ? parseUTCTime(reading.time).toLocaleString() : undefined}
+            />
         </WidgetSwap>
     );
 }

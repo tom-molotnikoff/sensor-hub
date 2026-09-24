@@ -235,33 +235,6 @@
       "count": 1
     }
   },
-  "src/dashboard/widgets/CurrentReadingWidget.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 4
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
-    }
-  },
-  "src/dashboard/widgets/GaugeWidget.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 9
-    }
-  },
-  "src/dashboard/widgets/GroupSummaryWidget.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 12
-    }
-  },
   "src/dashboard/widgets/HealthTimelineWidget.tsx": {
     "ui/no-layout-styles": {
       "count": 1
@@ -284,14 +257,6 @@
     },
     "ui/no-raw-visuals": {
       "count": 7
-    }
-  },
-  "src/dashboard/widgets/MinMaxAvgWidget.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 13
     }
   },
   "src/dashboard/widgets/ReadingsChartWidget.tsx": {

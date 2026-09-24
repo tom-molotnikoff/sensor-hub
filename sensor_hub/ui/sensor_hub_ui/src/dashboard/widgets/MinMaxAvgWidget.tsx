@@ -1,6 +1,5 @@
 import type { WidgetProps } from '../types';
 import { useCallback, useEffect } from 'react';
-import { Box, Paper, Typography } from '@mui/material';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { useScheduledQuery } from '../../hooks/useScheduledQuery';
 import { apiClient } from '../../gen/client';
@@ -9,6 +8,7 @@ import NeedsConfiguration from '../NeedsConfiguration';
 import { resolveTimeRange } from '../timeRange';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { WidgetSwap, SkeletonTilesLoader } from '../widget-loaders';
+import Metric, { MetricGroup } from '../../ui/Metric';
 
 interface Stats {
     min: number;
@@ -72,27 +72,13 @@ export default function MinMaxAvgWidget({ config }: WidgetProps) {
     return (
         <WidgetSwap loading={isLoading} loader={<SkeletonTilesLoader />}>
             {!stats ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                    <Typography sx={{
-                        color: "text.secondary"
-                    }}>No data available</Typography>
-                </Box>
+                <Metric value={null} label="No data available" />
             ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
-                    <Typography variant="subtitle1" sx={{ mb: 1 }}>{sensor.name}</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2, flex: 1, alignItems: 'center' }}>
-                        {statItems.map((item) => (
-                            <Paper key={item.label} sx={{ flex: 1, p: 2, textAlign: 'center' }} elevation={1}>
-                                <Typography variant="caption" sx={{ color: item.color, fontWeight: 'bold' }}>
-                                    {item.label}
-                                </Typography>
-                                <Typography variant="h5" sx={{ color: item.color }}>
-                                    {item.value.toFixed(1)}{stats.unit}
-                                </Typography>
-                            </Paper>
-                        ))}
-                    </Box>
-                </Box>
+                <MetricGroup>
+                    {statItems.map((item) => (
+                        <Metric key={item.label} value={item.value} unit={stats.unit} label={item.label} tone={item.color} />
+                    ))}
+                </MetricGroup>
             )}
         </WidgetSwap>
     );

@@ -1,11 +1,11 @@
 import type { WidgetProps } from '../types';
-import { Box, CircularProgress, Typography } from '@mui/material';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurrentReadings';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { useWidgetStateReport } from '../WidgetContext';
 import { WidgetSwap, CircularDrawLoader } from '../widget-loaders';
+import Metric from '../../ui/Metric';
 
 export default function GaugeWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
@@ -39,33 +39,12 @@ export default function GaugeWidget({ config }: WidgetProps) {
 
     return (
         <WidgetSwap loading={isLoading} loader={<CircularDrawLoader />}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 2 }}>
-            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-                <CircularProgress
-                    variant="determinate"
-                    value={value !== null ? percentage : 0}
-                    size={140}
-                    thickness={6}
-                    sx={{
-                        transform: 'rotate(-90deg) !important',
-                        color: getColor(percentage),
-                    }}
-                />
-                <Box sx={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                        {value !== null ? `${value.toFixed(1)}${unit}` : '—'}
-                    </Typography>
-                </Box>
-            </Box>
-            <Typography
-                variant="subtitle2"
-                sx={{
-                    color: "text.secondary",
-                    mt: 1
-                }}>
-                {sensor.name}
-            </Typography>
-        </Box>
+            <Metric
+                value={value}
+                unit={unit}
+                label={sensor.name}
+                dial={{ percent: value !== null ? percentage : 0, tone: getColor(percentage) }}
+            />
         </WidgetSwap>
     );
 }
