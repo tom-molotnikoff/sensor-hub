@@ -1,7 +1,7 @@
 import Page from '../../ui/Page';
+import PageGrid from '../../ui/PageGrid';
 import { useAuth } from '../../providers/AuthContext';
 import { hasPerm } from '../../tools/Utils';
-import { Grid } from '@mui/material';
 import AlertRulesCard from '../../components/AlertRulesCard';
 import NotificationsCard from '../../components/NotificationsCard';
 import NotificationPreferencesCard from '../../components/NotificationPreferencesCard';
@@ -12,20 +12,20 @@ export default function NotificationsPage() {
 
   return (
     <Page title="Alerts & Notifications" loading={user === undefined}>
-      <Grid container spacing={2}>
+      <PageGrid>
         {hasPerm(user, 'view_alerts') && (
-          <Grid size={12}><AlertRulesCard /></Grid>
+          <PageGrid.Item><AlertRulesCard /></PageGrid.Item>
         )}
         {hasPerm(user, 'manage_notifications') && (
-          <Grid size={12}><NotificationPreferencesCard /></Grid>
+          <PageGrid.Item><NotificationPreferencesCard /></PageGrid.Item>
         )}
         {hasPerm(user, 'manage_oauth') && (
-          <Grid size={12}><OAuthConfigCard /></Grid>
+          <PageGrid.Item><OAuthConfigCard /></PageGrid.Item>
         )}
         {hasPerm(user, 'view_notifications') && (
-          <Grid size={12}><NotificationsCard /></Grid>
+          <PageGrid.Item><NotificationsCard /></PageGrid.Item>
         )}
-      </Grid>
+      </PageGrid>
     </Page>
   );
 }

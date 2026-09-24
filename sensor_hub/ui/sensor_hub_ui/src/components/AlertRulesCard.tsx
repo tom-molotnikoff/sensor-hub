@@ -1,22 +1,34 @@
-import { useEffect, useState } from 'react';
-import type { GridRowParams } from '@mui/x-data-grid';
-import { Button, Box, Menu, MenuItem } from '@mui/material';
+import { useEffect, useMemo, useState } from 'react';
+import { Button, Chip, Menu, MenuItem } from '@mui/material';
+import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { apiClient } from '../gen/client';
 import type { AlertRule } from '../gen/aliases';
-import LayoutCard from '../tools/LayoutCard';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';
-import { useIsMobile } from '../hooks/useMobile';
-import AlertRuleDataGrid from './AlertRuleDataGrid';
-import AlertRuleCard from './AlertRuleCard';
 import AlertHistoryDialog from './AlertHistoryDialog';
 import DeleteAlertDialog from './DeleteAlertDialog';
 import EditAlertDialog from './EditAlertDialog';
 import CreateAlertDialog from './CreateAlertDialog';
+import Card from '../ui/Card';
+import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
-import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { logger } from '../tools/logger';
-import {TypographyH2} from "../tools/Typography.tsx";
+
+type AlertRuleRow = AlertRule & { id: number };
+
+const alertTypeLabels: Record<string, string> = {
+  numeric_range: 'Numeric range',
+  status_based: 'Status based',
+};
+
+function formatRateLimit(seconds: number): string {
+  if (seconds === 0) return 'None';
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  return `${Math.round(seconds / 3600)}h`;
+}
+
+const orDash = (value: unknown) => (value === null || value === undefined || value === '' ? '-' : String(value));
 
 export default function AlertRulesCard() {
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
@@ -28,7 +40,6 @@ export default function AlertRulesCard() {
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
 
   const { user } = useAuth();
-  const isMobile = useIsMobile();
 
   const load = () =>
     apiClient.GET('/alerts')
@@ -37,68 +48,81 @@ export default function AlertRulesCard() {
 
   useEffect(() => { void load(); }, []);
 
-  const handleRowClick = (params: GridRowParams, event: React.MouseEvent) => {
-    const id = typeof params.id === 'number' ? params.id : Number(params.id);
-    const found = alertRules.find(r => r.ID === id);
-    if (found) setSelectedRow(found);
-    else setSelectedRow(params.row as AlertRule);
-    setMenuAnchorEl(event.currentTarget as HTMLElement);
+  const rows = useMemo<AlertRuleRow[]>(() => alertRules.map((rule) => ({ ...rule, id: rule.ID })), [alertRules]);
+
+  const handleRowClick = (row: AlertRuleRow, anchor: HTMLElement) => {
+    setSelectedRow(row);
+    setMenuAnchorEl(anchor);
   };
 
   const closeMenu = () => { setMenuAnchorEl(null); };
 
   const fieldsDisabled = !user || !hasPerm(user, "manage_alerts");
+  const openCreate = () => setOpenCreateDialog(true);
 
   return (
     <>
-      <LayoutCard variant="secondary" changes={{ alignItems: "stretch", height: "100%", width: "100%" }}>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 2,
-            mb: 2,
-            width: '100%'
-          }}>
-          <TypographyH2>Alert Rules</TypographyH2>
-          <Box>
-            <Button variant="contained" disabled={fieldsDisabled} onClick={() => setOpenCreateDialog(true)}>
-              Create Alert Rule
-            </Button>
-          </Box>
-        </Box>
-        {isMobile ? (
-          <Box sx={{ width: '100%', maxHeight: 400, overflowY: 'auto' }}>
-            {alertRules.length === 0 ? (
-              <EmptyState
-                icon={<NotificationsNoneOutlinedIcon sx={{ fontSize: 48 }} />}
-                title="No alert rules configured"
-                description="Create an alert rule to get notified when sensor readings go out of range."
-                actionLabel={!fieldsDisabled ? "Create Alert Rule" : undefined}
-                onAction={!fieldsDisabled ? () => setOpenCreateDialog(true) : undefined}
-              />
-            ) : (
-              alertRules.map((rule) => (
-                <AlertRuleCard
-                  key={rule.ID}
-                  rule={rule}
-                  onClick={(event) => {
-                    setSelectedRow(rule);
-                    setMenuAnchorEl(event.currentTarget as HTMLElement);
-                  }}
-                />
-              ))
-            )}
-          </Box>
+      <Card
+        title="Alert Rules"
+        actions={
+          <Button variant="contained" disabled={fieldsDisabled} onClick={openCreate}>
+            Create Alert Rule
+          </Button>
+        }
+      >
+        {rows.length === 0 ? (
+          <EmptyState
+            icon={<NotificationsNoneOutlinedIcon fontSize="large" />}
+            title="No alert rules configured"
+            description="Create an alert rule to get notified when sensor readings go out of range."
+            actionLabel={fieldsDisabled ? undefined : "Create Alert Rule"}
+            onAction={fieldsDisabled ? undefined : openCreate}
+            size="lg"
+          />
         ) : (
-          <div style={{ height: 400, width: '100%' }}>
-            <AlertRuleDataGrid
-              alertRules={alertRules}
-              handleRowClick={handleRowClick}
-              onCreateClick={!fieldsDisabled ? () => setOpenCreateDialog(true) : undefined}
-            />
-          </div>
+          <DataTable
+            rows={rows}
+            onRowClick={handleRowClick}
+            columns={[
+              { field: 'SensorName', headerName: 'Sensor', flex: 1, minWidth: 140, compact: 'title' },
+              { field: 'MeasurementType', headerName: 'Measurement', width: 130, compact: 'meta' },
+              {
+                field: 'AlertType',
+                headerName: 'Alert Type',
+                width: 150,
+                compact: 'meta',
+                valueFormatter: (value: string) => alertTypeLabels[value] ?? value,
+              },
+              { field: 'HighThreshold', headerName: 'High', width: 80, compact: 'hidden', valueFormatter: orDash },
+              { field: 'LowThreshold', headerName: 'Low', width: 80, compact: 'hidden', valueFormatter: orDash },
+              { field: 'TriggerStatus', headerName: 'Status', width: 100, compact: 'hidden', valueFormatter: orDash },
+              {
+                field: 'RateLimitSeconds',
+                headerName: 'Rate Limit',
+                width: 130,
+                compact: 'hidden',
+                valueFormatter: (value: number) => formatRateLimit(value),
+              },
+              {
+                field: 'Enabled',
+                headerName: 'Enabled',
+                width: 110,
+                compact: 'status',
+                statusOf: (row) => (row.Enabled ? 'ok' : 'unknown'),
+                valueFormatter: (value: boolean) => (value ? 'Enabled' : 'Disabled'),
+                renderCell: ({ row, formattedValue }) => (
+                  <Chip label={formattedValue} color={row.Enabled ? 'success' : 'default'} size="small" />
+                ),
+              },
+              {
+                field: 'LastAlertSentAt',
+                headerName: 'Last Alert Sent',
+                width: 180,
+                compact: 'hidden',
+                valueFormatter: (value: string | null | undefined) => (value ? new Date(value).toLocaleString() : 'Never'),
+              },
+            ]}
+          />
         )}
 
         {user && hasPerm(user, "view_alerts") && (
@@ -108,7 +132,7 @@ export default function AlertRulesCard() {
             <MenuItem onClick={() => { closeMenu(); setOpenHistoryDialog(true); }}>View History</MenuItem>
           </Menu>
         )}
-      </LayoutCard>
+      </Card>
       <CreateAlertDialog open={openCreateDialog} onClose={() => setOpenCreateDialog(false)} onCreated={load} />
       <EditAlertDialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} onSaved={load} selectedAlert={selectedRow} />
       <DeleteAlertDialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)} onDeleted={load} selectedAlert={selectedRow} />

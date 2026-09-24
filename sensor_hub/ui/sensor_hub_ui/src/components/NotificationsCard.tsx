@@ -1,16 +1,30 @@
 import { useState } from 'react';
-import { Box, Typography, Button, Chip, IconButton, Menu, MenuItem, Card, CardContent, Divider, Tabs, Tab } from '@mui/material';
+import {
+  Button,
+  Chip,
+  IconButton,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Tab,
+  Tabs,
+  Typography,
+} from '@mui/material';
 import { CascadeRowsLoader } from '../dashboard/widget-loaders';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import InfoIcon from '@mui/icons-material/Info';
 import WarningIcon from '@mui/icons-material/Warning';
 import ErrorIcon from '@mui/icons-material/Error';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import LayoutCard from '../tools/LayoutCard';
 import { useNotifications } from '../providers/NotificationContext';
 import type { NotificationSeverity, NotificationCategory } from '../gen/aliases';
-import { useIsMobile } from '../hooks/useMobile';
-import {TypographyH2} from "../tools/Typography.tsx";
+import Card from '../ui/Card';
+import EmptyState from '../ui/EmptyState';
+import Inline from '../ui/Inline';
+import Stack from '../ui/Stack';
 
 function getSeverityIcon(severity: NotificationSeverity) {
   switch (severity) {
@@ -43,12 +57,11 @@ function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleString();
 }
 
-export default function NotificationsCard({ showTitle = true }: { showTitle?: boolean }) {
+export default function NotificationsCard() {
   const { notifications, loading, markAsRead, dismiss, markAllAsRead, dismissAll, refresh } = useNotifications();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedNotifId, setSelectedNotifId] = useState<number | null>(null);
   const [tabValue, setTabValue] = useState(0);
-  const isMobile = useIsMobile();
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, notifId: number) => {
     event.stopPropagation();
@@ -73,90 +86,72 @@ export default function NotificationsCard({ showTitle = true }: { showTitle?: bo
     : notifications;
 
   return (
-    <LayoutCard variant="secondary" changes={{ alignItems: 'stretch', height: '100%', width: '100%' }}>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 2,
-          mb: 2,
-          flexWrap: "wrap"
-        }}>
-        {showTitle && <TypographyH2>Notifications</TypographyH2>}
-        <Box
-          sx={{
-            display: "flex",
-            gap: 1,
-            flexWrap: "wrap"
-          }}>
-          <Button variant="outlined" onClick={() => refresh()} size={isMobile ? 'small' : 'medium'}>Refresh</Button>
-          <Button variant="outlined" onClick={markAllAsRead} size={isMobile ? 'small' : 'medium'}>Mark All Read</Button>
-          <Button variant="outlined" color="warning" onClick={dismissAll} size={isMobile ? 'small' : 'medium'}>Dismiss All</Button>
-        </Box>
-      </Box>
-      <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} sx={{ mb: 2 }}>
-        <Tab label={`Unread (${notifications.filter(n => !n.is_read).length})`} />
-        <Tab label={`All (${notifications.length})`} />
-      </Tabs>
-      {loading ? (
-        <Box sx={{ flex: 1, minHeight: 0 }}><CascadeRowsLoader /></Box>
-      ) : filteredNotifications.length === 0 ? (
-        <Box
-          sx={{
-            textAlign: "center",
-            py: 6
-          }}>
-          <CheckCircleIcon color="disabled" sx={{ fontSize: 64, mb: 2 }} />
-          <Typography sx={{
-            color: "text.secondary"
-          }}>{tabValue === 0 ? 'No unread notifications' : 'No notifications'}</Typography>
-        </Box>
-      ) : (
-        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          {filteredNotifications.map((notif, index) => (
-            <div key={notif.notification_id}>
-              <Card sx={{ mb: 1, backgroundColor: notif.is_read ? 'transparent' : 'action.hover' }} variant="outlined">
-                <CardContent sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, py: 2 }}>
-                  <Box sx={{ mt: 0.5 }}>{getSeverityIcon(notif.notification!.severity!)}</Box>
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 0.5
-                      }}>
-                      <Typography variant="subtitle1" sx={{
-                        fontWeight: notif.is_read ? 'normal' : 'bold'
-                      }}>{notif.notification!.title}</Typography>
+    <Card title="Notifications">
+      <Stack>
+        <Inline>
+          <Button variant="outlined" size="small" onClick={() => refresh()}>Refresh</Button>
+          <Button variant="outlined" size="small" onClick={markAllAsRead}>Mark All Read</Button>
+          <Button variant="outlined" size="small" color="warning" onClick={dismissAll}>Dismiss All</Button>
+        </Inline>
+        <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
+          <Tab label={`Unread (${notifications.filter(n => !n.is_read).length})`} />
+          <Tab label={`All (${notifications.length})`} />
+        </Tabs>
+        {loading ? (
+          <CascadeRowsLoader />
+        ) : filteredNotifications.length === 0 ? (
+          <EmptyState
+            icon={<CheckCircleIcon fontSize="large" />}
+            title={tabValue === 0 ? 'No unread notifications' : 'No notifications'}
+            size="sm"
+          />
+        ) : (
+          <List disablePadding data-ui="notification-list">
+            {filteredNotifications.map((notif, index) => (
+              <ListItem
+                key={notif.notification_id}
+                alignItems="flex-start"
+                disableGutters
+                divider={index < filteredNotifications.length - 1}
+                secondaryAction={
+                  <IconButton
+                    edge="end"
+                    size="small"
+                    aria-label={`Actions for ${notif.notification!.title}`}
+                    onClick={(e) => handleMenuOpen(e, notif.notification_id!)}
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
+                }
+              >
+                <ListItemIcon>{getSeverityIcon(notif.notification!.severity!)}</ListItemIcon>
+                <ListItemText
+                  disableTypography
+                  primary={
+                    <Inline>
+                      <Typography variant={notif.is_read ? 'body' : 'sectionTitle'} component="p">{notif.notification!.title}</Typography>
                       <Chip label={getCategoryLabel(notif.notification!.category!)} size="small" color={getSeverityColor(notif.notification!.severity!)} variant="outlined" />
                       {!notif.is_read && <Chip label="New" size="small" color="primary" />}
-                    </Box>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "text.secondary",
-                        mb: 1
-                      }}>{notif.notification!.message}</Typography>
-                    <Typography variant="caption" sx={{
-                      color: "text.disabled"
-                    }}>{formatDate(notif.notification!.created_at!)}</Typography>
-                  </Box>
-                  <IconButton size="small" onClick={(e) => handleMenuOpen(e, notif.notification_id!)}><MoreVertIcon /></IconButton>
-                </CardContent>
-              </Card>
-              {index < filteredNotifications.length - 1 && <Divider sx={{ my: 1 }} />}
-            </div>
-          ))}
-        </Box>
-      )}
+                    </Inline>
+                  }
+                  secondary={
+                    <>
+                      <Typography variant="bodySmall" component="p" sx={{ color: 'text.secondary' }}>{notif.notification!.message}</Typography>
+                      <Typography variant="caption" sx={{ color: 'text.disabled' }}>{formatDate(notif.notification!.created_at!)}</Typography>
+                    </>
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
+        )}
+      </Stack>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
         {[
           <MenuItem key="mark-read" onClick={handleMarkAsRead}>Mark as Read</MenuItem>,
           <MenuItem key="dismiss" onClick={handleDismiss}>Dismiss</MenuItem>
         ]}
       </Menu>
-    </LayoutCard>
+    </Card>
   );
 }

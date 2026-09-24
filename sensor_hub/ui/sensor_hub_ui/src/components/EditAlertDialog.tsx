@@ -2,7 +2,6 @@ import {useState} from "react";
 import type {AlertRule} from "../gen/aliases";
 import { apiClient } from "../gen/client";
 import {
-  Box,
   Button,
   Dialog, DialogActions,
   DialogContent, DialogTitle,
@@ -14,6 +13,8 @@ import {
   TextField
 } from "@mui/material";
 import { logger } from '../tools/logger';
+import PageGrid from '../ui/PageGrid';
+import Stack from '../ui/Stack';
 
 type RateLimitUnit = 'seconds' | 'minutes' | 'hours';
 
@@ -86,95 +87,91 @@ export default function EditAlertDialog({open, onClose, onSaved, selectedAlert}:
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Edit Alert Rule</DialogTitle>
       <DialogContent>
-        <TextField
-          fullWidth
-          label="Sensor"
-          value={selectedAlert?.SensorName || ''}
-          disabled
-          sx={{ mt: 1 }}
-        />
-
-        <FormControl fullWidth sx={{ mt: 2 }}>
-          <InputLabel id="edit-type-label">Alert Type</InputLabel>
-          <Select
-            labelId="edit-type-label"
-            value={editAlertType}
-            label="Alert Type"
-            onChange={(e) => setEditAlertType(e.target.value as 'numeric_range' | 'status_based')}
-          >
-            <MenuItem value="numeric_range">Numeric Range</MenuItem>
-            <MenuItem value="status_based">Status Based</MenuItem>
-          </Select>
-        </FormControl>
-
-        {editAlertType === 'numeric_range' ? (
-          <>
-            <TextField
-              fullWidth
-              label="High Threshold"
-              type="number"
-              value={editHighThreshold}
-              onChange={(e) => setEditHighThreshold(e.target.value)}
-              sx={{ mt: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Low Threshold"
-              type="number"
-              value={editLowThreshold}
-              onChange={(e) => setEditLowThreshold(e.target.value)}
-              sx={{ mt: 2 }}
-            />
-          </>
-        ) : (
+        <Stack>
           <TextField
             fullWidth
-            label="Trigger Status"
-            value={editTriggerStatus}
-            onChange={(e) => setEditTriggerStatus(e.target.value)}
-            sx={{ mt: 2 }}
-            helperText="e.g., 'true', 'false', 'open', 'closed'"
+            label="Sensor"
+            value={selectedAlert?.SensorName || ''}
+            disabled
           />
-        )}
 
-        <Box
-          sx={{
-            display: "flex",
-            gap: 2,
-            mt: 2
-          }}>
-          <TextField
-            label="Rate Limit"
-            type="number"
-            value={editRateLimit}
-            onChange={(e) => setEditRateLimit(e.target.value)}
-            sx={{ flex: 1 }}
-          />
-          <FormControl sx={{ minWidth: 120 }}>
-            <InputLabel id="edit-rate-unit-label">Unit</InputLabel>
+          <FormControl fullWidth>
+            <InputLabel id="edit-type-label">Alert Type</InputLabel>
             <Select
-              labelId="edit-rate-unit-label"
-              value={editRateLimitUnit}
-              label="Unit"
-              onChange={(e) => setEditRateLimitUnit(e.target.value as RateLimitUnit)}
+              labelId="edit-type-label"
+              value={editAlertType}
+              label="Alert Type"
+              onChange={(e) => setEditAlertType(e.target.value as 'numeric_range' | 'status_based')}
             >
-              <MenuItem value="seconds">Seconds</MenuItem>
-              <MenuItem value="minutes">Minutes</MenuItem>
-              <MenuItem value="hours">Hours</MenuItem>
+              <MenuItem value="numeric_range">Numeric Range</MenuItem>
+              <MenuItem value="status_based">Status Based</MenuItem>
             </Select>
           </FormControl>
-        </Box>
 
-        <FormControlLabel
-          control={
-            <Switch
-              checked={editEnabled}
-              onChange={(e) => setEditEnabled(e.target.checked)}
+          {editAlertType === 'numeric_range' ? (
+            <>
+              <TextField
+                fullWidth
+                label="High Threshold"
+                type="number"
+                value={editHighThreshold}
+                onChange={(e) => setEditHighThreshold(e.target.value)}
+              />
+              <TextField
+                fullWidth
+                label="Low Threshold"
+                type="number"
+                value={editLowThreshold}
+                onChange={(e) => setEditLowThreshold(e.target.value)}
+              />
+            </>
+          ) : (
+            <TextField
+              fullWidth
+              label="Trigger Status"
+              value={editTriggerStatus}
+              onChange={(e) => setEditTriggerStatus(e.target.value)}
+              helperText="e.g., 'true', 'false', 'open', 'closed'"
             />
-          }
-          label="Enabled"
-          sx={{ mt: 2 }}
-        />
+          )}
+
+          <PageGrid>
+            <PageGrid.Item span={{ wide: 8 }}>
+              <TextField
+                label="Rate Limit"
+                type="number"
+                value={editRateLimit}
+                onChange={(e) => setEditRateLimit(e.target.value)}
+                fullWidth
+              />
+            </PageGrid.Item>
+            <PageGrid.Item span={{ wide: 4 }}>
+              <FormControl fullWidth>
+                <InputLabel id="edit-rate-unit-label">Unit</InputLabel>
+                <Select
+                  labelId="edit-rate-unit-label"
+                  value={editRateLimitUnit}
+                  label="Unit"
+                  onChange={(e) => setEditRateLimitUnit(e.target.value as RateLimitUnit)}
+                >
+                  <MenuItem value="seconds">Seconds</MenuItem>
+                  <MenuItem value="minutes">Minutes</MenuItem>
+                  <MenuItem value="hours">Hours</MenuItem>
+                </Select>
+              </FormControl>
+            </PageGrid.Item>
+          </PageGrid>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={editEnabled}
+                onChange={(e) => setEditEnabled(e.target.checked)}
+              />
+            }
+            label="Enabled"
+          />
+        </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>

@@ -63,7 +63,7 @@ export default function Card({ title, actions, variant = 'default', id, children
         sx={{
           flex: '1 1 auto',
           minWidth: 0,
-          ...(bounded && { display: 'flex', flexDirection: 'column', minHeight: 0 }),
+          ...(bounded && { display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }),
         }}
       >
         {children}
