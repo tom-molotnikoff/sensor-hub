@@ -25,6 +25,7 @@ test.describe('Sensor Summary at 390x844', () => {
 
   test('opens the row menu when a row is tapped', async ({ page }) => {
     const card = await openSummary(page);
+    await card.getByRole('textbox', { name: 'Search' }).fill('porch-light');
     await card.getByRole('button', { name: /porch-light/ }).click();
 
     await expect(page.getByRole('menuitem', { name: 'Trigger Reading' })).toBeVisible();
@@ -76,7 +77,7 @@ test.describe('Sensor Summary at 1440x900', () => {
     const names = grid.locator('[data-field=name][role=gridcell]');
     await grid.getByRole('columnheader', { name: 'Sensor Name' }).click();
     await grid.getByRole('columnheader', { name: 'Sensor Name' }).click();
-    await expect(names.first()).toHaveText('seed-sensor-08');
+    await expect(names.first()).toHaveText('Study');
 
     await card.getByRole('button', { name: 'Columns' }).click();
     await expect(page.getByRole('checkbox', { name: 'Health Reason' })).toBeVisible();

@@ -15,6 +15,7 @@ import (
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
+	"example/sensorHub/testharness/seed"
 	"example/sensorHub/ws"
 )
 
@@ -212,7 +213,7 @@ func publishLayoutCurrentReadings(_ context.Context, _ *Env) error {
 	var readings []gen.Reading
 	for i, value := range []float64{21.3, 19.8, 22.4} {
 		readings = append(readings, gen.Reading{
-			SensorName:      fmt.Sprintf("seed-sensor-%02d", i+1),
+			SensorName:      seed.SensorName(i),
 			MeasurementType: "temperature",
 			NumericValue:    &value,
 			Unit:            "°C",
@@ -335,18 +336,18 @@ func createLayoutAlerts(ctx context.Context, env *Env) error {
 		rateLimit           int
 		enabled             bool
 	}{
-		{"seed-sensor-01", "temperature", 28, 12, 3600, true},
-		{"seed-sensor-01", "humidity", 70, 30, 1800, true},
-		{"seed-sensor-02", "temperature", 30, 10, 3600, true},
-		{"seed-sensor-02", "humidity", 65, 35, 900, false},
-		{"seed-sensor-03", "temperature", 26, 16, 7200, true},
-		{"seed-sensor-03", "humidity", 75, 25, 0, true},
-		{"seed-sensor-04", "temperature", 32, 8, 3600, false},
-		{"seed-sensor-04", "humidity", 60, 40, 3600, true},
-		{"seed-sensor-05", "temperature", 24, 18, 45, true},
-		{"seed-sensor-05", "humidity", 80, 20, 3600, true},
-		{"seed-sensor-06", "temperature", 29, 11, 86400, true},
-		{"seed-sensor-06", "humidity", 68, 32, 3600, false},
+		{"Living Room", "temperature", 28, 12, 3600, true},
+		{"Living Room", "humidity", 70, 30, 1800, true},
+		{"Kitchen", "temperature", 30, 10, 3600, true},
+		{"Kitchen", "humidity", 65, 35, 900, false},
+		{"Bedroom", "temperature", 26, 16, 7200, true},
+		{"Bedroom", "humidity", 75, 25, 0, true},
+		{"Office", "temperature", 32, 8, 3600, false},
+		{"Office", "humidity", 60, 40, 3600, true},
+		{"Bathroom", "temperature", 24, 18, 45, true},
+		{"Bathroom", "humidity", 80, 20, 3600, true},
+		{"Nursery", "temperature", 29, 11, 86400, true},
+		{"Nursery", "humidity", 68, 32, 3600, false},
 	}
 	for _, rule := range rules {
 		if _, err := env.DB.Writer.ExecContext(ctx,
@@ -360,7 +361,7 @@ func createLayoutAlerts(ctx context.Context, env *Env) error {
 		if _, err := env.DB.Writer.ExecContext(ctx,
 			`INSERT INTO alert_sent_history (alert_rule_id, sensor_id, sent_at, alert_reason, reading_value)
 			 SELECT r.id, r.sensor_id, datetime('now', ?), 'above high threshold', ? FROM sensor_alert_rules r
-			 JOIN sensors s ON s.id = r.sensor_id WHERE s.name = 'seed-sensor-01' ORDER BY r.id LIMIT 1`,
+			 JOIN sensors s ON s.id = r.sensor_id WHERE s.name = 'Living Room' ORDER BY r.id LIMIT 1`,
 			fmt.Sprintf("-%d hours", hours*6), 28+float64(hours)/4); err != nil {
 			return fmt.Errorf("failed to insert alert history: %w", err)
 		}
@@ -370,18 +371,18 @@ func createLayoutAlerts(ctx context.Context, env *Env) error {
 
 func createLayoutNotifications(ctx context.Context, env *Env) error {
 	notifications := []struct{ category, severity, title, message string }{
-		{"threshold_alert", "warning", "seed-sensor-01 temperature high", "Temperature reached 29.5°C, above the 28°C threshold."},
-		{"threshold_alert", "error", "seed-sensor-03 humidity high", "Humidity reached 81%, above the 75% threshold for more than an hour."},
+		{"threshold_alert", "warning", "Living Room temperature high", "Temperature reached 29.5°C, above the 28°C threshold."},
+		{"threshold_alert", "error", "Bedroom humidity high", "Humidity reached 81%, above the 75% threshold for more than an hour."},
 		{"config_change", "info", "Sensor added", "porch-light was added by testadmin."},
 		{"user_management", "info", "User created", "testviewer was created with the viewer role."},
-		{"threshold_alert", "warning", "seed-sensor-05 temperature low", "Temperature fell to 17.2°C, below the 18°C threshold."},
+		{"threshold_alert", "warning", "Bathroom temperature low", "Temperature fell to 17.2°C, below the 18°C threshold."},
 		{"config_change", "info", "Retention changed", "kitchen-plug now keeps readings for 48 hours."},
-		{"threshold_alert", "error", "seed-sensor-02 temperature high", "Temperature reached 31.1°C, above the 30°C threshold."},
+		{"threshold_alert", "error", "Kitchen temperature high", "Temperature reached 31.1°C, above the 30°C threshold."},
 		{"user_management", "warning", "Password reset required", "testviewer must change their password at next sign-in."},
 		{"config_change", "info", "Sensor disabled", "hallway-motion was disabled."},
-		{"threshold_alert", "warning", "seed-sensor-04 humidity low", "Humidity fell to 38%, below the 40% threshold."},
+		{"threshold_alert", "warning", "Office humidity low", "Humidity fell to 38%, below the 40% threshold."},
 		{"config_change", "info", "MQTT broker added", "Garage Mosquitto was added at mqtt.garage.lan:1883."},
-		{"threshold_alert", "info", "seed-sensor-06 back in range", "Temperature is back between 11°C and 29°C."},
+		{"threshold_alert", "info", "Nursery back in range", "Temperature is back between 11°C and 29°C."},
 		{"user_management", "info", "Role changed", "testadmin granted manage_alerts to the viewer role."},
 		{"config_change", "warning", "Sensor unhealthy", "back-door-contact has not reported for 2 hours."},
 	}

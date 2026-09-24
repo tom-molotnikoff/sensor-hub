@@ -35,7 +35,7 @@ for (const viewport of viewports) {
       const { space, padding } = await spaceUnderButtons(edit);
       expect(space).toBeCloseTo(padding, 0);
 
-      const info = card(page, 'seed-sensor-01');
+      const info = card(page, 'Living Room');
       await info.locator('[data-ui=card-body]').evaluate((body) => {
         const filler = document.createElement('div');
         filler.style.height = '1200px';

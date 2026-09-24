@@ -156,12 +156,21 @@ func removeDatabaseFiles(dbPath string) error {
 	return nil
 }
 
+var sensorNames = []string{"Living Room", "Kitchen", "Bedroom", "Office", "Bathroom", "Nursery", "Conservatory", "Study"}
+
+func SensorName(index int) string {
+	if index < len(sensorNames) {
+		return sensorNames[index]
+	}
+	return fmt.Sprintf("Room %d", index+1)
+}
+
 func insertSensors(ctx context.Context, db *sql.DB, count int) ([]int64, error) {
 	ids := make([]int64, 0, count)
 	for i := range count {
 		result, err := db.ExecContext(ctx,
 			"INSERT INTO sensors (name, sensor_driver, config, health_status, health_reason, enabled) VALUES (?, 'sensor-hub-http-temperature', '{}', 'good', 'seeded', 1)",
-			fmt.Sprintf("seed-sensor-%02d", i+1))
+			SensorName(i))
 		if err != nil {
 			return nil, fmt.Errorf("could not insert seed sensor: %w", err)
 		}

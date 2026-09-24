@@ -22,10 +22,10 @@ for (const viewport of viewports) {
 
       if (viewport.tier === 'compact') {
         await expect(rules.locator('.MuiDataGrid-root')).toHaveCount(0);
-        await rules.getByRole('button', { name: /seed-sensor-01/ }).first().click();
+        await rules.getByRole('button', { name: /Living Room/ }).first().click();
       } else {
         await expect(rules.locator('.MuiDataGrid-root')).toHaveCount(1);
-        await rules.getByRole('gridcell', { name: 'seed-sensor-01', exact: true }).first().click();
+        await rules.getByRole('gridcell', { name: 'Living Room', exact: true }).first().click();
       }
       await expect(page.getByRole('menu').getByRole('menuitem')).toHaveText(['Edit', 'Delete', 'View History']);
 
