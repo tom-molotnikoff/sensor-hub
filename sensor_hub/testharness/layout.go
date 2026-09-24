@@ -19,7 +19,7 @@ const (
 	layoutViewerPass = "viewerpassword123"
 )
 
-var layoutViewerGrants = []string{"view_sensors", "view_readings"}
+var layoutViewerGrants = []string{"view_sensors", "view_readings", "view_alerts", "view_notifications"}
 
 type LayoutOptions struct {
 	SeedPath   string
@@ -36,6 +36,8 @@ var layoutFixtures = map[string]layoutFixture{
 	"sensors":         createLayoutSensors,
 	"pending-sensors": createLayoutPendingSensors,
 	"mqtt":            createLayoutMQTT,
+	"alerts":          createLayoutAlerts,
+	"notifications":   createLayoutNotifications,
 }
 
 func StartLayoutServer(ctx context.Context, opts LayoutOptions) (*Env, func(), error) {
@@ -249,6 +251,84 @@ func createLayoutMQTT(ctx context.Context, env *Env) error {
 			"INSERT INTO mqtt_subscriptions (broker_id, topic_pattern, driver_type, enabled) SELECT id, ?, 'mqtt-zigbee2mqtt', ? FROM mqtt_brokers WHERE name = 'Garage Mosquitto'",
 			topic, index%4 != 3); err != nil {
 			return fmt.Errorf("failed to insert subscription %s: %w", topic, err)
+		}
+	}
+	return nil
+}
+
+func createLayoutAlerts(ctx context.Context, env *Env) error {
+	rules := []struct {
+		sensor, measurement string
+		high, low           float64
+		rateLimit           int
+		enabled             bool
+	}{
+		{"seed-sensor-01", "temperature", 28, 12, 3600, true},
+		{"seed-sensor-01", "humidity", 70, 30, 1800, true},
+		{"seed-sensor-02", "temperature", 30, 10, 3600, true},
+		{"seed-sensor-02", "humidity", 65, 35, 900, false},
+		{"seed-sensor-03", "temperature", 26, 16, 7200, true},
+		{"seed-sensor-03", "humidity", 75, 25, 0, true},
+		{"seed-sensor-04", "temperature", 32, 8, 3600, false},
+		{"seed-sensor-04", "humidity", 60, 40, 3600, true},
+		{"seed-sensor-05", "temperature", 24, 18, 45, true},
+		{"seed-sensor-05", "humidity", 80, 20, 3600, true},
+		{"seed-sensor-06", "temperature", 29, 11, 86400, true},
+		{"seed-sensor-06", "humidity", 68, 32, 3600, false},
+	}
+	for _, rule := range rules {
+		if _, err := env.DB.Writer.ExecContext(ctx,
+			`INSERT INTO sensor_alert_rules (sensor_id, measurement_type_id, alert_type, high_threshold, low_threshold, rate_limit_seconds, enabled)
+			 SELECT s.id, mt.id, 'numeric_range', ?, ?, ?, ? FROM sensors s, measurement_types mt WHERE s.name = ? AND mt.name = ?`,
+			rule.high, rule.low, rule.rateLimit, rule.enabled, rule.sensor, rule.measurement); err != nil {
+			return fmt.Errorf("failed to insert alert rule for %s %s: %w", rule.sensor, rule.measurement, err)
+		}
+	}
+	for hours := 1; hours <= 12; hours++ {
+		if _, err := env.DB.Writer.ExecContext(ctx,
+			`INSERT INTO alert_sent_history (alert_rule_id, sensor_id, sent_at, alert_reason, reading_value)
+			 SELECT r.id, r.sensor_id, datetime('now', ?), 'above high threshold', ? FROM sensor_alert_rules r
+			 JOIN sensors s ON s.id = r.sensor_id WHERE s.name = 'seed-sensor-01' ORDER BY r.id LIMIT 1`,
+			fmt.Sprintf("-%d hours", hours*6), 28+float64(hours)/4); err != nil {
+			return fmt.Errorf("failed to insert alert history: %w", err)
+		}
+	}
+	return nil
+}
+
+func createLayoutNotifications(ctx context.Context, env *Env) error {
+	notifications := []struct{ category, severity, title, message string }{
+		{"threshold_alert", "warning", "seed-sensor-01 temperature high", "Temperature reached 29.5°C, above the 28°C threshold."},
+		{"threshold_alert", "error", "seed-sensor-03 humidity high", "Humidity reached 81%, above the 75% threshold for more than an hour."},
+		{"config_change", "info", "Sensor added", "porch-light was added by testadmin."},
+		{"user_management", "info", "User created", "testviewer was created with the viewer role."},
+		{"threshold_alert", "warning", "seed-sensor-05 temperature low", "Temperature fell to 17.2°C, below the 18°C threshold."},
+		{"config_change", "info", "Retention changed", "kitchen-plug now keeps readings for 48 hours."},
+		{"threshold_alert", "error", "seed-sensor-02 temperature high", "Temperature reached 31.1°C, above the 30°C threshold."},
+		{"user_management", "warning", "Password reset required", "testviewer must change their password at next sign-in."},
+		{"config_change", "info", "Sensor disabled", "hallway-motion was disabled."},
+		{"threshold_alert", "warning", "seed-sensor-04 humidity low", "Humidity fell to 38%, below the 40% threshold."},
+		{"config_change", "info", "MQTT broker added", "Garage Mosquitto was added at mqtt.garage.lan:1883."},
+		{"threshold_alert", "info", "seed-sensor-06 back in range", "Temperature is back between 11°C and 29°C."},
+		{"user_management", "info", "Role changed", "testadmin granted manage_alerts to the viewer role."},
+		{"config_change", "warning", "Sensor unhealthy", "back-door-contact has not reported for 2 hours."},
+	}
+	for index, notification := range notifications {
+		result, err := env.DB.Writer.ExecContext(ctx,
+			"INSERT INTO notifications (category, severity, title, message, created_at) VALUES (?, ?, ?, ?, datetime('now', ?))",
+			notification.category, notification.severity, notification.title, notification.message,
+			fmt.Sprintf("-%d hours", index*3))
+		if err != nil {
+			return fmt.Errorf("failed to insert notification %q: %w", notification.title, err)
+		}
+		id, err := result.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("failed to read notification id: %w", err)
+		}
+		if _, err := env.DB.Writer.ExecContext(ctx,
+			"INSERT INTO user_notifications (user_id, notification_id, is_read) SELECT id, ?, ? FROM users WHERE username IN (?, ?)",
+			id, index >= 6, env.AdminUser, layoutViewerUser); err != nil {
+			return fmt.Errorf("failed to assign notification %q: %w", notification.title, err)
 		}
 	}
 	return nil
