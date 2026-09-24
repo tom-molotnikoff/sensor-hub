@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../gen/client';
 import type { Dashboard, DashboardConfig, DashboardWidget, CreateDashboardRequest, UpdateDashboardRequest } from '../gen/aliases';
-import { DEFAULT_BREAKPOINTS } from './constants';
 import { logger } from '../tools/logger';
 import { DashboardContext } from './DashboardContext';
 
-const EMPTY_CONFIG: DashboardConfig = { widgets: [], breakpoints: DEFAULT_BREAKPOINTS };
+const EMPTY_CONFIG: DashboardConfig = { widgets: [] };
 const STORAGE_KEY = 'sensor-hub-active-dashboard-id';
 
 function parseConfig(raw: string): DashboardConfig {
     try {
-        return JSON.parse(raw) as DashboardConfig;
+        const { breakpoints: _breakpoints, ...config } = JSON.parse(raw) as DashboardConfig;
+        return config;
     } catch {
         logger.error('[Dashboard] Failed to parse config', raw);
         return EMPTY_CONFIG;

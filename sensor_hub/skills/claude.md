@@ -202,15 +202,13 @@ The `update` command requires a JSON file with the full dashboard structure.
         "config": { "measurementType": "temperature" },
         "layout": { "x": 0, "y": 0, "w": 6, "h": 4 }
       }
-    ],
-    "breakpoints": { "lg": 12, "md": 10, "sm": 6 }
+    ]
   }
 }
 ```
 
 - `id`: Unique string per widget (e.g. UUID or descriptive slug)
-- `layout`: Grid position — `x` (column), `y` (row), `w` (width in columns), `h` (height in row units)
-- `breakpoints`: Columns per screen size (lg=large, md=medium, sm=small)
+- `layout`: Grid position on the 12-column grid — `x` (column), `y` (row), `w` (width in columns), `h` (height in row units)
 
 #### Available widget types and their config fields
 
@@ -265,8 +263,7 @@ The `update` command requires a JSON file with the full dashboard structure.
         "config": { "sensorId": 1, "measurementType": "temperature", "min": 10, "max": 35 },
         "layout": { "x": 8, "y": 0, "w": 4, "h": 4 }
       }
-    ],
-    "breakpoints": { "lg": 12, "md": 10, "sm": 6 }
+    ]
   }
 }
 ```

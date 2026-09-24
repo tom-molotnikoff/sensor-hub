@@ -4673,7 +4673,6 @@ components:
       description: Widget layout and configuration stored as the dashboard config
       required:
         - widgets
-        - breakpoints
       properties:
         widgets:
           type: array
@@ -4681,6 +4680,8 @@ components:
             $ref: '#/components/schemas/DashboardWidget'
         breakpoints:
           type: object
+          deprecated: true
+          x-deprecated-reason: Dashboards use a single 12-column layout, so the server ignores this. It is still accepted so older configs and scripts keep working.
           required:
             - lg
             - md

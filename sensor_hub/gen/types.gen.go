@@ -627,11 +627,12 @@ type Dashboard struct {
 
 // DashboardConfig Widget layout and configuration stored as the dashboard config
 type DashboardConfig struct {
-	Breakpoints struct {
+	// Deprecated: Dashboards use a single 12-column layout, so the server ignores this. It is still accepted so older configs and scripts keep working.
+	Breakpoints *struct {
 		Lg int `json:"lg"`
 		Md int `json:"md"`
 		Sm int `json:"sm"`
-	} `json:"breakpoints"`
+	} `json:"breakpoints,omitempty"`
 	Widgets []DashboardWidget `json:"widgets"`
 }
 
