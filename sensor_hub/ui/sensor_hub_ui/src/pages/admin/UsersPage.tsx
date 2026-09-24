@@ -1,7 +1,7 @@
 import Page from '../../ui/Page';
+import PageGrid from '../../ui/PageGrid';
 import { useAuth } from '../../providers/AuthContext';
 import { hasPerm } from '../../tools/Utils';
-import { Grid } from '@mui/material';
 import UserManagementCard from '../../components/UserManagementCard';
 import RolePermissionsCard from '../../components/RolePermissionsCard';
 
@@ -10,14 +10,14 @@ export default function UsersPage() {
 
   return (
     <Page title="User Management" loading={user === undefined}>
-      <Grid container spacing={2}>
+      <PageGrid>
         {hasPerm(user, 'view_users') && (
-          <Grid size={12}><UserManagementCard /></Grid>
+          <PageGrid.Item><UserManagementCard /></PageGrid.Item>
         )}
         {hasPerm(user, 'view_roles') && (
-          <Grid size={12}><RolePermissionsCard /></Grid>
+          <PageGrid.Item><RolePermissionsCard /></PageGrid.Item>
         )}
-      </Grid>
+      </PageGrid>
     </Page>
   );
 }

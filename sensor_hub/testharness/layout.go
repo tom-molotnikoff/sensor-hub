@@ -36,6 +36,7 @@ var layoutFixtures = map[string]layoutFixture{
 	"sensors":         createLayoutSensors,
 	"pending-sensors": createLayoutPendingSensors,
 	"mqtt":            createLayoutMQTT,
+	"users":           createLayoutExtraUsers,
 }
 
 func StartLayoutServer(ctx context.Context, opts LayoutOptions) (*Env, func(), error) {
@@ -247,6 +248,22 @@ func createLayoutMQTT(ctx context.Context, env *Env) error {
 			"INSERT INTO mqtt_subscriptions (broker_id, topic_pattern, driver_type, enabled) SELECT id, ?, 'mqtt-zigbee2mqtt', ? FROM mqtt_brokers WHERE name = 'Garage Mosquitto'",
 			topic, index%4 != 3); err != nil {
 			return fmt.Errorf("failed to insert subscription %s: %w", topic, err)
+		}
+	}
+	return nil
+}
+
+func createLayoutExtraUsers(ctx context.Context, env *Env) error {
+	users := service.NewUserService(database.NewUserRepository(env.DB, slog.Default()), nil, slog.Default())
+	names := []string{"alex", "bea", "cal", "dee", "eli", "fern", "gus", "hana", "ivo", "jun", "kit"}
+	for index, name := range names {
+		role := service.RoleViewer
+		if index%4 == 0 {
+			role = service.RoleUser
+		}
+		if _, err := users.CreateUser(ctx,
+			gen.User{Username: name, Email: name + "@household.example", Roles: []string{role}}, "fixturepassword123"); err != nil {
+			return fmt.Errorf("failed to create user %s: %w", name, err)
 		}
 	}
 	return nil
