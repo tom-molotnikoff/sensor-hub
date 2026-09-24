@@ -19,7 +19,7 @@ export const routes: readonly LayoutRoute[] = [
   { path: '/sensor/1', users: signedIn, fixtures: ['health-history'], checks: ['shell', 'appBar', 'noCollapsedContent'] },
   { path: '/sensor/9', users: signedIn, fixtures: ['sensors'], checks: ['shell', 'appBar', 'noCollapsedContent'] },
   { path: '/properties-overview', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },
-  { path: '/data-retention', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },
+  { path: '/data-retention', users: signedIn, fixtures: ['sensors'] },
   { path: '/notifications', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },
   { path: '/mqtt', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },
   { path: '/admin', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },

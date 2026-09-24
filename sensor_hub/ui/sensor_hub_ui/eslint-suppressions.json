@@ -97,17 +97,6 @@
       "count": 2
     }
   },
-  "src/components/DataRetentionCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 6
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
-    }
-  },
   "src/components/DayForecastCard.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -125,14 +114,6 @@
     },
     "ui/no-layout-styles": {
       "count": 11
-    }
-  },
-  "src/components/EditRetentionDialog.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 9
     }
   },
   "src/components/EditUserDialog.tsx": {
@@ -596,11 +577,6 @@
     }
   },
   "src/pages/admin/UsersPage.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/pages/data-retention/DataRetentionPage.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
