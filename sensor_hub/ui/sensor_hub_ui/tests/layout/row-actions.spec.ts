@@ -31,8 +31,13 @@ async function showDismissed(pending: Locator) {
   await expect(pending.getByText(dismissedName)).toBeVisible();
 }
 
-async function compactAction(page: Page, pending: Locator, name: string, action: string) {
+async function openActionMenu(page: Page, pending: Locator, name: string) {
   await pending.getByRole('button', { name: `Actions for ${name}` }).click();
+  await expect(page.getByRole('menu')).toBeVisible();
+}
+
+async function compactAction(page: Page, pending: Locator, name: string, action: string) {
+  await openActionMenu(page, pending, name);
   await page.getByRole('menuitem', { name: action }).click();
 }
 
@@ -77,15 +82,10 @@ test.describe('Pending Sensors row actions', () => {
     for (const row of await rows.all()) {
       await expect(row.getByRole('button', { name: /^Actions for / })).toHaveCount(1);
     }
-    await compactActionMenu(page, pending, pendingName);
+    await openActionMenu(page, pending, pendingName);
     await expect(page.getByRole('menuitem')).toHaveText(['Approve', 'Dismiss']);
   });
 });
-
-async function compactActionMenu(page: Page, pending: Locator, name: string) {
-  await pending.getByRole('button', { name: `Actions for ${name}` }).click();
-  await expect(page.getByRole('menu')).toBeVisible();
-}
 
 test.describe('Total Readings', () => {
   test('is a list without row actions at 390', async ({ page }) => {

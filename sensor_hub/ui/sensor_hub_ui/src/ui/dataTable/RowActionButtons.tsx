@@ -8,7 +8,7 @@ export default function RowActionButtons({ actions }: { actions: RowAction[] }) 
         <Button
           key={action.label}
           size="small"
-          variant="outlined"
+          variant={action.variant ?? 'outlined'}
           color={action.color}
           startIcon={action.icon}
           disabled={action.disabled}

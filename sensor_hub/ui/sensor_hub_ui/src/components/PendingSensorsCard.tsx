@@ -77,7 +77,7 @@ export default function PendingSensorsCard() {
             rows={pending}
             columns={columns}
             rowActions={(sensor) => [
-              { label: 'Approve', icon: <CheckCircleIcon />, color: 'success', disabled: cannotManage, onClick: () => handleApprove(sensor.id) },
+              { label: 'Approve', icon: <CheckCircleIcon />, color: 'success', variant: 'contained', disabled: cannotManage, onClick: () => handleApprove(sensor.id) },
               { label: 'Dismiss', icon: <CancelIcon />, color: 'warning', disabled: cannotManage, onClick: () => handleDismiss(sensor.id) },
             ]}
           />

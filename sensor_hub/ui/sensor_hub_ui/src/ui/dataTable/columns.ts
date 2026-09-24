@@ -58,6 +58,7 @@ export interface RowAction {
   label: string;
   icon?: ReactNode;
   color?: 'primary' | 'success' | 'warning' | 'error';
+  variant?: 'contained' | 'outlined';
   disabled?: boolean;
   onClick: () => void;
 }

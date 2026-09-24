@@ -4,7 +4,8 @@ import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import CompactList from './dataTable/CompactList';
 import RowActionButtons from './dataTable/RowActionButtons';
 import { assertColumnRoles, type ColumnRules, type DataTableColumn, type RowAction, type TableRow } from './dataTable/columns';
-import { useTier } from './tiers';
+import { responsivePixels, useTier } from './tiers';
+import { density } from './theme/tokens';
 import { useBounded } from './useBounded';
 
 export type { DataTableColumn, RowAction } from './dataTable/columns';
@@ -57,5 +58,11 @@ export default function DataTable<R extends TableRow, const C extends readonly D
       />
     );
 
-  return bounded ? <Box sx={{ height: '100%', minHeight: 0, overflow: 'auto' }}>{table}</Box> : table;
+  return bounded ? (
+    <Box sx={{ height: '100%', minHeight: 0, overflow: 'auto', paddingX: responsivePixels(density.card), paddingBottom: 1 }}>
+      {table}
+    </Box>
+  ) : (
+    table
+  );
 }
