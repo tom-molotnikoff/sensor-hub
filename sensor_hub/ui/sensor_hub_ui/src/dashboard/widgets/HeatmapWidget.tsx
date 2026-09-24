@@ -1,6 +1,5 @@
 import type { WidgetProps } from '../types';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, Typography } from '@mui/material';
+import { useEffect, useCallback } from 'react';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { apiClient } from '../../gen/client';
 import { useScheduledQuery } from '../../hooks/useScheduledQuery';
@@ -8,7 +7,8 @@ import { heatColour, useChartColours } from '../../ui/theme/chartColours';
 import { parseUTCTime } from '../../tools/Utils';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
-import { WidgetSwap, RippleHeatmapLoader } from '../widget-loaders';
+import { WidgetSwap, RippleHeatmapLoader } from '../../ui/loaders';
+import TileGrid from '../../ui/TileGrid';
 
 function valueToColor(value: number, low: number, high: number): string {
     return heatColour((value - low) / (high - low));
@@ -25,8 +25,6 @@ export default function HeatmapWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
     const chartColours = useChartColours();
     const reportUpdate = useReportWidgetUpdate();
-    const [cellSize, setCellSize] = useState(28);
-    const gridRef = useRef<HTMLDivElement>(null);
 
     const low = typeof config.scaleMin === 'number' ? config.scaleMin : 10;
     const high = typeof config.scaleMax === 'number' ? config.scaleMax : 30;
@@ -82,25 +80,6 @@ export default function HeatmapWidget({ config }: WidgetProps) {
     }, [data, reportUpdate]);
 
     const cols = 7;
-    const rows = Math.ceil(days.length / cols) || 1;
-    const gap = 4;
-
-    const recalc = useCallback(() => {
-        const el = gridRef.current;
-        if (!el) return;
-        const { width, height } = el.getBoundingClientRect();
-        const maxFromW = (width - (cols - 1) * gap) / cols;
-        const maxFromH = (height - (rows - 1) * gap) / rows;
-        setCellSize(Math.max(12, Math.floor(Math.min(maxFromW, maxFromH))));
-    }, [rows]);
-
-    useEffect(() => {
-        const el = gridRef.current;
-        if (!el) return;
-        const observer = new ResizeObserver(recalc);
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, [recalc]);
 
     if (!sensor || !measurementType) {
         return <NeedsConfiguration message="Select a sensor and measurement type" />;
@@ -111,55 +90,17 @@ export default function HeatmapWidget({ config }: WidgetProps) {
     const monthLabel = firstMonth === lastMonth ? firstMonth : `${firstMonth} → ${lastMonth}`;
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 1, overflow: 'hidden' }}>
-            <Typography
-                variant="caption"
-                sx={{
-                    color: "text.secondary",
-                    mb: 0.5,
-                    textAlign: 'center',
-                    flexShrink: 0
-                }}>{monthLabel}</Typography>
-            <Box
-                ref={gridRef}
-                sx={{
-                    flex: 1,
-                    minHeight: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                }}
-            >
-                <WidgetSwap loading={isLoading} loader={<RippleHeatmapLoader columns={cols} count={30} />}>
-                <Box
-                    sx={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
-                        gap: `${gap}px`,
-                    }}
-                >
-                    {days.map((d, i) => (
-                        <Box
-                            key={i}
-                            sx={{
-                                width: cellSize,
-                                height: cellSize,
-                                borderRadius: 0.5,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: d.avg !== null ? valueToColor(d.avg, low, high) : chartColours.noData,
-                                color: d.avg !== null ? 'common.white' : chartColours.axisText,
-                                fontSize: Math.max(9, cellSize * 0.35),
-                                fontWeight: 'bold',
-                            }}
-                        >
-                            {d.day}
-                        </Box>
-                    ))}
-                </Box>
-                </WidgetSwap>
-            </Box>
-        </Box>
+        <WidgetSwap loading={isLoading} loader={<RippleHeatmapLoader columns={cols} count={30} />}>
+            <TileGrid
+                columns={cols}
+                caption={monthLabel}
+                tiles={days.map((d, i) => ({
+                    key: i,
+                    label: d.day,
+                    fill: d.avg !== null ? valueToColor(d.avg, low, high) : chartColours.noData,
+                    ink: d.avg !== null ? 'common.white' : chartColours.axisText,
+                }))}
+            />
+        </WidgetSwap>
     );
 }

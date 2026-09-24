@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-    Box, Button, IconButton, MenuItem, Select, Tooltip, Typography,
+    Button, IconButton, MenuItem, Select, Tooltip, Typography,
     Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, TextField,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
@@ -9,6 +9,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useDashboard } from './DashboardContext';
+import ActionBar from '../ui/ActionBar';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';
 
@@ -44,8 +45,8 @@ export default function DashboardToolbar({ onAddWidget }: DashboardToolbarProps)
 
     return (
         <>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                {dashboards.length > 0 && (
+            <ActionBar
+                picker={dashboards.length > 0 && (
                     <Select
                         size="small"
                         value={activeDashboard?.id ?? ''}
@@ -53,7 +54,6 @@ export default function DashboardToolbar({ onAddWidget }: DashboardToolbarProps)
                             const db = dashboards.find((d) => d.id === Number(e.target.value));
                             if (db) setActiveDashboard(db);
                         }}
-                        sx={{ minWidth: 200 }}
                     >
                         {dashboards.map((d) => (
                             <MenuItem key={d.id} value={d.id}>
@@ -62,7 +62,24 @@ export default function DashboardToolbar({ onAddWidget }: DashboardToolbarProps)
                         ))}
                     </Select>
                 )}
+                trailing={canManage && (
+                    <>
+                        <Tooltip title="New dashboard">
+                            <Button size="small" variant="outlined" onClick={() => setShowCreate(true)}>
+                                New Dashboard
+                            </Button>
+                        </Tooltip>
 
+                        {activeDashboard && (
+                            <Tooltip title="Delete dashboard">
+                                <IconButton size="small" color="error" onClick={() => setShowDelete(true)}>
+                                    <DeleteIcon />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                    </>
+                )}
+            >
                 {canManage && (
                     <>
                         <Tooltip title={isEditing ? 'Lock dashboard' : 'Edit dashboard'}>
@@ -81,36 +98,15 @@ export default function DashboardToolbar({ onAddWidget }: DashboardToolbarProps)
                                 </Button>
                             </>
                         )}
-
-                        <Box sx={{ flex: 1 }} />
-
-                        <Tooltip title="New dashboard">
-                            <Button size="small" variant="outlined" onClick={() => setShowCreate(true)}>
-                                New Dashboard
-                            </Button>
-                        </Tooltip>
-
-                        {activeDashboard && (
-                            <Tooltip title="Delete dashboard">
-                                <IconButton size="small" color="error" onClick={() => setShowDelete(true)}>
-                                    <DeleteIcon />
-                                </IconButton>
-                            </Tooltip>
-                        )}
                     </>
                 )}
 
                 {!canManage && (
-                    <Typography
-                        variant="body2"
-                        sx={{
-                            color: "text.secondary",
-                            ml: 1
-                        }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                         View only
                     </Typography>
                 )}
-            </Box>
+            </ActionBar>
             <Dialog open={showCreate} onClose={() => setShowCreate(false)} maxWidth="xs" fullWidth>
                 <DialogTitle>New Dashboard</DialogTitle>
                 <DialogContent>

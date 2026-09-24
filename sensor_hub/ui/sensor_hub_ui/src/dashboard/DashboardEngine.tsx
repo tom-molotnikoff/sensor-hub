@@ -8,6 +8,7 @@ import WidgetFrame from './WidgetFrame';
 import { getWidget } from './WidgetRegistry';
 import type { DashboardConfig, DashboardWidget } from '../gen/aliases';
 import { GRID_COLUMNS, GRID_ROW_HEIGHT } from './constants';
+import DashboardCanvas from '../ui/DashboardCanvas';
 import DashboardSlot from '../ui/DashboardSlot';
 import Stack from '../ui/Stack';
 import { useTier } from '../ui/tiers';
@@ -101,7 +102,7 @@ function WideDashboard({
     );
 
     return (
-        <div ref={containerRef} style={{ paddingBottom: isEditing ? 200 : 0 }}>
+        <DashboardCanvas ref={containerRef} editing={isEditing}>
             <GridLayout
                 width={width}
                 layout={layout}
@@ -122,6 +123,6 @@ function WideDashboard({
                     </div>
                 ))}
             </GridLayout>
-        </div>
+        </DashboardCanvas>
     );
 }

@@ -4,18 +4,17 @@ import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
 import ExpandMoreOutlined from "@mui/icons-material/ExpandMoreOutlined";
 import ExpandLessOutlined from "@mui/icons-material/ExpandLessOutlined";
-import LayoutCard from "../tools/LayoutCard.tsx";
-import { TypographyH2 } from "../tools/Typography.tsx";
 import { useProperties } from "../hooks/useProperties.ts";
 import { useWeatherApi } from "../hooks/useWeatherApi.ts";
 import { useIsMobile } from "../hooks/useMobile.ts";
 import DayForecastCard from "./DayForecastCard.tsx";
 import HourlyForecastDetail from "./HourlyForecastDetail.tsx";
+import Card from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
-import { WeatherColumnsLoader } from "../dashboard/widget-loaders";
+import { WeatherColumnsLoader } from "../ui/loaders";
 import { useWidgetStateReport } from "../dashboard/WidgetContext";
 
-export default function WeatherForecastCard({ showTitle = true }: { showTitle?: boolean }) {
+export default function WeatherForecastCard() {
   const properties = useProperties();
   const [showHourly, setShowHourly] = useState(true);
   const isMobile = useIsMobile();
@@ -37,8 +36,7 @@ export default function WeatherForecastCard({ showTitle = true }: { showTitle?: 
   const todayStr = new Date().toISOString().slice(0, 10);
 
   return (
-    <LayoutCard variant="secondary" changes={{ height: '100%', width: '100%', overflow: 'hidden' }}>
-      {showTitle && <TypographyH2 changes={{ textAlign: "center", flexShrink: 0 }}>Weather — {locationName}</TypographyH2>}
+    <Card title={`Weather - ${locationName}`}>
       {!hasLocation && (
         <EmptyState
           title="Location not configured"
@@ -110,6 +108,6 @@ export default function WeatherForecastCard({ showTitle = true }: { showTitle?: 
           )}
         </Box>
       )}
-    </LayoutCard>
+    </Card>
   );
 }

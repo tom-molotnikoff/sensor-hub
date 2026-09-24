@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import CascadeRowsLoader from './CascadeRowsLoader';
 
-vi.mock('../../ui/theme/chartColours', () => ({
+vi.mock('../theme/chartColours', () => ({
   useChartColours: () => ({ categorical: ['#D4451A'], health: ['', '', ''], stat: ['', '', ''], grid: '#000', axisText: '#000', noData: '#E0D8D0' }),
 }));
 

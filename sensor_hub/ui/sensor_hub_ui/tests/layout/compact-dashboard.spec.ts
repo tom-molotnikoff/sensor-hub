@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './test';
 import { recordDashboardWrites } from './dashboards';
 import { signIn } from './users';
 
@@ -15,9 +15,9 @@ test.describe('Dashboard at 390x844', () => {
     await openDashboard(page);
     await expect(page.locator('.react-grid-layout, .react-grid-item')).toHaveCount(0);
 
-    const stack = page.locator('[data-ui=stack]', { has: page.locator('[data-ui=dashboard-slot]') });
+    const stack = page.locator('[data-ui=stack]:has(> [data-ui=dashboard-slot])');
     const items = stack.locator('[data-ui=dashboard-slot]');
-    await expect(items).toHaveCount(11);
+    await expect(items).toHaveCount(20);
 
     const titles = await items.evaluateAll((elements) =>
       elements.map((element) => (element.querySelector('.MuiTypography-caption, .MuiTypography-root')?.textContent ?? '').split(':')[0]),
@@ -34,6 +34,15 @@ test.describe('Dashboard at 390x844', () => {
       'Group Summary',
       'Gauge',
       'Min / Max / Avg',
+      'Comparison Chart',
+      'Live Readings Table',
+      'Weather Forecast',
+      'Notifications',
+      'Alert Summary',
+      'Markdown Note',
+      'Heatmap',
+      'Sensor Toggle',
+      'Sensor Detail',
     ]);
 
     const stackWidth = await stack.evaluate((element) => element.getBoundingClientRect().width);
@@ -45,7 +54,7 @@ test.describe('Dashboard at 390x844', () => {
   test('frames are their compact height, or their content height', async ({ page }) => {
     await openDashboard(page);
     const items = page.locator('[data-ui=dashboard-slot]');
-    await expect(items).toHaveCount(11);
+    await expect(items).toHaveCount(20);
 
     const frames = await items.evaluateAll((elements) =>
       elements.map((element) => {
@@ -58,7 +67,10 @@ test.describe('Dashboard at 390x844', () => {
         };
       }),
     );
-    expect(frames.map((frame) => frame.token)).toEqual(['280', '140', '220', '220', '220', null, null, '140', null, '200', '160']);
+    expect(frames.map((frame) => frame.token)).toEqual([
+      '280', '140', '220', '220', '220', null, null, '140', null, '200', '160',
+      '280', null, null, null, null, null, '260', '120', null,
+    ]);
     for (const frame of frames) {
       if (frame.token) {
         expect(frame.height).toBe(Number(frame.token));
@@ -75,11 +87,16 @@ test.describe('Dashboard at 390x844', () => {
     const unknown = page.locator('[data-ui=dashboard-slot]', { hasText: 'Unknown widget' });
     await expect(unknown).toContainText('Unknown widget: retired-widget');
     await expect(unknown).not.toHaveAttribute('data-ui-height');
-    const { height, contentHeight } = await unknown.evaluate((element) => ({
-      height: element.getBoundingClientRect().height,
-      contentHeight: (element.firstElementChild as HTMLElement).scrollHeight,
-    }));
-    expect(height).toBe(contentHeight);
+    const { height, frameHeight, overflowing } = await unknown.evaluate((element) => {
+      const frame = element.firstElementChild as HTMLElement;
+      return {
+        height: element.getBoundingClientRect().height,
+        frameHeight: frame.getBoundingClientRect().height,
+        overflowing: frame.scrollHeight > frame.clientHeight + 1,
+      };
+    });
+    expect(height).toBe(frameHeight);
+    expect(overflowing).toBe(false);
   });
 
   test('sends no write request for a minute outside edit mode', async ({ page }) => {

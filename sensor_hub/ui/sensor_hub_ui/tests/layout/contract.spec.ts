@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test';
 import { checks, viewports } from './checks';
 import { layoutChecks, routes } from './routes';
 import { signIn } from './users';

@@ -1,20 +1,26 @@
 import { ThemeProvider } from '@mui/material';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import ActionBar from './ActionBar';
 import AnchorStack from './AnchorStack';
 import Bounded from './Bounded';
 import Card from './Card';
+import DashboardCanvas from './DashboardCanvas';
 import DashboardSlot from './DashboardSlot';
 import ChartArea from './ChartArea';
 import EmptyState from './EmptyState';
+import Frame from './Frame';
 import Inline from './Inline';
 import Metric, { MetricGroup } from './Metric';
 import PageGrid from './PageGrid';
+import Prose from './Prose';
 import Stack from './Stack';
 import StandalonePage from './StandalonePage';
+import SlideSwitch from './SlideSwitch';
 import Sticky, { StickyBar } from './Sticky';
+import TileGrid from './TileGrid';
 import { theme } from './theme';
 import { chartAreaHeight, emptyStateMinHeight } from './theme/tokens';
 
@@ -222,7 +228,58 @@ describe('Metric', () => {
   });
 });
 
+describe('Frame', () => {
+  it('is a flat surface with its title in the caption variant', () => {
+    const { container } = renderUi(<Frame title="Gauge: attic">body</Frame>);
+
+    const frame = container.querySelector('[data-ui=frame]')!;
+    expect(frame).toHaveStyle({ boxShadow: 'none', borderStyle: 'solid' });
+    expect(screen.getByText('Gauge: attic')).toHaveClass('MuiTypography-caption');
+    expect(container.querySelector('[data-ui=frame-body]')).toHaveTextContent('body');
+  });
+
+  it('bounds its body, so a card inside fills it', () => {
+    const { container } = renderUi(
+      <Frame title="Sensor Health">
+        <Card title="Sensor Health">body</Card>
+      </Frame>,
+    );
+
+    expect(container.querySelector('[data-ui=card]')).toHaveStyle({ height: '100%' });
+    expect(container.querySelector('[data-ui=card-header]')).toBeNull();
+  });
+
+  it('marks its header as the drag handle only while editing a draggable frame', () => {
+    const { container, rerender } = renderUi(<Frame title="t" dragHandle>body</Frame>);
+    expect(container.querySelector('.drag-handle')).toBeNull();
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <MemoryRouter>
+          <Frame title="t" dragHandle editing>
+            body
+          </Frame>
+        </MemoryRouter>
+      </ThemeProvider>,
+    );
+    expect(container.querySelector('[data-ui=frame-header]')).toHaveClass('drag-handle');
+    expect(container.querySelector('[data-ui=frame]')).toHaveStyle({ borderStyle: 'dashed' });
+  });
+});
+
 describe('EmptyState', () => {
+  it('fills a bounded parent instead of taking its minimum height', () => {
+    const { container } = renderUi(
+      <Bounded>
+        <EmptyState title="Nothing here" />
+      </Bounded>,
+    );
+
+    const state = container.querySelector('[data-ui=empty-state]');
+    expect(state).toHaveStyle({ height: '100%' });
+    expect(state).not.toHaveStyle({ minHeight: `${emptyStateMinHeight.md}px` });
+  });
+
   it('keeps its title in the body variant at weight 600', () => {
     renderUi(<EmptyState title="Nothing here" />);
 
@@ -235,6 +292,156 @@ describe('EmptyState', () => {
     const { container } = renderUi(<EmptyState title="Nothing here" />);
 
     expect(container.querySelector('[data-ui=empty-state]')).toHaveStyle({ minHeight: `${emptyStateMinHeight.md}px` });
+  });
+});
+
+describe('ActionBar', () => {
+  it('wraps its actions, keeps the picker a usable width, and pushes trailing actions to the far edge', () => {
+    const { container } = renderUi(
+      <ActionBar picker={<select aria-label="Dashboard" />} trailing={<button>New</button>}>
+        <button>Edit</button>
+      </ActionBar>,
+    );
+
+    const bar = container.querySelector('[data-ui=action-bar]')!;
+    expect(bar).toHaveStyle({ display: 'flex', flexWrap: 'wrap' });
+    expect(bar.firstElementChild).toHaveAttribute('data-ui', 'action-bar-picker');
+    expect(bar.firstElementChild).toContainElement(screen.getByRole('combobox', { name: 'Dashboard' }));
+    expect(bar.firstElementChild).toHaveStyle({ minWidth: 'min(200px, 100%)' });
+    const trailing = bar.lastElementChild!;
+    expect(trailing).toHaveAttribute('data-ui', 'action-bar-trailing');
+    expect(trailing).toContainElement(screen.getByRole('button', { name: 'New' }));
+    expect(trailing).toHaveStyle({ marginLeft: 'auto', flexWrap: 'wrap' });
+  });
+
+  it('renders only the actions when there is no picker or trailing group', () => {
+    const { container } = renderUi(
+      <ActionBar>
+        <span>View only</span>
+      </ActionBar>,
+    );
+
+    expect(container.querySelector('[data-ui=action-bar-picker]')).toBeNull();
+    expect(container.querySelector('[data-ui=action-bar-trailing]')).toBeNull();
+    expect(container.querySelector('[data-ui=action-bar]')).toHaveTextContent('View only');
+  });
+});
+
+describe('DashboardCanvas', () => {
+  it('leaves room below the grid only while editing and exposes its element', () => {
+    const ref = { current: null as HTMLDivElement | null };
+    const { container, rerender } = renderUi(<DashboardCanvas ref={ref} editing={false}>grid</DashboardCanvas>);
+
+    const canvas = container.querySelector('[data-ui=dashboard-canvas]')!;
+    expect(ref.current).toBe(canvas);
+    expect(canvas).toHaveStyle({ paddingBottom: '0px' });
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <MemoryRouter>
+          <DashboardCanvas ref={ref} editing>
+            grid
+          </DashboardCanvas>
+        </MemoryRouter>
+      </ThemeProvider>,
+    );
+    expect(container.querySelector('[data-ui=dashboard-canvas]')).toHaveStyle({ paddingBottom: '200px' });
+  });
+});
+
+describe('Prose', () => {
+  it('sets its text in the body variant and headings on the type scale', () => {
+    const { container } = renderUi(
+      <Prose>
+        <h1>Plants</h1>
+        <p>Water the basil</p>
+      </Prose>,
+    );
+
+    const prose = container.querySelector('[data-ui=prose]')!;
+    expect(prose).toHaveStyle({ fontSize: theme.typography.body.fontSize });
+    expect(screen.getByRole('heading', { name: 'Plants' })).toHaveStyle({ fontWeight: theme.typography.cardTitle.fontWeight });
+    expect(prose).not.toHaveStyle({ height: '100%' });
+  });
+
+  it('fills and scrolls a bounded parent', () => {
+    const { container } = renderUi(
+      <Bounded>
+        <Prose>
+          <p>Water the basil</p>
+        </Prose>
+      </Bounded>,
+    );
+
+    expect(container.querySelector('[data-ui=prose]')).toHaveStyle({ height: '100%', overflow: 'auto' });
+  });
+});
+
+describe('TileGrid', () => {
+  const tiles = [
+    { key: 1, label: 1, fill: 'status.ok.strong', ink: 'common.white' },
+    { key: 2, label: 2, fill: 'status.bad.strong', ink: 'common.white' },
+    { key: 3, label: 3, fill: 'action.hover', ink: 'text.secondary' },
+  ];
+
+  it('shows one tile per entry, in order, under its caption', () => {
+    const { container } = renderUi(<TileGrid columns={7} tiles={tiles} caption="September" />);
+
+    const grid = container.querySelector('[data-ui=tile-grid]')!;
+    expect(grid.firstElementChild).toHaveTextContent('September');
+    expect([...grid.querySelectorAll('[data-ui=tile]')].map((tile) => tile.textContent)).toEqual(['1', '2', '3']);
+    expect(grid).not.toHaveStyle({ height: '100%' });
+  });
+
+  it('fills a bounded parent', () => {
+    const { container } = renderUi(
+      <Bounded>
+        <TileGrid columns={7} tiles={tiles} />
+      </Bounded>,
+    );
+
+    expect(container.querySelector('[data-ui=tile-grid]')).toHaveStyle({ height: '100%' });
+  });
+});
+
+describe('SlideSwitch', () => {
+  it('reports the flipped state when clicked', () => {
+    const onChange = vi.fn();
+    renderUi(<SlideSwitch checked={false} label="Toggle plug" onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Toggle plug' }));
+
+    expect(onChange).toHaveBeenCalledWith(true);
+  });
+
+  it('stays mixed and inert until its state is known, and inert when read only', () => {
+    const onChange = vi.fn();
+    const { rerender } = renderUi(<SlideSwitch checked={null} label="Toggle plug" onChange={onChange} />);
+    const control = screen.getByRole('checkbox', { name: 'Toggle plug' });
+    expect(control).toHaveAttribute('aria-checked', 'mixed');
+    fireEvent.click(control);
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <MemoryRouter>
+          <SlideSwitch checked label="Toggle plug" readOnly onChange={onChange} />
+        </MemoryRouter>
+      </ThemeProvider>,
+    );
+    expect(control).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(control);
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('fills a bounded parent and centres the switch in it', () => {
+    const { container } = renderUi(
+      <Bounded>
+        <SlideSwitch checked label="Toggle plug" onChange={() => {}} />
+      </Bounded>,
+    );
+
+    expect(container.querySelector('[data-ui=slide-switch]')).toHaveStyle({ height: '100%', alignItems: 'center' });
   });
 });
 
@@ -341,7 +548,45 @@ describe('primitive props', () => {
       <MetricGroup style={{ gap: 0 }} />,
       // @ts-expect-error MetricGroup takes no className
       <MetricGroup className="tight" />,
+      // @ts-expect-error Frame takes no sx
+      <Frame sx={{ height: 100 }} />,
+      // @ts-expect-error Frame takes no style
+      <Frame style={{ height: 100 }} />,
+      // @ts-expect-error Frame takes no className
+      <Frame className="raised" />,
+      // @ts-expect-error ActionBar takes no sx
+      <ActionBar sx={{ gap: 0 }} />,
+      // @ts-expect-error ActionBar takes no style
+      <ActionBar style={{ gap: 0 }} />,
+      // @ts-expect-error ActionBar takes no className
+      <ActionBar className="tight" />,
+      // @ts-expect-error DashboardCanvas takes no sx
+      <DashboardCanvas editing sx={{ paddingBottom: 0 }} />,
+      // @ts-expect-error DashboardCanvas takes no style
+      <DashboardCanvas editing style={{ paddingBottom: 0 }} />,
+      // @ts-expect-error DashboardCanvas takes no className
+      <DashboardCanvas editing className="tall" />,
+      // @ts-expect-error DashboardCanvas needs to know whether it is editing
+      <DashboardCanvas />,
+      // @ts-expect-error Prose takes no sx
+      <Prose sx={{ padding: 0 }} />,
+      // @ts-expect-error Prose takes no style
+      <Prose style={{ padding: 0 }} />,
+      // @ts-expect-error Prose takes no className
+      <Prose className="wide" />,
+      // @ts-expect-error TileGrid takes no sx
+      <TileGrid columns={7} tiles={[]} sx={{ gap: 0 }} />,
+      // @ts-expect-error TileGrid takes no style
+      <TileGrid columns={7} tiles={[]} style={{ gap: 0 }} />,
+      // @ts-expect-error TileGrid takes no className
+      <TileGrid columns={7} tiles={[]} className="tight" />,
+      // @ts-expect-error SlideSwitch takes no sx
+      <SlideSwitch checked label="t" onChange={() => {}} sx={{ width: 100 }} />,
+      // @ts-expect-error SlideSwitch takes no style
+      <SlideSwitch checked label="t" onChange={() => {}} style={{ width: 100 }} />,
+      // @ts-expect-error SlideSwitch takes no className
+      <SlideSwitch checked label="t" onChange={() => {}} className="wide" />,
     ];
-    expect(overrides).toHaveLength(50);
+    expect(overrides).toHaveLength(69);
   });
 });

@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { lighten } from '@mui/material/styles';
-import { useChartColours } from '../../ui/theme/chartColours';
+import { useChartColours } from '../theme/chartColours';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion';
 import { shimmer } from './keyframes';
 import LoaderShell from './LoaderShell';

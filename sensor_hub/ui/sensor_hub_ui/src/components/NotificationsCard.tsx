@@ -13,7 +13,7 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
-import { CascadeRowsLoader } from '../dashboard/widget-loaders';
+import { CascadeRowsLoader } from '../ui/loaders';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import InfoIcon from '@mui/icons-material/Info';
 import WarningIcon from '@mui/icons-material/Warning';

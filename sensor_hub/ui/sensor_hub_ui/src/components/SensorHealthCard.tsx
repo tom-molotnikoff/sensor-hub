@@ -5,7 +5,7 @@ import Card from "../ui/Card";
 import ChartArea from "../ui/ChartArea";
 import EmptyState from "../ui/EmptyState";
 import { scrollToAndHighlight } from "../tools/scrollToAndHighlight";
-import { CircularDrawLoader } from "../dashboard/widget-loaders";
+import { CircularDrawLoader } from "../ui/loaders";
 
 function SensorHealthCard() {
   const { sensors, loaded } = useSensorContext();

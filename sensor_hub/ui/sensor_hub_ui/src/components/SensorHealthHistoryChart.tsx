@@ -22,7 +22,7 @@ import EmptyState from "../ui/EmptyState";
 import MonitorHeartOutlinedIcon from "@mui/icons-material/MonitorHeartOutlined";
 import { buildHealthWindowModel, formatDurationShort, formatWindowLabel } from "../health/healthWindow";
 import { useProperties } from "../hooks/useProperties.ts";
-import { SignalTraceLoader } from "../dashboard/widget-loaders";
+import { SignalTraceLoader } from "../ui/loaders";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function TransitionDot(props: any) {

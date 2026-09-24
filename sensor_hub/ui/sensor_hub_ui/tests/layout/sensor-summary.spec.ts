@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './test';
 import { signIn } from './users';
 
 async function openSummary(page: Page) {

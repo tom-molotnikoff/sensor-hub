@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { WidgetProps } from '../types';
-import { Typography } from '@mui/material';
+import ShowChartOutlinedIcon from '@mui/icons-material/ShowChartOutlined';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { useMeasurementTypes } from '../../hooks/useMeasurementTypes';
 import { useReadingsData } from '../../hooks/useReadingsData';
@@ -12,14 +12,16 @@ import {
     CartesianGrid,
     Tooltip,
     Legend,
-    ResponsiveContainer,
 } from 'recharts';
 import { useChartColours } from '../../ui/theme/chartColours';
+import { theme } from '../../ui/theme';
+import ChartArea from '../../ui/ChartArea';
+import EmptyState from '../../ui/EmptyState';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { resolveTimeRange } from '../timeRange';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { useWidgetViewport } from '../WidgetContext';
-import { WidgetSwap, SignalTraceLoader } from '../widget-loaders';
+import { WidgetSwap, SignalTraceLoader } from '../../ui/loaders';
 
 export default function ComparisonChartWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
@@ -38,7 +40,7 @@ export default function ComparisonChartWidget({ config }: WidgetProps) {
                 : measurementType.charAt(0).toUpperCase() + measurementType.slice(1),
             angle: -90,
             position: 'insideLeft' as const,
-            style: { textAnchor: 'middle' as const, fontSize: 12 },
+            style: { textAnchor: 'middle' as const, fontSize: theme.typography.caption.fontSize },
         }
         : undefined;
 
@@ -67,54 +69,51 @@ export default function ComparisonChartWidget({ config }: WidgetProps) {
         return <NeedsConfiguration message="Select a measurement type to compare" />;
     }
 
+    const icon = <ShowChartOutlinedIcon fontSize="large" />;
+
     if (filteredSensors.length === 0) {
-        return (
-            <Typography
-                sx={{
-                    color: "text.secondary",
-                    p: 2
-                }}>No sensors available</Typography>
-        );
+        return <EmptyState icon={icon} title="No sensors available" />;
     }
 
     const noData = chartData.length === 0;
     const loading = isLoading && noData;
+    const emptyState = error && noData ? (
+        <EmptyState icon={icon} title="Couldn't load comparison data" description="It will retry automatically." />
+    ) : noData ? (
+        <EmptyState icon={icon} title="No data for the selected range" />
+    ) : null;
+    const showChart = !loading && emptyState === null;
 
     return (
-        <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
-            <WidgetSwap loading={loading} loader={<SignalTraceLoader />}>
-                {error && noData ? (
-                    <Typography sx={{ color: "text.secondary", p: 2 }}>
-                        Couldn't load comparison data. It will retry automatically.
-                    </Typography>
-                ) : noData ? (
-                    <Typography sx={{ color: "text.secondary", p: 2 }}>No data for the selected range</Typography>
-                ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData}>
-                            <CartesianGrid stroke={chartColours.grid} strokeDasharray="3 3" />
-                            <XAxis
-                                dataKey="time"
-                                tickFormatter={(t: string) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                minTickGap={50}
-                            />
-                            <YAxis label={yAxisLabel} />
-                            <Tooltip />
-                            <Legend />
-                            {filteredSensors.map((sensor, index) => (
-                                <Line
-                                    key={sensor.name}
-                                    type="linear"
-                                    dataKey={sensor.name}
-                                    stroke={chartColours.categorical[index % chartColours.categorical.length]}
-                                    dot={false}
-                                    connectNulls
-                                />
-                            ))}
-                        </LineChart>
-                    </ResponsiveContainer>
-                )}
-            </WidgetSwap>
-        </div>
+        <ChartArea
+            size="lg"
+            placeholder={showChart ? undefined : (
+                <WidgetSwap loading={loading} loader={<SignalTraceLoader />}>
+                    {emptyState}
+                </WidgetSwap>
+            )}
+        >
+            <LineChart data={chartData}>
+                <CartesianGrid stroke={chartColours.grid} strokeDasharray="3 3" />
+                <XAxis
+                    dataKey="time"
+                    tickFormatter={(t: string) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    minTickGap={50}
+                />
+                <YAxis label={yAxisLabel} />
+                <Tooltip />
+                <Legend />
+                {filteredSensors.map((sensor, index) => (
+                    <Line
+                        key={sensor.name}
+                        type="linear"
+                        dataKey={sensor.name}
+                        stroke={chartColours.categorical[index % chartColours.categorical.length]}
+                        dot={false}
+                        connectNulls
+                    />
+                ))}
+            </LineChart>
+        </ChartArea>
     );
 }

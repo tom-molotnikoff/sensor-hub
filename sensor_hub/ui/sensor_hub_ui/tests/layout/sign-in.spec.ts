@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test';
 import { credentials, signIn, type SignedInUser } from './users';
 
 const roles: Record<SignedInUser, string> = { admin: 'admin', viewer: 'viewer' };

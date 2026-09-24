@@ -6,5 +6,5 @@ import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 export default function WeatherForecastWidget(_props: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
     useEffect(() => { reportUpdate(new Date()); }, [reportUpdate]);
-    return <WeatherForecastCard showTitle={false} />;
+    return <WeatherForecastCard />;
 }

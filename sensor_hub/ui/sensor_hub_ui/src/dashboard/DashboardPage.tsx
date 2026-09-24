@@ -3,6 +3,7 @@ import { Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField } 
 import AddIcon from '@mui/icons-material/Add';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import Page from '../ui/Page';
+import Stack from '../ui/Stack';
 import { useDashboard } from './DashboardContext';
 import { DashboardProvider } from './DashboardProvider';
 import DashboardEngine from './DashboardEngine';
@@ -86,38 +87,40 @@ function DashboardPageInner() {
 
     if (config.widgets.length === 0 && !isEditing) {
         return (
-            <>
+            <Stack>
                 <DashboardToolbar onAddWidget={() => setPickerOpen(true)} />
                 <EmptyState
                     icon={<DashboardIcon fontSize="large" />}
                     title="Empty dashboard"
                     description={canManage ? 'Click Edit then Add Widget to populate this dashboard.' : 'This dashboard has no widgets yet.'}
                 />
-            </>
+            </Stack>
         );
     }
 
     return (
         <>
-            <DashboardToolbar onAddWidget={() => setPickerOpen(true)} />
+            <Stack>
+                <DashboardToolbar onAddWidget={() => setPickerOpen(true)} />
 
-            {config.widgets.length === 0 && isEditing ? (
-                <EmptyState
-                    icon={<AddIcon fontSize="large" />}
-                    title="Empty dashboard"
-                    actionLabel="Add your first widget"
-                    onAction={() => setPickerOpen(true)}
-                />
-            ) : (
-                <DashboardEngine
-                    config={config}
-                    isEditing={isEditing}
-                    onLayoutChange={updateWidgets}
-                    onRemoveWidget={removeWidget}
-                    onConfigureWidget={(id) => setConfigWidgetId(id)}
-                    onAddWidget={() => setPickerOpen(true)}
-                />
-            )}
+                {config.widgets.length === 0 && isEditing ? (
+                    <EmptyState
+                        icon={<AddIcon fontSize="large" />}
+                        title="Empty dashboard"
+                        actionLabel="Add your first widget"
+                        onAction={() => setPickerOpen(true)}
+                    />
+                ) : (
+                    <DashboardEngine
+                        config={config}
+                        isEditing={isEditing}
+                        onLayoutChange={updateWidgets}
+                        onRemoveWidget={removeWidget}
+                        onConfigureWidget={(id) => setConfigWidgetId(id)}
+                        onAddWidget={() => setPickerOpen(true)}
+                    />
+                )}
+            </Stack>
 
             <WidgetPickerDialog open={pickerOpen} onClose={() => setPickerOpen(false)} />
             <WidgetConfigDialog open={!!configWidgetId} widgetId={configWidgetId} onClose={() => setConfigWidgetId(null)} />

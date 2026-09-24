@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './test';
 import { chartAreaHeight } from '../../src/ui/theme/tokens';
 import { checks, viewports, type Tier } from './checks';
 import { signIn, type SignedInUser } from './users';

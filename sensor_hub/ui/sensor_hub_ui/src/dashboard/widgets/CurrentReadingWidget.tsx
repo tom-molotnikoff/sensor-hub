@@ -5,7 +5,7 @@ import { parseUTCTime } from '../../tools/Utils';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { useWidgetStateReport } from '../WidgetContext';
-import { WidgetSwap, ValuePlaceholderLoader } from '../widget-loaders';
+import { WidgetSwap, ValuePlaceholderLoader } from '../../ui/loaders';
 import Metric from '../../ui/Metric';
 
 export default function CurrentReadingWidget({ config }: WidgetProps) {

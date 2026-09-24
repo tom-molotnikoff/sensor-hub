@@ -380,13 +380,12 @@ describe('SensorToggleWidget', () => {
     );
 
     const toggle = screen.getByRole('checkbox', { name: /toggle office-plug state/i });
-    const control = screen.getByTestId('sensor-toggle-control');
 
     expect(toggle).not.toBeChecked();
 
-    fireEvent.pointerDown(control, { clientX: 100, pointerId: 1 });
-    fireEvent.pointerMove(control, { clientX: 195, pointerId: 1 });
-    fireEvent.pointerUp(control, { clientX: 195, pointerId: 1 });
+    fireEvent.pointerDown(toggle, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerMove(toggle, { clientX: 195, pointerId: 1 });
+    fireEvent.pointerUp(toggle, { clientX: 195, pointerId: 1 });
 
     expect(postMock).toHaveBeenCalledWith('/sensors/{id}/command', {
       params: { path: { id: 7 } },
@@ -415,11 +414,10 @@ describe('SensorToggleWidget', () => {
     );
 
     const toggle = screen.getByRole('checkbox', { name: /toggle office-plug state/i });
-    const control = screen.getByTestId('sensor-toggle-control');
 
-    fireEvent.pointerDown(control, { clientX: 100, pointerId: 1 });
-    fireEvent.pointerMove(control, { clientX: 135, pointerId: 1 });
-    fireEvent.pointerUp(control, { clientX: 135, pointerId: 1 });
+    fireEvent.pointerDown(toggle, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerMove(toggle, { clientX: 135, pointerId: 1 });
+    fireEvent.pointerUp(toggle, { clientX: 135, pointerId: 1 });
 
     expect(toggle).not.toBeChecked();
     expect(postMock).not.toHaveBeenCalled();
@@ -444,7 +442,7 @@ describe('SensorToggleWidget', () => {
       />,
     );
 
-    expect(screen.getByTestId('sensor-toggle-control')).toHaveStyle({
+    expect(screen.getByRole('checkbox', { name: /toggle office-plug state/i })).toHaveStyle({
       maxWidth: '220px',
       height: '72px',
     });
@@ -468,7 +466,7 @@ describe('SensorToggleWidget', () => {
       />,
     );
 
-    const boxShadow = getComputedStyle(screen.getByTestId('sensor-toggle-thumb')).boxShadow;
+    const boxShadow = getComputedStyle(document.querySelector('[data-ui=slide-switch-thumb]')!).boxShadow;
 
     expect(boxShadow).toContain('0 0 18px');
     expect(boxShadow).not.toContain('0 10px 24px');
@@ -492,8 +490,8 @@ describe('SensorToggleWidget', () => {
       />,
     );
 
-    const control = screen.getByTestId('sensor-toggle-control');
-    const thumb = screen.getByTestId('sensor-toggle-thumb');
+    const control = screen.getByRole('checkbox', { name: /toggle office-plug state/i });
+    const thumb = document.querySelector('[data-ui=slide-switch-thumb]')!;
 
     fireEvent.pointerDown(control, { clientX: 100, pointerId: 1 });
     fireEvent.pointerMove(control, { clientX: 175, pointerId: 1 });

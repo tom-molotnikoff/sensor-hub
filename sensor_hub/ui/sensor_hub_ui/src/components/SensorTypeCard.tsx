@@ -5,7 +5,7 @@ import SensorTypePieChart from "./SensorTypePieChart.tsx";
 import Card from "../ui/Card";
 import ChartArea from "../ui/ChartArea";
 import EmptyState from "../ui/EmptyState";
-import { CircularDrawLoader } from "../dashboard/widget-loaders";
+import { CircularDrawLoader } from "../ui/loaders";
 
 function SensorTypeCard() {
   const { sensors, loaded } = useSensorContext();

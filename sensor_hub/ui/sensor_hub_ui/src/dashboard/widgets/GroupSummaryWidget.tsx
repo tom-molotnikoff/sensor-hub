@@ -4,7 +4,7 @@ import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurr
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { useWidgetStateReport } from '../WidgetContext';
-import { WidgetSwap, ValuePlaceholderLoader } from '../widget-loaders';
+import { WidgetSwap, ValuePlaceholderLoader } from '../../ui/loaders';
 import Card from '../../ui/Card';
 import Metric from '../../ui/Metric';
 

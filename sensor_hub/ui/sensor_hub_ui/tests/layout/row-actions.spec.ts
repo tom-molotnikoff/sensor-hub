@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './test';
 import { signIn } from './users';
 
 const pendingName = '0x54ef441000a1b2c3';

@@ -7,7 +7,7 @@ import { useChartColours } from '../../ui/theme/chartColours';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { resolveTimeRange } from '../timeRange';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
-import { WidgetSwap, SkeletonTilesLoader } from '../widget-loaders';
+import { WidgetSwap, SkeletonTilesLoader } from '../../ui/loaders';
 import Metric, { MetricGroup } from '../../ui/Metric';
 
 interface Stats {
