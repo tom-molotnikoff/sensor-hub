@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Box, Chip, Stack, Typography } from '@mui/material';
-import Grid from '@mui/material/Grid';
+import { Chip, Typography } from '@mui/material';
 import { apiClient } from '../gen/client';
 import type { MQTTBrokerStats } from '../gen/aliases';
-import LayoutCard from '../tools/LayoutCard';
-import { TypographyH2 } from '../tools/Typography';
+import Card from '../ui/Card';
+import Inline from '../ui/Inline';
+import PageGrid from '../ui/PageGrid';
+import Stack from '../ui/Stack';
 import { logger } from '../tools/logger';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
@@ -45,94 +46,62 @@ function formatUptime(iso: string | null): string {
 function BrokerStatCard({ stat }: { stat: MQTTBrokerStats }) {
   const totalErrors = stat.parse_errors + stat.processing_errors;
   return (
-    <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-      <Box sx={{
-        p: 2,
-        borderRadius: 1,
-        bgcolor: 'background.paper',
-        border: 1,
-        borderColor: stat.connected ? 'success.main' : 'error.main',
-        height: '100%',
-      }}>
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{
-            alignItems: "center",
-            mb: 1.5
-          }}>
+    <Card
+      variant="inset"
+      title={stat.broker_name || `Broker ${stat.broker_id}`}
+      actions={
+        <>
           {stat.connected
             ? <WifiIcon color="success" fontSize="small" />
             : <WifiOffIcon color="error" fontSize="small" />}
-          <Typography variant="subtitle1" noWrap sx={{
-            fontWeight: 600
-          }}>
-            {stat.broker_name || `Broker ${stat.broker_id}`}
-          </Typography>
           <Chip
             size="small"
             label={stat.connected ? 'Connected' : 'Disconnected'}
             color={stat.connected ? 'success' : 'error'}
             variant="outlined"
           />
-        </Stack>
-
-        <Stack spacing={0.75}>
-          <Stack direction="row" spacing={1} sx={{
-            alignItems: "center"
-          }}>
-            <MessageIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-            <Typography variant="body2" sx={{
-              color: "text.secondary"
-            }}>
-              Messages: <strong>{stat.messages_received.toLocaleString()}</strong>
-            </Typography>
-          </Stack>
-
-          {totalErrors > 0 && (
-            <Stack direction="row" spacing={1} sx={{
-              alignItems: "center"
-            }}>
-              <ErrorOutlineIcon sx={{ fontSize: 16, color: 'warning.main' }} />
-              <Typography variant="body2" sx={{
-                color: "warning.main"
-              }}>
-                Errors: <strong>{totalErrors}</strong>
-                {stat.parse_errors > 0 && ` (${stat.parse_errors} parse)`}
-                {stat.processing_errors > 0 && ` (${stat.processing_errors} processing)`}
-              </Typography>
-            </Stack>
-          )}
-
-          {stat.devices_discovered > 0 && (
-            <Stack direction="row" spacing={1} sx={{
-              alignItems: "center"
-            }}>
-              <DevicesIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-              <Typography variant="body2" sx={{
-                color: "text.secondary"
-              }}>
-                Devices discovered: <strong>{stat.devices_discovered}</strong>
-              </Typography>
-            </Stack>
-          )}
-
-          <Typography variant="body2" sx={{
-            color: "text.secondary"
-          }}>
-            Last message: {formatRelativeTime(stat.last_message_at ?? null)}
+        </>
+      }
+    >
+      <Stack>
+        <Inline>
+          <MessageIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Messages: <strong>{stat.messages_received.toLocaleString()}</strong>
           </Typography>
+        </Inline>
 
-          {stat.connected && (
-            <Typography variant="body2" sx={{
-              color: "text.secondary"
-            }}>
-              Uptime: {formatUptime(stat.connected_since ?? null)}
+        {totalErrors > 0 && (
+          <Inline>
+            <ErrorOutlineIcon fontSize="small" sx={{ color: 'warning.main' }} />
+            <Typography variant="body2" sx={{ color: "warning.main" }}>
+              Errors: <strong>{totalErrors}</strong>
+              {stat.parse_errors > 0 && ` (${stat.parse_errors} parse)`}
+              {stat.processing_errors > 0 && ` (${stat.processing_errors} processing)`}
             </Typography>
-          )}
-        </Stack>
-      </Box>
-    </Grid>
+          </Inline>
+        )}
+
+        {stat.devices_discovered > 0 && (
+          <Inline>
+            <DevicesIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Devices discovered: <strong>{stat.devices_discovered}</strong>
+            </Typography>
+          </Inline>
+        )}
+
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Last message: {formatRelativeTime(stat.last_message_at ?? null)}
+        </Typography>
+
+        {stat.connected && (
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Uptime: {formatUptime(stat.connected_since ?? null)}
+          </Typography>
+        )}
+      </Stack>
+    </Card>
   );
 }
 
@@ -156,22 +125,20 @@ export default function MqttStatsCard() {
   }, [load]);
 
   return (
-    <LayoutCard variant="secondary">
-      <TypographyH2>MQTT Broker Stats</TypographyH2>
+    <Card title="MQTT Broker Stats">
       {stats.length === 0 ? (
-        <Typography
-          variant="body2"
-          sx={{
-            color: "text.secondary",
-            mt: 1
-          }}>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           No MQTT broker statistics available. Connect a broker to see live stats.
         </Typography>
       ) : (
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          {stats.map(s => <BrokerStatCard key={s.broker_id} stat={s} />)}
-        </Grid>
+        <PageGrid>
+          {stats.map(s => (
+            <PageGrid.Item key={s.broker_id} span={{ wide: 4 }}>
+              <BrokerStatCard stat={s} />
+            </PageGrid.Item>
+          ))}
+        </PageGrid>
       )}
-    </LayoutCard>
+    </Card>
   );
 }

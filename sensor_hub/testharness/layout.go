@@ -35,6 +35,7 @@ var layoutFixtures = map[string]layoutFixture{
 	"health-history":  createLayoutHealthHistory,
 	"sensors":         createLayoutSensors,
 	"pending-sensors": createLayoutPendingSensors,
+	"mqtt":            createLayoutMQTT,
 }
 
 func StartLayoutServer(ctx context.Context, opts LayoutOptions) (*Env, func(), error) {
@@ -202,6 +203,36 @@ func createLayoutPendingSensors(ctx context.Context, env *Env) error {
 			"INSERT INTO sensors (name, sensor_driver, config, health_status, health_reason, enabled, status, metadata) VALUES (?, 'mqtt-zigbee2mqtt', '{}', 'unknown', 'fixture', 1, ?, ?)",
 			sensor.name, sensor.status, sensor.metadata); err != nil {
 			return fmt.Errorf("failed to insert %s sensor %s: %w", sensor.status, sensor.name, err)
+		}
+	}
+	return nil
+}
+
+func createLayoutMQTT(ctx context.Context, env *Env) error {
+	brokers := []struct {
+		name, host string
+		enabled    bool
+	}{
+		{"Garage Mosquitto", "mqtt.garage.lan", true},
+		{"Loft Relay", "10.0.0.42", false},
+	}
+	for _, broker := range brokers {
+		if _, err := env.DB.Writer.ExecContext(ctx,
+			"INSERT INTO mqtt_brokers (name, type, host, port, enabled) VALUES (?, 'external', ?, 1883, ?)",
+			broker.name, broker.host, broker.enabled); err != nil {
+			return fmt.Errorf("failed to insert broker %s: %w", broker.name, err)
+		}
+	}
+	topics := []string{
+		"zigbee2mqtt/#", "zigbee2mqtt/bridge/devices", "zigbee2mqtt/attic/+", "zigbee2mqtt/garage/+",
+		"zigbee2mqtt/kitchen/+", "zigbee2mqtt/hallway/+", "zigbee2mqtt/loft/+", "zigbee2mqtt/porch/+",
+		"zigbee2mqtt/office/+", "zigbee2mqtt/bedroom/+", "zigbee2mqtt/garden/+", "zigbee2mqtt/utility/+",
+	}
+	for index, topic := range topics {
+		if _, err := env.DB.Writer.ExecContext(ctx,
+			"INSERT INTO mqtt_subscriptions (broker_id, topic_pattern, driver_type, enabled) SELECT id, ?, 'mqtt-zigbee2mqtt', ? FROM mqtt_brokers WHERE name = 'Garage Mosquitto'",
+			topic, index%4 != 3); err != nil {
+			return fmt.Errorf("failed to insert subscription %s: %w", topic, err)
 		}
 	}
 	return nil

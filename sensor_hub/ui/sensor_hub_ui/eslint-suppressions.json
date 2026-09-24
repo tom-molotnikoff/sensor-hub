@@ -151,33 +151,6 @@
       "count": 5
     }
   },
-  "src/components/MqttBrokersCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 8
-    }
-  },
-  "src/components/MqttStatsCard.tsx": {
-    "no-restricted-imports": {
-      "count": 3
-    },
-    "ui/no-layout-styles": {
-      "count": 5
-    },
-    "ui/no-raw-visuals": {
-      "count": 4
-    }
-  },
-  "src/components/MqttSubscriptionsCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 8
-    }
-  },
   "src/components/NotificationBell.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -585,11 +558,6 @@
     }
   },
   "src/pages/data-retention/DataRetentionPage.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/pages/mqtt/MqttPage.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
