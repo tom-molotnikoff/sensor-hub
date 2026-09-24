@@ -39,7 +39,15 @@ export default function Card({ title, actions, variant = 'default', id, children
       }}
     >
       {(heading || actions) && (
-        <Box data-ui="card-header" sx={{ display: 'flex', alignItems: 'center', gap: responsivePixels(density.gap) }}>
+        <Box
+          data-ui="card-header"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: responsivePixels(density.gap),
+            ...(bounded && { paddingX: responsivePixels(density.card), paddingTop: 1 }),
+          }}
+        >
           {heading && (
             <Typography variant="cardTitle" noWrap>
               {heading}

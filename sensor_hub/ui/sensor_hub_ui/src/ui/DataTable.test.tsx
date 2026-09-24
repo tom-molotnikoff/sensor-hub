@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@mui/material';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import DataTable, { type DataTableColumn } from './DataTable';
+import DataTable, { type DataTableColumn, type RowAction } from './DataTable';
 import { theme } from './theme';
 
 interface Row {
@@ -35,12 +35,23 @@ function rowsOf(count: number): Row[] {
   }));
 }
 
-function renderTable(rows: Row[], onRowClick?: (row: Row, anchor: HTMLElement) => void) {
+function renderTable(
+  rows: Row[],
+  onRowClick?: (row: Row, anchor: HTMLElement) => void,
+  rowActions?: (row: Row) => RowAction[],
+) {
   return render(
     <ThemeProvider theme={theme}>
-      <DataTable rows={rows} columns={columns} onRowClick={onRowClick} />
+      <DataTable rows={rows} columns={columns} onRowClick={onRowClick} rowActions={rowActions} />
     </ThemeProvider>,
   );
+}
+
+function actionsFor(approve: (row: Row) => void) {
+  return (row: Row): RowAction[] => [
+    { label: 'Approve', onClick: () => approve(row) },
+    { label: 'Dismiss', disabled: true, onClick: () => {} },
+  ];
 }
 
 function titles() {
@@ -107,22 +118,56 @@ describe('DataTable on compact', () => {
   });
 });
 
+describe('DataTable row actions on compact', () => {
+  it('puts the actions in a ⋮ menu on each row and runs the chosen one', () => {
+    const approve = vi.fn();
+    renderTable(rowsOf(2), undefined, actionsFor(approve));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for sensor-02' }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Approve', 'Dismiss']);
+    expect(screen.getByRole('menuitem', { name: 'Dismiss' })).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Approve' }));
+    expect(approve).toHaveBeenCalledWith(rowsOf(2)[1]);
+  });
+
+  it('shows no ⋮ when the table has no row actions', () => {
+    renderTable(rowsOf(2));
+
+    expect(screen.queryByRole('button', { name: /^Actions for / })).toBeNull();
+  });
+});
+
+function stubWide() {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: true,
+    media: query,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
+}
+
 describe('DataTable on wide', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('renders a DataGrid', () => {
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: true,
-      media: query,
-      addListener: () => {},
-      removeListener: () => {},
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    }));
+    stubWide();
     const { container } = renderTable(rowsOf(3));
 
     expect(container.querySelector('.MuiDataGrid-root')).not.toBeNull();
     expect(screen.queryByRole('textbox', { name: 'Search' })).toBeNull();
+  });
+
+  it('renders row actions as buttons in an Actions column', async () => {
+    stubWide();
+    const approve = vi.fn();
+    renderTable(rowsOf(1), undefined, actionsFor(approve));
+
+    expect(await screen.findByRole('columnheader', { name: 'Actions' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(approve).toHaveBeenCalledWith(rowsOf(1)[0]);
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeDisabled();
   });
 });
 
