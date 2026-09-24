@@ -38,11 +38,16 @@ function renderBar(width: number) {
   );
 }
 
+function press(control: HTMLElement) {
+  control.focus();
+  fireEvent.click(control);
+}
+
 const barButtons = () =>
   Array.from(screen.getByRole('banner').querySelectorAll('button, a')).map((control) => control.getAttribute('aria-label'));
 
 const accountMenuEntries = () => {
-  fireEvent.click(screen.getByRole('button', { name: 'account' }));
+  press(screen.getByRole('button', { name: 'account' }));
   return within(screen.getByRole('menu')).getAllByRole('menuitem').map((item) => item.textContent);
 };
 
@@ -69,8 +74,8 @@ describe('TopAppBar', () => {
   it('opens the theme choices from the avatar menu at 390px', () => {
     renderBar(390);
 
-    fireEvent.click(screen.getByRole('button', { name: 'account' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Theme' }));
+    press(screen.getByRole('button', { name: 'account' }));
+    press(screen.getByRole('menuitem', { name: 'Theme' }));
 
     const choices = within(screen.getByRole('menu')).getAllByRole('menuitem').map((item) => item.textContent);
     expect(choices).toEqual(['Light', 'Dark', 'System']);
