@@ -29,15 +29,6 @@ const healthStatus: Record<Sensor['health_status'], StatusKey> = {
   unknown: 'unknown',
 };
 
-function getHealthBgColor(status: Sensor['health_status']) {
-  switch (status) {
-    case 'good': return 'success.main';
-    case 'bad': return 'error.main';
-    case 'unknown': return 'warning.main';
-    default: return 'grey.400';
-  }
-}
-
 function InfoField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Box>
@@ -151,7 +142,7 @@ function SensorInfoCard({sensor, onDelete, onDisable, onEnable, user}: SensorInf
         <TypographyH2>
           {sensor.name}
         </TypographyH2>
-        <Avatar sx={{ bgcolor: getHealthBgColor(sensor.health_status), width: 40, height: 40 }}>
+        <Avatar sx={{ bgcolor: `status.${healthStatus[sensor.health_status]}.strong`, width: 40, height: 40 }}>
           <SensorsIcon />
         </Avatar>
       </Box>
