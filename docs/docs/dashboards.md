@@ -32,6 +32,15 @@ These are set in the widget settings dialog (gear icon) while in edit mode.
 
 ## Responsive layout
 
-Dashboards use a responsive grid that adapts to your screen size. Widgets
-rearrange automatically at smaller breakpoints. The layout you save is
-remembered separately for large, medium, and small screens.
+Every dashboard has one layout, a grid 12 columns wide. Each widget is stored
+with its column (`x`), row (`y`), width in columns (`w`) and height in rows
+(`h`). Any screen 900px or wider shows exactly that layout: a widget 3
+columns wide takes a quarter of the grid at every desktop width, and resizing
+the window never changes or saves the layout. You arrange widgets by dragging
+and resizing them in edit mode, and saving stores the layout you see.
+
+Narrower screens, such as a phone, show a projection of the same layout
+instead of a second one. Every widget is full width, one per row, in reading
+order: top to bottom by `y`, then left to right by `x`. Each widget type has a
+fixed height on a phone, or takes the height of its content. There's nothing
+to arrange on a phone, so edit mode there has no drag or resize handles.
