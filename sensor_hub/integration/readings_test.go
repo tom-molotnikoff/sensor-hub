@@ -155,6 +155,17 @@ func TestReadings_AggregationOverride_UnsupportedFunction(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, status, "unsupported aggregation function should return 400")
 }
 
+func TestReadings_AggregationOverride_FunctionWithoutType(t *testing.T) {
+	ensureSensorsRegistered(t)
+
+	now := time.Now().UTC()
+	from := now.Add(-2 * time.Hour).Format("2006-01-02 15:04:05")
+	to := now.Add(1 * time.Hour).Format("2006-01-02 15:04:05")
+
+	_, status := client.GetReadingsBetweenAggregated(from, to, "", "", "PT1H", "count")
+	require.Equal(t, http.StatusBadRequest, status)
+}
+
 func TestReadings_AggregatedResponse_HasReadings(t *testing.T) {
 	ensureSensorsRegistered(t)
 	client.CollectAll()

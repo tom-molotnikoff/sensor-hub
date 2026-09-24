@@ -2491,7 +2491,7 @@ export interface operations {
                  */
                 aggregation?: "raw" | "PT10S" | "PT1M" | "PT5M" | "PT15M" | "PT1H" | "P1D";
                 /**
-                 * @description Override the aggregation function. Defaults are looked up per-measurement-type (e.g. `avg` for temperature, `last` for binary sensors). Only meaningful when aggregation is not `raw`.
+                 * @description Override the aggregation function. Defaults are looked up per-measurement-type (e.g. `avg` for temperature, `last` for binary sensors). Only meaningful when aggregation is not `raw`. Requires `type`; the request is rejected with 400 without it.
                  * @example avg
                  */
                 aggregation_function?: "avg" | "count" | "last";

@@ -87,12 +87,13 @@ sensor-hub mqtt subscriptions delete 1               # Delete by ID
 sensor-hub readings between --start 2026-03-01 --end 2026-03-26
 sensor-hub readings between --start 2026-03-26T10:00:00Z --end 2026-03-26T16:00:00Z
 sensor-hub readings between --sensor "Living Room" --start 2026-03-01 --end 2026-03-26
+sensor-hub readings between --type temperature --start 2026-03-01 --end 2026-03-26
 sensor-hub readings between --start 2026-03-01 --end 2026-03-26 --aggregation PT1H
 sensor-hub readings between --start 2026-03-01 --end 2026-03-26 --aggregation raw
-sensor-hub readings between --start 2026-03-01 --end 2026-03-26 --aggregation-function max
+sensor-hub readings between --sensor "Front Door" --type contact --start 2026-03-01 --end 2026-03-26 --aggregation-function count
 ```
 
-> **Start/end** accept either `YYYY-MM-DD` (expanded to full day) or ISO 8601 datetime (e.g. `2026-03-26T10:00:00Z`). All timestamps are stored and returned in UTC. The server auto-aggregates readings based on the time span; use `--aggregation` to override the interval (e.g. `PT1H`, `PT5M`, or `raw` for no aggregation) and `--aggregation-function` to override the function (`avg`, `min`, `max`, `sum`, `count`, `last`).
+> **Start/end** accept either `YYYY-MM-DD` (expanded to full day) or ISO 8601 datetime (e.g. `2026-03-26T10:00:00Z`). All timestamps are stored and returned in UTC. The server auto-aggregates readings based on the time span; use `--aggregation` to override the interval (e.g. `PT1H`, `PT5M`, or `raw` for no aggregation) and `--aggregation-function` to override the function (`avg`, `count`, `last`). `--type` filters to one measurement type and is required for `--aggregation-function`; `measurement-types list` shows the functions each type supports. Without `--type`, auto-aggregation averages every type, so binary types such as `contact` or `motion` come back with no values - pass `--type` or `--aggregation raw` for those.
 
 ### Measurement Types
 ```bash

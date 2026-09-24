@@ -126,6 +126,7 @@ paths:
             Override the aggregation function. Defaults are looked up
             per-measurement-type (e.g. `avg` for temperature, `last` for
             binary sensors). Only meaningful when aggregation is not `raw`.
+            Requires `type`; the request is rejected with 400 without it.
           example: "avg"
       responses:
         '200':
