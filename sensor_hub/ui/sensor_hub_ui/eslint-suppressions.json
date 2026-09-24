@@ -34,11 +34,6 @@
       "count": 8
     }
   },
-  "src/components/CreateUserDialog.tsx": {
-    "ui/no-layout-styles": {
-      "count": 4
-    }
-  },
   "src/components/CurrentTemperatures.tsx": {
     "ui/no-layout-styles": {
       "count": 9
@@ -56,11 +51,6 @@
     },
     "ui/no-raw-visuals": {
       "count": 6
-    }
-  },
-  "src/components/EditUserDialog.tsx": {
-    "ui/no-layout-styles": {
-      "count": 2
     }
   },
   "src/components/HourlyForecastDetail.tsx": {
@@ -128,14 +118,6 @@
       "count": 2
     }
   },
-  "src/components/RolePermissionsCard.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 24
-    }
-  },
   "src/components/SensorDetailCard.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -150,14 +132,6 @@
     },
     "ui/no-layout-styles": {
       "count": 12
-    }
-  },
-  "src/components/UserManagementCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 8
     }
   },
   "src/components/WeatherForecastCard.tsx": {
@@ -441,11 +415,6 @@
     },
     "ui/no-layout-styles": {
       "count": 13
-    }
-  },
-  "src/pages/admin/UsersPage.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "src/tools/LayoutCard.tsx": {

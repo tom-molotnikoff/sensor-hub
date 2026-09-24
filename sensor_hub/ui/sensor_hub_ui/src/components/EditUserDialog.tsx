@@ -14,6 +14,7 @@ import {
 import type {User, RoleInfo} from "../gen/aliases";
 import { apiClient } from "../gen/client";
 import { logger } from '../tools/logger';
+import Stack from '../ui/Stack';
 
 interface EditUserDialogProps {
   open: boolean;
@@ -59,13 +60,15 @@ export default function EditUserDialog({open, onClose, onSaved, selectedUser}: E
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>Edit user</DialogTitle>
       <DialogContent>
-        <TextField fullWidth label="Username" value={selectedUser?.username ?? ''} disabled sx={{mt: 1}}/>
-        <FormControl fullWidth sx={{mt: 2}}>
-          <InputLabel id="edit-role-select-label">Role</InputLabel>
-          <Select labelId="edit-role-select-label" value={role} label="Role" onChange={(e) => setRole(e.target.value as string)}>
-            {availableRoles.map(r => (<MenuItem key={r.name} value={r.name}>{r.name}</MenuItem>))}
-          </Select>
-        </FormControl>
+        <Stack>
+          <TextField fullWidth label="Username" value={selectedUser?.username ?? ''} disabled/>
+          <FormControl fullWidth>
+            <InputLabel id="edit-role-select-label">Role</InputLabel>
+            <Select labelId="edit-role-select-label" value={role} label="Role" onChange={(e) => setRole(e.target.value as string)}>
+              {availableRoles.map(r => (<MenuItem key={r.name} value={r.name}>{r.name}</MenuItem>))}
+            </Select>
+          </FormControl>
+        </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
