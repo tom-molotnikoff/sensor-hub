@@ -242,3 +242,37 @@ func nonEmptyLines(value string) []string {
 	}
 	return out
 }
+
+func TestSensorsListCommand_DefaultsToActive(t *testing.T) {
+	var requested string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requested = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode([]gen.Sensor{}))
+	}))
+	defer server.Close()
+
+	_, _, err := executeRootCommand(t, "--server", server.URL, "sensors", "list")
+	require.NoError(t, err)
+	assert.Equal(t, "/api/sensors/status/active", requested)
+}
+
+func TestSensorsListCommand_StatusAllListsEverySensor(t *testing.T) {
+	var requested string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requested = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode([]gen.Sensor{}))
+	}))
+	defer server.Close()
+
+	_, _, err := executeRootCommand(t, "--server", server.URL, "sensors", "list", "--status", "all")
+	require.NoError(t, err)
+	assert.Equal(t, "/api/sensors", requested)
+}
+
+func TestSensorsListCommand_RejectsUnknownStatus(t *testing.T) {
+	_, _, err := executeRootCommand(t, "--server", "http://127.0.0.1:1", "sensors", "list", "--status", "gone")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid --status")
+}

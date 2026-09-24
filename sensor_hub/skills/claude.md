@@ -34,7 +34,8 @@ sensor-hub health
 
 ### Sensors
 ```bash
-sensor-hub sensors list                              # List all sensors
+sensor-hub sensors list                              # List active sensors
+sensor-hub sensors list --status all                 # List every sensor, including pending and dismissed
 sensor-hub sensors get "Living Room"                 # Get by name
 sensor-hub sensors exists "Living Room"              # Check if exists
 sensor-hub sensors list-by-driver sensor-hub-http-temperature  # List by driver
@@ -54,6 +55,13 @@ sensor-hub sensors pending                           # List pending (auto-discov
 sensor-hub sensors approve 5                         # Approve a pending sensor by ID
 sensor-hub sensors dismiss 5                         # Dismiss a pending sensor by ID
 ```
+
+**Sensor status.** Every sensor has a `status` field:
+- `active` - an installed sensor that Sensor Hub collects readings from. These are the user's real sensors.
+- `pending` - auto-discovered (e.g. from MQTT) and awaiting approval with `sensors approve`. Not yet a real sensor.
+- `dismissed` - auto-discovered and rejected. Not a real sensor; ignore these. They can still report `enabled: true` and health `unknown`, so never judge a sensor by those fields alone.
+
+`sensors list` shows only active sensors by default. Use `--status pending`, `--status dismissed` or `--status all` to see the rest. Zigbee bridge topics such as `bridge/response/permit_join` often end up dismissed, and names containing `/` work as-is in name-addressed commands.
 
 **Sensor response fields (GET /api/sensors/:name):**
 - `retention_hours` — nullable integer; per-sensor data retention override in hours. Null means use the global default.

@@ -23,11 +23,26 @@ import (
 //go:embed openapi.yaml
 var openapiSpec []byte
 
-func newRouter(logger *slog.Logger, prometheusHandler http.Handler, server *Server) *gin.Engine {
-	gin.SetMode(gin.ReleaseMode)
+func NewEngine() *gin.Engine {
 	router := gin.New()
 	router.RedirectTrailingSlash = false
+	router.UseRawPath = true
 	router.Use(gin.Recovery())
+	return router
+}
+
+func RegisterAPIRoutes(router *gin.Engine, server *Server) {
+	apiGroup := router.Group("/api")
+	apiGroup.Use(middleware.Compression())
+	apiGroup.Use(middleware.CSRFMiddleware())
+	gen.RegisterHandlersWithOptions(apiGroup, server, gen.GinServerOptions{
+		Middlewares: []gen.MiddlewareFunc{RouteAuthAndPermissionMiddleware()},
+	})
+}
+
+func newRouter(logger *slog.Logger, prometheusHandler http.Handler, server *Server) *gin.Engine {
+	gin.SetMode(gin.ReleaseMode)
+	router := NewEngine()
 	router.Use(otelgin.Middleware("sensor-hub"))
 	router.Use(telemetry.GinLoggerMiddleware(logger))
 
@@ -44,15 +59,7 @@ func newRouter(logger *slog.Logger, prometheusHandler http.Handler, server *Serv
 		}))
 	}
 
-	// All API routes live under /api
-	apiGroup := router.Group("/api")
-
-	apiGroup.Use(middleware.Compression())
-	apiGroup.Use(middleware.CSRFMiddleware())
-
-	gen.RegisterHandlersWithOptions(apiGroup, server, gen.GinServerOptions{
-		Middlewares: []gen.MiddlewareFunc{RouteAuthAndPermissionMiddleware()},
-	})
+	RegisterAPIRoutes(router, server)
 
 	// Prometheus metrics endpoint (no auth)
 	if prometheusHandler != nil {

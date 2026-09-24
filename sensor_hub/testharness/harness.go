@@ -22,7 +22,6 @@ import (
 	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
 	_ "example/sensorHub/drivers" // register sensor drivers
-	gen "example/sensorHub/gen"
 	mqttpkg "example/sensorHub/mqtt"
 	"example/sensorHub/notifications"
 	"example/sensorHub/service"
@@ -202,18 +201,9 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		connManager,
 	)
 
-	// Build Gin router (mirrors api.go without TLS/OTEL/CORS)
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.Use(gin.Recovery())
-
-	apiGroup := router.Group("/api")
-	apiGroup.Use(middleware.Compression())
-	apiGroup.Use(middleware.CSRFMiddleware())
-
-	gen.RegisterHandlersWithOptions(apiGroup, server, gen.GinServerOptions{
-		Middlewares: []gen.MiddlewareFunc{api.RouteAuthAndPermissionMiddleware()},
-	})
+	router := api.NewEngine()
+	api.RegisterAPIRoutes(router, server)
 
 	if opts.ui != nil {
 		web.RegisterSPAHandlerFS(router, opts.ui)
