@@ -21,7 +21,7 @@ export default function AlertHistoryDialog({open, onClose, selectedAlert}: Alert
       setHistoryLoading(true);
       try {
       const { data: history } = await apiClient.GET('/alerts/sensor/{sensorId}/history', {
-          params: { path: { sensorId: selectedAlert.SensorID }, query: { limit: 50 } }
+          params: { path: { sensorId: selectedAlert.sensor_id }, query: { limit: 50 } }
         });
         if (!cancelled) setHistoryData(history ?? []);
       } catch (e) {
@@ -37,7 +37,7 @@ export default function AlertHistoryDialog({open, onClose, selectedAlert}: Alert
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Alert History - {selectedAlert?.SensorName}</DialogTitle>
+      <DialogTitle>Alert History - {selectedAlert?.sensor_name}</DialogTitle>
       <DialogContent>
         {historyLoading ? (
           <LinearProgress />

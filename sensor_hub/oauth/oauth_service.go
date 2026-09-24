@@ -130,13 +130,13 @@ func (s *OAuthService) GetStatus() OAuthStatus {
 		Configured:      s.configured,
 		NeedsAuth:       s.configured && s.token == nil,
 		RefresherActive: s.refresherActive,
-		LastRefreshAt:   s.lastRefreshAt,
+		LastRefreshAt:   s.lastRefreshAt.UTC(),
 		LastError:       s.lastError,
 	}
 
 	if s.token != nil {
 		status.TokenValid = s.token.Valid()
-		status.TokenExpiry = s.token.Expiry
+		status.TokenExpiry = s.token.Expiry.UTC()
 	}
 
 	return status

@@ -11,10 +11,10 @@ import (
 
 func toAlertingRule(r gen.AlertRule) alerting.AlertRule {
 	return alerting.AlertRule{
-		ID:                r.ID,
-		SensorID:          r.SensorID,
+		ID:                r.Id,
+		SensorID:          r.SensorId,
 		SensorName:        r.SensorName,
-		MeasurementTypeId: r.MeasurementTypeID,
+		MeasurementTypeId: r.MeasurementTypeId,
 		MeasurementType:   r.MeasurementType,
 		AlertType:         alerting.AlertType(r.AlertType),
 		HighThreshold:     r.HighThreshold,
@@ -26,6 +26,31 @@ func toAlertingRule(r gen.AlertRule) alerting.AlertRule {
 	}
 }
 
+func toGenAlertRule(r alerting.AlertRule) gen.AlertRule {
+	return gen.AlertRule{
+		Id:                r.ID,
+		SensorId:          r.SensorID,
+		SensorName:        r.SensorName,
+		MeasurementTypeId: r.MeasurementTypeId,
+		MeasurementType:   r.MeasurementType,
+		AlertType:         gen.AlertRuleAlertType(r.AlertType),
+		HighThreshold:     r.HighThreshold,
+		LowThreshold:      r.LowThreshold,
+		TriggerStatus:     r.TriggerStatus,
+		Enabled:           r.Enabled,
+		RateLimitSeconds:  r.RateLimitSeconds,
+		LastAlertSentAt:   r.LastAlertSentAt,
+	}
+}
+
+func toGenAlertRules(rules []alerting.AlertRule) []gen.AlertRule {
+	out := make([]gen.AlertRule, len(rules))
+	for i, r := range rules {
+		out[i] = toGenAlertRule(r)
+	}
+	return out
+}
+
 func (s *Server) GetAllAlertRules(c *gin.Context) {
 	ctx := c.Request.Context()
 	rules, err := s.alertService.ServiceGetAllAlertRules(ctx)
@@ -34,7 +59,7 @@ func (s *Server) GetAllAlertRules(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert rules", "error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, rules)
+	c.JSON(http.StatusOK, toGenAlertRules(rules))
 }
 
 func (s *Server) GetAlertRuleById(c *gin.Context, id int) {
@@ -48,7 +73,7 @@ func (s *Server) GetAlertRuleById(c *gin.Context, id int) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Alert rule not found"})
 		return
 	}
-	c.JSON(http.StatusOK, rule)
+	c.JSON(http.StatusOK, toGenAlertRule(*rule))
 }
 
 func (s *Server) GetAlertRulesBySensorId(c *gin.Context, sensorId int) {
@@ -58,7 +83,7 @@ func (s *Server) GetAlertRulesBySensorId(c *gin.Context, sensorId int) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching alert rules", "error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, rules)
+	c.JSON(http.StatusOK, toGenAlertRules(rules))
 }
 
 func (s *Server) CreateAlertRule(c *gin.Context) {

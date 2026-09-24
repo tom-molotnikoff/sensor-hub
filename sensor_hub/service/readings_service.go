@@ -62,6 +62,9 @@ func (s *ReadingsService) ServiceGetBetweenDates(ctx context.Context, startDate,
 	if err != nil {
 		return nil, err
 	}
+	if readings == nil {
+		readings = []gen.Reading{}
+	}
 
 	return &gen.AggregatedReadingsResponse{
 		AggregationInterval: gen.AggregatedReadingsResponseAggregationInterval(interval),

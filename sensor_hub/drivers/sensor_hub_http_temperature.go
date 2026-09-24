@@ -78,7 +78,7 @@ func (d *SensorHubHTTPTemperature) CollectReadings(ctx context.Context, sensor g
 		return nil, fmt.Errorf("error decoding JSON response from sensor at %s: %w", sensorURL, err)
 	}
 
-	raw.Time = utils.NormalizeTimeToSpaceFormat(raw.Time)
+	raw.Time = utils.NormalizeTimeToRFC3339(raw.Time)
 	temp := raw.Temperature
 
 	return []gen.Reading{

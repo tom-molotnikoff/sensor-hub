@@ -58,14 +58,14 @@ export default function CreateAlertDialog({open, onClose, onCreated}: CreateAler
   const handleCreate = async () => {
     try {
       const body = {
-        SensorID: createSensorId,
-        MeasurementTypeID: createMeasurementTypeId,
-        AlertType: createAlertType,
-        RateLimitSeconds: toSeconds(parseInt(createRateLimit, 10), createRateLimitUnit),
-        Enabled: createEnabled,
+        sensor_id: createSensorId,
+        measurement_type_id: createMeasurementTypeId,
+        alert_type: createAlertType,
+        rate_limit_seconds: toSeconds(parseInt(createRateLimit, 10), createRateLimitUnit),
+        enabled: createEnabled,
         ...(createAlertType === 'numeric_range'
-          ? { HighThreshold: parseFloat(createHighThreshold), LowThreshold: parseFloat(createLowThreshold) }
-          : { TriggerStatus: createTriggerStatus }),
+          ? { high_threshold: parseFloat(createHighThreshold), LowThreshold: parseFloat(createLowThreshold) }
+          : { trigger_status: createTriggerStatus }),
       };
       await apiClient.POST('/alerts', { body: body as never });
       resetForm();

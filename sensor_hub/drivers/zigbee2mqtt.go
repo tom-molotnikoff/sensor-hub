@@ -463,7 +463,7 @@ func (d *Zigbee2MQTTDriver) ParseMessage(topic string, payload []byte) ([]gen.Re
 		return nil, fmt.Errorf("invalid JSON payload: %w", err)
 	}
 
-	now := time.Now().UTC().Format("2006-01-02 15:04:05")
+	now := time.Now().UTC().Format(time.RFC3339)
 	var readings []gen.Reading
 
 	for key, val := range data {

@@ -55,8 +55,8 @@ func TestThresholdAlert_EndToEnd(t *testing.T) {
 	// mock sensors return 18-22°C, so HighThreshold: 15.0 always triggers.
 	// RateLimitSeconds: 0 disables rate-limiting so repeated test runs aren't blocked.
 	wantRule := gen.AlertRule{
-		SensorID:          sensor.Id,
-		MeasurementTypeID: 1, // temperature
+		SensorId:          sensor.Id,
+		MeasurementTypeId: 1, // temperature
 		AlertType:         "numeric_range",
 		HighThreshold:     15.0,
 		LowThreshold:      5.0,
@@ -72,12 +72,12 @@ func TestThresholdAlert_EndToEnd(t *testing.T) {
 		var existingRules []gen.AlertRule
 		require.NoError(t, json.Unmarshal(rulesRaw, &existingRules))
 		require.NotEmpty(t, existingRules, "expected an existing alert rule")
-		_, updateStatus := client.UpdateAlertRuleWithBody(existingRules[0].ID, map[string]any{
-			"AlertType":        "numeric_range",
-			"HighThreshold":    15.0,
-			"LowThreshold":     5.0,
-			"RateLimitSeconds": 0,
-			"Enabled":          true,
+		_, updateStatus := client.UpdateAlertRuleWithBody(existingRules[0].Id, map[string]any{
+			"alert_type":         "numeric_range",
+			"high_threshold":     15.0,
+			"low_threshold":      5.0,
+			"rate_limit_seconds": 0,
+			"enabled":            true,
 		})
 		require.Equal(t, http.StatusOK, updateStatus, "failed to update existing alert rule to fire threshold")
 	}

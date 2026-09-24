@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Chip, Menu, MenuItem } from '@mui/material';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { apiClient } from '../gen/client';
@@ -13,8 +13,6 @@ import Card from '../ui/Card';
 import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
 import { logger } from '../tools/logger';
-
-type AlertRuleRow = AlertRule & { id: number };
 
 const alertTypeLabels: Record<string, string> = {
   numeric_range: 'Numeric range',
@@ -48,9 +46,7 @@ export default function AlertRulesCard() {
 
   useEffect(() => { void load(); }, []);
 
-  const rows = useMemo<AlertRuleRow[]>(() => alertRules.map((rule) => ({ ...rule, id: rule.ID })), [alertRules]);
-
-  const handleRowClick = (row: AlertRuleRow, anchor: HTMLElement) => {
+  const handleRowClick = (row: AlertRule, anchor: HTMLElement) => {
     setSelectedRow(row);
     setMenuAnchorEl(anchor);
   };
@@ -70,7 +66,7 @@ export default function AlertRulesCard() {
           </Button>
         }
       >
-        {rows.length === 0 ? (
+        {alertRules.length === 0 ? (
           <EmptyState
             icon={<NotificationsNoneOutlinedIcon fontSize="large" />}
             title="No alert rules configured"
@@ -81,41 +77,41 @@ export default function AlertRulesCard() {
           />
         ) : (
           <DataTable
-            rows={rows}
+            rows={alertRules}
             onRowClick={handleRowClick}
             columns={[
-              { field: 'SensorName', headerName: 'Sensor', flex: 1, minWidth: 140, compact: 'title' },
-              { field: 'MeasurementType', headerName: 'Measurement', width: 130, compact: 'meta' },
+              { field: 'sensor_name', headerName: 'Sensor', flex: 1, minWidth: 140, compact: 'title' },
+              { field: 'measurement_type', headerName: 'Measurement', width: 130, compact: 'meta' },
               {
-                field: 'AlertType',
+                field: 'alert_type',
                 headerName: 'Alert Type',
                 width: 150,
                 compact: 'meta',
                 valueFormatter: (value: string) => alertTypeLabels[value] ?? value,
               },
-              { field: 'HighThreshold', headerName: 'High', width: 80, compact: 'hidden', valueFormatter: orDash },
-              { field: 'LowThreshold', headerName: 'Low', width: 80, compact: 'hidden', valueFormatter: orDash },
-              { field: 'TriggerStatus', headerName: 'Status', width: 100, compact: 'hidden', valueFormatter: orDash },
+              { field: 'high_threshold', headerName: 'High', width: 80, compact: 'hidden', valueFormatter: orDash },
+              { field: 'low_threshold', headerName: 'Low', width: 80, compact: 'hidden', valueFormatter: orDash },
+              { field: 'trigger_status', headerName: 'Status', width: 100, compact: 'hidden', valueFormatter: orDash },
               {
-                field: 'RateLimitSeconds',
+                field: 'rate_limit_seconds',
                 headerName: 'Rate Limit',
                 width: 130,
                 compact: 'hidden',
                 valueFormatter: (value: number) => formatRateLimit(value),
               },
               {
-                field: 'Enabled',
+                field: 'enabled',
                 headerName: 'Enabled',
                 width: 110,
                 compact: 'status',
-                statusOf: (row) => (row.Enabled ? 'ok' : 'unknown'),
+                statusOf: (row) => (row.enabled ? 'ok' : 'unknown'),
                 valueFormatter: (value: boolean) => (value ? 'Enabled' : 'Disabled'),
                 renderCell: ({ row, formattedValue }) => (
-                  <Chip label={formattedValue} color={row.Enabled ? 'success' : 'default'} size="small" />
+                  <Chip label={formattedValue} color={row.enabled ? 'success' : 'default'} size="small" />
                 ),
               },
               {
-                field: 'LastAlertSentAt',
+                field: 'last_alert_sent_at',
                 headerName: 'Last Alert Sent',
                 width: 180,
                 compact: 'hidden',

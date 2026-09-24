@@ -4,7 +4,6 @@ import { useSensorContext } from '../../hooks/useSensorContext';
 import { apiClient } from '../../gen/client';
 import { useScheduledQuery } from '../../hooks/useScheduledQuery';
 import { heatColour, useChartColours } from '../../ui/theme/chartColours';
-import { parseUTCTime } from '../../tools/Utils';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { WidgetSwap, RippleHeatmapLoader } from '../../ui/loaders';
@@ -52,7 +51,7 @@ export default function HeatmapWidget({ config }: WidgetProps) {
 
         const grouped: Record<string, number[]> = {};
         for (const r of data?.readings ?? []) {
-            const dateKey = parseUTCTime(r.time).toISOString().slice(0, 10);
+            const dateKey = new Date(r.time).toISOString().slice(0, 10);
             if (!grouped[dateKey]) grouped[dateKey] = [];
             grouped[dateKey].push(r.numeric_value ?? 0);
         }

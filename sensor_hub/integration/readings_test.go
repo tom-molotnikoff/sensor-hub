@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -21,7 +22,12 @@ func TestReadings_BetweenDates(t *testing.T) {
 
 	readings, status := client.GetReadingsBetween(from, to, "")
 	require.Equal(t, http.StatusOK, status)
-	assert.NotEmpty(t, readings)
+	require.NotEmpty(t, readings)
+	for _, r := range readings {
+		parsed, err := time.Parse(time.RFC3339, r.Time)
+		require.NoError(t, err, "reading time %q is not RFC3339", r.Time)
+		assert.Equal(t, time.UTC, parsed.Location())
+	}
 }
 
 func TestReadings_FilterBySensor(t *testing.T) {
@@ -54,9 +60,13 @@ func TestReadings_FilterBySensorCaseInsensitive(t *testing.T) {
 }
 
 func TestReadings_NoResults(t *testing.T) {
-	readings, status := client.GetReadingsBetween("2020-01-01", "2020-01-02", "")
-	require.Equal(t, http.StatusOK, status)
-	assert.Empty(t, readings)
+	resp, body, err := client.GetRaw("/api/readings/between?start=2020-01-01&end=2020-01-02", nil)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(body, &raw))
+	assert.JSONEq(t, "[]", string(raw["readings"]))
 }
 
 func TestReadings_ISODatetimeRange(t *testing.T) {
