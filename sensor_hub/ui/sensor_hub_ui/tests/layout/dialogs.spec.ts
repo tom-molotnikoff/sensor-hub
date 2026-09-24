@@ -13,7 +13,7 @@ const dialogs: { name: string; path: string; open: (page: Page) => Promise<void>
     path: '/dashboard',
     open: async (page) => {
       await page.getByRole('button', { name: 'Edit dashboard' }).click();
-      await page.locator('[data-widget-state]').getByRole('button').first().click();
+      await page.getByRole('button', { name: 'Configure widget' }).first().click();
     },
   },
   {

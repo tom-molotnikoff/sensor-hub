@@ -17,14 +17,18 @@ type WidgetDefinitionLike = {
     defaultLayout: { w: number; h: number };
 };
 
-function buildWidget(definition: WidgetDefinitionLike): DashboardWidget {
+function bottomOf(widgets: DashboardWidget[]) {
+    return Math.max(0, ...widgets.map((widget) => widget.layout.y + widget.layout.h));
+}
+
+function buildWidget(definition: WidgetDefinitionLike, existing: DashboardWidget[]): DashboardWidget {
     return {
         id: `${definition.type}-${Date.now()}`,
         type: definition.type,
         config: { ...definition.defaultConfig },
         layout: {
             x: 0,
-            y: Infinity,
+            y: bottomOf(existing),
             w: definition.defaultLayout.w,
             h: definition.defaultLayout.h,
         },
@@ -32,14 +36,14 @@ function buildWidget(definition: WidgetDefinitionLike): DashboardWidget {
 }
 
 export default function WidgetPickerDialog({ open, onClose }: WidgetPickerDialogProps) {
-    const { addWidget } = useDashboard();
+    const { config, addWidget } = useDashboard();
     const widgets = getAllWidgets();
 
     const handleSelect = (type: string) => {
         const definition = widgets.find((w) => w.type === type);
         if (!definition) return;
 
-        addWidget(buildWidget(definition));
+        addWidget(buildWidget(definition, config.widgets));
         onClose();
     };
 
