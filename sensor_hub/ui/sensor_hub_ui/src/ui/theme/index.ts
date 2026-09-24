@@ -103,6 +103,15 @@ export const theme = createTheme({
         getRowHeight: () => 'auto',
       },
     },
+    MuiDialogContent: {
+      styleOverrides: {
+        root: {
+          '.MuiDialogTitle-root + &': {
+            paddingTop: 8,
+          },
+        },
+      },
+    },
     MuiDialog: {
       styleOverrides: {
         paper: {

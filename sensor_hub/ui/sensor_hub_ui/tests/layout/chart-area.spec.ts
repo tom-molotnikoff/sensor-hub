@@ -4,23 +4,40 @@ import { signIn } from './users';
 test.describe('ChartArea in a widget frame', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  for (const label of ['Sensor Health', 'Sensor Types']) {
+  const widgets = [
+    { label: 'Sensor Health', header: false },
+    { label: 'Sensor Types', header: false },
+    { label: 'Readings Chart', header: false },
+    { label: 'Health Timeline', header: true },
+  ];
+
+  for (const { label, header } of widgets) {
     test(`fills the ${label} widget body instead of taking its token height`, async ({ page }) => {
       await signIn(page, 'admin');
       await page.goto('/dashboard');
       await page.waitForLoadState('networkidle');
 
-      const frame = page.locator('[data-widget-state]', { has: page.getByText(label, { exact: true }) });
+      const frame = page.locator('[data-widget-state]', { has: page.getByText(new RegExp(`^${label}(:|$)`)) });
       const area = frame.locator('[data-ui=chart-area]');
       await expect(area.locator('.recharts-wrapper > svg')).toBeVisible();
       await expect(area).not.toHaveAttribute('data-ui-min-height');
 
-      const boxes = await frame.evaluate((element) => {
-        const body = element.lastElementChild!.getBoundingClientRect();
-        const chart = element.querySelector('[data-ui=chart-area]')!.getBoundingClientRect();
-        return { body: [body.left, body.top, body.width, body.height], chart: [chart.left, chart.top, chart.width, chart.height] };
+      const { body, chart } = await frame.evaluate((element) => {
+        const box = (target: Element) => {
+          const { left, top, right, bottom } = target.getBoundingClientRect();
+          return { left, top, right, bottom };
+        };
+        return { body: box(element.lastElementChild!), chart: box(element.querySelector('[data-ui=chart-area]')!) };
       });
-      boxes.chart.forEach((value, index) => expect(value).toBeCloseTo(boxes.body[index], 0));
+      expect(chart.left).toBeCloseTo(body.left, 0);
+      expect(chart.right).toBeCloseTo(body.right, 0);
+      expect(chart.bottom).toBeCloseTo(body.bottom, 0);
+      if (header) {
+        expect(chart.top).toBeGreaterThan(body.top);
+        expect(chart.bottom - chart.top).toBeGreaterThan((body.bottom - body.top) / 2);
+      } else {
+        expect(chart.top).toBeCloseTo(body.top, 0);
+      }
     });
   }
 });

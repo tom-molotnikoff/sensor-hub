@@ -5,7 +5,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  ResponsiveContainer,
   Legend,
   type LegendPayload,
 } from "recharts";
@@ -13,7 +12,6 @@ import React, {
   useEffect,
   useMemo,
   useReducer,
-  type CSSProperties,
 } from "react";
 import { useReadingsData } from "../hooks/useReadingsData";
 import { linesHiddenReducer } from "../reducers/LinesHiddenReducer";
@@ -22,13 +20,14 @@ import type { DateTime } from "luxon";
 import EmptyState from '../ui/EmptyState';
 import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
 import { useChartColours } from "../ui/theme/chartColours";
+import { theme } from "../ui/theme";
+import ChartArea from "../ui/ChartArea";
 import { WidgetSwap, SignalTraceLoader } from "../dashboard/widget-loaders";
 
 const ReadingsChart = React.memo(function ReadingsChart({
   sensors,
   startDate,
   endDate,
-  compact = false,
   measurementType,
   aggregationFunction,
   pollIntervalMs,
@@ -38,7 +37,6 @@ const ReadingsChart = React.memo(function ReadingsChart({
   sensors: Sensor[];
   startDate: DateTime | null;
   endDate: DateTime | null;
-  compact?: boolean;
   measurementType?: string;
   aggregationFunction?: string;
   pollIntervalMs?: number;
@@ -62,10 +60,8 @@ const ReadingsChart = React.memo(function ReadingsChart({
   });
 
   const noData = !Array.isArray(chartData) || chartData.length === 0;
-  // Show the loader only on the first load when we have sensors but no data yet.
   const loading = sensors.length > 0 && isLoading && noData;
 
-  // Only include sensors that have at least one non-null data point
   const activeSensors = useMemo(() => {
     if (!Array.isArray(chartData) || chartData.length === 0) return [];
     return sensors.filter((s) =>
@@ -84,7 +80,6 @@ const ReadingsChart = React.memo(function ReadingsChart({
     setLinesHidden({ type: "toggle", key: data.dataKey as string });
   };
 
-  // Detect if the data is binary (all values are 0 or 1)
   const isBinaryData = useMemo(() => {
     if (!Array.isArray(chartData) || chartData.length === 0) return false;
     return activeSensors.every((s) =>
@@ -96,98 +91,86 @@ const ReadingsChart = React.memo(function ReadingsChart({
   }, [chartData, activeSensors]);
 
   const yAxisLabel = measurementType
-    ? { value: measurementType.charAt(0).toUpperCase() + measurementType.slice(1), angle: -90, position: 'insideLeft' as const, style: { textAnchor: 'middle' as const, fontSize: compact ? 10 : 12 } }
+    ? { value: measurementType.charAt(0).toUpperCase() + measurementType.slice(1), angle: -90, position: 'insideLeft' as const, style: { textAnchor: 'middle' as const, fontSize: theme.typography.caption.fontSize } }
     : undefined;
 
+  const icon = <ShowChartOutlinedIcon fontSize="large" />;
+  const emptyState = sensors.length === 0 ? (
+    <EmptyState
+      icon={icon}
+      title="No sensors configured"
+      description="Add a sensor to start seeing data here."
+      actionLabel="Add a sensor"
+      actionHref="/sensors-overview"
+    />
+  ) : error && noData ? (
+    <EmptyState
+      icon={icon}
+      title="Couldn't load readings"
+      description="Something went wrong fetching this chart. It will retry automatically."
+    />
+  ) : noData ? (
+    <EmptyState
+      icon={icon}
+      title="No readings in selected date range"
+      description="Try adjusting the date range or wait for new readings."
+    />
+  ) : activeSensors.length === 0 ? (
+    <EmptyState
+      icon={icon}
+      title="No sensors have this reading type"
+      description={measurementType
+        ? `None of the available sensors report "${measurementType}" readings.`
+        : "No matching sensor data found."}
+    />
+  ) : null;
+  const showChart = !loading && emptyState === null;
+
   return (
-    <div data-testid="readings-chart" style={{ ...graphContainerStyle, flex: 1, minHeight: 0, position: 'relative' }}>
-      <WidgetSwap loading={loading} loader={<SignalTraceLoader />}>
-      {sensors.length === 0 ? (
-        <EmptyState
-          icon={<ShowChartOutlinedIcon sx={{ fontSize: 48 }} />}
-          title="No sensors configured"
-          description="Add a sensor to start seeing data here."
-          actionLabel="Add a sensor"
-          actionHref="/sensors-overview"
-        />
-      ) : error && noData ? (
-        <EmptyState
-          icon={<ShowChartOutlinedIcon sx={{ fontSize: 48 }} />}
-          title="Couldn't load readings"
-          description="Something went wrong fetching this chart. It will retry automatically."
-        />
-      ) : noData ? (
-        <EmptyState
-          icon={<ShowChartOutlinedIcon sx={{ fontSize: 48 }} />}
-          title="No readings in selected date range"
-          description="Try adjusting the date range or wait for new readings."
-        />
-      ) : activeSensors.length === 0 ? (
-        <EmptyState
-          icon={<ShowChartOutlinedIcon sx={{ fontSize: 48 }} />}
-          title="No sensors have this reading type"
-          description={measurementType
-            ? `None of the available sensors report "${measurementType}" readings.`
-            : "No matching sensor data found."}
-        />
-      ) : (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid stroke={chartColours.grid} strokeDasharray="3 3" />
-              <XAxis
-                dataKey="time"
-                tickFormatter={(t) => {
-                  const date = new Date(t);
-                  return compact 
-                    ? date.toLocaleTimeString([], { hour: '2-digit' })
-                    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                }}
-                interval="preserveStartEnd"
-                minTickGap={compact ? 30 : 50}
-                tick={{ fontSize: compact ? 10 : 12 }}
-                angle={compact ? -45 : 0}
-                textAnchor={compact ? 'end' : 'middle'}
-                height={compact ? 60 : 30}
-              />
-              <YAxis
-                type="number"
-                domain={isBinaryData ? [0, 1] : ['auto', 'auto']}
-                ticks={isBinaryData ? [0, 1] : undefined}
-                tickFormatter={isBinaryData ? (v: number) => (v === 1 ? 'true' : 'false') : undefined}
-                tick={{ fontSize: compact ? 10 : 12 }}
-                label={yAxisLabel}
-              />
-              <Tooltip />
-              <Legend 
-                onClick={legendClickHandler}
-                wrapperStyle={compact ? { fontSize: 10 } : undefined}
-              />
-              {activeSensors.map((sensor, index) => (
-                <Line
-                  key={sensor.name}
-                  type={isBinaryData ? 'stepAfter' : 'linear'}
-                  dataKey={sensor.name}
-                  stroke={chartColours.categorical[index % chartColours.categorical.length]}
-                  dot={false}
-                  connectNulls={true}
-                  animationEasing="ease-in-out"
-                  animationDuration={800}
-                  hide={linesHidden[sensor.name]}
-                  legendType="plainline"
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+    <ChartArea
+      size="lg"
+      placeholder={showChart ? undefined : (
+        <WidgetSwap loading={loading} loader={<SignalTraceLoader />}>
+          {emptyState}
+        </WidgetSwap>
       )}
-      </WidgetSwap>
-    </div>
+    >
+      <LineChart data={chartData}>
+        <CartesianGrid stroke={chartColours.grid} strokeDasharray="3 3" />
+        <XAxis
+          dataKey="time"
+          tickFormatter={(t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          interval="preserveStartEnd"
+          minTickGap={50}
+          tick={{ fontSize: theme.typography.caption.fontSize }}
+        />
+        <YAxis
+          type="number"
+          domain={isBinaryData ? [0, 1] : ['auto', 'auto']}
+          ticks={isBinaryData ? [0, 1] : undefined}
+          tickFormatter={isBinaryData ? (v: number) => (v === 1 ? 'true' : 'false') : undefined}
+          tick={{ fontSize: theme.typography.caption.fontSize }}
+          label={yAxisLabel}
+        />
+        <Tooltip />
+        <Legend onClick={legendClickHandler} />
+        {activeSensors.map((sensor, index) => (
+          <Line
+            key={sensor.name}
+            type={isBinaryData ? 'stepAfter' : 'linear'}
+            dataKey={sensor.name}
+            stroke={chartColours.categorical[index % chartColours.categorical.length]}
+            dot={false}
+            connectNulls={true}
+            animationEasing="ease-in-out"
+            animationDuration={800}
+            hide={linesHidden[sensor.name]}
+            legendType="plainline"
+          />
+        ))}
+      </LineChart>
+    </ChartArea>
   );
 });
-
-const graphContainerStyle: CSSProperties = {
-  width: "100%",
-};
 
 export default ReadingsChart;

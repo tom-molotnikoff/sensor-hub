@@ -1,11 +1,11 @@
 import useSensorHealthHistory from "../hooks/useSensorHealthHistory.ts";
 import type {Sensor} from "../gen/aliases";
-import {type CSSProperties, useEffect, useMemo, useState} from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Typography } from "@mui/material";
 import {
   CartesianGrid,
   Legend,
   Line,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -13,17 +13,20 @@ import {
   AreaChart,
   ReferenceArea,
 } from "recharts";
-import { useIsMobile } from "../hooks/useMobile";
 import { useChartColours } from "../ui/theme/chartColours";
+import { theme } from "../ui/theme";
+import ChartArea from "../ui/ChartArea";
+import Inline from "../ui/Inline";
+import Stack from "../ui/Stack";
+import EmptyState from "../ui/EmptyState";
+import MonitorHeartOutlinedIcon from "@mui/icons-material/MonitorHeartOutlined";
 import { buildHealthWindowModel, formatDurationShort, formatWindowLabel } from "../health/healthWindow";
 import { useProperties } from "../hooks/useProperties.ts";
 import { SignalTraceLoader } from "../dashboard/widget-loaders";
 
-// Custom dot that only renders at transition points for lines with valid values
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function TransitionDot(props: any) {
   const { cx, cy, payload, stroke, value } = props;
-  // Only render if this is a transition AND this line has a value (not null)
   if (!payload?.isTransition || value === null) return null;
   return <circle cx={cx} cy={cy} r={4} fill={stroke} stroke={stroke} />;
 }
@@ -34,7 +37,6 @@ interface SensorHealthHistoryChartProps {
 
 function SensorHealthHistoryChart({sensor}: SensorHealthHistoryChartProps) {
   const chartColours = useChartColours();
-  const isMobile = useIsMobile();
   const properties = useProperties();
 
   const [healthHistoryData, , historyLoading] = useSensorHealthHistory(sensor.name);
@@ -110,116 +112,84 @@ function SensorHealthHistoryChart({sensor}: SensorHealthHistoryChartProps) {
   }, [model]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  const loadingFirst = historyLoading && mappedData.length === 0;
+
   return (
-    <div data-testid="sensor-health-history-chart" style={graphContainerStyle}>
+    <Stack>
       {model && (
-        <div style={summaryStyle}>
-          <span>Window {formatWindowLabel(model.windowDurationMs)}</span>
-          <span>Current {model.currentStatus}</span>
-          {lastChangeLabel && <span>Last change {lastChangeLabel}</span>}
-          <span>
-            Good {formatDurationShort(model.durationsMs.good)} · Bad {formatDurationShort(model.durationsMs.bad)} · Unknown {formatDurationShort(model.durationsMs.unknown)}
-          </span>
-        </div>
+        <Inline>
+          {[
+            `Window ${formatWindowLabel(model.windowDurationMs)}`,
+            `Current ${model.currentStatus}`,
+            ...(lastChangeLabel ? [`Last change ${lastChangeLabel}`] : []),
+            `Good ${formatDurationShort(model.durationsMs.good)} · Bad ${formatDurationShort(model.durationsMs.bad)} · Unknown ${formatDurationShort(model.durationsMs.unknown)}`,
+          ].map((text) => (
+            <Typography key={text} variant="caption" sx={{ color: "text.secondary" }}>{text}</Typography>
+          ))}
+        </Inline>
       )}
-      {historyLoading && mappedData.length === 0 ? (
-        <div style={chartAreaStyle}>
-          <SignalTraceLoader />
-        </div>
-      ) : !Array.isArray(mappedData) || mappedData.length === 0 ? (
-        <></>
-      ) : (
-        <div style={chartAreaStyle}>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={mappedData} >
-              <CartesianGrid stroke={chartColours.grid} strokeDasharray="3 3" />
-              <ReferenceArea y1={-0.5} y2={0.5} fill={chartColours.health[2]} fillOpacity={0.15} />
-              <ReferenceArea y1={0.5} y2={1.5} fill={chartColours.health[1]} fillOpacity={0.15} />
-              <ReferenceArea y1={1.5} y2={2.5} fill={chartColours.health[0]} fillOpacity={0.15} />
-              <XAxis
-                dataKey="recorded_at"
-                tickFormatter={(t) => {
-                  if (!t) return "";
-                  const date = new Date(t);
-                  return isMobile 
-                    ? date.toLocaleTimeString([], { hour: '2-digit' })
-                    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                }}
-                interval="preserveStartEnd"
-                minTickGap={isMobile ? 30 : 50}
-                tick={{ fontSize: isMobile ? 10 : 12 }}
-                angle={isMobile ? -45 : 0}
-                textAnchor={isMobile ? 'end' : 'middle'}
-                height={isMobile ? 60 : 30}
-              />
-              <YAxis
-                type="number"
-                dataKey="healthValue"
-                domain={[-0.5, 2.5]}
-                ticks={[0, 1, 2]}
-                tickFormatter={(v) => valueToLabel(Number(v))}
-                allowDataOverflow={false}
-                width={80}
-              />
-              <Tooltip
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(value: any, name: any) => {
-                  if (name === 'healthValue') return [valueToLabel(Number(value)), 'Health'];
-                  return [value, name];
-                }}
-                labelFormatter={(label) => {
-                  // recharts types the label as ReactNode; the recorded_at dataKey is a timestamp string
-                  if (!label || (typeof label !== 'string' && typeof label !== 'number')) return '';
-                  return new Date(label).toLocaleString();
-                }}
-              />
-              <Area
-                type="step"
-                dataKey="healthValue"
-                stroke="transparent"
-                fill="transparent"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-              />
-
-              {/* Colored step lines per-state — only present where that state is active */}
-              <Line type="step" dataKey="goodVal" stroke={chartColours.health[0]} dot={TransitionDot} strokeWidth={4} isAnimationActive={false} name="Good" />
-              <Line type="step" dataKey="badVal" stroke={chartColours.health[1]} dot={TransitionDot} strokeWidth={4} isAnimationActive={false} name="Bad" />
-              <Line type="step" dataKey="unknownVal" stroke={chartColours.health[2]} dot={TransitionDot} strokeWidth={4} isAnimationActive={false} name="Unknown" />
-
-              <Legend />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+      {!loadingFirst && mappedData.length === 0 && (
+        <EmptyState
+          icon={<MonitorHeartOutlinedIcon fontSize="large" />}
+          title="No health history yet"
+          description="Health changes will appear here once the sensor reports."
+        />
       )}
-    </div>
+      {(loadingFirst || mappedData.length > 0) && (
+        <ChartArea size="lg" placeholder={loadingFirst ? <SignalTraceLoader /> : undefined}>
+          <AreaChart data={mappedData}>
+            <CartesianGrid stroke={chartColours.grid} strokeDasharray="3 3" />
+            <ReferenceArea y1={-0.5} y2={0.5} fill={chartColours.health[2]} fillOpacity={0.15} />
+            <ReferenceArea y1={0.5} y2={1.5} fill={chartColours.health[1]} fillOpacity={0.15} />
+            <ReferenceArea y1={1.5} y2={2.5} fill={chartColours.health[0]} fillOpacity={0.15} />
+            <XAxis
+              dataKey="recorded_at"
+              tickFormatter={(t) => {
+                if (!t) return "";
+                return new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }}
+              interval="preserveStartEnd"
+              minTickGap={50}
+              tick={{ fontSize: theme.typography.caption.fontSize }}
+            />
+            <YAxis
+              type="number"
+              dataKey="healthValue"
+              domain={[-0.5, 2.5]}
+              ticks={[0, 1, 2]}
+              tickFormatter={(v) => valueToLabel(Number(v))}
+              allowDataOverflow={false}
+              width={80}
+            />
+            <Tooltip
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={(value: any, name: any) => {
+                if (name === 'healthValue') return [valueToLabel(Number(value)), 'Health'];
+                return [value, name];
+              }}
+              labelFormatter={(label) => {
+                if (!label || (typeof label !== 'string' && typeof label !== 'number')) return '';
+                return new Date(label).toLocaleString();
+              }}
+            />
+            <Area
+              type="step"
+              dataKey="healthValue"
+              stroke="transparent"
+              fill="transparent"
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+            />
+            <Line type="step" dataKey="goodVal" stroke={chartColours.health[0]} dot={TransitionDot} strokeWidth={4} isAnimationActive={false} name="Good" />
+            <Line type="step" dataKey="badVal" stroke={chartColours.health[1]} dot={TransitionDot} strokeWidth={4} isAnimationActive={false} name="Bad" />
+            <Line type="step" dataKey="unknownVal" stroke={chartColours.health[2]} dot={TransitionDot} strokeWidth={4} isAnimationActive={false} name="Unknown" />
+            <Legend />
+          </AreaChart>
+        </ChartArea>
+      )}
+    </Stack>
   );
 }
-
-const graphContainerStyle: CSSProperties = {
-  width: "100%",
-  flex: 1,
-  minHeight: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-};
-
-const summaryStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 12,
-  fontSize: 12,
-  color: "var(--mui-palette-text-secondary, rgba(0, 0, 0, 0.6))",
-};
-
-const chartAreaStyle: CSSProperties = {
-  width: "100%",
-  flex: 1,
-  minHeight: 0,
-  position: "relative",
-};
-
 
 export default SensorHealthHistoryChart;
