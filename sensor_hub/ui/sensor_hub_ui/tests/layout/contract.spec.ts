@@ -1,12 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { checks } from './checks';
+import { checks, viewports } from './checks';
 import { layoutChecks, routes } from './routes';
 import { signIn } from './users';
-
-const viewports = [
-  { tier: 'compact', width: 390, height: 844 },
-  { tier: 'wide', width: 1440, height: 900 },
-] as const;
 
 const colorSchemes = ['light', 'dark'] as const;
 

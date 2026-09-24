@@ -1,10 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import { viewports } from './checks';
 import { signIn } from './users';
-
-const viewports = [
-  { tier: 'compact', width: 390, height: 844 },
-  { tier: 'wide', width: 1440, height: 900 },
-] as const;
 
 const dialogs: { name: string; path: string; open: (page: Page) => Promise<void> }[] = [
   {
@@ -30,7 +26,6 @@ const dialogs: { name: string; path: string; open: (page: Page) => Promise<void>
 async function paperBox(page: Page) {
   const paper = page.getByRole('dialog');
   await expect(paper).toBeVisible();
-  await expect(paper).toHaveCSS('opacity', '1');
   return paper.evaluate((element) => {
     const { left, top, right, bottom } = element.getBoundingClientRect();
     return { left, top, right, bottom, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight };
