@@ -124,3 +124,38 @@ func TestDashboards_UnauthenticatedAccessDenied(t *testing.T) {
 	_, status := unauthed.ListDashboards()
 	assert.Equal(t, http.StatusUnauthorized, status)
 }
+
+func TestDashboards_ConfigBreakpointsAreOptional(t *testing.T) {
+	widgets := []map[string]any{{
+		"id": "note", "type": "markdown-note", "config": map[string]any{"content": "hi"},
+		"layout": map[string]any{"x": 0, "y": 0, "w": 3, "h": 2},
+	}}
+	withBreakpoints := map[string]any{"widgets": widgets, "breakpoints": map[string]any{"lg": 12, "md": 10, "sm": 6}}
+	withoutBreakpoints := map[string]any{"widgets": widgets}
+
+	for name, config := range map[string]map[string]any{"with": withBreakpoints, "without": withoutBreakpoints} {
+		t.Run(name+" breakpoints", func(t *testing.T) {
+			resp, status := client.CreateDashboardWithBody(map[string]any{"name": "Breakpoints " + name, "config": config})
+			require.Equal(t, http.StatusCreated, status, string(resp))
+
+			var created struct {
+				ID int `json:"id"`
+			}
+			require.NoError(t, json.Unmarshal(resp, &created))
+
+			resp, status = client.UpdateDashboardWithBody(created.ID, map[string]any{"config": config})
+			require.Equal(t, http.StatusOK, status, string(resp))
+
+			detail, status := client.GetDashboard(created.ID)
+			require.Equal(t, http.StatusOK, status)
+			var stored struct {
+				Config string `json:"config"`
+			}
+			require.NoError(t, json.Unmarshal(detail, &stored))
+			var storedConfig map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal([]byte(stored.Config), &storedConfig))
+			_, hasBreakpoints := storedConfig["breakpoints"]
+			assert.Equal(t, name == "with", hasBreakpoints, "stored config keeps breakpoints only when they were sent")
+		})
+	}
+}

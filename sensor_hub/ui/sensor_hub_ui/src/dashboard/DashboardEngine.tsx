@@ -6,6 +6,9 @@ import WidgetFrame from './WidgetFrame';
 import { getWidget } from './WidgetRegistry';
 import type { DashboardConfig, DashboardWidget } from '../gen/aliases';
 import { GRID_BREAKPOINTS, GRID_COLS, GRID_ROW_HEIGHT } from './constants';
+import DashboardSlot from '../ui/DashboardSlot';
+import Stack from '../ui/Stack';
+import { useTier } from '../ui/tiers';
 
 interface DashboardEngineProps {
     config: DashboardConfig;
@@ -15,7 +18,35 @@ interface DashboardEngineProps {
     onConfigureWidget: (id: string) => void;
 }
 
-export default function DashboardEngine({
+export default function DashboardEngine(props: DashboardEngineProps) {
+    return useTier() === 'compact' ? <CompactDashboard {...props} /> : <WideDashboard {...props} />;
+}
+
+function readingOrder(a: DashboardWidget, b: DashboardWidget) {
+    return a.layout.y - b.layout.y || a.layout.x - b.layout.x;
+}
+
+function CompactDashboard({ config, isEditing, onRemoveWidget, onConfigureWidget }: DashboardEngineProps) {
+    const widgets = useMemo(() => [...config.widgets].sort(readingOrder), [config.widgets]);
+
+    return (
+        <Stack>
+            {widgets.map((widget) => (
+                <DashboardSlot key={widget.id} height={getWidget(widget.type)?.compactHeight ?? 'content'}>
+                    <WidgetFrame
+                        widget={widget}
+                        isEditing={isEditing}
+                        draggable={false}
+                        onRemove={onRemoveWidget}
+                        onConfigure={onConfigureWidget}
+                    />
+                </DashboardSlot>
+            ))}
+        </Stack>
+    );
+}
+
+function WideDashboard({
     config,
     isEditing,
     onLayoutChange,
@@ -72,6 +103,7 @@ export default function DashboardEngine({
                         <WidgetFrame
                             widget={widget}
                             isEditing={isEditing}
+                            draggable
                             onRemove={onRemoveWidget}
                             onConfigure={onConfigureWidget}
                         />

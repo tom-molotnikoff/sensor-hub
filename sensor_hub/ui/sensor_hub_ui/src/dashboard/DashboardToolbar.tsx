@@ -11,7 +11,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useDashboard } from './DashboardContext';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';
-import { DEFAULT_BREAKPOINTS } from './constants';
 
 interface DashboardToolbarProps {
     onAddWidget: () => void;
@@ -32,7 +31,7 @@ export default function DashboardToolbar({ onAddWidget }: DashboardToolbarProps)
 
     const handleCreate = async () => {
         if (!newName.trim()) return;
-        await createDashboard({ name: newName.trim(), config: { widgets: [], breakpoints: DEFAULT_BREAKPOINTS } });
+        await createDashboard({ name: newName.trim(), config: { widgets: [] } });
         setNewName('');
         setShowCreate(false);
     };

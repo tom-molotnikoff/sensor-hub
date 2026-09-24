@@ -90,6 +90,7 @@ function WidgetFrameProviders({ viewport, reportState, children }: WidgetFramePr
 interface WidgetFrameProps {
     widget: DashboardWidget;
     isEditing: boolean;
+    draggable: boolean;
     onRemove: (id: string) => void;
     onConfigure: (id: string) => void;
 }
@@ -100,7 +101,7 @@ function WidgetLastUpdatedBadge() {
     return <RelativeTime date={lastUpdated} />;
 }
 
-export default function WidgetFrame({ widget, isEditing, onRemove, onConfigure }: WidgetFrameProps) {
+export default function WidgetFrame({ widget, isEditing, draggable, onRemove, onConfigure }: WidgetFrameProps) {
     const definition = getWidget(widget.type);
     const subtitle = useWidgetSubtitle(widget.type, widget.config);
     const [visible, observeFrame] = useFrameVisibility();
@@ -145,7 +146,7 @@ export default function WidgetFrame({ widget, isEditing, onRemove, onConfigure }
                 }}
             >
                 <Box
-                    className={isEditing ? 'drag-handle' : undefined}
+                    className={isEditing && draggable ? 'drag-handle' : undefined}
                     sx={{
                         display: 'flex',
                         alignItems: 'center',
@@ -155,14 +156,12 @@ export default function WidgetFrame({ widget, isEditing, onRemove, onConfigure }
                         borderBottom: '1px solid',
                         borderColor: 'divider',
                         flexShrink: 0,
-                        ...(isEditing && {
-                            bgcolor: 'action.hover',
-                            cursor: 'grab',
-                        }),
+                        ...(isEditing && { bgcolor: 'action.hover' }),
+                        ...(isEditing && draggable && { cursor: 'grab' }),
                     }}
                 >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                        {isEditing && <DragIndicatorIcon fontSize="small" color="action" />}
+                        {isEditing && draggable && <DragIndicatorIcon fontSize="small" color="action" />}
                         <Typography variant="caption" noWrap sx={{
                             color: "text.secondary"
                         }}>{titleText}</Typography>

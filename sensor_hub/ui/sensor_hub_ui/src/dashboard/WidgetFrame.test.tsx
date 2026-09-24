@@ -27,6 +27,7 @@ registerWidget({
     component: Probe,
     defaultConfig: {},
     defaultLayout: { w: 1, h: 1 },
+    compactHeight: 'content',
 });
 
 registerWidget({
@@ -37,6 +38,7 @@ registerWidget({
     component: Exploding,
     defaultConfig: {},
     defaultLayout: { w: 1, h: 1 },
+    compactHeight: 'content',
 });
 
 function widgetOf(type: string): DashboardWidget {
@@ -45,7 +47,7 @@ function widgetOf(type: string): DashboardWidget {
 
 function renderFrame(type = 'test-probe', isEditing = false) {
     return render(
-        <WidgetFrame widget={widgetOf(type)} isEditing={isEditing} onRemove={() => {}} onConfigure={() => {}} />,
+        <WidgetFrame widget={widgetOf(type)} isEditing={isEditing} draggable onRemove={() => {}} onConfigure={() => {}} />,
     );
 }
 
@@ -77,7 +79,7 @@ describe('WidgetFrame', () => {
 
     it('reports error for an unknown widget type', () => {
         render(
-            <WidgetFrame widget={widgetOf('not-registered')} isEditing={false} onRemove={() => {}} onConfigure={() => {}} />,
+            <WidgetFrame widget={widgetOf('not-registered')} isEditing={false} draggable onRemove={() => {}} onConfigure={() => {}} />,
         );
         expect(frameState()).toBe('error');
     });
