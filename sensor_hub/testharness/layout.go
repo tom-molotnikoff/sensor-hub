@@ -170,8 +170,12 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 	config.Widgets = []gen.DashboardWidget{retired, readings, uptime, healthPie, typePie, stats, timeline, current, group, gauge, minMaxAvg}
 
 	dashboards := service.NewDashboardService(database.NewDashboardRepository(env.DB, slog.Default()), slog.Default())
-	if _, err := dashboards.ServiceCreateDashboard(ctx, admin.Id, gen.CreateDashboardRequest{Name: "Layout", Config: config}); err != nil {
+	id, err := dashboards.ServiceCreateDashboard(ctx, admin.Id, gen.CreateDashboardRequest{Name: "Layout", Config: config})
+	if err != nil {
 		return fmt.Errorf("failed to create dashboard: %w", err)
+	}
+	if err := dashboards.ServiceSetDefaultDashboard(ctx, admin.Id, id); err != nil {
+		return fmt.Errorf("failed to make the layout dashboard the default: %w", err)
 	}
 	return nil
 }
