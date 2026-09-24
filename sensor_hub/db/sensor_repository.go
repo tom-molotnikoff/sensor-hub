@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/utils"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -129,7 +130,7 @@ func (s *SensorRepository) DeleteHealthHistoryOlderThan(ctx context.Context, cut
 		return fmt.Errorf("error beginning transaction for health history cleanup: %w", err)
 	}
 
-	cutoff := cutoffDate.UTC().Format("2006-01-02 15:04:05")
+	cutoff := utils.FormatStorageTime(cutoffDate)
 
 	insertCheckpointQuery := fmt.Sprintf(`
 		INSERT INTO %s (sensor_id, health_status, recorded_at)
@@ -199,7 +200,7 @@ func (s *SensorRepository) GetSensorHealthHistoryById(ctx context.Context, senso
 		)
 		ORDER BY datetime(recorded_at) DESC, id DESC
 	`, TableSensorHealthHistory, TableSensorHealthHistory)
-	formattedSince := since.UTC().Format("2006-01-02 15:04:05")
+	formattedSince := utils.FormatStorageTime(since)
 	rows, err := s.db.Reader.QueryContext(ctx, query, sensorId, formattedSince, sensorId, formattedSince)
 	if err != nil {
 		return nil, fmt.Errorf("error querying sensor health history: %w", err)

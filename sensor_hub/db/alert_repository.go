@@ -9,6 +9,7 @@ import (
 
 	"example/sensorHub/alerting"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/utils"
 )
 
 type AlertRepository interface {
@@ -537,7 +538,7 @@ func (r *AlertRepositoryImpl) GetAlertHistory(ctx context.Context, sensorID int,
 }
 
 func (r *AlertRepositoryImpl) DeleteAlertHistoryOlderThan(ctx context.Context, cutoff time.Time) (int64, error) {
-	result, err := r.db.Writer.ExecContext(ctx, "DELETE FROM alert_sent_history WHERE sent_at < ?", cutoff)
+	result, err := r.db.Writer.ExecContext(ctx, "DELETE FROM alert_sent_history WHERE sent_at < ?", utils.FormatStorageTime(cutoff))
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete old alert history: %w", err)
 	}

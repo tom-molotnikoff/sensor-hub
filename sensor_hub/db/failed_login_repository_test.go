@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"example/sensorHub/utils"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 )
@@ -225,7 +227,7 @@ func TestFailedLoginRepository_DeleteAttemptsOlderThan_Success(t *testing.T) {
 
 	threshold := time.Now().Add(-24 * time.Hour)
 	mock.ExpectExec("DELETE FROM failed_login_attempts WHERE attempt_time < \\?").
-		WithArgs(threshold).
+		WithArgs(utils.FormatStorageTime(threshold)).
 		WillReturnResult(sqlmock.NewResult(0, 100))
 
 	err := repo.DeleteAttemptsOlderThan(context.Background(), threshold)
@@ -240,7 +242,7 @@ func TestFailedLoginRepository_DeleteAttemptsOlderThan_NothingToDelete(t *testin
 
 	threshold := time.Now().Add(-24 * time.Hour)
 	mock.ExpectExec("DELETE FROM failed_login_attempts WHERE attempt_time < \\?").
-		WithArgs(threshold).
+		WithArgs(utils.FormatStorageTime(threshold)).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	err := repo.DeleteAttemptsOlderThan(context.Background(), threshold)
@@ -255,7 +257,7 @@ func TestFailedLoginRepository_DeleteAttemptsOlderThan_DBError(t *testing.T) {
 
 	threshold := time.Now().Add(-24 * time.Hour)
 	mock.ExpectExec("DELETE FROM failed_login_attempts WHERE attempt_time < \\?").
-		WithArgs(threshold).
+		WithArgs(utils.FormatStorageTime(threshold)).
 		WillReturnError(errors.New("database error"))
 
 	err := repo.DeleteAttemptsOlderThan(context.Background(), threshold)
