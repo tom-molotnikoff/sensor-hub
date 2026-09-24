@@ -24,7 +24,7 @@ for (const route of routes) {
             await expect(page).toHaveURL(new RegExp(`${route.path}$`));
             await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
             for (const check of route.checks ?? layoutChecks) {
-              await checks[check](page, viewport.tier);
+              await checks[check](page, viewport.tier, user);
             }
           });
         });
