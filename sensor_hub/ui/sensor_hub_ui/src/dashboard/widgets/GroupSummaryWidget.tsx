@@ -44,7 +44,6 @@ export default function GroupSummaryWidget({ config }: WidgetProps) {
                         {matched.map(({ name, value, unit: u }) => (
                             <ListItem
                                 key={name}
-                                disableGutters
                                 secondaryAction={<Typography variant="caption">{value?.toFixed(1) ?? '—'}{u}</Typography>}
                             >
                                 <ListItemText primary={name} slotProps={{ primary: { variant: 'caption', color: 'text.secondary' } }} />

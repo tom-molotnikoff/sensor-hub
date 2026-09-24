@@ -46,6 +46,16 @@ const dialFit = fitted({
   lg: `(min-width: ${metricFit.dial.lg}px)`,
 });
 
+const fill = {
+  flex: '1 1 0',
+  minHeight: 0,
+  alignSelf: 'stretch',
+  containerType: 'size',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+} as const;
+
 function Value({ value, unit, tone, size }: { value: string; unit?: string; tone?: string; size: MetricSize }) {
   return (
     <Typography variant={variants[size]} data-ui="metric-value" color={tone} noWrap>
@@ -105,7 +115,7 @@ export default function Metric({ value, unit, label, caption, size = 'md', tone,
         gap: 0.5,
         minWidth: 0,
         ...(bounded && {
-          flex: '1 0 auto',
+          flex: '1 1 0',
           height: '100%',
           minHeight: metricMinHeight,
           padding: responsivePixels(density.card),
@@ -114,24 +124,18 @@ export default function Metric({ value, unit, label, caption, size = 'md', tone,
       }}
     >
       {dial ? (
-        <Box
-          sx={
-            bounded
-              ? { flex: '1 1 0', minHeight: 0, alignSelf: 'stretch', containerType: 'size', display: 'flex', justifyContent: 'center', alignItems: 'center' }
-              : undefined
-          }
-        >
+        <Box sx={bounded ? fill : undefined}>
           <Dial dial={dial} bounded={bounded} size={size}>
             {shown}
           </Dial>
         </Box>
       ) : (
-        <Box sx={bounded ? { flex: '1 1 0', minHeight: 0, alignSelf: 'stretch', containerType: 'size', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', ...valueFit } : undefined}>
+        <Box sx={bounded ? { ...fill, ...valueFit } : undefined}>
           {shown}
         </Box>
       )}
       {label && (
-        <Typography variant="bodySmall" color="text.secondary" noWrap>
+        <Typography variant="bodySmall" color="text.secondary">
           {label}
         </Typography>
       )}
@@ -159,7 +163,7 @@ export function MetricGroup({ children }: MetricGroupProps) {
         gridAutoColumns: 'minmax(0, 1fr)',
         gap: responsivePixels(density.gap),
         minWidth: 0,
-        ...(bounded && { height: '100%', flex: '1 0 auto', minHeight: metricMinHeight }),
+        ...(bounded && { height: '100%', flex: '1 1 0', minHeight: metricMinHeight }),
       }}
     >
       {children}

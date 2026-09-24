@@ -329,7 +329,19 @@ describe('primitive props', () => {
       <AnchorStack landingOffset={0} style={{ gap: 0 }} />,
       // @ts-expect-error AnchorStack takes no className
       <AnchorStack landingOffset={0} className="tight" />,
+      // @ts-expect-error Metric takes no sx
+      <Metric value={1} sx={{ fontSize: 12 }} />,
+      // @ts-expect-error Metric takes no style
+      <Metric value={1} style={{ fontSize: 12 }} />,
+      // @ts-expect-error Metric takes no className
+      <Metric value={1} className="big" />,
+      // @ts-expect-error MetricGroup takes no sx
+      <MetricGroup sx={{ gap: 0 }} />,
+      // @ts-expect-error MetricGroup takes no style
+      <MetricGroup style={{ gap: 0 }} />,
+      // @ts-expect-error MetricGroup takes no className
+      <MetricGroup className="tight" />,
     ];
-    expect(overrides).toHaveLength(44);
+    expect(overrides).toHaveLength(50);
   });
 });
