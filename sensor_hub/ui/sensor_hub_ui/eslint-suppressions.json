@@ -40,49 +40,6 @@
       "count": 1
     }
   },
-  "src/components/PropertiesPage.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 14
-    }
-  },
-  "src/components/PropertyApplyNotice.tsx": {
-    "ui/no-layout-styles": {
-      "count": 1
-    }
-  },
-  "src/components/PropertyField.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 11
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
-    }
-  },
-  "src/components/PropertyGroupSection.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 4
-    }
-  },
-  "src/components/PropertySearchRail.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 6
-    },
-    "ui/no-raw-visuals": {
-      "count": 2
-    }
-  },
   "src/components/SensorDetailCard.tsx": {
     "no-restricted-imports": {
       "count": 2

@@ -25,6 +25,7 @@ function PageGridItem({ span = { wide: 12 }, children }: PageGridItemProps) {
         flexDirection: 'column',
         minWidth: 0,
         '& > *': { flex: '1 1 auto' },
+        '& > [data-ui=sticky]': { flex: 'none' },
       }}
     >
       {children}

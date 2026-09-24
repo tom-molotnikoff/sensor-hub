@@ -1,9 +1,10 @@
-import { Box, IconButton, Link, MenuItem, Select, Stack, Switch, TextField, Typography } from '@mui/material';
+import { IconButton, Link, MenuItem, Select, Switch, TextField, Typography } from '@mui/material';
 import UndoIcon from '@mui/icons-material/Undo';
 import type { PropertyDefinition } from '../gen/aliases';
-import { useIsMobile } from '../hooks/useMobile';
 import { ApplyChip, ApplyNote } from './PropertyApplyNotice';
 import { applySegment } from './propertyApplyCopy';
+import Inline from '../ui/Inline';
+import PageGrid from '../ui/PageGrid';
 
 interface PropertyFieldProps {
   definition: PropertyDefinition;
@@ -60,7 +61,7 @@ function PropertyControl({ definition, value, unset, invalid, onChange, disabled
   }
 
   return (
-    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+    <Inline>
       <TextField
         value={value}
         placeholder={unset ? definition.default : undefined}
@@ -76,7 +77,7 @@ function PropertyControl({ definition, value, unset, invalid, onChange, disabled
         }}
       />
       {definition.unit && <Typography variant="body2" color="text.secondary">{definition.unit}</Typography>}
-    </Stack>
+    </Inline>
   );
 }
 
@@ -94,29 +95,19 @@ function helperLine(definition: PropertyDefinition, described: boolean, serverVa
 }
 
 export default function PropertyField({ definition, described = true, serverValue, editedValue, collided, error, onChange, onUndo, disabled }: PropertyFieldProps) {
-  const isMobile = useIsMobile();
   const value = editedValue ?? serverValue ?? '';
   const modified = editedValue !== undefined && editedValue !== serverValue;
   const unset = serverValue === undefined && editedValue === undefined;
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        alignItems: isMobile ? 'stretch' : 'center',
-        gap: 2,
-        py: 1.5,
-        ...(modified && { borderLeft: 3, borderColor: 'primary.main', pl: 2, ml: -2 }),
-      }}
-    >
-      <Box sx={{ flex: isMobile ? '0 0 auto' : '0 0 420px', minWidth: 160 }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Typography sx={{ fontWeight: 500 }} color={modified ? 'primary' : 'textPrimary'}>
+    <PageGrid>
+      <PageGrid.Item span={{ wide: 5 }}>
+        <Inline>
+          <Typography variant="sectionTitle" component="span" color={modified ? 'primary' : 'textPrimary'}>
             {definition.label}
           </Typography>
           {described && <ApplyChip definition={definition} />}
-        </Stack>
+        </Inline>
         {described && (
           <>
             <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
@@ -130,9 +121,9 @@ export default function PropertyField({ definition, described = true, serverValu
             Set at install time and not changeable at runtime.
           </Typography>
         )}
-      </Box>
-      <Box sx={{ flex: '1 1 auto' }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+      </PageGrid.Item>
+      <PageGrid.Item span={{ wide: 7 }}>
+        <Inline>
           <PropertyControl
             definition={definition}
             value={value}
@@ -146,15 +137,15 @@ export default function PropertyField({ definition, described = true, serverValu
               <UndoIcon fontSize="small" />
             </IconButton>
           )}
-        </Stack>
+        </Inline>
         {error !== undefined && (
-          <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+          <Typography variant="body2" color="error">
             {error}
           </Typography>
         )}
         {described && <ApplyNote definition={definition} />}
         {modified && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography variant="body2" color="text.secondary">
             {collided ? `Someone else changed this to ${shown(serverValue ?? '')}` : helperLine(definition, described, serverValue ?? '')}
             {collided && onUndo && (
               <>
@@ -172,7 +163,7 @@ export default function PropertyField({ definition, described = true, serverValu
             )}
           </Typography>
         )}
-      </Box>
-    </Box>
+      </PageGrid.Item>
+    </PageGrid>
   );
 }

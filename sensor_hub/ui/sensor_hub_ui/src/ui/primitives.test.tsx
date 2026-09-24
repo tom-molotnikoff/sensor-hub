@@ -1,7 +1,9 @@
 import { ThemeProvider } from '@mui/material';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { act } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+import AnchorStack from './AnchorStack';
 import Bounded from './Bounded';
 import Card from './Card';
 import DashboardSlot from './DashboardSlot';
@@ -11,6 +13,7 @@ import Inline from './Inline';
 import PageGrid from './PageGrid';
 import Stack from './Stack';
 import StandalonePage from './StandalonePage';
+import Sticky, { StickyBar } from './Sticky';
 import { theme } from './theme';
 import { chartAreaHeight, emptyStateMinHeight } from './theme/tokens';
 
@@ -96,6 +99,85 @@ describe('PageGrid', () => {
 
     const items = container.querySelectorAll('[data-ui=page-grid] > [data-ui=page-grid-item]');
     expect(Array.from(items, (item) => item.textContent)).toEqual(['first', 'second']);
+  });
+});
+
+describe('Sticky', () => {
+  it('sticks its offset below the app bar', () => {
+    const { container } = renderUi(<Sticky offset={40}>rail</Sticky>);
+
+    const sticky = container.querySelector('[data-ui=sticky]')!;
+    expect(sticky).toHaveStyle({ position: 'sticky', top: `${56 + 40}px` });
+  });
+
+  it('keeps its own height inside a page grid item', () => {
+    const { container } = renderUi(
+      <PageGrid equalHeight>
+        <PageGrid.Item>
+          <Sticky>rail</Sticky>
+        </PageGrid.Item>
+      </PageGrid>,
+    );
+
+    expect(container.querySelector('[data-ui=sticky]')).toHaveStyle({ flexGrow: '0', flexShrink: '0' });
+  });
+});
+
+describe('StickyBar', () => {
+  it('puts the title before the actions and sticks right below the app bar', () => {
+    const { container } = renderUi(<StickyBar title="Properties" actions={<button>Save</button>} />);
+
+    const bar = container.querySelector('[data-ui=sticky-bar]')!;
+    expect(bar).toHaveStyle({ position: 'sticky', top: '56px' });
+    expect(bar.firstElementChild).toHaveTextContent('Properties');
+    expect(bar.lastElementChild).toContainElement(screen.getByRole('button', { name: 'Save' }));
+    expect(bar.lastElementChild).toHaveStyle({ marginLeft: 'auto' });
+    expect(screen.getByRole('heading', { name: 'Properties' })).toHaveClass('MuiTypography-cardTitle');
+  });
+});
+
+describe('AnchorStack', () => {
+  function stubHeight(element: Element, height: number) {
+    vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({ height } as DOMRect);
+  }
+
+  function renderSections() {
+    const { container } = renderUi(
+      <AnchorStack landingOffset={100}>
+        <section id="first">first</section>
+        <section id="last">last</section>
+      </AnchorStack>,
+    );
+    return {
+      sections: container.querySelector('[data-ui=anchor-stack-sections]')!,
+      room: container.querySelector('[data-ui=anchor-stack-room]')!,
+    };
+  }
+
+  it('lands each section below the landing offset', () => {
+    renderSections();
+
+    expect(document.getElementById('last')).toHaveStyle({ scrollMarginTop: '100px' });
+  });
+
+  it('leaves room below the last section so it can reach the landing line', () => {
+    const { sections, room } = renderSections();
+    stubHeight(sections, 4000);
+    stubHeight(document.getElementById('last')!, 300);
+
+    act(() => { window.dispatchEvent(new Event('resize')); });
+
+    expect(room).toHaveStyle({ height: `${window.innerHeight - 100 - 300}px` });
+  });
+
+  it('leaves no room when the sections already fit', () => {
+    const { sections, room } = renderSections();
+    stubHeight(sections, 100);
+    stubHeight(document.getElementById('last')!, 50);
+
+    act(() => { window.dispatchEvent(new Event('resize')); });
+
+    expect(room).toHaveStyle({ height: '0px' });
   });
 });
 
@@ -188,7 +270,25 @@ describe('primitive props', () => {
       <ChartArea size="md" className="tall" />,
       // @ts-expect-error ChartArea takes no height
       <ChartArea size="md" height={100} />,
+      // @ts-expect-error Sticky takes no sx
+      <Sticky sx={{ top: 0 }} />,
+      // @ts-expect-error Sticky takes no style
+      <Sticky style={{ top: 0 }} />,
+      // @ts-expect-error Sticky takes no className
+      <Sticky className="pinned" />,
+      // @ts-expect-error StickyBar takes no sx
+      <StickyBar title="t" sx={{ paddingY: 0 }} />,
+      // @ts-expect-error StickyBar takes no style
+      <StickyBar title="t" style={{ paddingY: 0 }} />,
+      // @ts-expect-error StickyBar takes no className
+      <StickyBar title="t" className="flat" />,
+      // @ts-expect-error AnchorStack takes no sx
+      <AnchorStack landingOffset={0} sx={{ gap: 0 }} />,
+      // @ts-expect-error AnchorStack takes no style
+      <AnchorStack landingOffset={0} style={{ gap: 0 }} />,
+      // @ts-expect-error AnchorStack takes no className
+      <AnchorStack landingOffset={0} className="tight" />,
     ];
-    expect(overrides).toHaveLength(35);
+    expect(overrides).toHaveLength(44);
   });
 });

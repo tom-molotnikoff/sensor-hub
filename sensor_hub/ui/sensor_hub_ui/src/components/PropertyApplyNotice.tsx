@@ -14,7 +14,7 @@ export function ApplyNote({ definition }: { definition: PropertyDefinition }) {
   const note = CONSEQUENCE_NOTES[definition.key];
   if (!note) return null;
   return (
-    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+    <Typography variant="body2" color="text.secondary">
       {note}
     </Typography>
   );
