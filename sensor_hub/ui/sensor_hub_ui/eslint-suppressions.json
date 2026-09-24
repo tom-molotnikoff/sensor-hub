@@ -31,25 +31,6 @@
       "count": 1
     }
   },
-  "src/components/ApiKeysCard.tsx": {
-    "ui/no-layout-styles": {
-      "count": 8
-    },
-    "ui/no-raw-visuals": {
-      "count": 2
-    }
-  },
-  "src/components/ApiReferenceCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 7
-    },
-    "ui/no-raw-visuals": {
-      "count": 56
-    }
-  },
   "src/components/ChangePasswordCard.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -64,14 +45,6 @@
     },
     "ui/no-layout-styles": {
       "count": 12
-    }
-  },
-  "src/components/CreateApiKeyDialog.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 8
     }
   },
   "src/components/CreateUserDialog.tsx": {

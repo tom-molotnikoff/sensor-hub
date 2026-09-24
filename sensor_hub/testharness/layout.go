@@ -36,6 +36,7 @@ var layoutFixtures = map[string]layoutFixture{
 	"sensors":         createLayoutSensors,
 	"pending-sensors": createLayoutPendingSensors,
 	"mqtt":            createLayoutMQTT,
+	"api-keys":        createLayoutApiKeys,
 }
 
 func StartLayoutServer(ctx context.Context, opts LayoutOptions) (*Env, func(), error) {
@@ -200,7 +201,7 @@ func createLayoutSensors(ctx context.Context, env *Env) error {
 	return nil
 }
 
-func ptr(value int) *int {
+func ptr[T any](value T) *T {
 	return &value
 }
 
@@ -247,6 +248,37 @@ func createLayoutMQTT(ctx context.Context, env *Env) error {
 			"INSERT INTO mqtt_subscriptions (broker_id, topic_pattern, driver_type, enabled) SELECT id, ?, 'mqtt-zigbee2mqtt', ? FROM mqtt_brokers WHERE name = 'Garage Mosquitto'",
 			topic, index%4 != 3); err != nil {
 			return fmt.Errorf("failed to insert subscription %s: %w", topic, err)
+		}
+	}
+	return nil
+}
+
+func createLayoutApiKeys(ctx context.Context, env *Env) error {
+	keys := []struct {
+		name              string
+		expires, lastUsed *string
+		revoked           bool
+	}{
+		{"sensor-hub CLI", nil, ptr("-2 hours"), false},
+		{"Claude skill", ptr("+30 days"), ptr("-1 days"), false},
+		{"Copilot skill", ptr("+90 days"), nil, false},
+		{"Grafana exporter", nil, ptr("-10 minutes"), false},
+		{"Old laptop", nil, ptr("-120 days"), true},
+		{"Backup script", ptr("-3 days"), ptr("-4 days"), false},
+		{"Home Assistant", nil, ptr("-5 minutes"), false},
+		{"Node-RED flows", ptr("+7 days"), ptr("-6 hours"), false},
+		{"Phone shortcut", nil, nil, false},
+		{"Test harness", ptr("-30 days"), nil, true},
+		{"Garden Pi", nil, ptr("-1 hours"), false},
+		{"Loft Pi", ptr("+365 days"), ptr("-3 hours"), false},
+	}
+	for index, key := range keys {
+		if _, err := env.DB.Writer.ExecContext(ctx,
+			`INSERT INTO api_keys (name, key_prefix, key_hash, user_id, expires_at, revoked, last_used_at, created_at)
+			 SELECT ?, ?, ?, id, datetime('now', ?), ?, datetime('now', ?), datetime('now', ?) FROM users WHERE username = ?`,
+			key.name, fmt.Sprintf("shk_%04x", 0xa1b0+index), fmt.Sprintf("layout-fixture-hash-%d", index),
+			key.expires, key.revoked, key.lastUsed, fmt.Sprintf("-%d days", 200-index*10), env.AdminUser); err != nil {
+			return fmt.Errorf("failed to insert api key %s: %w", key.name, err)
 		}
 	}
 	return nil
