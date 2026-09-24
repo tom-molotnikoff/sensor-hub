@@ -392,7 +392,7 @@ func (s *SensorRepository) GetSensorByName(ctx context.Context, name string) (*g
 	sensor, err := scanSensorRow(s.db.Reader.QueryRowContext(ctx, query, name))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("no sensor found with name %s", name)
+			return nil, nil
 		}
 		return nil, fmt.Errorf("error querying sensor by name: %w", err)
 	}

@@ -185,9 +185,8 @@ func TestSensorRepository_GetSensorByName_NotFound(t *testing.T) {
 
 	sensor, err := repo.GetSensorByName(context.Background(), "nonexistent")
 
-	assert.Error(t, err)
+	assert.NoError(t, err)
 	assert.Nil(t, sensor)
-	assert.Contains(t, err.Error(), "no sensor found with name")
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
