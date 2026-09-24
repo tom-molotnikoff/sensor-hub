@@ -1,24 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Box, Button, CircularProgress, Snackbar, Stack, Typography } from '@mui/material';
+import { Alert, Button, CircularProgress, Snackbar, Typography } from '@mui/material';
 import { apiClient } from '../gen/client';
 import type { PropertyDefinition } from '../gen/aliases';
 import { useProperties } from '../hooks/useProperties';
 import { usePropertyDefinitions } from '../hooks/usePropertyDefinitions';
 import { usePropertyEdits } from '../hooks/usePropertyEdits';
-import { useIsMobile } from '../hooks/useMobile';
-import { useLandingTailSpace } from '../hooks/useLandingTailSpace';
 import { useMeasuredHeight } from '../hooks/useMeasuredHeight';
 import { useScrollSpy } from '../hooks/useScrollSpy';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';
+import AnchorStack from '../ui/AnchorStack';
+import Inline from '../ui/Inline';
+import PageGrid from '../ui/PageGrid';
+import Stack from '../ui/Stack';
+import { StickyBar } from '../ui/Sticky';
 import PropertyField from './PropertyField';
 import PropertyGroupSection from './PropertyGroupSection';
 import PropertySearchRail from './PropertySearchRail';
-import { belowAppBar, landingOffset, railOffset } from './propertyLayout';
+import { landingOffset, railOffset } from './propertyLayout';
 import { buildSections } from './propertySections';
 import { asRejection, propertyErrors } from './propertyValidation';
 import type { PropertyRejection } from './propertyValidation';
-import { TypographyH2 } from '../tools/Typography.tsx';
 
 function matchesSearch(definition: PropertyDefinition, term: string): boolean {
   if (term === '') return true;
@@ -31,7 +33,6 @@ export default function PropertiesPage() {
   const serverValues = useProperties();
   const { definitions, loading, error: definitionsError } = usePropertyDefinitions();
   const { user } = useAuth();
-  const isMobile = useIsMobile();
   const canManage = !!user && hasPerm(user, 'manage_properties');
   const { edits, collisions, modified, edit, discard, discardAll, markSubmitted } =
     usePropertyEdits(serverValues);
@@ -80,8 +81,6 @@ export default function PropertiesPage() {
     sections.map((section) => section.group.id),
     landingLine,
   );
-
-  const { sectionsRef, tailSpace } = useLandingTailSpace(landingLine);
 
   const landed = useRef(false);
   useEffect(() => {
@@ -145,50 +144,36 @@ export default function PropertiesPage() {
 
   return (
     <>
-      <Stack spacing={2} sx={{ width: '100%' }}>
-        <Stack
+      <Stack>
+        <StickyBar
           ref={headerRef}
-          data-testid="properties-header"
-          direction="row"
-          sx={(theme) => ({
-            position: 'sticky',
-            ...belowAppBar(theme),
-            zIndex: 1,
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 1,
-            flexWrap: 'wrap',
-            py: 1.5,
-            backgroundColor: 'background.default',
-            borderBottom: 1,
-            borderColor: 'divider',
-          })}
-        >
-          <TypographyH2 changes={{ margin: 0 }}>Properties</TypographyH2>
-          {canManage && (
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-              {saving && <CircularProgress size={20} />}
-              {modified.size > 0 && (
-                <>
-                  <Typography variant="body2" color="text.secondary">
-                    {modified.size === 1 ? '1 unsaved change' : `${modified.size} unsaved changes`}
-                  </Typography>
-                  <Button variant="text" color="inherit" onClick={handleDiscardAll} disabled={saving}>
-                    Discard
-                  </Button>
-                </>
-              )}
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSave}
-                disabled={modified.size === 0 || saving || errors.fields.size > 0}
-              >
-                Save changes
-              </Button>
-            </Stack>
-          )}
-        </Stack>
+          title="Properties"
+          actions={
+            canManage && (
+              <Inline>
+                {saving && <CircularProgress size={20} />}
+                {modified.size > 0 && (
+                  <>
+                    <Typography variant="body2" color="text.secondary">
+                      {modified.size === 1 ? '1 unsaved change' : `${modified.size} unsaved changes`}
+                    </Typography>
+                    <Button variant="text" color="inherit" onClick={handleDiscardAll} disabled={saving}>
+                      Discard
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSave}
+                  disabled={modified.size === 0 || saving || errors.fields.size > 0}
+                >
+                  Save changes
+                </Button>
+              </Inline>
+            )
+          }
+        />
 
         {definitionsError && (
           <Alert severity="warning">
@@ -207,31 +192,25 @@ export default function PropertiesPage() {
         {errors.page && <Alert severity="error">{errors.page}</Alert>}
 
         {loading ? (
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Inline>
             <CircularProgress size={20} />
             <Typography color="text.secondary">Loading properties…</Typography>
-          </Stack>
+          </Inline>
         ) : (
-          <Box
-            data-testid="properties-layout"
-            sx={{
-              display: 'flex',
-              flexDirection: isMobile ? 'column' : 'row',
-              alignItems: 'flex-start',
-              gap: 2,
-            }}
-          >
-            <PropertySearchRail
-              groups={railGroups}
-              currentGroupId={currentGroupId}
-              search={search}
-              onSearchChange={setSearch}
-              stickyTop={railOffset(headerHeight)}
-            />
-            <Box sx={{ flex: '1 1 auto', minWidth: 0, width: '100%' }}>
-              <Stack spacing={2} ref={sectionsRef} data-testid="properties-sections">
+          <PageGrid equalHeight>
+            <PageGrid.Item span={{ wide: 3 }}>
+              <PropertySearchRail
+                groups={railGroups}
+                currentGroupId={currentGroupId}
+                search={search}
+                onSearchChange={setSearch}
+                stickyOffset={railOffset(headerHeight)}
+              />
+            </PageGrid.Item>
+            <PageGrid.Item span={{ wide: 9 }}>
+              <AnchorStack landingOffset={landingLine}>
                 {sections.map(({ group, rows }) => (
-                  <PropertyGroupSection key={group.id} group={group} landingOffset={landingLine}>
+                  <PropertyGroupSection key={group.id} group={group}>
                     {rows.map(({ definition, described }) => (
                       <PropertyField
                         key={definition.key}
@@ -248,14 +227,9 @@ export default function PropertiesPage() {
                     ))}
                   </PropertyGroupSection>
                 ))}
-              </Stack>
-              <Box
-                aria-hidden
-                data-testid="properties-tail-space"
-                sx={{ height: `${tailSpace}px` }}
-              />
-            </Box>
-          </Box>
+              </AnchorStack>
+            </PageGrid.Item>
+          </PageGrid>
         )}
       </Stack>
       <Snackbar
@@ -264,7 +238,7 @@ export default function PropertiesPage() {
         onClose={() => setSaved(false)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity="success" sx={{ width: '100%' }}>Properties updated successfully</Alert>
+        <Alert severity="success">Properties updated successfully</Alert>
       </Snackbar>
     </>
   );

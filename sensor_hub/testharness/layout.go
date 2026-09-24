@@ -19,7 +19,7 @@ const (
 	layoutViewerPass = "viewerpassword123"
 )
 
-var layoutViewerGrants = []string{"view_sensors", "view_readings", "view_alerts", "view_notifications"}
+var layoutViewerGrants = []string{"view_sensors", "view_readings", "view_alerts", "view_notifications", "view_properties"}
 
 type LayoutOptions struct {
 	SeedPath   string
