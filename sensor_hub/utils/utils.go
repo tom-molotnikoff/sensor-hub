@@ -14,7 +14,13 @@ import (
 // returns it in "YYYY-MM-DD HH:MM:SS" UTC. All timezone-aware inputs are
 // converted to UTC so that stored timestamps are always comparable.
 func NormalizeTimeToSpaceFormat(s string) string {
-	return normalizeTime(s, "2006-01-02 15:04:05")
+	return normalizeTime(s, storageTimeLayout)
+}
+
+const storageTimeLayout = "2006-01-02 15:04:05"
+
+func FormatStorageTime(t time.Time) string {
+	return t.UTC().Format(storageTimeLayout)
 }
 
 func NormalizeTimeToRFC3339(s string) string {
@@ -58,7 +64,7 @@ func NormalizeDateTimeParam(s string, useEndOfDay bool) (string, error) {
 	}
 	for _, l := range layouts {
 		if t, err := time.Parse(l, s); err == nil {
-			return t.UTC().Format("2006-01-02 15:04:05"), nil
+			return FormatStorageTime(t), nil
 		}
 	}
 	// Date-only: expand to start or end of day
@@ -66,7 +72,7 @@ func NormalizeDateTimeParam(s string, useEndOfDay bool) (string, error) {
 		if useEndOfDay {
 			t = t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 		}
-		return t.UTC().Format("2006-01-02 15:04:05"), nil
+		return FormatStorageTime(t), nil
 	}
 	return "", fmt.Errorf("unrecognised date/time format: %s", s)
 }
