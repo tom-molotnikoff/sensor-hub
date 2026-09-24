@@ -4,6 +4,11 @@ import type { LayoutUser } from './users';
 
 export type Tier = 'compact' | 'wide';
 
+export const viewports = [
+  { tier: 'compact', width: 390, height: 844 },
+  { tier: 'wide', width: 1440, height: 900 },
+] as const;
+
 const pagePadding: Record<Tier, number> = { compact: 12, wide: 24 };
 
 async function noSidewaysScroll(page: Page) {

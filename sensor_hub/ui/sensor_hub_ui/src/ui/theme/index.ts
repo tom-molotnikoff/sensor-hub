@@ -1,5 +1,5 @@
 import { createTheme, type TypographyStyle } from '@mui/material/styles';
-import { breakpointValues, wideMediaQuery, type TierValues } from '../tiers';
+import { breakpointValues, compactMediaQuery, wideMediaQuery, type TierValues } from '../tiers';
 import { density, type Density } from './tokens';
 
 declare module '@mui/material/styles' {
@@ -82,6 +82,20 @@ export const theme = createTheme({
       defaultProps: {
         color: 'primary',
         enableColorOnDark: true,
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          [compactMediaQuery]: {
+            margin: 0,
+            width: '100%',
+            maxWidth: '100%',
+            height: '100%',
+            maxHeight: 'none',
+            borderRadius: 0,
+          },
+        },
       },
     },
     MuiTypography: {

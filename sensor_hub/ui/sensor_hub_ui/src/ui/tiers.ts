@@ -12,6 +12,8 @@ const wideQuery = `(min-width:${breakpointValues[tierBreakpoints.wide]}px)`;
 
 export const wideMediaQuery = `@media ${wideQuery}`;
 
+export const compactMediaQuery = `@media (max-width:${breakpointValues[tierBreakpoints.wide] - 0.05}px)`;
+
 export function responsive<T>(values: TierValues<T>) {
   return { [tierBreakpoints.compact]: values.compact, [tierBreakpoints.wide]: values.wide };
 }

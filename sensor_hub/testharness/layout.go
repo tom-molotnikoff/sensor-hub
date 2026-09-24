@@ -27,7 +27,9 @@ type LayoutOptions struct {
 
 type layoutFixture func(ctx context.Context, env *Env) error
 
-var layoutFixtures = map[string]layoutFixture{}
+var layoutFixtures = map[string]layoutFixture{
+	"dashboard": createLayoutDashboard,
+}
 
 func StartLayoutServer(ctx context.Context, opts LayoutOptions) (*Env, func(), error) {
 	fixtures := make([]layoutFixture, 0, len(opts.Fixtures))
@@ -79,6 +81,25 @@ func createLayoutUsers(ctx context.Context, env *Env) error {
 	}
 	if err := users.SetMustChangeFlag(ctx, viewerID, false); err != nil {
 		return fmt.Errorf("failed to clear viewer password change: %w", err)
+	}
+	return nil
+}
+
+func createLayoutDashboard(ctx context.Context, env *Env) error {
+	admin, _, err := database.NewUserRepository(env.DB, slog.Default()).GetUserByUsername(ctx, env.AdminUser)
+	if err != nil {
+		return fmt.Errorf("failed to look up harness admin: %w", err)
+	}
+
+	var config gen.DashboardConfig
+	config.Breakpoints.Lg, config.Breakpoints.Md, config.Breakpoints.Sm = 12, 8, 4
+	widget := gen.DashboardWidget{Id: "readings-chart", Type: "readings-chart", Config: map[string]interface{}{}}
+	widget.Layout.W, widget.Layout.H = 12, 4
+	config.Widgets = []gen.DashboardWidget{widget}
+
+	dashboards := service.NewDashboardService(database.NewDashboardRepository(env.DB, slog.Default()), slog.Default())
+	if _, err := dashboards.ServiceCreateDashboard(ctx, admin.Id, gen.CreateDashboardRequest{Name: "Layout", Config: config}); err != nil {
+		return fmt.Errorf("failed to create dashboard: %w", err)
 	}
 	return nil
 }
