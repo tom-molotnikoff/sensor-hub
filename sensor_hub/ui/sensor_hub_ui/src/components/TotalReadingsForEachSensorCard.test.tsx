@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TotalReadingsSample } from '../gen/aliases';
@@ -26,16 +26,6 @@ vi.mock('../tools/logger', () => ({
   logger: { error: vi.fn() },
 }));
 
-vi.mock('@mui/x-data-grid', () => ({
-  DataGrid: ({ rows }: { rows: Array<Record<string, unknown>> }) => (
-    <div>
-      {rows.map((row) => (
-        <div key={String(row.id)}>{String(row.sensor)}: {String(row.totalReadings)}</div>
-      ))}
-    </div>
-  ),
-}));
-
 function respondWith(sample: TotalReadingsSample) {
   getMock.mockResolvedValue({ data: sample });
 }
@@ -59,8 +49,11 @@ describe('TotalReadingsForEachSensorCard', () => {
 
     renderCard();
 
-    expect(await screen.findByText('Office: 120')).toBeInTheDocument();
-    expect(screen.getByText(`Sampled ${new Date(sampledAt).toLocaleString()}`)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Office')).toBeInTheDocument();
+      expect(screen.getByText((120).toLocaleString())).toBeInTheDocument();
+      expect(screen.getByText(`Sampled ${new Date(sampledAt).toLocaleString()}`)).toBeInTheDocument();
+    });
   });
 
   it('shows no sampled time before any counts arrive', async () => {

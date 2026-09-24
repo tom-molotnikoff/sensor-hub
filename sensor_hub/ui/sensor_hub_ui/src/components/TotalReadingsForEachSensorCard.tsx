@@ -1,9 +1,8 @@
 import useTotalReadingsForEachSensor from "../hooks/useTotalReadingsForEachSensor.ts";
-import {DataGrid, type GridColDef} from "@mui/x-data-grid";
-import {TypographyH2} from "../tools/Typography.tsx";
-import LayoutCard from "../tools/LayoutCard.tsx";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
-import {Typography} from "@mui/material";
+import { Typography } from "@mui/material";
+import Card from "../ui/Card";
+import DataTable from "../ui/DataTable";
 import EmptyState from '../ui/EmptyState';
 import { WidgetSwap, CascadeRowsLoader } from "../dashboard/widget-loaders";
 
@@ -13,19 +12,11 @@ function formatSampledAt(sampledAt: string): string {
 }
 
 interface TotalReadingsForEachSensorCardProps {
-  showTitle?: boolean;
-  /** Omitted, the sample is fetched once. The dashboard widget polls so it recovers from the
-   *  empty sample the server holds for a second or two after a restart. */
   pollIntervalMs?: number;
 }
 
-function TotalReadingsForEachSensorCard({ showTitle = true, pollIntervalMs }: TotalReadingsForEachSensorCardProps) {
+function TotalReadingsForEachSensorCard({ pollIntervalMs }: TotalReadingsForEachSensorCardProps) {
   const [sample, isLoading] = useTotalReadingsForEachSensor(pollIntervalMs);
-
-  const columns: GridColDef[] = [
-    { field: 'sensor', headerName: 'Sensor', flex: 1 },
-    { field: 'totalReadings', headerName: 'Total Readings', type: 'number', flex: 1 },
-  ];
 
   const rows = Object.entries(sample.counts).map(([sensor, totalReadings], index) => ({
     id: index,
@@ -36,46 +27,32 @@ function TotalReadingsForEachSensorCard({ showTitle = true, pollIntervalMs }: To
   const sampledAt = rows.length > 0 ? formatSampledAt(sample.sampled_at) : '';
 
   return (
-    <LayoutCard variant="secondary" changes={{height: "100%", width: "100%"}}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 8 }}>
-        {showTitle && <TypographyH2>Total Readings For Each Sensor</TypographyH2>}
-        {sampledAt && (
-          <Typography variant="caption" color="text.secondary" sx={{ marginLeft: 'auto' }}>
-            Sampled {sampledAt}
-          </Typography>
+    <Card
+      title="Total Readings For Each Sensor"
+      actions={sampledAt && (
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          Sampled {sampledAt}
+        </Typography>
+      )}
+    >
+      <WidgetSwap loading={isLoading} loader={<CascadeRowsLoader />}>
+        {rows.length === 0 ? (
+          <EmptyState
+            icon={<BarChartOutlinedIcon fontSize="large" />}
+            title="No reading data yet"
+            description="Readings will appear here once sensors start collecting data."
+          />
+        ) : (
+          <DataTable
+            rows={rows}
+            columns={[
+              { field: 'sensor', headerName: 'Sensor', flex: 1, compact: 'title' },
+              { field: 'totalReadings', headerName: 'Total Readings', type: 'number', flex: 1, compact: 'meta' },
+            ]}
+          />
         )}
-      </div>
-
-      <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
-        <WidgetSwap loading={isLoading} loader={<CascadeRowsLoader />}>
-          {rows.length === 0 ? (
-            <EmptyState
-              icon={<BarChartOutlinedIcon sx={{ fontSize: 48 }} />}
-              title="No reading data yet"
-              description="Readings will appear here once sensors start collecting data."
-            />
-          ) : (
-            <DataGrid
-              showToolbar
-              rows={rows}
-              columns={columns}
-              pageSizeOptions={[5, 10, 25, 50, 100]}
-              initialState={{
-                pagination: {
-                  paginationModel: { pageSize: 5, page: 0 },
-                },
-              }}
-              sx={{
-                height: '100%',
-                backgroundColor: 'background.paper',
-                borderRadius: 2,
-                '& .MuiDataGrid-columnHeaders': { fontWeight: 'bold' },
-              }}
-            />
-          )}
-        </WidgetSwap>
-      </div>
-    </LayoutCard>
+      </WidgetSwap>
+    </Card>
   );
 }
 

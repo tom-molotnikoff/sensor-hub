@@ -31,9 +31,10 @@ type LayoutOptions struct {
 type layoutFixture func(ctx context.Context, env *Env) error
 
 var layoutFixtures = map[string]layoutFixture{
-	"dashboard":      createLayoutDashboard,
-	"health-history": createLayoutHealthHistory,
-	"sensors":        createLayoutSensors,
+	"dashboard":       createLayoutDashboard,
+	"health-history":  createLayoutHealthHistory,
+	"sensors":         createLayoutSensors,
+	"pending-sensors": createLayoutPendingSensors,
 }
 
 func StartLayoutServer(ctx context.Context, opts LayoutOptions) (*Env, func(), error) {
@@ -146,7 +147,9 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 	typePie.Layout.X, typePie.Layout.Y, typePie.Layout.W, typePie.Layout.H = 7, 4, 5, 3
 	timeline := gen.DashboardWidget{Id: "health-timeline", Type: "health-timeline", Config: map[string]interface{}{"sensorId": 1}}
 	timeline.Layout.Y, timeline.Layout.W, timeline.Layout.H = 8, 6, 4
-	config.Widgets = []gen.DashboardWidget{readings, uptime, healthPie, typePie, timeline}
+	stats := gen.DashboardWidget{Id: "reading-stats", Type: "reading-stats", Config: map[string]interface{}{}}
+	stats.Layout.X, stats.Layout.Y, stats.Layout.W, stats.Layout.H = 6, 8, 6, 4
+	config.Widgets = []gen.DashboardWidget{readings, uptime, healthPie, typePie, timeline, stats}
 
 	dashboards := service.NewDashboardService(database.NewDashboardRepository(env.DB, slog.Default()), slog.Default())
 	if _, err := dashboards.ServiceCreateDashboard(ctx, admin.Id, gen.CreateDashboardRequest{Name: "Layout", Config: config}); err != nil {
@@ -181,6 +184,24 @@ func createLayoutSensors(ctx context.Context, env *Env) error {
 			"INSERT INTO sensors (name, sensor_driver, config, health_status, health_reason, enabled) VALUES (?, ?, '{}', ?, 'fixture', ?)",
 			sensor.name, sensor.driver, sensor.health, sensor.enabled); err != nil {
 			return fmt.Errorf("failed to insert sensor %s: %w", sensor.name, err)
+		}
+	}
+	return nil
+}
+
+func createLayoutPendingSensors(ctx context.Context, env *Env) error {
+	sensors := []struct{ name, status, metadata string }{
+		{"0xa4c1380b2e11ffff", "pending", `{"manufacturer":"Aqara","model":"MCCGQ11LM"}`},
+		{"0x00158d0001a2b3c4", "pending", `{}`},
+		{"0x54ef441000a1b2c3", "pending", `{"manufacturer":"SONOFF","model":"SNZB-02"}`},
+		{"0x842e14fffe9d8a7b", "dismissed", `{}`},
+		{"0x00124b0021c4d5e6", "dismissed", `{"model":"TS0201"}`},
+	}
+	for _, sensor := range sensors {
+		if _, err := env.DB.Writer.ExecContext(ctx,
+			"INSERT INTO sensors (name, sensor_driver, config, health_status, health_reason, enabled, status, metadata) VALUES (?, 'mqtt-zigbee2mqtt', '{}', 'unknown', 'fixture', 1, ?, ?)",
+			sensor.name, sensor.status, sensor.metadata); err != nil {
+			return fmt.Errorf("failed to insert %s sensor %s: %w", sensor.status, sensor.name, err)
 		}
 	}
 	return nil
