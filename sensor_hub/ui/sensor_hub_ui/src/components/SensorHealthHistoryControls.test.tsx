@@ -13,14 +13,6 @@ vi.mock('../hooks/useSensorHealthHistory.ts', () => ({
   default: useSensorHealthHistoryMock,
 }));
 
-vi.mock('../hooks/useMobile', () => ({
-  useIsMobile: () => false,
-}));
-
-vi.mock('@mui/x-data-grid', () => ({
-  DataGrid: () => <div data-testid="data-grid" />,
-}));
-
 vi.mock('./SensorHealthHistoryChart', () => ({
   default: () => <div data-testid="sensor-health-history-chart" />,
 }));

@@ -160,9 +160,18 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 }
 
 func createLayoutHealthHistory(ctx context.Context, env *Env) error {
-	if _, err := env.DB.Writer.ExecContext(ctx,
-		"INSERT INTO sensor_health_history (sensor_id, health_status, recorded_at) VALUES (1, 'good', datetime('now', '-29 days'))"); err != nil {
-		return fmt.Errorf("failed to insert health history: %w", err)
+	type entry struct{ status, at string }
+	var entries []entry
+	for day := 29; day >= 3; day -= 2 {
+		entries = append(entries, entry{"good", fmt.Sprintf("-%d days", day)})
+	}
+	entries = append(entries, entry{"bad", "-2 days"}, entry{"good", "-47 hours"})
+	for _, row := range entries {
+		if _, err := env.DB.Writer.ExecContext(ctx,
+			"INSERT INTO sensor_health_history (sensor_id, health_status, recorded_at) VALUES (1, ?, datetime('now', ?))",
+			row.status, row.at); err != nil {
+			return fmt.Errorf("failed to insert health history: %w", err)
+		}
 	}
 	return nil
 }
@@ -171,23 +180,28 @@ func createLayoutSensors(ctx context.Context, env *Env) error {
 	sensors := []struct {
 		name, driver, health string
 		enabled              bool
+		retentionHours       *int
 	}{
-		{"attic-bulb", "mqtt-zigbee2mqtt", "good", true},
-		{"back-door-contact", "mqtt-zigbee2mqtt", "bad", true},
-		{"garage-temp", "mqtt-zigbee2mqtt", "unknown", true},
-		{"hallway-motion", "mqtt-zigbee2mqtt", "good", false},
-		{"kitchen-plug", "mqtt-zigbee2mqtt", "good", true},
-		{"loft-hygrometer", "sensor-hub-http-temperature", "bad", false},
-		{"porch-light", "mqtt-zigbee2mqtt", "good", true},
+		{"attic-bulb", "mqtt-zigbee2mqtt", "good", true, ptr(120)},
+		{"back-door-contact", "mqtt-zigbee2mqtt", "bad", true, ptr(720)},
+		{"garage-temp", "mqtt-zigbee2mqtt", "unknown", true, nil},
+		{"hallway-motion", "mqtt-zigbee2mqtt", "good", false, nil},
+		{"kitchen-plug", "mqtt-zigbee2mqtt", "good", true, ptr(48)},
+		{"loft-hygrometer", "sensor-hub-http-temperature", "bad", false, nil},
+		{"porch-light", "mqtt-zigbee2mqtt", "good", true, nil},
 	}
 	for _, sensor := range sensors {
 		if _, err := env.DB.Writer.ExecContext(ctx,
-			"INSERT INTO sensors (name, sensor_driver, config, health_status, health_reason, enabled) VALUES (?, ?, '{}', ?, 'fixture', ?)",
-			sensor.name, sensor.driver, sensor.health, sensor.enabled); err != nil {
+			"INSERT INTO sensors (name, sensor_driver, config, health_status, health_reason, enabled, retention_hours) VALUES (?, ?, '{}', ?, 'fixture', ?, ?)",
+			sensor.name, sensor.driver, sensor.health, sensor.enabled, sensor.retentionHours); err != nil {
 			return fmt.Errorf("failed to insert sensor %s: %w", sensor.name, err)
 		}
 	}
 	return nil
+}
+
+func ptr(value int) *int {
+	return &value
 }
 
 func createLayoutPendingSensors(ctx context.Context, env *Env) error {
