@@ -7,7 +7,9 @@ const { contextMock } = vi.hoisted(() => ({ contextMock: vi.fn() }));
 
 vi.mock('../hooks/useSensorContext', () => ({ useSensorContext: () => contextMock() }));
 vi.mock('./SensorHealthPieChart', () => ({ default: () => <div data-testid="health-pie" /> }));
-vi.mock('../ui/ChartArea', () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
+vi.mock('../ui/ChartArea', () => ({
+  default: ({ placeholder, children }: { placeholder?: React.ReactNode; children: React.ReactNode }) => <>{placeholder ?? children}</>,
+}));
 vi.mock('../ui/theme/chartColours', () => ({
   useChartColours: () => ({ categorical: ['#D4451A'], health: ['', '', ''], stat: ['', '', ''], grid: '#000', axisText: '#000', noData: '#E0D8D0' }),
 }));
