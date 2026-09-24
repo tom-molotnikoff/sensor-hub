@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"slices"
 
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
@@ -17,6 +18,8 @@ const (
 	layoutViewerUser = "testviewer"
 	layoutViewerPass = "viewerpassword123"
 )
+
+var layoutViewerGrants = []string{"view_sensors", "view_readings"}
 
 type LayoutOptions struct {
 	SeedPath   string
@@ -75,6 +78,9 @@ func createLayoutUsers(ctx context.Context, env *Env) error {
 		return fmt.Errorf("failed to clear harness admin password change: %w", err)
 	}
 
+	if err := grantViewerReadAccess(ctx, env); err != nil {
+		return err
+	}
 	viewerID, err := service.NewUserService(users, nil, slog.Default()).CreateUser(ctx,
 		gen.User{Username: layoutViewerUser, Roles: []string{service.RoleViewer}}, layoutViewerPass)
 	if err != nil {
@@ -82,6 +88,36 @@ func createLayoutUsers(ctx context.Context, env *Env) error {
 	}
 	if err := users.SetMustChangeFlag(ctx, viewerID, false); err != nil {
 		return fmt.Errorf("failed to clear viewer password change: %w", err)
+	}
+	return nil
+}
+
+func grantViewerReadAccess(ctx context.Context, env *Env) error {
+	roles := database.NewRoleRepository(env.DB, slog.Default())
+	all, err := roles.GetAllRoles(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list roles: %w", err)
+	}
+	viewerRole := -1
+	for _, role := range all {
+		if role.Name == service.RoleViewer {
+			viewerRole = role.Id
+		}
+	}
+	if viewerRole < 0 {
+		return fmt.Errorf("role %q does not exist", service.RoleViewer)
+	}
+	permissions, err := roles.GetAllPermissions(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list permissions: %w", err)
+	}
+	for _, permission := range permissions {
+		if !slices.Contains(layoutViewerGrants, permission.Name) {
+			continue
+		}
+		if err := roles.AssignPermissionToRole(ctx, viewerRole, permission.Id); err != nil {
+			return fmt.Errorf("failed to grant %s to viewer: %w", permission.Name, err)
+		}
 	}
 	return nil
 }
@@ -98,7 +134,11 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 	readings.Layout.W, readings.Layout.H = 12, 4
 	uptime := gen.DashboardWidget{Id: "uptime", Type: "uptime", Config: map[string]interface{}{"sensorId": 1}}
 	uptime.Layout.Y, uptime.Layout.W, uptime.Layout.H = 4, 3, 3
-	config.Widgets = []gen.DashboardWidget{readings, uptime}
+	healthPie := gen.DashboardWidget{Id: "sensor-health-pie", Type: "sensor-health-pie", Config: map[string]interface{}{}}
+	healthPie.Layout.X, healthPie.Layout.Y, healthPie.Layout.W, healthPie.Layout.H = 3, 4, 4, 4
+	typePie := gen.DashboardWidget{Id: "sensor-type-pie", Type: "sensor-type-pie", Config: map[string]interface{}{}}
+	typePie.Layout.X, typePie.Layout.Y, typePie.Layout.W, typePie.Layout.H = 7, 4, 5, 3
+	config.Widgets = []gen.DashboardWidget{readings, uptime, healthPie, typePie}
 
 	dashboards := service.NewDashboardService(database.NewDashboardRepository(env.DB, slog.Default()), slog.Default())
 	if _, err := dashboards.ServiceCreateDashboard(ctx, admin.Id, gen.CreateDashboardRequest{Name: "Layout", Config: config}); err != nil {

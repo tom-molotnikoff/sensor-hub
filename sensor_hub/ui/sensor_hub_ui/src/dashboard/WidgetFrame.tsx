@@ -9,6 +9,7 @@ import { WidgetErrorBoundary } from './WidgetErrorBoundary';
 import { useWidgetLastUpdated } from './WidgetUpdateContext';
 import { WidgetUpdateProvider } from './WidgetUpdateProvider';
 import RelativeTime from './RelativeTime';
+import Bounded from '../ui/Bounded';
 import type { ReactNode } from 'react';
 import {
     WidgetStateReportContext,
@@ -193,7 +194,9 @@ export default function WidgetFrame({ widget, isEditing, onRemove, onConfigure }
                         <EditPlaceholder label={definition.label} />
                     ) : (
                         <WidgetErrorBoundary widgetId={widget.id} onRemove={onRemove} onConfigure={hasConfig ? () => onConfigure(widget.id) : undefined}>
-                            <Component {...widgetProps} />
+                            <Bounded>
+                                <Component {...widgetProps} />
+                            </Bounded>
                         </WidgetErrorBoundary>
                     )}
                 </Box>

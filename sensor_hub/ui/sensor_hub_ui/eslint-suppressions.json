@@ -299,17 +299,6 @@
       "count": 4
     }
   },
-  "src/components/SensorHealthCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 10
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
-    }
-  },
   "src/components/SensorHealthHistory.tsx": {
     "ui/no-layout-styles": {
       "count": 17
@@ -334,11 +323,6 @@
       "count": 5
     }
   },
-  "src/components/SensorHealthPieChart.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/components/SensorInfoCard.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -353,25 +337,6 @@
     },
     "ui/no-layout-styles": {
       "count": 9
-    }
-  },
-  "src/components/SensorTypeCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 10
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
-    }
-  },
-  "src/components/SensorTypePieChart.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
     }
   },
   "src/components/SensorsDataGrid.tsx": {
