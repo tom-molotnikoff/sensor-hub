@@ -88,12 +88,12 @@ export default function CompactList<R extends TableRow>({ rows, columns, loading
                   cursor: onRowClick ? 'pointer' : 'default',
                 }}
               >
-                <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
-                  <Typography variant="body" noWrap data-ui="data-table-title">
+                <Box component="span" sx={{ flex: '1 1 auto', minWidth: 0 }}>
+                  <Typography variant="body" component="span" noWrap sx={{ display: 'block' }} data-ui="data-table-title">
                     {displayedValue(row, title, apiRef)}
                   </Typography>
                   {metaLine && (
-                    <Typography variant="bodySmall" noWrap sx={{ color: 'text.secondary' }} data-ui="data-table-meta">
+                    <Typography variant="bodySmall" component="span" noWrap sx={{ display: 'block', color: 'text.secondary' }} data-ui="data-table-meta">
                       {metaLine}
                     </Typography>
                   )}

@@ -34,9 +34,6 @@ export default function DataTable<R extends TableRow, const C extends readonly D
       columns={gridColumns}
       loading={loading}
       showToolbar
-      pageSizeOptions={[5, 10, 25, 50, 100]}
-      initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
-      getRowHeight={() => 'auto'}
       onRowClick={onRowClick && ((params, event) => onRowClick(params.row, event.currentTarget as HTMLElement))}
       sx={onRowClick && { '& .MuiDataGrid-row': { cursor: 'pointer' } }}
     />
