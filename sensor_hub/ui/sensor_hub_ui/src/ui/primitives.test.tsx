@@ -13,16 +13,19 @@ import ChartArea from './ChartArea';
 import EmptyState from './EmptyState';
 import Frame from './Frame';
 import Inline from './Inline';
+import MenuPanel from './MenuPanel';
 import Metric, { MetricGroup } from './Metric';
 import PageGrid from './PageGrid';
 import Prose from './Prose';
 import Stack from './Stack';
 import StandalonePage from './StandalonePage';
+import StatGrid from './StatGrid';
+import Strip, { StripCell, StripDetail } from './Strip';
 import SlideSwitch from './SlideSwitch';
 import Sticky, { StickyBar } from './Sticky';
 import TileGrid from './TileGrid';
 import { theme } from './theme';
-import { chartAreaHeight, emptyStateMinHeight } from './theme/tokens';
+import { chartAreaHeight, emptyStateMinHeight, stripNarrowWidth } from './theme/tokens';
 
 function renderUi(ui: React.ReactElement) {
   return render(
@@ -445,6 +448,93 @@ describe('SlideSwitch', () => {
   });
 });
 
+describe('StatGrid', () => {
+  it('shows each stat as a label above its value, in order', () => {
+    const { container } = renderUi(
+      <StatGrid
+        stats={[
+          { key: 'temperature', label: 'Temperature', value: '21.5 °C' },
+          { key: 'humidity', label: 'Humidity', value: '48.0 %' },
+        ]}
+      />,
+    );
+
+    const stats = [...container.querySelectorAll('[data-ui=stat-grid] > [data-ui=stat]')];
+    expect(stats.map((stat) => [stat.firstElementChild?.textContent, stat.lastElementChild?.textContent])).toEqual([
+      ['Temperature', '21.5 °C'],
+      ['Humidity', '48.0 %'],
+    ]);
+    expect(container.querySelector('[data-ui=stat-grid]')).toHaveStyle({ display: 'grid' });
+  });
+});
+
+describe('MenuPanel', () => {
+  function anchor() {
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+    button.focus();
+    return button;
+  }
+
+  it('stays closed without an anchor', () => {
+    renderUi(<MenuPanel anchorEl={null} onClose={() => {}} title="Notifications" />);
+
+    expect(screen.queryByText('Notifications')).toBeNull();
+  });
+
+  it('shows its title and meta above the body, and the footer below', () => {
+    renderUi(
+      <MenuPanel anchorEl={anchor()} onClose={() => {}} title="Notifications" meta="3 unread" footer={<button>View all</button>}>
+        <li>row</li>
+      </MenuPanel>,
+    );
+
+    const header = document.querySelector('[data-ui=menu-panel-header]')!;
+    expect(header.firstElementChild).toHaveTextContent('Notifications');
+    expect(header.lastElementChild).toHaveTextContent('3 unread');
+    expect(screen.getByText('row')).toBeInTheDocument();
+    expect(document.querySelector('[data-ui=menu-panel-footer]')).toContainElement(screen.getByRole('button', { name: 'View all' }));
+  });
+
+  it('shows a spinner instead of the body while loading', () => {
+    renderUi(
+      <MenuPanel anchorEl={anchor()} onClose={() => {}} title="Notifications" loading>
+        <li>row</li>
+      </MenuPanel>,
+    );
+
+    expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument();
+    expect(screen.queryByText('row')).toBeNull();
+    expect(document.querySelector('[data-ui=menu-panel-footer]')).toBeNull();
+  });
+});
+
+describe('Strip', () => {
+  it('lays its cells out in a labelled row that scrolls on its own and sheds detail when narrow', () => {
+    const { container } = renderUi(
+      <Strip label="Daily forecast" size="md">
+        <StripCell highlighted>
+          Mon<StripDetail>1 Jan</StripDetail>
+        </StripCell>
+        <StripCell>Tue</StripCell>
+      </Strip>,
+    );
+
+    const strip = container.querySelector('[data-ui=strip]')!;
+    const track = screen.getByRole('region', { name: 'Daily forecast' });
+    expect(strip).toHaveStyle({ containerType: 'inline-size', minWidth: '0px' });
+    expect(track).toHaveStyle({ display: 'flex', overflowX: 'auto' });
+    expect(track).toHaveAttribute('tabindex', '0');
+    const cells = track.querySelectorAll('[data-ui=strip-cell]');
+    expect(cells).toHaveLength(2);
+    expect(cells[0]).toHaveAttribute('aria-current', 'true');
+    expect(cells[1]).not.toHaveAttribute('aria-current');
+    expect(cells[0].querySelector('[data-ui=strip-detail]')).toHaveTextContent('1 Jan');
+    const rules = Array.from(document.styleSheets).flatMap((sheet) => Array.from(sheet.cssRules).map((rule) => rule.cssText));
+    expect(rules.some((rule) => rule.includes(`max-width: ${stripNarrowWidth - 0.05}px`) && rule.includes('strip-detail'))).toBe(true);
+  });
+});
+
 describe('primitive props', () => {
   it('accept no styling or layout overrides', () => {
     const overrides = [
@@ -586,7 +676,35 @@ describe('primitive props', () => {
       <SlideSwitch checked label="t" onChange={() => {}} style={{ width: 100 }} />,
       // @ts-expect-error SlideSwitch takes no className
       <SlideSwitch checked label="t" onChange={() => {}} className="wide" />,
+      // @ts-expect-error StatGrid takes no sx
+      <StatGrid stats={[]} sx={{ gap: 0 }} />,
+      // @ts-expect-error StatGrid takes no style
+      <StatGrid stats={[]} style={{ gap: 0 }} />,
+      // @ts-expect-error StatGrid takes no className
+      <StatGrid stats={[]} className="tight" />,
+      // @ts-expect-error MenuPanel takes no sx
+      <MenuPanel anchorEl={null} onClose={() => {}} title="t" sx={{ width: 100 }} />,
+      // @ts-expect-error MenuPanel takes no style
+      <MenuPanel anchorEl={null} onClose={() => {}} title="t" style={{ width: 100 }} />,
+      // @ts-expect-error MenuPanel takes no className
+      <MenuPanel anchorEl={null} onClose={() => {}} title="t" className="wide" />,
+      // @ts-expect-error Strip takes no sx
+      <Strip label="t" size="md" sx={{ gap: 0 }} />,
+      // @ts-expect-error Strip takes no style
+      <Strip label="t" size="md" style={{ gap: 0 }} />,
+      // @ts-expect-error Strip takes no className
+      <Strip label="t" size="md" className="tight" />,
+      // @ts-expect-error Strip needs a label for its scroll region
+      <Strip size="md" />,
+      // @ts-expect-error StripCell takes no sx
+      <StripCell sx={{ padding: 0 }} />,
+      // @ts-expect-error StripCell takes no style
+      <StripCell style={{ padding: 0 }} />,
+      // @ts-expect-error StripCell takes no className
+      <StripCell className="flat" />,
+      // @ts-expect-error StripDetail takes no sx
+      <StripDetail sx={{ display: 'block' }} />,
     ];
-    expect(overrides).toHaveLength(69);
+    expect(overrides).toHaveLength(83);
   });
 });

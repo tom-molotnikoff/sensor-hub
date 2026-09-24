@@ -2,15 +2,11 @@ import { useState } from 'react';
 import {
   IconButton,
   Badge,
-  Menu,
   MenuItem,
   ListItemText,
   ListItemIcon,
   Typography,
-  Divider,
-  Box,
   Button,
-  CircularProgress,
 } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import InfoIcon from '@mui/icons-material/Info';
@@ -20,7 +16,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useNotifications } from '../providers/NotificationContext';
 import { useNavigate } from 'react-router';
 import type { NotificationSeverity } from '../gen/aliases';
-import { useIsMobile } from '../hooks/useMobile';
+import MenuPanel from '../ui/MenuPanel';
+import EmptyState from '../ui/EmptyState';
 import { logger } from '../tools/logger';
 
 function getSeverityIcon(severity: NotificationSeverity) {
@@ -58,8 +55,6 @@ export default function NotificationBell() {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const { notifications, unreadCount, loading, markAsRead } = useNotifications();
-  const open = Boolean(anchorEl);
-  const isMobile = useIsMobile();
 
   const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -93,75 +88,32 @@ export default function NotificationBell() {
           <NotificationsIcon />
         </Badge>
       </IconButton>
-      <Menu
+      <MenuPanel
         anchorEl={anchorEl}
-        open={open}
         onClose={handleClose}
-        anchorOrigin={{ 
-          vertical: 'bottom', 
-          horizontal: isMobile ? 'center' : 'right' 
-        }}
-        transformOrigin={{ 
-          vertical: 'top', 
-          horizontal: isMobile ? 'center' : 'right' 
-        }}
-        slotProps={{
-          paper: {
-            sx: { 
-              width: isMobile ? '90vw' : 360, 
-              maxWidth: 360,
-              maxHeight: 450 
-            },
-          },
-          root: {
-            slotProps: {
-              backdrop: {
-                sx: { position: 'fixed' }
-              }
-            }
-          }
-        }}
+        title="Notifications"
+        meta={unreadCount > 0 ? `${unreadCount} unread` : undefined}
+        loading={loading}
+        footer={notifications && notifications.length > 0 && (
+          <Button size="small" onClick={handleViewAll}>
+            View all notifications
+          </Button>
+        )}
       >
-        <Box sx={{ px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="subtitle1" sx={{
-            fontWeight: "bold"
-          }}>
-            Notifications
-          </Typography>
-          {unreadCount > 0 && (
-            <Typography variant="caption" sx={{
-              color: "text.secondary"
-            }}>
-              {unreadCount} unread
-            </Typography>
-          )}
-        </Box>
-        <Divider />
-        
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : recentNotifications.length === 0 ? (
-          <Box sx={{ py: 3, textAlign: 'center' }}>
-            <CheckCircleIcon color="disabled" sx={{ fontSize: 40, mb: 1 }} />
-            <Typography variant="body2" sx={{
-              color: "text.secondary"
-            }}>
-              No notifications
-            </Typography>
-          </Box>
+        {recentNotifications.length === 0 ? (
+          <EmptyState
+            size="sm"
+            icon={<CheckCircleIcon color="disabled" fontSize="large" />}
+            title="No notifications"
+          />
         ) : (
           recentNotifications.map((notif) => (
             <MenuItem
               key={notif.notification_id}
               onClick={() => handleNotificationClick(notif.notification_id!, notif.is_read ?? false)}
-              sx={{
-                backgroundColor: notif.is_read ? 'transparent' : 'action.hover',
-                py: 1.5,
-              }}
+              sx={{ backgroundColor: notif.is_read ? 'transparent' : 'action.hover' }}
             >
-              <ListItemIcon sx={{ minWidth: 36 }}>
+              <ListItemIcon>
                 {getSeverityIcon(notif.notification!.severity!)}
               </ListItemIcon>
               <ListItemText
@@ -169,28 +121,17 @@ export default function NotificationBell() {
                   <Typography
                     variant="body2"
                     noWrap
-                    sx={{
-                      fontWeight: notif.is_read ? 'normal' : 'bold'
-                    }}
+                    sx={{ fontWeight: notif.is_read ? 'fontWeightRegular' : 'fontWeightBold' }}
                   >
                     {notif.notification!.title}
                   </Typography>
                 }
                 secondary={
                   <>
-                    <Typography
-                      variant="caption"
-                      noWrap
-                      component="span"
-                      sx={{
-                        color: "text.secondary",
-                        display: "block"
-                      }}>
+                    <Typography variant="caption" noWrap component="div" color="text.secondary">
                       {notif.notification!.message}
                     </Typography>
-                    <Typography variant="caption" component="span" sx={{
-                      color: "text.disabled"
-                    }}>
+                    <Typography variant="caption" component="span" color="text.disabled">
                       {formatTimeAgo(notif.notification!.created_at!)}
                     </Typography>
                   </>
@@ -200,16 +141,7 @@ export default function NotificationBell() {
             </MenuItem>
           ))
         )}
-        
-        {notifications && notifications.length > 0 && [
-          <Divider key="divider" />,
-          <Box key="view-all" sx={{ p: 1, textAlign: 'center' }}>
-            <Button size="small" onClick={handleViewAll}>
-              View all notifications
-            </Button>
-          </Box>
-        ]}
-      </Menu>
+      </MenuPanel>
     </>
   );
 }

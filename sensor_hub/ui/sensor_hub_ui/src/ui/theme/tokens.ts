@@ -30,3 +30,22 @@ export const metricFit = {
   value: { md: { width: 160, height: 96 }, lg: { width: 240, height: 160 } },
   dial: { md: 180, lg: 280 },
 } as const;
+
+export const stripNarrowWidth = 480;
+
+export const stripCells = {
+  sm: {
+    gap: 1,
+    minWidth: 56,
+    padding: 1,
+    radius: 2,
+    narrow: { minWidth: 48, paddingX: 0.75, paddingY: 0.75, radius: 3 },
+  },
+  md: {
+    gap: 1.5,
+    minWidth: 100,
+    padding: 1.5,
+    radius: 2,
+    narrow: { minWidth: 72, paddingX: 1.5, paddingY: 1, radius: 3 },
+  },
+} as const;

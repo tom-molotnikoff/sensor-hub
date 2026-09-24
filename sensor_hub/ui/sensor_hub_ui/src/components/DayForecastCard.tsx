@@ -1,15 +1,13 @@
-import Paper from "@mui/material/Paper";
-import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import WaterDropOutlined from "@mui/icons-material/WaterDropOutlined";
 import AirOutlined from "@mui/icons-material/AirOutlined";
-import { getWeatherInfo } from "../tools/weatherIcons.ts";
+import { getWeatherInfo, inlineIcon } from "../tools/weatherIcons.ts";
 import type { DailyForecast } from "../hooks/useWeatherApi.ts";
+import { StripCell, StripDetail } from "../ui/Strip";
 
 type DayForecastCardProps = {
   day: DailyForecast;
   isToday: boolean;
-  compact?: boolean;
 };
 
 function formatDayName(dateStr: string): string {
@@ -22,120 +20,37 @@ function formatShortDate(dateStr: string): string {
   return date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-export default function DayForecastCard({ day, isToday, compact }: DayForecastCardProps) {
+
+export default function DayForecastCard({ day, isToday }: DayForecastCardProps) {
   const { icon: WeatherIcon, label } = getWeatherInfo(day.weatherCode);
 
-  if (compact) {
-    return (
-      <Paper
-        elevation={isToday ? 3 : 1}
-        sx={{
-          px: 1.5,
-          py: 1,
-          minWidth: 72,
-          textAlign: "center",
-          border: isToday ? 2 : 0,
-          borderColor: "primary.main",
-          borderRadius: 3,
-          flex: "0 0 auto",
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{
-            fontWeight: "bold",
-            display: "block"
-          }}>
-          {isToday ? "Today" : formatDayName(day.date)}
-        </Typography>
-        <WeatherIcon sx={{ fontSize: 22, color: "primary.main", my: 0.25 }} />
-        <Typography
-          variant="caption"
-          sx={{
-            fontWeight: "bold",
-            display: "block"
-          }}>
-          {Math.round(day.tempMax)}°/{Math.round(day.tempMin)}°
-        </Typography>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.3 }}>
-          <WaterDropOutlined sx={{ fontSize: 10, color: "info.main" }} />
-          <Typography variant="caption" sx={{
-            fontSize: "0.6rem"
-          }}>
-            {day.precipitationProbability}%
-          </Typography>
-        </Box>
-      </Paper>
-    );
-  }
-
   return (
-    <Paper
-      elevation={isToday ? 3 : 1}
-      sx={{
-        p: 1.5,
-        minWidth: 100,
-        textAlign: "center",
-        border: isToday ? 2 : 0,
-        borderColor: "primary.main",
-        borderRadius: 2,
-        flex: "1 1 0",
-      }}
-    >
-      <Typography variant="subtitle2" sx={{
-        fontWeight: "bold"
-      }}>
+    <StripCell highlighted={isToday}>
+      <Typography variant="subtitle2" sx={{ fontWeight: "fontWeightBold" }}>
         {isToday ? "Today" : formatDayName(day.date)}
       </Typography>
-      <Typography variant="caption" sx={{
-        color: "text.secondary"
-      }}>
-        {formatShortDate(day.date)}
-      </Typography>
-      <Box sx={{ my: 1 }}>
-        <WeatherIcon sx={{ fontSize: 36, color: "primary.main" }} />
-      </Box>
-      <Typography
-        variant="caption"
-        sx={{
-          display: "block",
-          color: "text.secondary"
-        }}>
-        {label}
-      </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          fontWeight: "bold",
-          mt: 1
-        }}>
+      <StripDetail>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          {formatShortDate(day.date)}
+        </Typography>
+      </StripDetail>
+      <WeatherIcon fontSize="large" sx={{ color: "primary.main" }} />
+      <StripDetail>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          {label}
+        </Typography>
+      </StripDetail>
+      <Typography variant="body2" sx={{ fontWeight: "fontWeightBold" }}>
         {Math.round(day.tempMax)}° / {Math.round(day.tempMin)}°
       </Typography>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 0.5,
-          mt: 0.5,
-        }}
-      >
-        <WaterDropOutlined sx={{ fontSize: 14, color: "info.main" }} />
-        <Typography variant="caption">{day.precipitationProbability}%</Typography>
-      </Box>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 0.5,
-        }}
-      >
-        <AirOutlined sx={{ fontSize: 14, color: "text.secondary" }} />
+      <Typography variant="caption">
+        <WaterDropOutlined fontSize="inherit" sx={{ ...inlineIcon, color: "info.main" }} /> {day.precipitationProbability}%
+      </Typography>
+      <StripDetail>
         <Typography variant="caption">
-          {Math.round(day.windSpeedMax)} km/h
+          <AirOutlined fontSize="inherit" sx={{ ...inlineIcon, color: "text.secondary" }} /> {Math.round(day.windSpeedMax)} km/h
         </Typography>
-      </Box>
-    </Paper>
+      </StripDetail>
+    </StripCell>
   );
 }
