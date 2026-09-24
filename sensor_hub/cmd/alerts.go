@@ -71,8 +71,8 @@ var alertsCreateCmd = &cobra.Command{
 			return err
 		}
 		body := gen.CreateAlertRuleJSONRequestBody{
-			SensorID:          sensorID,
-			MeasurementTypeID: measurementTypeID,
+			SensorId:          sensorID,
+			MeasurementTypeId: measurementTypeID,
 			AlertType:         gen.AlertRuleAlertType(alertType),
 			HighThreshold:     threshold,
 		}

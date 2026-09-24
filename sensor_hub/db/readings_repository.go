@@ -144,7 +144,7 @@ func (r *ReadingsRepositoryImpl) Ingest(ctx context.Context, batch ReadingBatch)
 
 	var firstSeen []seriesKey
 	for _, item := range recognised {
-		if _, err := insert.ExecContext(ctx, sensorID, item.typeID, item.reading.NumericValue, item.reading.TextState, item.reading.Time); err != nil {
+		if _, err := insert.ExecContext(ctx, sensorID, item.typeID, item.reading.NumericValue, item.reading.TextState, utils.NormalizeTimeToSpaceFormat(item.reading.Time)); err != nil {
 			return fmt.Errorf("issue persisting reading to database: %w", err)
 		}
 
@@ -458,7 +458,7 @@ func scanReadings(rows *sql.Rows) ([]gen.Reading, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error scanning reading row: %w", err)
 		}
-		reading.Time = utils.NormalizeTimeToSpaceFormat(reading.Time)
+		reading.Time = utils.NormalizeTimeToRFC3339(reading.Time)
 		readings = append(readings, reading)
 	}
 	if err := rows.Err(); err != nil {

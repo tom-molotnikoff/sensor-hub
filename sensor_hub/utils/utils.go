@@ -14,6 +14,14 @@ import (
 // returns it in "YYYY-MM-DD HH:MM:SS" UTC. All timezone-aware inputs are
 // converted to UTC so that stored timestamps are always comparable.
 func NormalizeTimeToSpaceFormat(s string) string {
+	return normalizeTime(s, "2006-01-02 15:04:05")
+}
+
+func NormalizeTimeToRFC3339(s string) string {
+	return normalizeTime(s, time.RFC3339)
+}
+
+func normalizeTime(s, layout string) string {
 	if s == "" {
 		return s
 	}
@@ -26,12 +34,12 @@ func NormalizeTimeToSpaceFormat(s string) string {
 	}
 	for _, l := range layouts {
 		if t, err := time.Parse(l, s); err == nil {
-			return t.UTC().Format("2006-01-02 15:04:05")
+			return t.UTC().Format(layout)
 		}
 	}
 
 	if sec, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return time.Unix(sec, 0).UTC().Format("2006-01-02 15:04:05")
+		return time.Unix(sec, 0).UTC().Format(layout)
 	}
 	return s
 }

@@ -53,29 +53,30 @@ export default function EditAlertDialog({open, onClose, onSaved, selectedAlert}:
     setPrevOpen(open);
     setPrevAlert(selectedAlert);
     if (open && selectedAlert) {
-      setEditAlertType(selectedAlert.AlertType);
-      setEditHighThreshold(selectedAlert.HighThreshold?.toString() || '');
-      setEditLowThreshold(selectedAlert.LowThreshold?.toString() || '');
-      setEditTriggerStatus(selectedAlert.TriggerStatus || '');
-      const { value, unit } = fromSeconds(selectedAlert.RateLimitSeconds);
+      setEditAlertType(selectedAlert.alert_type);
+      setEditHighThreshold(selectedAlert.high_threshold?.toString() || '');
+      setEditLowThreshold(selectedAlert.low_threshold?.toString() || '');
+      setEditTriggerStatus(selectedAlert.trigger_status || '');
+      const { value, unit } = fromSeconds(selectedAlert.rate_limit_seconds);
       setEditRateLimit(value.toString());
       setEditRateLimitUnit(unit);
-      setEditEnabled(selectedAlert.Enabled);
+      setEditEnabled(selectedAlert.enabled);
     }
   }
 
   const handleEdit = async () => {
     if (!selectedAlert) return;
     try {
+      const criteria: Partial<AlertRule> = editAlertType === 'numeric_range'
+        ? { high_threshold: parseFloat(editHighThreshold), low_threshold: parseFloat(editLowThreshold) }
+        : { trigger_status: editTriggerStatus };
       const body = {
-        AlertType: editAlertType,
-        RateLimitSeconds: toSeconds(parseInt(editRateLimit, 10), editRateLimitUnit),
-        Enabled: editEnabled,
-        ...(editAlertType === 'numeric_range'
-          ? { HighThreshold: parseFloat(editHighThreshold), LowThreshold: parseFloat(editLowThreshold) }
-          : { TriggerStatus: editTriggerStatus }),
-      };
-      await apiClient.PUT('/alerts/{id}', { params: { path: { id: selectedAlert.ID } }, body: body as never });
+        alert_type: editAlertType,
+        rate_limit_seconds: toSeconds(parseInt(editRateLimit, 10), editRateLimitUnit),
+        enabled: editEnabled,
+        ...criteria,
+      } satisfies Partial<AlertRule>;
+      await apiClient.PUT('/alerts/{id}', { params: { path: { id: selectedAlert.id } }, body: body as never });
       onClose();
       await onSaved();
     } catch (e) {
@@ -91,7 +92,7 @@ export default function EditAlertDialog({open, onClose, onSaved, selectedAlert}:
           <TextField
             fullWidth
             label="Sensor"
-            value={selectedAlert?.SensorName || ''}
+            value={selectedAlert?.sensor_name || ''}
             disabled
           />
 

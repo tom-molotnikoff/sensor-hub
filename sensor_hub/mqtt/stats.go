@@ -127,11 +127,11 @@ func (st *StatsTracker) Snapshot() map[int]BrokerStats {
 		}
 
 		if ns := bc.lastMessageAt.Load(); ns > 0 {
-			t := time.Unix(0, ns)
+			t := time.Unix(0, ns).UTC()
 			bs.LastMessageAt = &t
 		}
 		if ns := bc.connectedSince.Load(); ns > 0 {
-			t := time.Unix(0, ns)
+			t := time.Unix(0, ns).UTC()
 			bs.ConnectedSince = &t
 			bs.Connected = true
 		}

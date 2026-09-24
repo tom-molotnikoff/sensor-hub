@@ -300,8 +300,8 @@ func TestCreateAlertRule(t *testing.T) {
 	s := &Server{alertService: mockService}
 
 	newRule := gen.AlertRule{
-		SensorID:          1,
-		MeasurementTypeID: 1,
+		SensorId:          1,
+		MeasurementTypeId: 1,
 		AlertType:         gen.NumericRange,
 		HighThreshold:     30.0,
 		LowThreshold:      10.0,
@@ -345,7 +345,7 @@ func TestCreateAlertRule_ValidationError(t *testing.T) {
 	router.Group("/api").POST("/alerts", s.CreateAlertRule)
 
 	invalidRule := gen.AlertRule{
-		SensorID:      1,
+		SensorId:      1,
 		AlertType:     gen.NumericRange,
 		HighThreshold: 10.0, // lower than low threshold
 		LowThreshold:  30.0,
@@ -367,8 +367,8 @@ func TestCreateAlertRule_InvalidAlertType(t *testing.T) {
 	router.Group("/api").POST("/alerts", s.CreateAlertRule)
 
 	invalidRule := gen.AlertRule{
-		SensorID:          1,
-		MeasurementTypeID: 1,
+		SensorId:          1,
+		MeasurementTypeId: 1,
 		AlertType:         "invalid_type",
 		HighThreshold:     30.0,
 		LowThreshold:      10.0,
@@ -391,8 +391,8 @@ func TestCreateAlertRule_ServiceError(t *testing.T) {
 	s := &Server{alertService: mockService}
 
 	newRule := gen.AlertRule{
-		SensorID:          1,
-		MeasurementTypeID: 1,
+		SensorId:          1,
+		MeasurementTypeId: 1,
 		AlertType:         gen.NumericRange,
 		HighThreshold:     30.0,
 		LowThreshold:      10.0,
@@ -422,8 +422,8 @@ func TestUpdateAlertRule(t *testing.T) {
 	s := &Server{alertService: mockService}
 
 	updatedRule := gen.AlertRule{
-		SensorID:          1,
-		MeasurementTypeID: 1,
+		SensorId:          1,
+		MeasurementTypeId: 1,
 		AlertType:         gen.NumericRange,
 		HighThreshold:     35.0,
 		LowThreshold:      12.0,
@@ -506,8 +506,8 @@ func TestUpdateAlertRule_ServiceError(t *testing.T) {
 	s := &Server{alertService: mockService}
 
 	validRule := gen.AlertRule{
-		SensorID:          1,
-		MeasurementTypeID: 1,
+		SensorId:          1,
+		MeasurementTypeId: 1,
 		AlertType:         gen.NumericRange,
 		HighThreshold:     30.0,
 		LowThreshold:      10.0,
@@ -552,11 +552,11 @@ func TestUpdateAlertRule_PreservesImmutableIDsFromExistingRule(t *testing.T) {
 
 	// Body omits SensorID and MeasurementTypeID — exactly what EditAlertDialog sends.
 	bodyOnlyMutable := map[string]any{
-		"AlertType":        "numeric_range",
-		"HighThreshold":    35.0,
-		"LowThreshold":     12.0,
-		"RateLimitSeconds": 60,
-		"Enabled":          false,
+		"alert_type":         "numeric_range",
+		"high_threshold":     35.0,
+		"low_threshold":      12.0,
+		"rate_limit_seconds": 60,
+		"enabled":            false,
 	}
 
 	var captured *alerting.AlertRule
@@ -591,7 +591,7 @@ func TestUpdateAlertRule_NotFound(t *testing.T) {
 	mockService.On("ServiceGetAlertRuleByID", mock.Anything, 999).Return(nil, nil)
 
 	router := setupUpdateAlertRoute(s)
-	body, _ := json.Marshal(map[string]any{"AlertType": "numeric_range", "HighThreshold": 30.0, "LowThreshold": 10.0})
+	body, _ := json.Marshal(map[string]any{"alert_type": "numeric_range", "high_threshold": 30.0, "low_threshold": 10.0})
 	req := httptest.NewRequest("PUT", "/api/alerts/999", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

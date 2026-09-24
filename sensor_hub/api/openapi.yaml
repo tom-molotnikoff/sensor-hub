@@ -4421,52 +4421,52 @@ components:
       type: object
       description: Alert rule configuration
       properties:
-        ID:
+        id:
           type: integer
-        SensorID:
+        sensor_id:
           type: integer
-        SensorName:
+        sensor_name:
           type: string
-        AlertType:
+        alert_type:
           type: string
           enum: [numeric_range, status_based]
           description: Type of alert (threshold-based or status-based)
-        HighThreshold:
+        high_threshold:
           type: number
           format: double
-        LowThreshold:
+        low_threshold:
           type: number
           format: double
-        TriggerStatus:
+        trigger_status:
           type: string
           description: Status that triggers alert (for status_based type)
-        Enabled:
+        enabled:
           type: boolean
-        RateLimitSeconds:
+        rate_limit_seconds:
           type: integer
           description: Minimum seconds between alerts
-        LastAlertSentAt:
+        last_alert_sent_at:
           type: string
           format: date-time
           nullable: true
-        MeasurementTypeID:
+        measurement_type_id:
           type: integer
           description: ID of the measurement type this rule applies to
-        MeasurementType:
+        measurement_type:
           type: string
           description: Human-readable measurement type name (e.g. "temperature", "battery_low")
       required:
-        - ID
-        - SensorID
-        - SensorName
-        - MeasurementTypeID
-        - MeasurementType
-        - AlertType
-        - HighThreshold
-        - LowThreshold
-        - TriggerStatus
-        - Enabled
-        - RateLimitSeconds
+        - id
+        - sensor_id
+        - sensor_name
+        - measurement_type_id
+        - measurement_type
+        - alert_type
+        - high_threshold
+        - low_threshold
+        - trigger_status
+        - enabled
+        - rate_limit_seconds
 
     AlertHistoryEntry:
       type: object

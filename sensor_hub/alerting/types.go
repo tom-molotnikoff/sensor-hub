@@ -13,18 +13,18 @@ const (
 )
 
 type AlertRule struct {
-	ID                int        `json:"ID"`
-	SensorID          int        `json:"SensorID"`
-	SensorName        string     `json:"SensorName"`
-	MeasurementTypeId int        `json:"MeasurementTypeID"`
-	MeasurementType   string     `json:"MeasurementType"`
-	AlertType         AlertType  `json:"AlertType"`
-	HighThreshold     float64    `json:"HighThreshold"`
-	LowThreshold      float64    `json:"LowThreshold"`
-	TriggerStatus     string     `json:"TriggerStatus"`
-	Enabled           bool       `json:"Enabled"`
-	RateLimitSeconds  int        `json:"RateLimitSeconds"`
-	LastAlertSentAt   *time.Time `json:"LastAlertSentAt"`
+	ID                int
+	SensorID          int
+	SensorName        string
+	MeasurementTypeId int
+	MeasurementType   string
+	AlertType         AlertType
+	HighThreshold     float64
+	LowThreshold      float64
+	TriggerStatus     string
+	Enabled           bool
+	RateLimitSeconds  int
+	LastAlertSentAt   *time.Time
 }
 
 func (r *AlertRule) Validate() error {

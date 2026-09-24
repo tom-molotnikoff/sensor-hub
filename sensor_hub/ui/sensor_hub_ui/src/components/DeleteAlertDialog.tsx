@@ -14,7 +14,7 @@ export default function DeleteAlertDialog({open, onClose, onDeleted, selectedAle
   const confirmDelete = async () => {
     if (!selectedAlert) return;
     try {
-      await apiClient.DELETE('/alerts/{id}', { params: { path: { id: selectedAlert.ID } } });
+      await apiClient.DELETE('/alerts/{id}', { params: { path: { id: selectedAlert.id } } });
       onClose();
       await onDeleted();
     } catch (e) {
@@ -27,7 +27,7 @@ export default function DeleteAlertDialog({open, onClose, onDeleted, selectedAle
       <DialogTitle>Delete Alert Rule</DialogTitle>
       <DialogContent>
         Are you sure you want to delete the alert rule for sensor{' '}
-        <strong>{selectedAlert?.SensorName}</strong>?
+        <strong>{selectedAlert?.sensor_name}</strong>?
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>

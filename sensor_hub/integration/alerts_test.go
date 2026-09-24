@@ -20,8 +20,8 @@ func TestAlerts_CreateAndGetRule(t *testing.T) {
 	require.True(t, sensor.Id > 0)
 
 	rule := gen.AlertRule{
-		SensorID:          sensor.Id,
-		MeasurementTypeID: 1, // temperature
+		SensorId:          sensor.Id,
+		MeasurementTypeId: 1, // temperature
 		AlertType:         "numeric_range",
 		HighThreshold:     30.0,
 		LowThreshold:      10.0,
@@ -35,6 +35,13 @@ func TestAlerts_CreateAndGetRule(t *testing.T) {
 	resp, status := client.GetAlertRulesBySensorID(sensor.Id)
 	require.Equal(t, http.StatusOK, status)
 	assert.Contains(t, string(resp), "numeric_range")
+
+	var raw []map[string]any
+	require.NoError(t, json.Unmarshal(resp, &raw))
+	require.NotEmpty(t, raw)
+	assert.Contains(t, raw[0], "sensor_id")
+	assert.Contains(t, raw[0], "rate_limit_seconds")
+	assert.NotContains(t, raw[0], "SensorID")
 }
 
 // TestAlerts_EditRuleWithMutableFieldsOnly is the regression test for #51:
@@ -58,8 +65,8 @@ func TestAlerts_EditRuleWithMutableFieldsOnly(t *testing.T) {
 
 	if len(rules) == 0 {
 		_, status := client.CreateAlertRule(gen.AlertRule{
-			SensorID:          sensor.Id,
-			MeasurementTypeID: 1,
+			SensorId:          sensor.Id,
+			MeasurementTypeId: 1,
 			AlertType:         "numeric_range",
 			HighThreshold:     30.0,
 			LowThreshold:      10.0,
@@ -72,16 +79,16 @@ func TestAlerts_EditRuleWithMutableFieldsOnly(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rulesRaw, &rules))
 	}
 	require.NotEmpty(t, rules)
-	ruleID := rules[0].ID
+	ruleID := rules[0].Id
 
 	// Body matches what EditAlertDialog.tsx sends: only mutable fields, no
 	// SensorID or MeasurementTypeID. Pre-fix this returned 400.
 	body := map[string]any{
-		"AlertType":        "numeric_range",
-		"HighThreshold":    35.0,
-		"LowThreshold":     12.0,
-		"RateLimitSeconds": 60,
-		"Enabled":          false,
+		"alert_type":         "numeric_range",
+		"high_threshold":     35.0,
+		"low_threshold":      12.0,
+		"rate_limit_seconds": 60,
+		"enabled":            false,
 	}
 	_, status = client.UpdateAlertRuleWithBody(ruleID, body)
 	assert.Equal(t, http.StatusOK, status)
@@ -92,14 +99,14 @@ func TestAlerts_EditRuleWithMutableFieldsOnly(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rulesRaw, &rules))
 	var updated *gen.AlertRule
 	for i := range rules {
-		if rules[i].ID == ruleID {
+		if rules[i].Id == ruleID {
 			updated = &rules[i]
 			break
 		}
 	}
 	require.NotNil(t, updated)
-	assert.Equal(t, sensor.Id, updated.SensorID)
-	assert.Equal(t, 1, updated.MeasurementTypeID)
+	assert.Equal(t, sensor.Id, updated.SensorId)
+	assert.Equal(t, 1, updated.MeasurementTypeId)
 	assert.Equal(t, 35.0, updated.HighThreshold)
 	assert.Equal(t, 12.0, updated.LowThreshold)
 	assert.Equal(t, 60, updated.RateLimitSeconds)

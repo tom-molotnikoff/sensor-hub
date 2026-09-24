@@ -34,15 +34,15 @@ export default function AlertSummaryWidget(_props: WidgetProps) {
                 <Card>
                     <List dense disablePadding>
                         {rules.map((rule) => (
-                            <ListItem key={rule.ID} disableGutters>
+                            <ListItem key={rule.id} disableGutters>
                                 <ListItemText
-                                    primary={rule.SensorName}
-                                    secondary={`${rule.AlertType} — threshold: ${rule.HighThreshold ?? rule.LowThreshold ?? '—'}${rule.LastAlertSentAt ? ` · last: ${new Date(rule.LastAlertSentAt).toLocaleDateString()}` : ''}`}
+                                    primary={rule.sensor_name}
+                                    secondary={`${rule.alert_type} — threshold: ${rule.high_threshold ?? rule.low_threshold ?? '—'}${rule.last_alert_sent_at ? ` · last: ${new Date(rule.last_alert_sent_at).toLocaleDateString()}` : ''}`}
                                 />
                                 <Chip
-                                    label={rule.Enabled ? 'Enabled' : 'Disabled'}
+                                    label={rule.enabled ? 'Enabled' : 'Disabled'}
                                     size="small"
-                                    color={rule.Enabled ? 'success' : 'default'}
+                                    color={rule.enabled ? 'success' : 'default'}
                                 />
                             </ListItem>
                         ))}

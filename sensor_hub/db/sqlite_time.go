@@ -33,7 +33,7 @@ func (t *SQLiteTime) Scan(value interface{}) error {
 
 	switch v := value.(type) {
 	case time.Time:
-		t.Time = v
+		t.Time = v.UTC()
 		return nil
 	case string:
 		// Strip Go monotonic clock suffix (e.g. " m=+0.004999326")
@@ -42,13 +42,13 @@ func (t *SQLiteTime) Scan(value interface{}) error {
 		}
 		for _, format := range timeFormats {
 			if parsed, err := time.Parse(format, v); err == nil {
-				t.Time = parsed
+				t.Time = parsed.UTC()
 				return nil
 			}
 		}
 		return fmt.Errorf("cannot parse time string: %q", v)
 	case int64:
-		t.Time = time.Unix(v, 0)
+		t.Time = time.Unix(v, 0).UTC()
 		return nil
 	default:
 		return fmt.Errorf("unsupported time type: %T", value)

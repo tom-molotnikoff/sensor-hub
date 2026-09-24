@@ -2271,29 +2271,29 @@ export interface components {
         };
         /** @description Alert rule configuration */
         AlertRule: {
-            ID: number;
-            SensorID: number;
-            SensorName: string;
+            id: number;
+            sensor_id: number;
+            sensor_name: string;
             /**
              * @description Type of alert (threshold-based or status-based)
              * @enum {string}
              */
-            AlertType: "numeric_range" | "status_based";
+            alert_type: "numeric_range" | "status_based";
             /** Format: double */
-            HighThreshold: number;
+            high_threshold: number;
             /** Format: double */
-            LowThreshold: number;
+            low_threshold: number;
             /** @description Status that triggers alert (for status_based type) */
-            TriggerStatus: string;
-            Enabled: boolean;
+            trigger_status: string;
+            enabled: boolean;
             /** @description Minimum seconds between alerts */
-            RateLimitSeconds: number;
+            rate_limit_seconds: number;
             /** Format: date-time */
-            LastAlertSentAt?: string | null;
+            last_alert_sent_at?: string | null;
             /** @description ID of the measurement type this rule applies to */
-            MeasurementTypeID: number;
+            measurement_type_id: number;
             /** @description Human-readable measurement type name (e.g. "temperature", "battery_low") */
-            MeasurementType: string;
+            measurement_type: string;
         };
         /** @description Historical alert event */
         AlertHistoryEntry: {

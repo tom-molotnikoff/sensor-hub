@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -132,6 +133,18 @@ func TestReadingsService_ServiceGetBetweenDates_OverrideFunctionWithoutMeasureme
 	assert.Nil(t, result)
 	assert.ErrorIs(t, err, ErrMeasurementTypeRequiredForFunction)
 	mtRepo.AssertNotCalled(t, "GetAggregationsForMeasurementType", mock.Anything, mock.Anything)
+}
+
+func TestReadingsService_ServiceGetBetweenDates_NoReadingsIsEmptySlice(t *testing.T) {
+	svc, repo, _ := setupReadingsService()
+
+	repo.On("GetBetweenDates", mock.Anything, "2025-01-15 10:00:00", "2025-01-15 10:05:00", "", "", database.AggregationRaw, database.AggregationFunctionNone).Return([]gen.Reading(nil), nil)
+
+	result, err := svc.ServiceGetBetweenDates(context.Background(), "2025-01-15 10:00:00", "2025-01-15 10:05:00", "", "", "", "")
+
+	require.NoError(t, err)
+	assert.NotNil(t, result.Readings)
+	assert.Empty(t, result.Readings)
 }
 
 func TestReadingsService_ServiceGetBetweenDates_DisabledAggregation(t *testing.T) {

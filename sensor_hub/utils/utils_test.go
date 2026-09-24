@@ -211,3 +211,11 @@ func TestParseISO8601Duration_InvalidDurations(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeTimeToRFC3339_SpaceFormatIsUTC(t *testing.T) {
+	assert.Equal(t, "2026-09-08T21:00:10Z", NormalizeTimeToRFC3339("2026-09-08 21:00:10"))
+}
+
+func TestNormalizeTimeToRFC3339_OffsetConvertedToUTC(t *testing.T) {
+	assert.Equal(t, "2026-09-08T22:06:55Z", NormalizeTimeToRFC3339("2026-09-08T23:06:55.543241511+01:00"))
+}

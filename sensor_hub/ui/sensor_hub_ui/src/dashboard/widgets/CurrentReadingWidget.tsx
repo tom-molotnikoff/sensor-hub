@@ -1,7 +1,6 @@
 import type { WidgetProps } from '../types';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurrentReadings';
-import { parseUTCTime } from '../../tools/Utils';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { useWidgetStateReport } from '../WidgetContext';
@@ -34,7 +33,7 @@ export default function CurrentReadingWidget({ config }: WidgetProps) {
                 value={reading ? reading.numeric_value ?? reading.text_state ?? null : null}
                 unit={reading?.numeric_value != null ? reading.unit || undefined : undefined}
                 label={sensor.name}
-                caption={reading ? parseUTCTime(reading.time).toLocaleString() : undefined}
+                caption={reading ? new Date(reading.time).toLocaleString() : undefined}
             />
         </WidgetSwap>
     );

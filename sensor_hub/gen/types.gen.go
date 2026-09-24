@@ -433,26 +433,26 @@ type AlertHistoryEntry struct {
 // AlertRule Alert rule configuration
 type AlertRule struct {
 	// AlertType Type of alert (threshold-based or status-based)
-	AlertType       AlertRuleAlertType `json:"AlertType"`
-	Enabled         bool               `json:"Enabled"`
-	HighThreshold   float64            `json:"HighThreshold"`
-	ID              int                `json:"ID"`
-	LastAlertSentAt *time.Time         `json:"LastAlertSentAt,omitempty"`
-	LowThreshold    float64            `json:"LowThreshold"`
+	AlertType       AlertRuleAlertType `json:"alert_type"`
+	Enabled         bool               `json:"enabled"`
+	HighThreshold   float64            `json:"high_threshold"`
+	Id              int                `json:"id"`
+	LastAlertSentAt *time.Time         `json:"last_alert_sent_at,omitempty"`
+	LowThreshold    float64            `json:"low_threshold"`
 
 	// MeasurementType Human-readable measurement type name (e.g. "temperature", "battery_low")
-	MeasurementType string `json:"MeasurementType"`
+	MeasurementType string `json:"measurement_type"`
 
-	// MeasurementTypeID ID of the measurement type this rule applies to
-	MeasurementTypeID int `json:"MeasurementTypeID"`
+	// MeasurementTypeId ID of the measurement type this rule applies to
+	MeasurementTypeId int `json:"measurement_type_id"`
 
 	// RateLimitSeconds Minimum seconds between alerts
-	RateLimitSeconds int    `json:"RateLimitSeconds"`
-	SensorID         int    `json:"SensorID"`
-	SensorName       string `json:"SensorName"`
+	RateLimitSeconds int    `json:"rate_limit_seconds"`
+	SensorId         int    `json:"sensor_id"`
+	SensorName       string `json:"sensor_name"`
 
 	// TriggerStatus Status that triggers alert (for status_based type)
-	TriggerStatus string `json:"TriggerStatus"`
+	TriggerStatus string `json:"trigger_status"`
 }
 
 // AlertRuleAlertType Type of alert (threshold-based or status-based)

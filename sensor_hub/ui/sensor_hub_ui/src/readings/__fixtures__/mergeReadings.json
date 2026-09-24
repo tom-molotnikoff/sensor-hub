@@ -7,25 +7,25 @@
     "readings": [
       {
         "sensor_name": "living-room",
-        "time": "2026-09-01 10:00:00",
+        "time": "2026-09-01T10:00:00Z",
         "numeric_value": 21.4,
         "unit": "°C"
       },
       {
         "sensor_name": "kitchen",
-        "time": "2026-09-01 10:00:00",
+        "time": "2026-09-01T10:00:00Z",
         "numeric_value": 19.8,
         "unit": "°C"
       },
       {
         "sensor_name": "living-room",
-        "time": "2026-09-01 10:05:00",
+        "time": "2026-09-01T10:05:00Z",
         "numeric_value": 21.6,
         "unit": "°C"
       },
       {
         "sensor_name": "kitchen",
-        "time": "2026-09-01 10:05:00",
+        "time": "2026-09-01T10:05:00Z",
         "numeric_value": 19.9,
         "unit": "°C"
       }
@@ -51,24 +51,24 @@
     "readings": [
       {
         "sensor_name": "boiler",
-        "time": "2026-09-01 08:00:00",
+        "time": "2026-09-01T08:00:00Z",
         "numeric_value": null,
         "text_state": "true"
       },
       {
         "sensor_name": "hall",
-        "time": "2026-09-01 08:00:30",
+        "time": "2026-09-01T08:00:30Z",
         "numeric_value": 17.2
       },
       {
         "sensor_name": "boiler",
-        "time": "2026-09-01 08:01:00",
+        "time": "2026-09-01T08:01:00Z",
         "numeric_value": null,
         "text_state": "false"
       },
       {
         "sensor_name": "boiler",
-        "time": "2026-09-01 08:02:00",
+        "time": "2026-09-01T08:02:00Z",
         "numeric_value": null,
         "text_state": "unknown"
       }
@@ -103,17 +103,17 @@
     "readings": [
       {
         "sensor_name": "hall",
-        "time": "2026-09-01 09:00:00",
+        "time": "2026-09-01T09:00:00Z",
         "numeric_value": 18.1
       },
       {
         "sensor_name": "attic",
-        "time": "2026-09-01 09:00:30",
+        "time": "2026-09-01T09:00:30Z",
         "numeric_value": 11
       },
       {
         "sensor_name": "hall",
-        "time": "2026-09-01 09:01:00",
+        "time": "2026-09-01T09:01:00Z",
         "numeric_value": 18.3
       }
     ],
@@ -139,12 +139,12 @@
     "readings": [
       {
         "sensor_name": "garage",
-        "time": "2026-09-01 07:00:00",
+        "time": "2026-09-01T07:00:00Z",
         "numeric_value": 5.5
       },
       {
         "sensor_name": "garage",
-        "time": "2026-09-01 07:00:00",
+        "time": "2026-09-01T07:00:00Z",
         "numeric_value": 9.9
       }
     ],
