@@ -1,8 +1,9 @@
+import { ThemeProvider } from '@mui/material';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PropertyDefinitionsResponse } from '../gen/aliases';
 import { FakeWebSocket, installFakeWebSocket } from '../test/fakeWebSocket';
-import { landingOffset } from './propertyLayout';
+import { theme } from '../ui/theme';
 
 class FakeIntersectionObserver {
   static instances: FakeIntersectionObserver[] = [];
@@ -95,13 +96,8 @@ const serverValues: Record<string, string> = {
 let restoreWebSocket: () => void;
 
 const nativeIntersectionObserver = globalThis.IntersectionObserver;
-const nativeInnerWidth = window.innerWidth;
 
-function setViewportWidth(width: number) {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
-}
-
-async function renderPageUntil(permissions: string[], settled: string) {
+async function renderProperties(permissions: string[]) {
   // Fresh imports per test so the session cache in usePropertyDefinitions is empty,
   // and so the AuthContext instance matches the one the page imports.
   const { default: PropertiesPage } = await import('./PropertiesPage');
@@ -109,12 +105,18 @@ async function renderPageUntil(permissions: string[], settled: string) {
   const { default: PropertiesProvider } = await import('../providers/PropertiesProvider');
 
   render(
-    <AuthContext.Provider value={{ user: { id: 1, username: 'owner', roles: [], permissions }, refresh: async () => {} }}>
-      <PropertiesProvider>
-        <PropertiesPage />
-      </PropertiesProvider>
-    </AuthContext.Provider>,
+    <ThemeProvider theme={theme}>
+      <AuthContext.Provider value={{ user: { id: 1, username: 'owner', roles: [], permissions }, refresh: async () => {} }}>
+        <PropertiesProvider>
+          <PropertiesPage />
+        </PropertiesProvider>
+      </AuthContext.Provider>
+    </ThemeProvider>,
   );
+}
+
+async function renderPageUntil(permissions: string[], settled: string) {
+  await renderProperties(permissions);
 
   await waitFor(() => expect(FakeWebSocket.instances.length).toBe(1));
   act(() => {
@@ -129,10 +131,6 @@ async function renderPage(permissions: string[]) {
 
 async function renderFallbackPage(permissions: string[]) {
   await renderPageUntil(permissions, 'sensor.discovery.skip');
-}
-
-function stubHeight(element: HTMLElement, height: number) {
-  vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({ height } as DOMRect);
 }
 
 describe('PropertiesPage', () => {
@@ -151,7 +149,6 @@ describe('PropertiesPage', () => {
   afterEach(() => {
     restoreWebSocket();
     globalThis.IntersectionObserver = nativeIntersectionObserver;
-    setViewportWidth(nativeInnerWidth);
     window.location.hash = '';
   });
 
@@ -345,20 +342,21 @@ describe('PropertiesPage', () => {
   it('renders one card per group, ordered by the definitions response, each owning its anchor id', async () => {
     await renderPage(['view_properties', 'manage_properties']);
 
-    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+    const sections = document.querySelector('[data-ui=anchor-stack]') as HTMLElement;
+    expect(within(sections).getAllByRole('heading').map((h) => h.textContent)).toEqual([
       'Sensors & collection',
       'Advanced',
     ]);
 
-    const sensors = document.getElementById('sensors')!;
-    expect(within(sensors).getByText('How often sensors are polled.')).toBeInTheDocument();
-    expect(within(sensors).getByRole('switch', { name: 'Skip sensor discovery' })).toBeInTheDocument();
-    expect(within(sensors).getByRole('textbox', { name: 'Collection interval' })).toBeInTheDocument();
+    const sensorsGroup = document.getElementById('sensors')!;
+    expect(within(sensorsGroup).getByText('How often sensors are polled.')).toBeInTheDocument();
+    expect(within(sensorsGroup).getByRole('switch', { name: 'Skip sensor discovery' })).toBeInTheDocument();
+    expect(within(sensorsGroup).getByRole('textbox', { name: 'Collection interval' })).toBeInTheDocument();
 
     const advanced = document.getElementById('advanced')!;
     expect(within(advanced).getByText('/var/lib/sensor-hub/sensor_hub.db')).toBeInTheDocument();
 
-    expect(sensors.compareDocumentPosition(advanced) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sensorsGroup.compareDocumentPosition(advanced) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('scrolls to the group named by the URL fragment on load', async () => {
@@ -619,16 +617,7 @@ describe('PropertiesPage', () => {
     let settleDefinitions: (value: unknown) => void = () => {};
     getMock.mockReturnValue(new Promise((resolve) => { settleDefinitions = resolve; }));
 
-    const { default: PropertiesPage } = await import('./PropertiesPage');
-    const { AuthContext } = await import('../providers/AuthContext');
-    const { default: PropertiesProvider } = await import('../providers/PropertiesProvider');
-    render(
-      <AuthContext.Provider value={{ user: { id: 1, username: 'owner', roles: [], permissions: ['view_properties'] }, refresh: async () => {} }}>
-        <PropertiesProvider>
-          <PropertiesPage />
-        </PropertiesProvider>
-      </AuthContext.Provider>,
-    );
+    await renderProperties(['view_properties']);
 
     expect(screen.getByRole('heading', { name: 'Properties' })).toBeInTheDocument();
     expect(screen.getByText(/loading properties/i)).toBeInTheDocument();
@@ -647,16 +636,7 @@ describe('PropertiesPage', () => {
     let settleDefinitions: (value: unknown) => void = () => {};
     getMock.mockReturnValue(new Promise((resolve) => { settleDefinitions = resolve; }));
 
-    const { default: PropertiesPage } = await import('./PropertiesPage');
-    const { AuthContext } = await import('../providers/AuthContext');
-    const { default: PropertiesProvider } = await import('../providers/PropertiesProvider');
-    render(
-      <AuthContext.Provider value={{ user: { id: 1, username: 'owner', roles: [], permissions: ['view_properties'] }, refresh: async () => {} }}>
-        <PropertiesProvider>
-          <PropertiesPage />
-        </PropertiesProvider>
-      </AuthContext.Provider>,
-    );
+    await renderProperties(['view_properties']);
 
     await waitFor(() => expect(FakeWebSocket.instances.length).toBe(1));
     act(() => {
@@ -668,42 +648,5 @@ describe('PropertiesPage', () => {
 
     expect(scrollIntoView.mock.instances[0]).toBe(document.getElementById('advanced'));
     delete (Element.prototype as Partial<Element>).scrollIntoView;
-  });
-
-  it('stacks the rail above the content at the mobile breakpoint', async () => {
-    setViewportWidth(500);
-    await renderPage(['view_properties', 'manage_properties']);
-
-    expect(screen.getByTestId('properties-layout')).toHaveStyle({ flexDirection: 'column' });
-  });
-
-  it('sits the rail beside the content above the mobile breakpoint', async () => {
-    setViewportWidth(1200);
-    await renderPage(['view_properties', 'manage_properties']);
-
-    expect(screen.getByTestId('properties-layout')).toHaveStyle({ flexDirection: 'row' });
-  });
-
-  it('leaves room below the last group so the rail can bring it to the landing line', async () => {
-    await renderPage(['view_properties', 'manage_properties']);
-    stubHeight(screen.getByTestId('properties-header'), 60);
-    stubHeight(screen.getByTestId('properties-sections'), 4000);
-    stubHeight(document.getElementById('advanced') as HTMLElement, 300);
-
-    act(() => { window.dispatchEvent(new Event('resize')); });
-
-    expect(screen.getByTestId('properties-tail-space')).toHaveStyle({
-      height: `${window.innerHeight - landingOffset(60) - 300}px`,
-    });
-  });
-
-  it('leaves no room below groups that already fit on the page', async () => {
-    await renderPage(['view_properties', 'manage_properties']);
-    stubHeight(screen.getByTestId('properties-sections'), 100);
-    stubHeight(document.getElementById('advanced') as HTMLElement, 50);
-
-    act(() => { window.dispatchEvent(new Event('resize')); });
-
-    expect(screen.getByTestId('properties-tail-space')).toHaveStyle({ height: '0px' });
   });
 });

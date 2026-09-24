@@ -1,25 +1,28 @@
-import { Divider, Paper, Stack, Typography } from '@mui/material';
+import { Children, Fragment, isValidElement, type ReactNode } from 'react';
+import { Divider, Typography } from '@mui/material';
 import type { PropertyGroup } from '../gen/aliases';
-import { TypographyH3 } from '../tools/Typography';
+import Card from '../ui/Card';
+import Stack from '../ui/Stack';
 
 interface PropertyGroupSectionProps {
   group: PropertyGroup;
-  landingOffset: number;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-export default function PropertyGroupSection({
-  group,
-  landingOffset,
-  children,
-}: PropertyGroupSectionProps) {
+export default function PropertyGroupSection({ group, children }: PropertyGroupSectionProps) {
   return (
-    <Paper id={group.id} sx={{ p: 2, width: '100%', scrollMarginTop: landingOffset }}>
-      <TypographyH3 changes={{ margin: 0 }}>{group.label}</TypographyH3>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {group.description}
-      </Typography>
-      <Stack divider={<Divider />}>{children}</Stack>
-    </Paper>
+    <Card id={group.id} title={group.label}>
+      <Stack>
+        <Typography variant="body2" color="text.secondary">
+          {group.description}
+        </Typography>
+        {Children.toArray(children).map((child, index) => (
+          <Fragment key={isValidElement(child) ? child.key : index}>
+            {index > 0 && <Divider />}
+            {child}
+          </Fragment>
+        ))}
+      </Stack>
+    </Card>
   );
 }
