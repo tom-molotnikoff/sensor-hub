@@ -43,4 +43,7 @@ Narrower screens, such as a phone, show a projection of the same layout
 instead of a second one. Every widget is full width, one per row, in reading
 order: top to bottom by `y`, then left to right by `x`. Each widget type has a
 fixed height on a phone, or takes the height of its content. There's nothing
-to arrange on a phone, so edit mode there has no drag or resize handles.
+to arrange on a phone, so edit mode there has no drag or resize handles. You
+can still add, configure and remove widgets. A widget added on a phone goes at
+the bottom of the desktop layout at its default size, and saving never moves
+any other widget.
