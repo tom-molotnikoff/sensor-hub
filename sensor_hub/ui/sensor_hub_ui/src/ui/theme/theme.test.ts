@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { wideMediaQuery } from '../tiers';
+import type { Palette } from '@mui/material/styles';
 import { theme } from '.';
 
 describe('theme', () => {
@@ -42,5 +43,14 @@ describe('theme', () => {
       fontWeight: 700,
       fontVariantNumeric: 'tabular-nums',
     });
+  });
+
+  it.each(['light', 'dark'] as const)('gives every status a strong and a soft colour in %s', (scheme) => {
+    const { palette } = (theme as unknown as { colorSchemes: Record<string, { palette: Palette }> }).colorSchemes[scheme];
+    expect(Object.keys(palette.status).sort()).toEqual(['bad', 'info', 'ok', 'unknown', 'warn']);
+    for (const colour of Object.values(palette.status)) {
+      expect(colour).toEqual({ strong: expect.any(String), soft: expect.any(String) });
+    }
+    expect(palette.chart.categorical).toHaveLength(8);
   });
 });

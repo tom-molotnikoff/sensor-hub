@@ -8,6 +8,7 @@ import { useWidgetStateReport } from '../WidgetContext';
 import { buildHealthWindowModel, formatDurationShort, formatWindowLabel } from '../../health/healthWindow';
 import { useProperties } from '../../hooks/useProperties';
 import { WidgetSwap, IndeterminateBarLoader } from '../widget-loaders';
+import type { StatusKey } from '../../ui/theme';
 
 export default function UptimeWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
@@ -41,11 +42,12 @@ export default function UptimeWidget({ config }: WidgetProps) {
 
     const uptime = model ? Math.min(100, Math.max(0, model.goodRatio * 100)) : 0;
 
-    const getColor = (pct: number): 'success' | 'warning' | 'error' => {
-        if (pct > 90) return 'success';
-        if (pct >= 70) return 'warning';
-        return 'error';
+    const getStatus = (pct: number): StatusKey => {
+        if (pct > 90) return 'ok';
+        if (pct >= 70) return 'warn';
+        return 'bad';
     };
+    const status = getStatus(uptime);
 
     if (!sensor) {
         return (
@@ -67,8 +69,12 @@ export default function UptimeWidget({ config }: WidgetProps) {
                 <LinearProgress
                     variant="determinate"
                     value={uptime}
-                    color={getColor(uptime)}
-                    sx={{ height: 10, borderRadius: 5 }}
+                    sx={{
+                        height: 10,
+                        borderRadius: 5,
+                        bgcolor: `status.${status}.soft`,
+                        '& .MuiLinearProgress-bar': { bgcolor: `status.${status}.strong` },
+                    }}
                 />
             </Box>
             {model && (
