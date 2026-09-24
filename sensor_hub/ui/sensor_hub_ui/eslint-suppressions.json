@@ -353,9 +353,6 @@
   "src/components/SensorHealthPieChart.tsx": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "ui/no-raw-visuals": {
-      "count": 1
     }
   },
   "src/components/SensorInfoCard.tsx": {
@@ -629,9 +626,6 @@
     },
     "ui/no-layout-styles": {
       "count": 9
-    },
-    "ui/no-raw-visuals": {
-      "count": 3
     }
   },
   "src/dashboard/widgets/GroupSummaryWidget.tsx": {
@@ -653,9 +647,6 @@
     },
     "ui/no-layout-styles": {
       "count": 16
-    },
-    "ui/no-raw-visuals": {
-      "count": 6
     }
   },
   "src/dashboard/widgets/MarkdownNoteWidget.tsx": {

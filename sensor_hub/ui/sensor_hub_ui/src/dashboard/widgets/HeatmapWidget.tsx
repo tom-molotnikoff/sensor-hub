@@ -4,31 +4,14 @@ import { Box, Typography } from '@mui/material';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { apiClient } from '../../gen/client';
 import { useScheduledQuery } from '../../hooks/useScheduledQuery';
-import { useIsDark } from '../../ui/theme/useIsDark';
+import { heatColour, useChartColours } from '../../ui/theme/chartColours';
 import { parseUTCTime } from '../../tools/Utils';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { WidgetSwap, RippleHeatmapLoader } from '../widget-loaders';
 
 function valueToColor(value: number, low: number, high: number): string {
-    const ratio = Math.max(0, Math.min(1, (value - low) / (high - low)));
-
-    // Blue (cold) → Cyan → Green (mid) → Yellow → Red (hot)
-    const stops = [
-        [33, 102, 172],   // 0.00 — blue
-        [44, 162, 195],   // 0.25 — cyan
-        [68, 179, 96],    // 0.50 — green
-        [253, 200, 47],   // 0.75 — yellow
-        [215, 48, 39],    // 1.00 — red
-    ];
-
-    const idx = ratio * (stops.length - 1);
-    const lo = Math.min(Math.floor(idx), stops.length - 2);
-    const t = idx - lo;
-    const r = Math.round(stops[lo][0] + t * (stops[lo + 1][0] - stops[lo][0]));
-    const g = Math.round(stops[lo][1] + t * (stops[lo + 1][1] - stops[lo][1]));
-    const b = Math.round(stops[lo][2] + t * (stops[lo + 1][2] - stops[lo][2]));
-    return `rgb(${r},${g},${b})`;
+    return heatColour((value - low) / (high - low));
 }
 
 interface DayData {
@@ -40,7 +23,7 @@ const EMPTY_DAYS: DayData[] = [];
 
 export default function HeatmapWidget({ config }: WidgetProps) {
     const { sensors } = useSensorContext();
-    const isDark = useIsDark();
+    const chartColours = useChartColours();
     const reportUpdate = useReportWidgetUpdate();
     const [cellSize, setCellSize] = useState(28);
     const gridRef = useRef<HTMLDivElement>(null);
@@ -48,8 +31,6 @@ export default function HeatmapWidget({ config }: WidgetProps) {
     const low = typeof config.scaleMin === 'number' ? config.scaleMin : 10;
     const high = typeof config.scaleMax === 'number' ? config.scaleMax : 30;
     const measurementType = config.measurementType as string | undefined;
-    const noDataColor = isDark ? '#333333' : '#E0D8D0';
-    const noDataTextColor = isDark ? '#A0A0A0' : '#5C5C5C';
 
     const sensorId = config.sensorId as number | undefined;
     const sensor = sensorId ? sensors.find((s) => s.id === sensorId) : undefined;
@@ -167,8 +148,8 @@ export default function HeatmapWidget({ config }: WidgetProps) {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                backgroundColor: d.avg !== null ? valueToColor(d.avg, low, high) : noDataColor,
-                                color: d.avg !== null ? '#fff' : noDataTextColor,
+                                backgroundColor: d.avg !== null ? valueToColor(d.avg, low, high) : chartColours.noData,
+                                color: d.avg !== null ? 'common.white' : chartColours.axisText,
                                 fontSize: Math.max(9, cellSize * 0.35),
                                 fontWeight: 'bold',
                             }}

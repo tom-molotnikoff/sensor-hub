@@ -34,7 +34,6 @@ function SensorHealthPieChart({sensors}: SensorHealthPieChartProps) {
           data={data}
           innerRadius="40%"
           outerRadius="55%"
-          fill="#8884d8"
           paddingAngle={5}
           dataKey="value"
           nameKey="name"

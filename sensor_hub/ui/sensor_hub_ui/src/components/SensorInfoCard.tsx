@@ -10,6 +10,7 @@ import type { MeasurementTypeInfo } from '../gen/aliases';
 import type {AuthUser} from "../providers/AuthContext.tsx";
 import {hasPerm} from "../tools/Utils.ts";
 import {TypographyH2} from "../tools/Typography.tsx";
+import type { StatusKey } from "../ui/theme";
 import {useProperties} from "../hooks/useProperties.ts";
 import {formatRetention} from "../tools/retention.ts";
 import {getDisplayableDeviceInfo} from "../tools/deviceMetadata.ts";
@@ -22,14 +23,11 @@ interface SensorInfoCardProps {
   user: AuthUser;
 }
 
-function getHealthColor(status: Sensor['health_status']) {
-  switch (status) {
-    case 'good': return 'success';
-    case 'bad': return 'error';
-    case 'unknown': return 'warning';
-    default: return 'default';
-  }
-}
+const healthStatus: Record<Sensor['health_status'], StatusKey> = {
+  good: 'ok',
+  bad: 'bad',
+  unknown: 'unknown',
+};
 
 function getHealthBgColor(status: Sensor['health_status']) {
   switch (status) {
@@ -159,7 +157,7 @@ function SensorInfoCard({sensor, onDelete, onDisable, onEnable, user}: SensorInf
       </Box>
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 2 }}>
         <InfoField label="Driver"><Chip label={sensor.sensor_driver} color="primary" size="small" /></InfoField>
-        <InfoField label="Health"><Chip label={sensor.health_status} color={getHealthColor(sensor.health_status)} size="small" /></InfoField>
+        <InfoField label="Health"><Chip label={sensor.health_status} size="small" sx={{ color: `status.${healthStatus[sensor.health_status]}.strong`, bgcolor: `status.${healthStatus[sensor.health_status]}.soft` }} /></InfoField>
         <InfoField label="Enabled"><Chip label={sensor.enabled ? 'true' : 'false'} color={sensor.enabled ? 'success' : 'error'} size="small" /></InfoField>
         <InfoField label="Retention">
           {sensor.retention_hours !== null

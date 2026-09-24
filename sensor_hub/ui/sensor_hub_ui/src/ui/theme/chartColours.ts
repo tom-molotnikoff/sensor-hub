@@ -1,3 +1,4 @@
+import { chartPalettes, statusPalettes, type Scheme } from './palette';
 import { useIsDark } from './useIsDark';
 
 interface ChartColours {
@@ -15,23 +16,46 @@ interface ChartColours {
   noData: string;
 }
 
-const lightColours: ChartColours = {
-  categorical: ['#D4451A', '#0288D1', '#388E3C', '#E65100', '#7B1FA2', '#00838F', '#5D4037', '#455A64'],
-  health: ['#2E7D32', '#C62828', '#E65100'],
+function fromPalette(scheme: Scheme, rest: Omit<ChartColours, 'categorical' | 'health'>): ChartColours {
+  const status = statusPalettes[scheme];
+  const chart = chartPalettes[scheme];
+  return {
+    categorical: chart.categorical,
+    health: [status.ok.strong, status.bad.strong, status.unknown.strong],
+    ...rest,
+  };
+}
+
+const lightColours = fromPalette('light', {
   stat: ['#0288D1', '#5C5C5C', '#C62828'],
   grid: '#D9D0C7',
   axisText: '#5C5C5C',
   noData: '#E0D8D0',
-};
+});
 
-const darkColours: ChartColours = {
-  categorical: ['#ED5125', '#4FC3F7', '#81C784', '#FFB74D', '#CE93D8', '#4DD0E1', '#A1887F', '#90A4AE'],
-  health: ['#66BB6A', '#EF5350', '#FFA726'],
+const darkColours = fromPalette('dark', {
   stat: ['#4FC3F7', '#A0A0A0', '#EF5350'],
   grid: '#333333',
   axisText: '#A0A0A0',
   noData: '#333333',
-};
+});
+
+const heatStops = [
+  [33, 102, 172],
+  [44, 162, 195],
+  [68, 179, 96],
+  [253, 200, 47],
+  [215, 48, 39],
+];
+
+export function heatColour(ratio: number): string {
+  const clamped = Math.max(0, Math.min(1, ratio));
+  const idx = clamped * (heatStops.length - 1);
+  const lo = Math.min(Math.floor(idx), heatStops.length - 2);
+  const t = idx - lo;
+  const [r, g, b] = heatStops[lo].map((channel, i) => Math.round(channel + t * (heatStops[lo + 1][i] - channel)));
+  return `rgb(${r},${g},${b})`;
+}
 
 export function useChartColours(): ChartColours {
   const isDark = useIsDark();

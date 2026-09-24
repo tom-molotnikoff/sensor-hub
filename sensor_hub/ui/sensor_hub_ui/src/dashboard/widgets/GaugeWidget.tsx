@@ -32,9 +32,9 @@ export default function GaugeWidget({ config }: WidgetProps) {
     const isLoading = value === null && !ready;
 
     const getColor = (pct: number) => {
-        if (pct < 33) return '#1976d2';
-        if (pct <= 66) return '#4caf50';
-        return '#d32f2f';
+        if (pct < 33) return 'status.info.strong';
+        if (pct <= 66) return 'status.ok.strong';
+        return 'status.bad.strong';
     };
 
     return (

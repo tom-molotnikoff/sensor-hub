@@ -1,8 +1,19 @@
 import { createTheme, type TypographyStyle } from '@mui/material/styles';
 import { breakpointValues, compactMediaQuery, wideMediaQuery, type TierValues } from '../tiers';
+import { chartPalettes, statusPalettes, type ChartPalette, type StatusPalette } from './palette';
 import { density, type Density } from './tokens';
 
+export type { StatusKey } from './palette';
+
 declare module '@mui/material/styles' {
+  interface Palette {
+    status: StatusPalette;
+    chart: ChartPalette;
+  }
+  interface PaletteOptions {
+    status?: StatusPalette;
+    chart?: ChartPalette;
+  }
   interface Theme {
     density: Density;
   }
@@ -134,6 +145,8 @@ export const theme = createTheme({
         action: {
           hover: 'rgba(212,69,26,0.06)',
         },
+        status: statusPalettes.light,
+        chart: chartPalettes.light,
       },
     },
     dark: {
@@ -156,6 +169,8 @@ export const theme = createTheme({
         action: {
           hover: 'rgba(237,81,37,0.08)',
         },
+        status: statusPalettes.dark,
+        chart: chartPalettes.dark,
       },
     },
   },
