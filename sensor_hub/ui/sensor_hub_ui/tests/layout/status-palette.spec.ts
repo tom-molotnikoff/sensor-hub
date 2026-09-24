@@ -31,3 +31,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
     });
   });
 }
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test.describe(`Sensor Summary status pill in ${colorScheme}`, () => {
+    test.use({ viewport: { width: 390, height: 844 }, colorScheme });
+
+    test('a good sensor has the same colour as the health pie slice', async ({ page }) => {
+      await signIn(page, 'admin');
+      const good = await healthPieGoodColour(page);
+      const pill = page.locator('[data-ui=data-table-row]', { hasText: 'attic-bulb' }).locator('[data-ui=status-pill]');
+      await expect(pill).toHaveText('good');
+      await expect(pill).toHaveCSS('color', good);
+    });
+  });
+}

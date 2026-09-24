@@ -339,14 +339,6 @@
       "count": 9
     }
   },
-  "src/components/SensorsDataGrid.tsx": {
-    "ui/no-layout-styles": {
-      "count": 9
-    },
-    "ui/no-raw-visuals": {
-      "count": 2
-    }
-  },
   "src/components/SessionsCard.tsx": {
     "no-restricted-imports": {
       "count": 1
