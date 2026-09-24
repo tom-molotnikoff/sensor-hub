@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import Bounded from './Bounded';
 import Card from './Card';
+import DashboardSlot from './DashboardSlot';
 import ChartArea from './ChartArea';
 import EmptyState from './EmptyState';
 import Inline from './Inline';
@@ -156,6 +157,12 @@ describe('primitive props', () => {
       <Inline className="nowrap" />,
       // @ts-expect-error Inline takes no wrap override
       <Inline wrap={false} />,
+      // @ts-expect-error DashboardSlot takes no sx
+      <DashboardSlot height={100} sx={{ height: 50 }} />,
+      // @ts-expect-error DashboardSlot takes no style
+      <DashboardSlot height={100} style={{ height: 50 }} />,
+      // @ts-expect-error DashboardSlot needs a height
+      <DashboardSlot />,
       // @ts-expect-error EmptyState takes no sx
       <EmptyState title="t" sx={{ minHeight: 0 }} />,
       // @ts-expect-error EmptyState takes no style
@@ -175,6 +182,6 @@ describe('primitive props', () => {
       // @ts-expect-error ChartArea takes no height
       <ChartArea size="md" height={100} />,
     ];
-    expect(overrides).toHaveLength(29);
+    expect(overrides).toHaveLength(32);
   });
 });
