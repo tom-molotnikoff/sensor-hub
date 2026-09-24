@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import type { LayoutCheck } from './routes';
+import type { LayoutUser } from './users';
 
 export type Tier = 'compact' | 'wide';
 
@@ -49,8 +50,66 @@ async function shell(page: Page, tier: Tier) {
   expect(overflowX.filter((value) => value === 'hidden' || value === 'clip'), 'hidden overflow on html, body or page').toEqual([]);
 }
 
-export const checks: Record<LayoutCheck, (page: Page, tier: Tier) => Promise<void>> = {
+const pageTitleSize: Record<Tier, string> = { compact: '18px', wide: '20px' };
+
+export async function appBarControls(page: Page) {
+  return page
+    .locator('[data-ui=app-bar]')
+    .locator('button, a')
+    .evaluateAll((controls) =>
+      controls.map((control) => {
+        const { left, right } = control.getBoundingClientRect();
+        return { label: control.getAttribute('aria-label'), inViewport: left >= 0 && right <= window.innerWidth };
+      }),
+    );
+}
+
+export async function appBarTitle(page: Page) {
+  return page.locator('[data-ui=app-bar-title]').evaluate((title) => {
+    const style = getComputedStyle(title);
+    return {
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      singleLine: title.getBoundingClientRect().height < 2 * parseFloat(style.lineHeight),
+      ellipsis: style.whiteSpace === 'nowrap' && style.overflowX === 'hidden' && style.textOverflow === 'ellipsis',
+      truncated: title.scrollWidth > title.clientWidth,
+    };
+  });
+}
+
+async function appBar(page: Page, tier: Tier, user: LayoutUser) {
+  const bell = user === 'admin' ? ['notifications'] : [];
+  const expected =
+    tier === 'compact'
+      ? ['menu', ...bell, 'account']
+      : ['menu', ...bell, 'theme switcher', 'documentation', 'account'];
+  const controls = await appBarControls(page);
+  expect(controls.map((control) => control.label), 'app bar controls').toEqual(expected);
+  expect(controls.filter((control) => !control.inViewport), 'app bar controls outside the viewport').toEqual([]);
+  await expect(page.locator('[data-ui=app-bar]').getByText('Sensor Hub', { exact: true }), 'app bar brand').toHaveCount(
+    tier === 'wide' ? 1 : 0,
+  );
+
+  const title = await appBarTitle(page);
+  expect(title, 'app bar title').toMatchObject({
+    fontSize: pageTitleSize[tier],
+    fontWeight: '500',
+    singleLine: true,
+    ellipsis: true,
+  });
+
+  await page.getByRole('button', { name: 'account' }).click();
+  const menu = page.getByRole('menu');
+  const entries = await menu.getByRole('menuitem').allTextContents();
+  const moved = entries.filter((entry) => entry === 'Theme' || entry === 'Documentation');
+  expect(moved, 'avatar menu entries').toEqual(tier === 'compact' ? ['Theme', 'Documentation'] : []);
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+}
+
+export const checks: Record<LayoutCheck, (page: Page, tier: Tier, user: LayoutUser) => Promise<void>> = {
   noSidewaysScroll,
   noCollapsedContent,
   shell,
+  appBar,
 };

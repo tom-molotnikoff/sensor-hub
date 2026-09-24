@@ -204,7 +204,7 @@
       "count": 1
     },
     "ui/no-layout-styles": {
-      "count": 16
+      "count": 15
     },
     "ui/no-raw-visuals": {
       "count": 1
@@ -715,11 +715,6 @@
   "src/navigation/NavigationSidebar.tsx": {
     "ui/no-layout-styles": {
       "count": 3
-    }
-  },
-  "src/navigation/TopAppBar.tsx": {
-    "ui/no-layout-styles": {
-      "count": 12
     }
   },
   "src/pages/Login.tsx": {

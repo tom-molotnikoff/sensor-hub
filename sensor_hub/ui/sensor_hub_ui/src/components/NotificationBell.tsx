@@ -88,7 +88,7 @@ export default function NotificationBell() {
 
   return (
     <>
-      <IconButton color="inherit" onClick={handleOpen} sx={{ ml: 1 }}>
+      <IconButton color="inherit" aria-label="notifications" onClick={handleOpen}>
         <Badge badgeContent={unreadCount} color="error" max={99}>
           <NotificationsIcon />
         </Badge>

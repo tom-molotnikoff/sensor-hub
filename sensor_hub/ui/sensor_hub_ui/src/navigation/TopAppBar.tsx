@@ -1,5 +1,4 @@
-import {AppBar, IconButton, Menu, MenuItem, Toolbar, Typography, useColorScheme, Avatar, ListItemIcon} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
+import {IconButton, Menu, MenuItem, useColorScheme, ListItemIcon, ListItemText} from '@mui/material';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LaptopIcon from '@mui/icons-material/Laptop';
@@ -9,7 +8,6 @@ import AccountCircle from '@mui/icons-material/AccountCircle';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import {SidebarContext} from "../providers/SidebarContextType.tsx";
 import {useContext, useState} from "react";
-import {useIsMobile} from "../hooks/useMobile.ts";
 import { useNavigate } from 'react-router';
 import { useAuth } from '../providers/AuthContext.tsx';
 import { apiClient } from '../gen/client';
@@ -17,28 +15,36 @@ import { setCsrfToken } from '../api/Csrf';
 import {hasPerm} from "../tools/Utils.ts";
 import HelpIcon from '@mui/icons-material/Help';
 import NotificationBell from "../components/NotificationBell";
+import AppBar from '../ui/AppBar';
+import { useTier } from '../ui/tiers';
 
 interface TopAppBarProps {
   pageTitle: string;
 }
 
+const modes = [
+  { mode: 'light', label: 'Light' },
+  { mode: 'dark', label: 'Dark' },
+  { mode: 'system', label: 'System' },
+] as const;
+
+const docsHref = '/docs/';
+
 function TopAppBar({ pageTitle }: TopAppBarProps) {
   const {open, setOpen} = useContext(SidebarContext);
   const {mode, setMode} = useColorScheme();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [themeAnchor, setThemeAnchor] = useState<null | HTMLElement>(null);
   const [accountAnchor, setAccountAnchor] = useState<null | HTMLElement>(null);
-  const openMenu = Boolean(anchorEl);
-  const openAccount = Boolean(accountAnchor);
-  const isMobile = useIsMobile();
+  const wide = useTier() === 'wide';
   const navigate = useNavigate();
   const { user, refresh } = useAuth();
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
+  const handleThemeOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setThemeAnchor(event.currentTarget);
   };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
+  const handleThemeClose = () => {
+    setThemeAnchor(null);
   };
 
   const handleAccountOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -46,9 +52,14 @@ function TopAppBar({ pageTitle }: TopAppBarProps) {
   };
   const handleAccountClose = () => setAccountAnchor(null);
 
+  const handleThemeFromAccount = () => {
+    setThemeAnchor(accountAnchor);
+    handleAccountClose();
+  };
+
   const handleModeChange = (newMode: 'light' | 'dark' | 'system') => {
     setMode(newMode);
-    handleMenuClose();
+    handleThemeClose();
   };
 
   const doLogout = async () => {
@@ -68,6 +79,20 @@ function TopAppBar({ pageTitle }: TopAppBarProps) {
   else if (mode === 'system') ModeIcon = LaptopIcon;
 
   const accountMenuItems: React.ReactNode[] = [];
+  if (!wide) {
+    accountMenuItems.push(
+      <MenuItem key="theme" onClick={handleThemeFromAccount}>
+        <ListItemIcon><ModeIcon fontSize="small" /></ListItemIcon>
+        Theme
+      </MenuItem>
+    );
+    accountMenuItems.push(
+      <MenuItem key="docs" component="a" href={docsHref} onClick={handleAccountClose}>
+        <ListItemIcon><HelpIcon fontSize="small" /></ListItemIcon>
+        Documentation
+      </MenuItem>
+    );
+  }
   if (user) {
     accountMenuItems.push(
       <MenuItem key="mysessions" onClick={() => { handleAccountClose(); navigate('/account/sessions'); }}>
@@ -97,74 +122,43 @@ function TopAppBar({ pageTitle }: TopAppBarProps) {
   }
 
   return (
-    <AppBar position="sticky">
-      <Toolbar variant="regular">
-        <IconButton edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }} onClick={() => setOpen(!open)}>
-          <MenuIcon />
-        </IconButton>
-        {isMobile ? null : (<Typography
-          variant="h6"
-          component="div"
-          sx={{
-            color: "inherit",
-            minWidth: "fit-content"
-          }}>
-          Sensor Hub
-        </Typography>)}
-
-        <Typography
-          variant="h6"
-          component="div"
-          sx={{
-            color: "inherit",
-            flexGrow: 1,
-            textAlign: 'end',
-            minWidth: "fit-content"
-          }}>
-          {pageTitle}
-        </Typography>
+    <>
+      <AppBar
+        title={pageTitle}
+        brand={wide ? 'Sensor Hub' : undefined}
+        onMenuClick={() => setOpen(!open)}
+        account={{ initial: user?.username?.charAt(0).toUpperCase() ?? 'S', onClick: handleAccountOpen }}
+      >
         {user && hasPerm(user, 'view_notifications') && <NotificationBell />}
-        <IconButton
-          color="inherit"
-          aria-label="theme switcher"
-          onClick={handleMenuOpen}
-          sx={{ ml: 2 }}
-        >
-          <ModeIcon />
-        </IconButton>
-        <Menu
-          anchorEl={anchorEl}
-          open={openMenu}
-          onClose={handleMenuClose}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        >
-          <MenuItem selected={mode === 'light'} onClick={() => handleModeChange('light')}>
-            Light
-            {mode === 'light' && <CheckIcon fontSize="small" sx={{ ml: 2 }} />}
+        {wide && (
+          <>
+            <IconButton color="inherit" aria-label="theme switcher" onClick={handleThemeOpen}>
+              <ModeIcon />
+            </IconButton>
+            <IconButton color="inherit" aria-label="documentation" component="a" href={docsHref}>
+              <HelpIcon />
+            </IconButton>
+          </>
+        )}
+      </AppBar>
+      <Menu
+        anchorEl={themeAnchor}
+        open={Boolean(themeAnchor)}
+        onClose={handleThemeClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        {modes.map((option) => (
+          <MenuItem key={option.mode} selected={mode === option.mode} onClick={() => handleModeChange(option.mode)}>
+            <ListItemText>{option.label}</ListItemText>
+            {mode === option.mode && <CheckIcon fontSize="small" />}
           </MenuItem>
-          <MenuItem selected={mode === 'dark'} onClick={() => handleModeChange('dark')}>
-            Dark
-            {mode === 'dark' && <CheckIcon fontSize="small" sx={{ ml: 2 }} />}
-          </MenuItem>
-          <MenuItem selected={mode === 'system'} onClick={() => handleModeChange('system')}>
-            System
-            {mode === 'system' && <CheckIcon fontSize="small" sx={{ ml: 2 }} />}
-          </MenuItem>
-        </Menu>
-
-        <IconButton color="inherit" aria-label="documentation" component="a" href="/docs/" sx={{ ml: 1 }}>
-          <HelpIcon />
-        </IconButton>
-
-        <IconButton color="inherit" onClick={handleAccountOpen} sx={{ ml: 1 }}>
-          <Avatar sx={{ width: 32, height: 32 }}>{user?.username?.charAt(0).toUpperCase() ?? 'S'}</Avatar>
-        </IconButton>
-        <Menu anchorEl={accountAnchor} open={openAccount} onClose={handleAccountClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-          {accountMenuItems}
-        </Menu>
-      </Toolbar>
-    </AppBar>
+        ))}
+      </Menu>
+      <Menu anchorEl={accountAnchor} open={Boolean(accountAnchor)} onClose={handleAccountClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+        {accountMenuItems}
+      </Menu>
+    </>
   );
 }
 
