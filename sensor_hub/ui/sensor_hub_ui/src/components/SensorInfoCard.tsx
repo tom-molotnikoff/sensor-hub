@@ -1,6 +1,5 @@
 import type {Sensor} from "../gen/aliases";
-import LayoutCard from "../tools/LayoutCard.tsx";
-import { Chip, Typography, Box, Avatar, Button} from '@mui/material';
+import { Chip, Typography, Avatar, Button } from '@mui/material';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Alert, CircularProgress } from '@mui/material';
@@ -9,11 +8,13 @@ import { apiClient } from "../gen/client";
 import type { MeasurementTypeInfo } from '../gen/aliases';
 import type {AuthUser} from "../providers/AuthContext.tsx";
 import {hasPerm} from "../tools/Utils.ts";
-import {TypographyH2} from "../tools/Typography.tsx";
 import { healthStatus } from "../tools/healthStatus";
 import {useProperties} from "../hooks/useProperties.ts";
 import {formatRetention} from "../tools/retention.ts";
 import {getDisplayableDeviceInfo} from "../tools/deviceMetadata.ts";
+import Card from "../ui/Card";
+import Inline from "../ui/Inline";
+import Stack from "../ui/Stack";
 
 interface SensorInfoCardProps {
   sensor: Sensor
@@ -25,17 +26,10 @@ interface SensorInfoCardProps {
 
 function InfoField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Box>
-      <Typography variant="subtitle2" sx={{
-        color: "text.secondary"
-      }}>{label}</Typography>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          mt: 0.5
-        }}>{children}</Box>
-    </Box>
+    <div>
+      <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>{label}</Typography>
+      <div>{children}</div>
+    </div>
   );
 }
 
@@ -125,155 +119,106 @@ function SensorInfoCard({sensor, onDelete, onDisable, onEnable, user}: SensorInf
   const handleConfirmDelete = async () => { await performSensorAction('delete'); };
 
   return (
-    <LayoutCard variant="secondary" changes={{height: "100%", width: "100%", display: "flex", flexDirection: "column"}}>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
-          mb: 2
-        }}>
-        <TypographyH2>
-          {sensor.name}
-        </TypographyH2>
-        <Avatar sx={{ bgcolor: `status.${healthStatus[sensor.health_status]}.strong`, width: 40, height: 40 }}>
+    <Card
+      title={sensor.name}
+      actions={
+        <Avatar sx={{ bgcolor: `status.${healthStatus[sensor.health_status]}.strong` }}>
           <SensorsIcon />
         </Avatar>
-      </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 2 }}>
-        <InfoField label="Driver"><Chip label={sensor.sensor_driver} color="primary" size="small" /></InfoField>
-        <InfoField label="Health"><Chip label={sensor.health_status} size="small" sx={{ color: `status.${healthStatus[sensor.health_status]}.strong`, bgcolor: `status.${healthStatus[sensor.health_status]}.soft` }} /></InfoField>
-        <InfoField label="Enabled"><Chip label={sensor.enabled ? 'true' : 'false'} color={sensor.enabled ? 'success' : 'error'} size="small" /></InfoField>
-        <InfoField label="Retention">
-          {sensor.retention_hours !== null
-            ? <Chip label={`Custom: ${formatRetention(effectiveHours)}`} color="primary" size="small" variant="outlined" />
-            : <Typography variant="body2" sx={{
-            color: "text.secondary"
-          }}>Global default ({formatRetention(globalRetentionHours)})</Typography>
-          }
-        </InfoField>
-        {sensor.external_id && (
-          <InfoField label="Device ID">
-            <Typography
-              variant="body2"
-              sx={{
-                color: "text.secondary",
-                fontFamily: 'monospace'
-              }}>{sensor.external_id}</Typography>
+      }
+    >
+      <Stack>
+        <Inline>
+          <InfoField label="Driver"><Chip label={sensor.sensor_driver} color="primary" size="small" /></InfoField>
+          <InfoField label="Health"><Chip label={sensor.health_status} size="small" sx={{ color: `status.${healthStatus[sensor.health_status]}.strong`, bgcolor: `status.${healthStatus[sensor.health_status]}.soft` }} /></InfoField>
+          <InfoField label="Enabled"><Chip label={sensor.enabled ? 'true' : 'false'} color={sensor.enabled ? 'success' : 'error'} size="small" /></InfoField>
+          <InfoField label="Retention">
+            {sensor.retention_hours !== null
+              ? <Chip label={`Custom: ${formatRetention(effectiveHours)}`} color="primary" size="small" variant="outlined" />
+              : <Typography variant="body2" sx={{ color: "text.secondary" }}>Global default ({formatRetention(globalRetentionHours)})</Typography>
+            }
           </InfoField>
+          {sensor.external_id && (
+            <InfoField label="Device ID">
+              <Typography variant="body2" sx={{ color: "text.secondary", fontFamily: 'monospace' }}>{sensor.external_id}</Typography>
+            </InfoField>
+          )}
+          {sensor.health_reason && (
+            <InfoField label="Health Reason">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>{sensor.health_reason}</Typography>
+            </InfoField>
+          )}
+          {sensor.config && Object.entries(sensor.config).map(([key, value]) => (
+            <InfoField key={key} label={key}>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>{value}</Typography>
+            </InfoField>
+          ))}
+        </Inline>
+        {deviceInfo.length > 0 && (
+          <Card variant="inset">
+            <Stack>
+              <Typography variant="sectionTitle">Device Info</Typography>
+              <Inline>
+                {deviceInfo.map(({ key, label, value }) => (
+                  <InfoField key={key} label={label}>
+                    <Typography
+                      variant="body2"
+                      sx={[{ color: "text.secondary" }, key === 'ieee_address' && { fontFamily: 'monospace' }]}>
+                      {value}
+                    </Typography>
+                  </InfoField>
+                ))}
+              </Inline>
+            </Stack>
+          </Card>
         )}
-        {sensor.health_reason && (
-          <InfoField label="Health Reason">
-            <Typography variant="body2" sx={{
-              color: "text.secondary"
-            }}>{sensor.health_reason}</Typography>
-          </InfoField>
+        {measurementTypes.length > 0 && (
+          <Stack>
+            <Typography variant="sectionTitle">Measurement Types</Typography>
+            <Inline>
+              {measurementTypes.map((mt) => (
+                <Chip key={mt.id} label={`${mt.display_name} (${mt.unit})`} size="small" variant="outlined" />
+              ))}
+            </Inline>
+          </Stack>
         )}
-        {sensor.config && Object.entries(sensor.config).map(([key, value]) => (
-          <InfoField key={key} label={key}>
-            <Typography variant="body2" sx={{
-              color: "text.secondary"
-            }}>{value}</Typography>
-          </InfoField>
-        ))}
-      </Box>
-      {deviceInfo.length > 0 && (
-        <Box sx={{
-          mt: 2
-        }}>
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>Device Info</Typography>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-              gap: 2,
-              p: 2,
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: 2,
-              bgcolor: 'action.hover',
-            }}
+        <Inline>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={openDeleteDialog}
+            disabled={loading || fieldsDisabled}
           >
-            {deviceInfo.map(({ key, label, value }) => (
-              <InfoField key={key} label={label}>
-                <Typography
-                  variant="body2"
-                  sx={[{ color: "text.secondary" }, key === 'ieee_address' && { fontFamily: 'monospace' }]}>
-                  {value}
-                </Typography>
-              </InfoField>
-            ))}
-          </Box>
-        </Box>
-      )}
-      {measurementTypes.length > 0 && (
-        <Box sx={{
-          mt: 2
-        }}>
-          <Typography
-            variant="subtitle2"
-            sx={{
-              color: "text.secondary",
-              mb: 0.5
-            }}>Measurement Types</Typography>
-          <Box
-            sx={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 1
-            }}>
-            {measurementTypes.map((mt) => (
-              <Chip key={mt.id} label={`${mt.display_name} (${mt.unit})`} size="small" variant="outlined" />
-            ))}
-          </Box>
-        </Box>
-      )}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-          mt: "auto",
-          pt: 2
-        }}>
-        <Button
-          variant="contained"
-          color="error"
-          onClick={openDeleteDialog}
-          disabled={loading || fieldsDisabled}
-        >
-          Delete
-        </Button>
-        <Button
-          variant="outlined"
-          color="warning"
-          onClick={openDisableDialog}
-          disabled={!sensor.enabled || loading || fieldsDisabled}
-        >
-          Disable
-        </Button>
-        <Button
-          variant="contained"
-          color="success"
-          onClick={handleEnableSensor}
-          disabled={sensor.enabled || loading || fieldsDisabled}
-        >
-          Enable
-        </Button>
-      </Box>
+            Delete
+          </Button>
+          <Button
+            variant="outlined"
+            color="warning"
+            onClick={openDisableDialog}
+            disabled={!sensor.enabled || loading || fieldsDisabled}
+          >
+            Disable
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleEnableSensor}
+            disabled={sensor.enabled || loading || fieldsDisabled}
+          >
+            Enable
+          </Button>
+        </Inline>
+      </Stack>
       <Dialog open={disableDialogOpen} onClose={closeDisableDialog} >
         <DialogTitle>Disable sensor "{sensor.name}"?</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            This action will disable the sensor, preventing it from collecting new data. Existing data will be retained. You can re-enable the sensor later if needed.
-          </DialogContentText>
-
-          {errorMessage && <Box sx={{
-            mt: 2
-          }}><Alert severity="error">{errorMessage}</Alert></Box>}
-          {successMessage && <Box sx={{
-            mt: 2
-          }}><Alert severity="success">{successMessage}</Alert></Box>}
+          <Stack>
+            <DialogContentText>
+              This action will disable the sensor, preventing it from collecting new data. Existing data will be retained. You can re-enable the sensor later if needed.
+            </DialogContentText>
+            {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
+            {successMessage && <Alert severity="success">{successMessage}</Alert>}
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={closeDisableDialog} disabled={loading}>Cancel</Button>
@@ -285,16 +230,13 @@ function SensorInfoCard({sensor, onDelete, onDisable, onEnable, user}: SensorInf
       <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog}>
         <DialogTitle>Delete sensor "{sensor.name}"?</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            This action will permanently delete the sensor from the system. This will also purge any associated sensor readings, if you want to keep the readings, consider disabling the sensor instead. Purging may take some time depending on the volume of data.
-          </DialogContentText>
-
-          {errorMessage && <Box sx={{
-            mt: 2
-          }}><Alert severity="error">{errorMessage}</Alert></Box>}
-          {successMessage && <Box sx={{
-            mt: 2
-          }}><Alert severity="success">{successMessage}</Alert></Box>}
+          <Stack>
+            <DialogContentText>
+              This action will permanently delete the sensor from the system. This will also purge any associated sensor readings, if you want to keep the readings, consider disabling the sensor instead. Purging may take some time depending on the volume of data.
+            </DialogContentText>
+            {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
+            {successMessage && <Alert severity="success">{successMessage}</Alert>}
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={closeDeleteDialog} disabled={loading}>Cancel</Button>
@@ -303,7 +245,7 @@ function SensorInfoCard({sensor, onDelete, onDisable, onEnable, user}: SensorInf
           </Button>
         </DialogActions>
       </Dialog>
-    </LayoutCard>
+    </Card>
   );
 }
 

@@ -136,7 +136,7 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 
 	var config gen.DashboardConfig
 	config.Breakpoints.Lg, config.Breakpoints.Md, config.Breakpoints.Sm = 12, 8, 4
-	readings := gen.DashboardWidget{Id: "readings-chart", Type: "readings-chart", Config: map[string]interface{}{}}
+	readings := gen.DashboardWidget{Id: "readings-chart", Type: "readings-chart", Config: map[string]interface{}{"measurementType": "temperature"}}
 	readings.Layout.W, readings.Layout.H = 12, 4
 	uptime := gen.DashboardWidget{Id: "uptime", Type: "uptime", Config: map[string]interface{}{"sensorId": 1}}
 	uptime.Layout.Y, uptime.Layout.W, uptime.Layout.H = 4, 3, 3
@@ -144,7 +144,9 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 	healthPie.Layout.X, healthPie.Layout.Y, healthPie.Layout.W, healthPie.Layout.H = 3, 4, 4, 4
 	typePie := gen.DashboardWidget{Id: "sensor-type-pie", Type: "sensor-type-pie", Config: map[string]interface{}{}}
 	typePie.Layout.X, typePie.Layout.Y, typePie.Layout.W, typePie.Layout.H = 7, 4, 5, 3
-	config.Widgets = []gen.DashboardWidget{readings, uptime, healthPie, typePie}
+	timeline := gen.DashboardWidget{Id: "health-timeline", Type: "health-timeline", Config: map[string]interface{}{"sensorId": 1}}
+	timeline.Layout.Y, timeline.Layout.W, timeline.Layout.H = 8, 6, 4
+	config.Widgets = []gen.DashboardWidget{readings, uptime, healthPie, typePie, timeline}
 
 	dashboards := service.NewDashboardService(database.NewDashboardRepository(env.DB, slog.Default()), slog.Default())
 	if _, err := dashboards.ServiceCreateDashboard(ctx, admin.Id, gen.CreateDashboardRequest{Name: "Layout", Config: config}); err != nil {
