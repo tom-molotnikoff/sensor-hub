@@ -11,6 +11,7 @@ import {
   TextField
 } from "@mui/material";
 import { apiClient } from "../gen/client";
+import type { AlertRule } from "../gen/aliases";
 import {useState} from "react";
 import {useSensorContext} from "../hooks/useSensorContext.ts";
 import {useSensorMeasurementTypes} from "../hooks/useMeasurementTypes.ts";
@@ -57,16 +58,17 @@ export default function CreateAlertDialog({open, onClose, onCreated}: CreateAler
 
   const handleCreate = async () => {
     try {
+      const criteria: Partial<AlertRule> = createAlertType === 'numeric_range'
+        ? { high_threshold: parseFloat(createHighThreshold), low_threshold: parseFloat(createLowThreshold) }
+        : { trigger_status: createTriggerStatus };
       const body = {
         sensor_id: createSensorId,
         measurement_type_id: createMeasurementTypeId,
         alert_type: createAlertType,
         rate_limit_seconds: toSeconds(parseInt(createRateLimit, 10), createRateLimitUnit),
         enabled: createEnabled,
-        ...(createAlertType === 'numeric_range'
-          ? { high_threshold: parseFloat(createHighThreshold), LowThreshold: parseFloat(createLowThreshold) }
-          : { trigger_status: createTriggerStatus }),
-      };
+        ...criteria,
+      } satisfies Partial<AlertRule>;
       await apiClient.POST('/alerts', { body: body as never });
       resetForm();
       onClose();

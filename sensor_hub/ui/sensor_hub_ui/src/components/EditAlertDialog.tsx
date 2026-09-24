@@ -67,14 +67,15 @@ export default function EditAlertDialog({open, onClose, onSaved, selectedAlert}:
   const handleEdit = async () => {
     if (!selectedAlert) return;
     try {
+      const criteria: Partial<AlertRule> = editAlertType === 'numeric_range'
+        ? { high_threshold: parseFloat(editHighThreshold), low_threshold: parseFloat(editLowThreshold) }
+        : { trigger_status: editTriggerStatus };
       const body = {
         alert_type: editAlertType,
         rate_limit_seconds: toSeconds(parseInt(editRateLimit, 10), editRateLimitUnit),
         enabled: editEnabled,
-        ...(editAlertType === 'numeric_range'
-          ? { high_threshold: parseFloat(editHighThreshold), LowThreshold: parseFloat(editLowThreshold) }
-          : { trigger_status: editTriggerStatus }),
-      };
+        ...criteria,
+      } satisfies Partial<AlertRule>;
       await apiClient.PUT('/alerts/{id}', { params: { path: { id: selectedAlert.id } }, body: body as never });
       onClose();
       await onSaved();

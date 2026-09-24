@@ -32,14 +32,7 @@ const columns = [
             return `${value}${row.unit ? ` ${row.unit}` : ''}`;
         },
     },
-    {
-        field: 'time',
-        headerName: 'Time',
-        flex: 1,
-        minWidth: 200,
-        compact: 'hidden',
-        valueFormatter: (value: string) => new Date(value).toLocaleString(),
-    },
+    { field: 'time', headerName: 'Time', flex: 1, minWidth: 200, compact: 'hidden' },
 ] as const satisfies readonly DataTableColumn<LiveReadingRow>[];
 
 export default function LiveReadingsTableWidget(_props: WidgetProps) {

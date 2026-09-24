@@ -15,7 +15,7 @@ vi.mock('../../hooks/useSensorContext', () => ({ useSensorContext: () => ({ load
 vi.mock('../WidgetUpdateContext', () => ({ useReportWidgetUpdate: () => vi.fn() }));
 
 function reading(sensor: string, type: string, value: number | null, unit: string) {
-  return { sensor_name: sensor, measurement_type: type, numeric_value: value, unit, time: '2026-09-24 10:00:00' };
+  return { sensor_name: sensor, measurement_type: type, numeric_value: value, unit, time: '2026-09-24T10:00:00Z' };
 }
 
 function renderWidget() {
