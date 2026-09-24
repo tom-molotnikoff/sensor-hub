@@ -4,7 +4,7 @@ import { useSensorContext } from "../hooks/useSensorContext.ts";
 import { useDrivers } from "../hooks/useDrivers.ts";
 import SensorTypePieChart from "./SensorTypePieChart.tsx";
 import { Box } from "@mui/material";
-import EmptyState from "./EmptyState";
+import EmptyState from '../ui/EmptyState';
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 import { CircularDrawLoader } from "../dashboard/widget-loaders";
 

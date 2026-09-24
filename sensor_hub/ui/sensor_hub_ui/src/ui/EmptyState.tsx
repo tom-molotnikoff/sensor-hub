@@ -1,5 +1,7 @@
 import { Box, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router';
+import { theme } from './theme';
+import { emptyStateMinHeight, type EmptyStateSize } from './theme/tokens';
 
 interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -8,7 +10,7 @@ interface EmptyStateProps {
   actionLabel?: string;
   actionHref?: string;
   onAction?: () => void;
-  minHeight?: number | string;
+  size?: EmptyStateSize;
 }
 
 export default function EmptyState({
@@ -18,7 +20,7 @@ export default function EmptyState({
   actionLabel,
   actionHref,
   onAction,
-  minHeight = 200,
+  size = 'md',
 }: EmptyStateProps) {
   const navigate = useNavigate();
 
@@ -32,12 +34,13 @@ export default function EmptyState({
 
   return (
     <Box
+      data-ui="empty-state"
       sx={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight,
+        minHeight: emptyStateMinHeight[size],
         gap: 1.5,
         py: 4,
         px: 2,
@@ -45,9 +48,7 @@ export default function EmptyState({
       }}
     >
       <Box sx={{ color: 'text.disabled' }}>{icon}</Box>
-      <Typography variant="body1" sx={{
-        fontWeight: 600
-      }}>
+      <Typography variant="body1" sx={{ fontWeight: theme.typography.sectionTitle.fontWeight }}>
         {title}
       </Typography>
       {description && (

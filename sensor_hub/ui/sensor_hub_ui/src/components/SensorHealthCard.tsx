@@ -3,7 +3,7 @@ import SensorHealthPieChart from "./SensorHealthPieChart.tsx";
 import LayoutCard from "../tools/LayoutCard.tsx";
 import {useSensorContext} from "../hooks/useSensorContext.ts";
 import { Box } from "@mui/material";
-import EmptyState from "./EmptyState";
+import EmptyState from '../ui/EmptyState';
 import MonitorHeartOutlinedIcon from "@mui/icons-material/MonitorHeartOutlined";
 import { scrollToAndHighlight } from "../tools/scrollToAndHighlight";
 import { CircularDrawLoader } from "../dashboard/widget-loaders";

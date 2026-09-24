@@ -1,22 +1,14 @@
 import SensorForm from "../forms/SensorForm.tsx";
-import LayoutCard from "../tools/LayoutCard.tsx";
 import {useAuth} from "../providers/AuthContext.tsx";
+import Card from "../ui/Card";
 
 function AddNewSensor() {
   const { user } = useAuth();
 
-  if (user === undefined) {
-    return (
-      <LayoutCard variant={"secondary"} changes={{height: "100%", width: "100%", minHeight: 400}}>
-        Loading...
-      </LayoutCard>
-    )
-  }
-
   return (
-    <LayoutCard id="add-sensor-form" variant={"secondary"} changes={{height: "100%", width: "100%", minHeight: 400}}>
-      <SensorForm mode="create" user={ user }/>
-    </LayoutCard>
+    <Card id="add-sensor-form" title="Add Sensor">
+      {user === undefined ? 'Loading...' : <SensorForm mode="create" user={ user }/>}
+    </Card>
   )
 }
 

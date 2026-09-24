@@ -18,6 +18,10 @@ export function responsive<T>(values: TierValues<T>) {
   return { [tierBreakpoints.compact]: values.compact, [tierBreakpoints.wide]: values.wide };
 }
 
+export function responsivePixels(values: TierValues<number>) {
+  return responsive({ compact: `${values.compact}px`, wide: `${values.wide}px` });
+}
+
 export function useTier(): Tier {
   return useMediaQuery(wideQuery, { noSsr: true }) ? 'wide' : 'compact';
 }

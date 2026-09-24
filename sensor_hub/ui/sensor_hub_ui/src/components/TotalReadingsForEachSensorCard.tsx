@@ -4,7 +4,7 @@ import {TypographyH2} from "../tools/Typography.tsx";
 import LayoutCard from "../tools/LayoutCard.tsx";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
 import {Typography} from "@mui/material";
-import EmptyState from "./EmptyState.tsx";
+import EmptyState from '../ui/EmptyState';
 import { WidgetSwap, CascadeRowsLoader } from "../dashboard/widget-loaders";
 
 function formatSampledAt(sampledAt: string): string {

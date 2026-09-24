@@ -13,7 +13,7 @@ import AlertHistoryDialog from './AlertHistoryDialog';
 import DeleteAlertDialog from './DeleteAlertDialog';
 import EditAlertDialog from './EditAlertDialog';
 import CreateAlertDialog from './CreateAlertDialog';
-import EmptyState from './EmptyState';
+import EmptyState from '../ui/EmptyState';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { logger } from '../tools/logger';
 import {TypographyH2} from "../tools/Typography.tsx";

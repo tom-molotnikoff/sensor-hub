@@ -1,6 +1,6 @@
 import {DataGrid, type GridColDef, type GridRowParams} from "@mui/x-data-grid";
 import type { AlertRule } from "../gen/aliases";
-import EmptyState from "./EmptyState";
+import EmptyState from '../ui/EmptyState';
 import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 
 interface AlertRuleDataGridProps {
@@ -50,7 +50,7 @@ export default function AlertRuleDataGrid({handleRowClick, alertRules, onCreateC
         description="Create an alert rule to get notified when sensor readings go out of range."
         actionLabel={onCreateClick ? "Create Alert Rule" : undefined}
         onAction={onCreateClick}
-        minHeight={300}
+        size="lg"
       />
     );
   }

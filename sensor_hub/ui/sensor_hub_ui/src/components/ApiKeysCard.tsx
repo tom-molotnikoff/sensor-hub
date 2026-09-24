@@ -18,7 +18,7 @@ import AddIcon from '@mui/icons-material/Add';
 import VpnKeyOffIcon from '@mui/icons-material/VpnKeyOff';
 import LayoutCard from '../tools/LayoutCard';
 import { TypographyH2 } from '../tools/Typography';
-import EmptyState from './EmptyState';
+import EmptyState from '../ui/EmptyState';
 import CreateApiKeyDialog from './CreateApiKeyDialog';
 import { apiClient } from '../gen/client';
 import type { ApiKey } from '../gen/aliases';

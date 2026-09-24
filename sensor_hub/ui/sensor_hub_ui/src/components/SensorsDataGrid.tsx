@@ -10,7 +10,7 @@ import { apiClient } from "../gen/client";
 import type {AuthUser} from "../providers/AuthContext.tsx";
 import {hasPerm} from "../tools/Utils.ts";
 import { useSensorContext } from "../hooks/useSensorContext";
-import EmptyState from "./EmptyState";
+import EmptyState from '../ui/EmptyState';
 import SensorsOffOutlinedIcon from "@mui/icons-material/SensorsOffOutlined";
 
 interface SensorSummaryCardProps {

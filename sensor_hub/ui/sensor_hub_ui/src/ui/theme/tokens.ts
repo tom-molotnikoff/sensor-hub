@@ -7,3 +7,7 @@ export const density = {
 } satisfies Record<string, TierValues<number>>;
 
 export type Density = typeof density;
+
+export const emptyStateMinHeight = { sm: 120, md: 200, lg: 300 } as const;
+
+export type EmptyStateSize = keyof typeof emptyStateMinHeight;

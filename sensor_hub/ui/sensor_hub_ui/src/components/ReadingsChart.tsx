@@ -19,7 +19,7 @@ import { useReadingsData } from "../hooks/useReadingsData";
 import { linesHiddenReducer } from "../reducers/LinesHiddenReducer";
 import type {Sensor} from "../gen/aliases";
 import type { DateTime } from "luxon";
-import EmptyState from "./EmptyState";
+import EmptyState from '../ui/EmptyState';
 import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
 import { useChartColours } from "../ui/theme/chartColours";
 import { WidgetSwap, SignalTraceLoader } from "../dashboard/widget-loaders";
@@ -109,21 +109,18 @@ const ReadingsChart = React.memo(function ReadingsChart({
           description="Add a sensor to start seeing data here."
           actionLabel="Add a sensor"
           actionHref="/sensors-overview"
-          minHeight={200}
         />
       ) : error && noData ? (
         <EmptyState
           icon={<ShowChartOutlinedIcon sx={{ fontSize: 48 }} />}
           title="Couldn't load readings"
           description="Something went wrong fetching this chart. It will retry automatically."
-          minHeight={200}
         />
       ) : noData ? (
         <EmptyState
           icon={<ShowChartOutlinedIcon sx={{ fontSize: 48 }} />}
           title="No readings in selected date range"
           description="Try adjusting the date range or wait for new readings."
-          minHeight={200}
         />
       ) : activeSensors.length === 0 ? (
         <EmptyState
@@ -132,7 +129,6 @@ const ReadingsChart = React.memo(function ReadingsChart({
           description={measurementType
             ? `None of the available sensors report "${measurementType}" readings.`
             : "No matching sensor data found."}
-          minHeight={200}
         />
       ) : (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>

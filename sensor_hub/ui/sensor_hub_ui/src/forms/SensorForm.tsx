@@ -1,14 +1,15 @@
 import type {Sensor, DriverInfo} from "../gen/aliases";
 import {Formik, Form, type FormikProps} from 'formik';
-import { Button, Box, Stack, TextField, Typography, Alert, MenuItem, Divider, FormControlLabel, Switch } from '@mui/material';
+import { Button, TextField, Typography, Alert, MenuItem, Divider, FormControlLabel, Switch } from '@mui/material';
 import {useSensorForm} from "../hooks/useSensorForm.ts";
 import {useDrivers} from "../hooks/useDrivers.ts";
 import * as Yup from 'yup';
 import type {AuthUser} from "../providers/AuthContext.tsx";
 import {hasPerm} from "../tools/Utils.ts";
-import {TypographyH2} from "../tools/Typography.tsx";
 import {useProperties} from "../hooks/useProperties.ts";
 import {formatRetention, unitToHours, hoursToUnit, type RetentionUnit} from "../tools/retention.ts";
+import Inline from "../ui/Inline";
+import Stack from "../ui/Stack";
 
 interface SensorFormProps {
   sensor?: Sensor;
@@ -65,10 +66,7 @@ function SensorForm ({ sensor, mode = 'edit', onSuccess, user } : SensorFormProp
   const fieldsDisabled = !(hasPerm(user, "manage_sensors"));
 
   return (
-    <>
-      <TypographyH2>
-        {mode === 'create' ? 'Add Sensor' : 'Edit Sensor Details'}
-      </TypographyH2>
+    <Stack>
       <Formik<SensorFormValues>
         initialValues={initialValues}
         enableReinitialize onSubmit={onSubmit}
@@ -85,7 +83,7 @@ function SensorForm ({ sensor, mode = 'edit', onSuccess, user } : SensorFormProp
 
           return (
             <Form>
-              <Stack spacing={2}>
+              <Stack>
                 <TextField
                   name="name"
                   label="Name"
@@ -181,7 +179,7 @@ function SensorForm ({ sensor, mode = 'edit', onSuccess, user } : SensorFormProp
                       label="Override global data retention"
                     />
                     {values.retentionEnabled && (
-                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                      <Inline>
                         <TextField
                           label="Retention"
                           type="number"
@@ -190,7 +188,6 @@ function SensorForm ({ sensor, mode = 'edit', onSuccess, user } : SensorFormProp
                           disabled={fieldsDisabled}
                           slotProps={{ htmlInput: { min: 1, step: 1 } }}
                           size="small"
-                          sx={{ flex: 1 }}
                         />
                         <TextField
                           select
@@ -206,26 +203,22 @@ function SensorForm ({ sensor, mode = 'edit', onSuccess, user } : SensorFormProp
                           }}
                           disabled={fieldsDisabled}
                           size="small"
-                          sx={{ minWidth: 120 }}
                         >
                           <MenuItem value="hours">Hours</MenuItem>
                           <MenuItem value="days">Days</MenuItem>
                           <MenuItem value="weeks">Weeks</MenuItem>
                         </TextField>
-                      </Box>
+                      </Inline>
                     )}
                   </>
                 )}
 
-                <Box sx={{
-                  display: "flex"
-                }}>
+                <Inline>
                   <Button
                     type="reset"
                     disabled={isSubmitting || formikSubmitting || fieldsDisabled}
                     variant="outlined"
                     color="primary"
-                    sx={{ mr: 2 }}
                   >
                     Reset
                   </Button>
@@ -238,42 +231,30 @@ function SensorForm ({ sensor, mode = 'edit', onSuccess, user } : SensorFormProp
                   >
                     {mode === 'create' ? 'Create' : 'Submit'}
                   </Button>
-                </Box>
+                </Inline>
               </Stack>
             </Form>
           );
         }}
       </Formik>
       {successMessage && (
-        <Box sx={{
-          mt: 2
-        }}>
-          <Alert severity="success" onClose={() => setSuccessMessage(null)}>
-            {successMessage}
-          </Alert>
-        </Box>
+        <Alert severity="success" onClose={() => setSuccessMessage(null)}>
+          {successMessage}
+        </Alert>
       )}
       {errorMessage && (
-        <Box sx={{
-          mt: 2
-        }}>
-          <Alert severity="error" onClose={() => { setErrorMessage(null); setAdvancedErrorMessage(null); }}>
+        <Alert severity="error" onClose={() => { setErrorMessage(null); setAdvancedErrorMessage(null); }}>
+          <Stack>
             {errorMessage}
             {advancedErrorMessage && (
-              <Box
-                sx={{
-                  mt: 1,
-                  whiteSpace: 'pre-wrap',
-                  fontFamily: 'monospace',
-                  fontSize: '0.75rem'
-                }}>
+              <Typography variant="caption" component="div" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
                 {advancedErrorMessage}
-              </Box>
+              </Typography>
             )}
-          </Alert>
-        </Box>
+          </Stack>
+        </Alert>
       )}
-    </>
+    </Stack>
   );
 }
 
