@@ -10,6 +10,7 @@ import DashboardSlot from './DashboardSlot';
 import ChartArea from './ChartArea';
 import EmptyState from './EmptyState';
 import Inline from './Inline';
+import Metric, { MetricGroup } from './Metric';
 import PageGrid from './PageGrid';
 import Stack from './Stack';
 import StandalonePage from './StandalonePage';
@@ -178,6 +179,46 @@ describe('AnchorStack', () => {
     act(() => { window.dispatchEvent(new Event('resize')); });
 
     expect(room).toHaveStyle({ height: '0px' });
+  });
+});
+
+describe('Metric', () => {
+  it('shows the value on the metric scale for its size, with its unit and label', () => {
+    renderUi(<Metric value={20.72} unit="°C" label="Attic" size="lg" />);
+
+    const value = screen.getByText('20.7');
+    expect(value).toHaveClass('MuiTypography-metricLg');
+    expect(value).toHaveTextContent('20.7°C');
+    expect(screen.getByText('Attic')).toBeInTheDocument();
+  });
+
+  it('shows a dash when there is no value', () => {
+    renderUi(<Metric value={null} label="No data available" />);
+
+    expect(screen.getByText('—')).toHaveClass('MuiTypography-metricMd');
+  });
+
+  it('fills a bounded parent and starts from the smallest size', () => {
+    const { container } = renderUi(
+      <Bounded>
+        <Metric value={20.7} size="lg" dial={{ percent: 50, tone: 'status.ok.strong' }} />
+      </Bounded>,
+    );
+
+    expect(container.querySelector('[data-ui=metric]')).toHaveStyle({ height: '100%' });
+    expect(screen.getByText('20.7')).toHaveClass('MuiTypography-metricSm');
+    expect(container.querySelector('[data-ui=metric-dial]')).toBeInTheDocument();
+  });
+
+  it('lays a group of metrics side by side', () => {
+    const { container } = renderUi(
+      <MetricGroup>
+        <Metric value={1} label="Min" />
+        <Metric value={2} label="Max" />
+      </MetricGroup>,
+    );
+
+    expect(container.querySelector('[data-ui=metric-group]')).toHaveStyle({ display: 'grid', gridAutoFlow: 'column' });
   });
 });
 

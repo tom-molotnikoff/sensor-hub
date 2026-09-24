@@ -21,3 +21,12 @@ export const chartAreaHeight = {
 } satisfies Record<string, TierValues<number>>;
 
 export type ChartAreaSize = keyof typeof chartAreaHeight;
+
+export const metricDialSize = { sm: 96, md: 140, lg: 200 } as const;
+
+export const metricMinHeight = 64;
+
+export const metricFit = {
+  value: { md: { width: 160, height: 96 }, lg: { width: 240, height: 160 } },
+  dial: { md: 180, lg: 280 },
+} as const;

@@ -1,10 +1,12 @@
 import type { WidgetProps } from '../types';
-import { Box, Typography } from '@mui/material';
+import { List, ListItem, ListItemText, Typography } from '@mui/material';
 import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurrentReadings';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { useWidgetStateReport } from '../WidgetContext';
 import { WidgetSwap, ValuePlaceholderLoader } from '../widget-loaders';
+import Card from '../../ui/Card';
+import Metric from '../../ui/Metric';
 
 export default function GroupSummaryWidget({ config }: WidgetProps) {
     const reportUpdate = useReportWidgetUpdate();
@@ -34,30 +36,22 @@ export default function GroupSummaryWidget({ config }: WidgetProps) {
     return (
         <WidgetSwap loading={isLoading} loader={<ValuePlaceholderLoader />}>
             {matched.length === 0 ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                    <Typography sx={{
-                        color: "text.secondary"
-                    }}>No {measurementType} readings available</Typography>
-                </Box>
+                <Metric value={null} label={`No ${measurementType} readings available`} />
             ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Group Average</Typography>
-                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Typography variant="h2" sx={{ fontWeight: 'bold', textAlign: 'center' }}>
-                            {avg.toFixed(1)}{unit}
-                        </Typography>
-                    </Box>
-                    <Box sx={{ maxHeight: 120, overflow: 'auto' }}>
+                <Card>
+                    <Metric value={avg} unit={unit} label="Group Average" />
+                    <List dense disablePadding>
                         {matched.map(({ name, value, unit: u }) => (
-                            <Box key={name} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.25 }}>
-                                <Typography variant="caption" sx={{
-                                    color: "text.secondary"
-                                }}>{name}</Typography>
-                                <Typography variant="caption">{value?.toFixed(1) ?? '—'}{u}</Typography>
-                            </Box>
+                            <ListItem
+                                key={name}
+                                disableGutters
+                                secondaryAction={<Typography variant="caption">{value?.toFixed(1) ?? '—'}{u}</Typography>}
+                            >
+                                <ListItemText primary={name} slotProps={{ primary: { variant: 'caption', color: 'text.secondary' } }} />
+                            </ListItem>
                         ))}
-                    </Box>
-                </Box>
+                    </List>
+                </Card>
             )}
         </WidgetSwap>
     );
