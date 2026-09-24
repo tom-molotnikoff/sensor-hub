@@ -421,14 +421,14 @@ func deleteOlderThanExcludingSensorsQuery(excluded int) string {
 }
 
 func (r *ReadingsRepositoryImpl) DeleteReadingsOlderThan(ctx context.Context, cutoffDateTime time.Time) error {
-	if _, err := r.db.Writer.ExecContext(ctx, deleteOlderThanQuery(), cutoffDateTime); err != nil {
+	if _, err := r.db.Writer.ExecContext(ctx, deleteOlderThanQuery(), utils.FormatStorageTime(cutoffDateTime)); err != nil {
 		return fmt.Errorf("error deleting old readings: %w", err)
 	}
 	return nil
 }
 
 func (r *ReadingsRepositoryImpl) DeleteReadingsOlderThanForSensor(ctx context.Context, cutoffDateTime time.Time, sensorId int) error {
-	if _, err := r.db.Writer.ExecContext(ctx, deleteOlderThanForSensorQuery(), sensorId, cutoffDateTime); err != nil {
+	if _, err := r.db.Writer.ExecContext(ctx, deleteOlderThanForSensorQuery(), sensorId, utils.FormatStorageTime(cutoffDateTime)); err != nil {
 		return fmt.Errorf("error deleting old readings for sensor %d: %w", sensorId, err)
 	}
 	return nil
@@ -440,7 +440,7 @@ func (r *ReadingsRepositoryImpl) DeleteReadingsOlderThanExcludingSensors(ctx con
 	}
 	query := deleteOlderThanExcludingSensorsQuery(len(excludedSensorIds))
 	args := make([]any, 0, 1+len(excludedSensorIds))
-	args = append(args, cutoffDateTime)
+	args = append(args, utils.FormatStorageTime(cutoffDateTime))
 	for _, id := range excludedSensorIds {
 		args = append(args, id)
 	}
