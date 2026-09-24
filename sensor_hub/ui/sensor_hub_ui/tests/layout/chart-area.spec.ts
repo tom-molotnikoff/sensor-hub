@@ -4,7 +4,14 @@ import { signIn } from './users';
 test.describe('ChartArea in a widget frame', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  for (const label of ['Sensor Health', 'Sensor Types', 'Readings Chart', 'Health Timeline']) {
+  const widgets = [
+    { label: 'Sensor Health', header: false },
+    { label: 'Sensor Types', header: false },
+    { label: 'Readings Chart', header: false },
+    { label: 'Health Timeline', header: true },
+  ];
+
+  for (const { label, header } of widgets) {
     test(`fills the ${label} widget body instead of taking its token height`, async ({ page }) => {
       await signIn(page, 'admin');
       await page.goto('/dashboard');
@@ -25,8 +32,12 @@ test.describe('ChartArea in a widget frame', () => {
       expect(chart.left).toBeCloseTo(body.left, 0);
       expect(chart.right).toBeCloseTo(body.right, 0);
       expect(chart.bottom).toBeCloseTo(body.bottom, 0);
-      expect(chart.top).toBeGreaterThanOrEqual(body.top - 0.5);
-      expect(chart.bottom - chart.top).toBeGreaterThan((body.bottom - body.top) / 2);
+      if (header) {
+        expect(chart.top).toBeGreaterThan(body.top);
+        expect(chart.bottom - chart.top).toBeGreaterThan((body.bottom - body.top) / 2);
+      } else {
+        expect(chart.top).toBeCloseTo(body.top, 0);
+      }
     });
   }
 });
