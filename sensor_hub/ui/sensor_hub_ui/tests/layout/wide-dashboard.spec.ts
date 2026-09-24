@@ -10,11 +10,15 @@ import {
 } from './dashboards';
 import { signIn } from './users';
 
-async function openDashboard(page: Page) {
-  await signIn(page, 'admin');
+async function showDashboard(page: Page) {
   await page.goto('/dashboard');
   await page.waitForLoadState('networkidle');
   await expect(page.locator('[data-widget-id]').first()).toBeVisible();
+}
+
+async function openDashboard(page: Page) {
+  await signIn(page, 'admin');
+  await showDashboard(page);
 }
 
 test.describe('Wide dashboard', () => {
@@ -49,7 +53,7 @@ test.describe('Wide dashboard', () => {
 
   test('resizing a widget in edit mode saves the 12-column layout shown on screen', async ({ page }) => {
     const copy = await copyLayoutDashboard(page, (widget) => ['uptime', 'sensor-health-pie'].includes(widget.id));
-    await openDashboard(page);
+    await showDashboard(page);
     await page.getByRole('button', { name: 'Edit dashboard' }).click();
 
     const handle = page.locator('[data-widget-id=uptime] .react-resizable-handle').first();

@@ -93,7 +93,8 @@ export async function copyLayoutDashboard(page: Page, pick?: (widget: StoredWidg
     id,
     widgets,
     remove: async () => {
-      await page.request.delete(`/api/dashboards/${id}`, { headers: csrf });
+      const response = await page.request.delete(`/api/dashboards/${id}`, { headers: csrf });
+      expect(response.ok(), `delete dashboard ${id}`).toBe(true);
     },
   };
 }
