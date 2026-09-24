@@ -1,36 +1,4 @@
 {
-  "src/components/ApiKeysCard.tsx": {
-    "ui/no-layout-styles": {
-      "count": 8
-    },
-    "ui/no-raw-visuals": {
-      "count": 2
-    }
-  },
-  "src/components/ApiReferenceCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 7
-    },
-    "ui/no-raw-visuals": {
-      "count": 56
-    }
-  },
-  "src/components/CreateApiKeyDialog.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 8
-    }
-  },
-  "src/components/CreateUserDialog.tsx": {
-    "ui/no-layout-styles": {
-      "count": 4
-    }
-  },
   "src/components/CurrentTemperatures.tsx": {
     "ui/no-layout-styles": {
       "count": 9
@@ -48,11 +16,6 @@
     },
     "ui/no-raw-visuals": {
       "count": 6
-    }
-  },
-  "src/components/EditUserDialog.tsx": {
-    "ui/no-layout-styles": {
-      "count": 2
     }
   },
   "src/components/HourlyForecastDetail.tsx": {
@@ -120,28 +83,12 @@
       "count": 2
     }
   },
-  "src/components/RolePermissionsCard.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 24
-    }
-  },
   "src/components/SensorDetailCard.tsx": {
     "no-restricted-imports": {
       "count": 2
     },
     "ui/no-layout-styles": {
       "count": 4
-    }
-  },
-  "src/components/UserManagementCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 8
     }
   },
   "src/components/WeatherForecastCard.tsx": {
@@ -417,11 +364,6 @@
   "src/navigation/NavigationSidebar.tsx": {
     "ui/no-layout-styles": {
       "count": 3
-    }
-  },
-  "src/pages/admin/UsersPage.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "src/tools/LayoutCard.tsx": {

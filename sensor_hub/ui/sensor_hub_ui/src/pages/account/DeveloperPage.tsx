@@ -1,4 +1,5 @@
 import Page from '../../ui/Page';
+import PageGrid from '../../ui/PageGrid';
 import ApiKeysCard from '../../components/ApiKeysCard';
 import ApiReferenceCard from '../../components/ApiReferenceCard';
 import { useApiKeys } from '../../hooks/useApiKeys';
@@ -11,12 +12,14 @@ export default function DeveloperPage() {
 
   return (
     <Page title="Developer">
-      {hasPerm(user, 'manage_api_keys') && (
-        <ApiKeysCard apiKeys={apiKeys} loaded={loaded} onRefresh={refresh} />
-      )}
-      {hasPerm(user, 'view_api_docs') && (
-        <ApiReferenceCard />
-      )}
+      <PageGrid>
+        {hasPerm(user, 'manage_api_keys') && (
+          <PageGrid.Item><ApiKeysCard apiKeys={apiKeys} loaded={loaded} onRefresh={refresh} /></PageGrid.Item>
+        )}
+        {hasPerm(user, 'view_api_docs') && (
+          <PageGrid.Item><ApiReferenceCard /></PageGrid.Item>
+        )}
+      </PageGrid>
     </Page>
   );
 }

@@ -26,4 +26,8 @@ export const routes: readonly LayoutRoute[] = [
   { path: '/account/sessions', users: signedIn, fixtures: ['sessions'] },
   { path: '/account/change-password', users: signedIn, fixtures: [] },
   { path: '/account/developer', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },
+  { path: '/admin', users: signedIn, fixtures: ['users'] },
+  { path: '/account/sessions', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },
+  { path: '/account/change-password', users: signedIn, fixtures: [], checks: ['shell', 'appBar'] },
+  { path: '/account/developer', users: signedIn, fixtures: ['api-keys'] },
 ];
