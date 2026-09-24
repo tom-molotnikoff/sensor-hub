@@ -26,7 +26,7 @@ func timeReadingsQuery(t *testing.T, repo database.ReadingsRepository) time.Dura
 	began := time.Now()
 	_, err := repo.GetBetweenDates(context.Background(),
 		start.Format("2006-01-02 15:04:05"), end.Format("2006-01-02 15:04:05"),
-		"seed-sensor-01", "temperature",
+		"Living Room", "temperature",
 		database.AggregationPT1H, database.AggregationFunctionAvg)
 	require.NoError(t, err)
 	return time.Since(began)

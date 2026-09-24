@@ -16,7 +16,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const Version = 1
+const Version = 2
 
 const insertBatchRows = 500
 
@@ -156,12 +156,21 @@ func removeDatabaseFiles(dbPath string) error {
 	return nil
 }
 
+var sensorNames = []string{"Living Room", "Kitchen", "Bedroom", "Office", "Bathroom", "Nursery", "Conservatory", "Study"}
+
+func SensorName(index int) string {
+	if index < len(sensorNames) {
+		return sensorNames[index]
+	}
+	return fmt.Sprintf("Room %d", index+1)
+}
+
 func insertSensors(ctx context.Context, db *sql.DB, count int) ([]int64, error) {
 	ids := make([]int64, 0, count)
 	for i := range count {
 		result, err := db.ExecContext(ctx,
 			"INSERT INTO sensors (name, sensor_driver, config, health_status, health_reason, enabled) VALUES (?, 'sensor-hub-http-temperature', '{}', 'good', 'seeded', 1)",
-			fmt.Sprintf("seed-sensor-%02d", i+1))
+			SensorName(i))
 		if err != nil {
 			return nil, fmt.Errorf("could not insert seed sensor: %w", err)
 		}
@@ -250,7 +259,7 @@ func insertReadings(ctx context.Context, db *sql.DB, shape Shape, sensorIDs, typ
 			}
 			for row := range rows {
 				at := start.Add(time.Duration(row) * step).Round(time.Second)
-				batch = append(batch, sensorID, typeID, seriesValue(typeIndex, row), at.Format("2006-01-02 15:04:05"))
+				batch = append(batch, sensorID, typeID, seriesValue(sensorIndex, typeIndex, row), at.Format("2006-01-02 15:04:05"))
 				written++
 
 				if len(batch) == insertBatchRows*4 {
@@ -292,7 +301,9 @@ func insertStatement(rows int) string {
 	return b.String()
 }
 
-func seriesValue(typeIndex, row int) float64 {
-	base := 10.0 + float64(typeIndex)*10.0
-	return math.Round((base+5.0*math.Sin(float64(row)/64.0))*100) / 100
+func seriesValue(sensorIndex, typeIndex, row int) float64 {
+	base := 10.0 + float64(typeIndex)*10.0 + float64(sensorIndex%4)*1.5 - float64(sensorIndex/4)*1.0
+	amplitude := 5.0 - float64(sensorIndex%3)
+	phase := float64(sensorIndex) * 0.9
+	return math.Round((base+amplitude*math.Sin(float64(row)/64.0+phase))*100) / 100
 }
