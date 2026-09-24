@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { ResponsiveContainer } from 'recharts';
 import { useBounded } from './useBounded';
+import { useBleed } from './inset';
 import { responsivePixels } from './tiers';
 import { chartAreaHeight, type ChartAreaSize } from './theme/tokens';
 
@@ -13,6 +14,7 @@ interface ChartAreaProps {
 
 export default function ChartArea({ size, placeholder, children }: ChartAreaProps) {
   const bounded = useBounded();
+  useBleed(bounded);
   const height = chartAreaHeight[size];
 
   return (

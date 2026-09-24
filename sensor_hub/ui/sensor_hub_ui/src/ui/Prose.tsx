@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { useBounded } from './useBounded';
+import { useInsetApplied } from './inset';
 import { responsivePixels } from './tiers';
 import { theme } from './theme';
 import { density } from './theme/tokens';
@@ -51,6 +52,7 @@ const typography = {
 
 export default function Prose({ children }: ProseProps) {
   const bounded = useBounded();
+  const insetApplied = useInsetApplied();
 
   return (
     <Box
@@ -61,7 +63,7 @@ export default function Prose({ children }: ProseProps) {
           height: '100%',
           minHeight: 0,
           overflow: 'auto',
-          padding: responsivePixels(density.card),
+          padding: insetApplied ? 0 : responsivePixels(density.card),
           boxSizing: 'border-box',
         }),
       }}

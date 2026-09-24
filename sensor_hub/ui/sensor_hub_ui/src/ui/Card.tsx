@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useBounded } from './useBounded';
+import { BleedContext, InsetContext } from './inset';
 import { responsivePixels } from './tiers';
 import { density } from './theme/tokens';
 
@@ -23,6 +24,12 @@ const surface = {
 export default function Card({ title, actions, variant = 'default', id, children }: CardProps) {
   const bounded = useBounded();
   const heading = bounded ? undefined : title;
+  const [bleeds, setBleeds] = useState(0);
+  const registerBleed = useCallback(() => {
+    setBleeds((count) => count + 1);
+    return () => setBleeds((count) => count - 1);
+  }, []);
+  const inset = bounded && bleeds === 0;
 
   return (
     <Box
@@ -60,6 +67,7 @@ export default function Card({ title, actions, variant = 'default', id, children
       )}
       <Box
         data-ui="card-body"
+        data-ui-inset={inset ? 'true' : undefined}
         sx={{
           flex: '1 1 auto',
           minWidth: 0,
@@ -68,14 +76,17 @@ export default function Card({ title, actions, variant = 'default', id, children
             flexDirection: 'column',
             minHeight: 0,
             overflow: 'auto',
+          }),
+          ...(inset && {
             paddingX: responsivePixels(density.card),
             paddingBottom: responsivePixels(density.card),
             paddingTop: heading || actions ? 0 : responsivePixels(density.card),
-            '&:has(> [data-ui=chart-area], > [data-ui=data-table-scroll])': { padding: 0 },
           }),
         }}
       >
-        {children}
+        <BleedContext.Provider value={bounded ? registerBleed : null}>
+          <InsetContext.Provider value={inset}>{children}</InsetContext.Provider>
+        </BleedContext.Provider>
       </Box>
     </Box>
   );

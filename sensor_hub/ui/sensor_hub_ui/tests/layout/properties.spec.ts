@@ -35,7 +35,7 @@ for (const viewport of viewports) {
 test.describe('Properties Overview at 1440x900', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('keeps the header and rail in view when a later group is opened from the rail', async ({ page }) => {
+  test('keeps the header and rail exactly where they start when a later group is opened from the rail', async ({ page }) => {
     const { rail } = await openProperties(page);
     const header = page.locator('[data-ui=sticky-bar]');
     const headerTop = (await header.boundingBox())!.y;
@@ -46,9 +46,7 @@ test.describe('Properties Overview at 1440x900', () => {
     await expect(last).toHaveAttribute('aria-current', 'true');
 
     expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-    expect((await header.boundingBox())!.y).toBeLessThanOrEqual(headerTop);
-    expect((await header.boundingBox())!.y).toBeGreaterThanOrEqual(0);
-    await expect(rail).toBeInViewport();
-    expect((await rail.boundingBox())!.y).toBeLessThanOrEqual(railTop);
+    expect((await header.boundingBox())!.y).toBeCloseTo(headerTop, 0);
+    expect((await rail.boundingBox())!.y).toBeCloseTo(railTop, 0);
   });
 });
