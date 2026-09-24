@@ -327,3 +327,22 @@ func TestGetReadingsBetweenDates_TypedAggregationParams(t *testing.T) {
 	assert.Equal(t, "PT1H", capturedInterval)
 	assert.Equal(t, "count", capturedFunction)
 }
+
+func TestGetReadingsBetweenDates_ClientCancelledIsNotServerError(t *testing.T) {
+	s := &Server{readingsService: &mockReadingsService{
+		ServiceGetBetweenDatesFunc: func(ctx context.Context, startDate, endDate, sensorName, measurementType, overrideInterval, overrideFunction string) (*gen.AggregatedReadingsResponse, error) {
+			return nil, fmt.Errorf("error fetching readings: %w", ctx.Err())
+		},
+	}}
+
+	params := gen.GetReadingsBetweenDatesParams{Start: "2024-01-01", End: "2024-01-04"}
+	router := setupReadingsBetweenRoute(s, params)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest("GET", "/api/readings/between", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, statusClientClosedRequest, w.Code)
+}
