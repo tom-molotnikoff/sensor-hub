@@ -74,7 +74,7 @@ func TestSensor_DeleteAndVerifyGone(t *testing.T) {
 	assert.Equal(t, http.StatusOK, status)
 
 	_, status = client.GetSensorByName("Temp Sensor To Delete")
-	assert.NotEqual(t, http.StatusOK, status)
+	assert.Equal(t, http.StatusNotFound, status)
 }
 
 func TestSensor_NameWithSlashIsAddressable(t *testing.T) {
@@ -96,7 +96,7 @@ func TestSensor_NameWithSlashIsAddressable(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, client.DeleteSensor(name))
 	_, status = client.GetSensorByName(name)
-	assert.NotEqual(t, http.StatusOK, status)
+	assert.Equal(t, http.StatusNotFound, status)
 }
 
 func TestSensor_ConfigReadback(t *testing.T) {

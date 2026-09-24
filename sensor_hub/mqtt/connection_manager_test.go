@@ -314,7 +314,7 @@ func TestConnectionManager_HandleMessage_AutoDiscovery(t *testing.T) {
 	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
 
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, "mqtt-device-1").Return(nil, fmt.Errorf("not found"))
-	mockSensor.On("ServiceGetSensorByName", mock.Anything, "mqtt-device-1").Return(nil, fmt.Errorf("not found"))
+	mockSensor.On("ServiceGetSensorByName", mock.Anything, "mqtt-device-1").Return(nil, nil)
 	mockSensor.On("ServiceSensorExistsByExternalId", mock.Anything, "mqtt-device-1").Return(false, nil)
 	mockSensor.On("ServiceSensorExists", mock.Anything, "mqtt-device-1").Return(false, nil)
 	mockSensor.On("ServiceAddSensor", mock.Anything, mock.MatchedBy(func(s gen.Sensor) bool {
@@ -456,7 +456,7 @@ func TestConnectionManager_HandleMessage_IEEECacheHitRoutesToFriendlySensor(t *t
 	}
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, "front-door").Return(friendly, nil)
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, "0x00158d00018255df").Return(nil, fmt.Errorf("not found"))
-	mockSensor.On("ServiceGetSensorByName", mock.Anything, "0x00158d00018255df").Return(nil, fmt.Errorf("not found"))
+	mockSensor.On("ServiceGetSensorByName", mock.Anything, "0x00158d00018255df").Return(nil, nil)
 	mockSensor.On("ServiceProcessPushReadings", mock.Anything, *friendly, mock.AnythingOfType("[]gen.Reading")).Return(nil)
 
 	cm.handleMessage(context.Background(), 1, "test-push-driver", "zigbee2mqtt/bridge/devices", []byte(`[]`))
@@ -474,7 +474,7 @@ func TestConnectionManager_HandleMessage_IEEECacheMissFallsThroughUnchanged(t *t
 
 	ieeeName := "0x00158d00018255df"
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, ieeeName).Return(nil, fmt.Errorf("not found"))
-	mockSensor.On("ServiceGetSensorByName", mock.Anything, ieeeName).Return(nil, fmt.Errorf("not found"))
+	mockSensor.On("ServiceGetSensorByName", mock.Anything, ieeeName).Return(nil, nil)
 	mockSensor.On("ServiceSensorExistsByExternalId", mock.Anything, ieeeName).Return(false, nil)
 	mockSensor.On("ServiceSensorExists", mock.Anything, ieeeName).Return(false, nil)
 	mockSensor.On("ServiceAddSensor", mock.Anything, mock.MatchedBy(func(sensor gen.Sensor) bool {
@@ -510,7 +510,7 @@ func TestConnectionManager_HandleMessage_RenamesPhantomIEEESensorInPlace(t *test
 	}
 
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, "front-door").Return(nil, fmt.Errorf("not found"))
-	mockSensor.On("ServiceGetSensorByName", mock.Anything, "front-door").Return(nil, fmt.Errorf("not found"))
+	mockSensor.On("ServiceGetSensorByName", mock.Anything, "front-door").Return(nil, nil)
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, ieeeName).Return(phantom, nil)
 	mockSensor.On("ServiceUpdateSensorById", mock.Anything, mock.MatchedBy(func(sensor gen.Sensor) bool {
 		if sensor.Id != phantom.Id || sensor.Name != "front-door" || sensor.ExternalId == nil || *sensor.ExternalId != ieeeName {

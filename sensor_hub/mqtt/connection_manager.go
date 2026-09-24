@@ -393,10 +393,17 @@ func (cm *ConnectionManager) resolveDeviceName(brokerID int, deviceName string) 
 
 func (cm *ConnectionManager) lookupSensorByIdentity(ctx context.Context, deviceName string) (*gen.Sensor, error) {
 	sensor, err := cm.sensorService.ServiceGetSensorByExternalId(ctx, deviceName)
-	if err != nil {
-		sensor, err = cm.sensorService.ServiceGetSensorByName(ctx, deviceName)
+	if err == nil {
+		return sensor, nil
 	}
-	return sensor, err
+	sensor, err = cm.sensorService.ServiceGetSensorByName(ctx, deviceName)
+	if err != nil {
+		return nil, err
+	}
+	if sensor == nil {
+		return nil, fmt.Errorf("no sensor found with external id or name %s", deviceName)
+	}
+	return sensor, nil
 }
 
 func (cm *ConnectionManager) renameResolvedIEEESensor(ctx context.Context, brokerID int, resolvedName string, ieeeName string) (*gen.Sensor, error) {

@@ -390,8 +390,9 @@ func TestZigbee2MQTTBridgeDevices_RenamesPhantomIEEESensorInPlace(t *testing.T) 
 			metadata["ieee_address"] == ieeeName
 	}, 5*time.Second, 100*time.Millisecond)
 
-	_, err = fixture.sensorRepo.GetSensorByName(fixture.ctx, ieeeName)
-	assert.Error(t, err)
+	phantomByIEEE, err := fixture.sensorRepo.GetSensorByName(fixture.ctx, ieeeName)
+	require.NoError(t, err)
+	assert.Nil(t, phantomByIEEE)
 }
 
 func TestZigbee2MQTTBridgeDevices_AutoDiscoversFriendlySensorFromIEEEWithMetadata(t *testing.T) {
