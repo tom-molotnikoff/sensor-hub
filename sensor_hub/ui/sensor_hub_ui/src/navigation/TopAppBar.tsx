@@ -28,6 +28,8 @@ const modes = [
   { mode: 'system', label: 'System' },
 ] as const;
 
+const docsHref = '/docs/';
+
 function TopAppBar({ pageTitle }: TopAppBarProps) {
   const {open, setOpen} = useContext(SidebarContext);
   const {mode, setMode} = useColorScheme();
@@ -85,7 +87,7 @@ function TopAppBar({ pageTitle }: TopAppBarProps) {
       </MenuItem>
     );
     accountMenuItems.push(
-      <MenuItem key="docs" component="a" href="/docs/" onClick={handleAccountClose}>
+      <MenuItem key="docs" component="a" href={docsHref} onClick={handleAccountClose}>
         <ListItemIcon><HelpIcon fontSize="small" /></ListItemIcon>
         Documentation
       </MenuItem>
@@ -129,14 +131,14 @@ function TopAppBar({ pageTitle }: TopAppBarProps) {
       >
         {user && hasPerm(user, 'view_notifications') && <NotificationBell />}
         {wide && (
-          <IconButton color="inherit" aria-label="theme switcher" onClick={handleThemeOpen}>
-            <ModeIcon />
-          </IconButton>
-        )}
-        {wide && (
-          <IconButton color="inherit" aria-label="documentation" component="a" href="/docs/">
-            <HelpIcon />
-          </IconButton>
+          <>
+            <IconButton color="inherit" aria-label="theme switcher" onClick={handleThemeOpen}>
+              <ModeIcon />
+            </IconButton>
+            <IconButton color="inherit" aria-label="documentation" component="a" href={docsHref}>
+              <HelpIcon />
+            </IconButton>
+          </>
         )}
       </AppBar>
       <Menu
