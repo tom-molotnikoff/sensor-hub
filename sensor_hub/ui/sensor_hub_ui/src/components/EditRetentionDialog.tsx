@@ -54,6 +54,7 @@ export default function EditRetentionDialog({ open, onClose, onSaved, sensor, gl
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Re-seed the form whenever the dialog opens for a sensor (adjust-during-render).
   const [prevOpen, setPrevOpen] = useState(open);
   const [prevSensor, setPrevSensor] = useState(sensor);
   if (prevOpen !== open || prevSensor !== sensor) {

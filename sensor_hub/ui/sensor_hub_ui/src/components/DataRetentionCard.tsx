@@ -46,7 +46,7 @@ function DataRetentionCard() {
       <Card title="Sensor Retention Overview">
         <Stack>
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            Global default: {formatRetention(globalRetentionHours)}. Click a sensor to edit its retention policy.
+            Global default: {formatRetention(globalRetentionHours)}. Select a sensor to edit its retention policy.
           </Typography>
           <DataTable
             rows={displaySensors}
@@ -60,7 +60,7 @@ function DataRetentionCard() {
                 flex: 1,
                 minWidth: 140,
                 compact: 'meta',
-                valueGetter: (_value: never, row: Sensor) => (row.retention_hours != null ? 'Custom' : 'Global default'),
+                valueFormatter: (value: number | null) => (value != null ? 'Custom' : 'Global default'),
                 renderCell: ({ row }) => {
                   if (row.retention_hours != null) {
                     return <Chip label={formatRetention(row.retention_hours)} color="primary" size="small" variant="outlined" />;
