@@ -17,10 +17,6 @@ vi.mock('../hooks/useProperties.ts', () => ({
   useProperties: () => properties,
 }));
 
-vi.mock('../hooks/useMobile', () => ({
-  useIsMobile: () => false,
-}));
-
 vi.mock('../ui/theme/chartColours', () => ({
   useChartColours: () => ({
     categorical: ['#D4451A'],

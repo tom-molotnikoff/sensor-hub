@@ -135,11 +135,6 @@
       "count": 9
     }
   },
-  "src/components/EditSensorDetails.tsx": {
-    "ui/no-layout-styles": {
-      "count": 6
-    }
-  },
   "src/components/EditUserDialog.tsx": {
     "ui/no-layout-styles": {
       "count": 2
@@ -264,17 +259,6 @@
       "count": 2
     }
   },
-  "src/components/ReadingsChart.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 5
-    },
-    "ui/no-raw-visuals": {
-      "count": 8
-    }
-  },
   "src/components/RolePermissionsCard.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -294,41 +278,6 @@
   "src/components/SensorHealthHistory.tsx": {
     "ui/no-layout-styles": {
       "count": 17
-    }
-  },
-  "src/components/SensorHealthHistoryChart.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 13
-    },
-    "ui/no-raw-visuals": {
-      "count": 3
-    }
-  },
-  "src/components/SensorHealthHistoryChartCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 5
-    }
-  },
-  "src/components/SensorInfoCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 33
-    }
-  },
-  "src/components/SensorTemperatureDataCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 9
     }
   },
   "src/components/SessionsCard.tsx": {
@@ -646,11 +595,6 @@
     }
   },
   "src/pages/notifications/NotificationsPage.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/pages/sensor/SensorPage.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

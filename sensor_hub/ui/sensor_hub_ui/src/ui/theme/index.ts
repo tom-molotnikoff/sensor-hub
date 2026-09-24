@@ -109,6 +109,15 @@ export const theme = createTheme({
         },
       },
     },
+    MuiDialogContent: {
+      styleOverrides: {
+        root: {
+          '.MuiDialogTitle-root + &': {
+            paddingTop: 8,
+          },
+        },
+      },
+    },
     MuiDialog: {
       styleOverrides: {
         paper: {
