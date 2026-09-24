@@ -77,6 +77,28 @@ func TestSensor_DeleteAndVerifyGone(t *testing.T) {
 	assert.NotEqual(t, http.StatusOK, status)
 }
 
+func TestSensor_NameWithSlashIsAddressable(t *testing.T) {
+	name := "bridge/response/permit_join"
+	sensor := gen.Sensor{
+		Name:         name,
+		SensorDriver: "sensor-hub-http-temperature",
+		Config:       map[string]string{"url": mockSensorURLs[1]},
+	}
+	_, status := client.AddSensor(sensor)
+	require.Equal(t, http.StatusCreated, status)
+
+	got, status := client.GetSensorByName(name)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, name, got.Name)
+
+	assert.Equal(t, http.StatusOK, client.DisableSensor(name))
+	assert.Equal(t, http.StatusOK, client.EnableSensor(name))
+
+	require.Equal(t, http.StatusOK, client.DeleteSensor(name))
+	_, status = client.GetSensorByName(name)
+	assert.NotEqual(t, http.StatusOK, status)
+}
+
 func TestSensor_ConfigReadback(t *testing.T) {
 	sensor := gen.Sensor{
 		Name:         "Config Readback Sensor",

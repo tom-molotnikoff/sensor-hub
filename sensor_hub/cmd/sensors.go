@@ -42,14 +42,27 @@ func init() {
 
 var sensorsListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all sensors",
+	Short: "List active sensors (use --status to see pending, dismissed or all)",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		status, _ := cmd.Flags().GetString("status")
+		switch status {
+		case "active", "pending", "dismissed", "all":
+		default:
+			return fmt.Errorf("invalid --status %q: must be active, pending, dismissed or all", status)
+		}
 		client, ctx, err := newAPIClient(cmd)
 		if err != nil {
 			return err
 		}
-		return consumeJSON(client.GetAllSensors(ctx))
+		if status == "all" {
+			return consumeJSON(client.GetAllSensors(ctx))
+		}
+		return consumeJSON(client.GetSensorsByStatus(ctx, gen.GetSensorsByStatusParamsStatus(status)))
 	},
+}
+
+func init() {
+	sensorsListCmd.Flags().String("status", "active", "Lifecycle status to list: active, pending, dismissed or all")
 }
 
 var sensorsGetCmd = &cobra.Command{
