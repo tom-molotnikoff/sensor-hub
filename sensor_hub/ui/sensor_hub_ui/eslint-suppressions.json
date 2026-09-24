@@ -1,12 +1,4 @@
 {
-  "src/components/ChangePasswordCard.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 10
-    }
-  },
   "src/components/CurrentTemperatures.tsx": {
     "ui/no-layout-styles": {
       "count": 9
@@ -97,14 +89,6 @@
     },
     "ui/no-layout-styles": {
       "count": 4
-    }
-  },
-  "src/components/SessionsCard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "ui/no-layout-styles": {
-      "count": 12
     }
   },
   "src/components/WeatherForecastCard.tsx": {
@@ -380,14 +364,6 @@
   "src/navigation/NavigationSidebar.tsx": {
     "ui/no-layout-styles": {
       "count": 3
-    }
-  },
-  "src/pages/Login.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "ui/no-layout-styles": {
-      "count": 13
     }
   },
   "src/tools/LayoutCard.tsx": {

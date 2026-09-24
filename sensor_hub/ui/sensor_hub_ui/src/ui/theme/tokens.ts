@@ -8,6 +8,8 @@ export const density = {
 
 export type Density = typeof density;
 
+export const standalonePageWidth = 444;
+
 export const emptyStateMinHeight = { sm: 120, md: 200, lg: 300 } as const;
 
 export type EmptyStateSize = keyof typeof emptyStateMinHeight;

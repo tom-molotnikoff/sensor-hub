@@ -40,6 +40,7 @@ var layoutFixtures = map[string]layoutFixture{
 	"notifications":   createLayoutNotifications,
 	"users":           createLayoutExtraUsers,
 	"api-keys":        createLayoutApiKeys,
+	"sessions":        createLayoutSessions,
 }
 
 func StartLayoutServer(ctx context.Context, opts LayoutOptions) (*Env, func(), error) {
@@ -377,6 +378,34 @@ func createLayoutApiKeys(ctx context.Context, env *Env) error {
 			key.name, fmt.Sprintf("shk_%04x", 0xa1b0+index), fmt.Sprintf("layout-fixture-hash-%d", index),
 			key.expires, key.revoked, key.lastUsed, fmt.Sprintf("-%d days", 200-index*10), env.AdminUser); err != nil {
 			return fmt.Errorf("failed to insert api key %s: %w", key.name, err)
+		}
+	}
+	return nil
+}
+
+func createLayoutSessions(ctx context.Context, env *Env) error {
+	devices := []struct{ ip, userAgent string }{
+		{"192.168.1.20", "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148"},
+		{"192.168.1.21", "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148"},
+		{"192.168.1.22", "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36"},
+		{"192.168.1.23", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36"},
+		{"192.168.1.24", "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15"},
+		{"192.168.1.25", "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"},
+		{"10.0.0.5", "sensor-hub-cli/1.4.0"},
+		{"10.0.0.6", "curl/8.9.1"},
+		{"192.168.1.26", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148"},
+		{"192.168.1.27", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0"},
+		{"192.168.1.28", "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 Chrome/139.0 Mobile Safari/537.36"},
+	}
+	for _, username := range []string{env.AdminUser, layoutViewerUser} {
+		for index, device := range devices {
+			if _, err := env.DB.Writer.ExecContext(ctx,
+				`INSERT INTO sessions (user_id, token_hash, created_at, expires_at, last_accessed_at, ip_address, user_agent)
+				 SELECT id, ?, datetime('now', ?), datetime('now', '+30 days'), datetime('now', ?), ?, ? FROM users WHERE username = ?`,
+				fmt.Sprintf("layout-session-%s-%d", username, index), fmt.Sprintf("-%d days", index+1),
+				fmt.Sprintf("-%d hours", index*5), device.ip, device.userAgent, username); err != nil {
+				return fmt.Errorf("failed to insert session for %s: %w", username, err)
+			}
 		}
 	}
 	return nil
