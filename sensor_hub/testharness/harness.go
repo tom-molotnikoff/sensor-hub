@@ -144,6 +144,11 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 	emailCapture := &RecordingEmailNotifier{}
 	thresholdProcessor := alerting.NewThresholdAlertProcessor(alertRepo, &harnessNotifRepoAdapter{notificationRepo}, wsCapture, emailCapture, logger)
 	readingsSampler := service.NewReadingsSampler(readingsRepo, logger)
+	if err := readingsSampler.Sample(context.Background()); err != nil {
+		db.Close()
+		cleanupDir()
+		return nil, func() {}, fmt.Errorf("failed to sample readings row counts: %w", err)
+	}
 	sensorService := service.NewSensorService(sensorRepo, readingsRepo, mtRepo, thresholdProcessor, notificationService, readingsSampler, logger)
 
 	tiers := service.DefaultAggregationTiers

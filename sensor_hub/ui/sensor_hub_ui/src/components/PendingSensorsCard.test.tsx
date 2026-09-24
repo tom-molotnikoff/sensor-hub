@@ -25,30 +25,10 @@ vi.mock('../providers/AuthContext', () => ({
   }),
 }));
 
-vi.mock('../hooks/useMobile', () => ({
-  useIsMobile: () => false,
-}));
-
 vi.mock('../tools/logger', () => ({
   logger: {
     error: vi.fn(),
   },
-}));
-
-vi.mock('@mui/x-data-grid', () => ({
-  DataGrid: ({ rows, columns }: { rows: Array<Record<string, unknown>>; columns: Array<{ field: string; renderCell?: (params: { row: Record<string, unknown>; value: unknown }) => React.ReactNode }> }) => (
-    <div>
-      {rows.map((row) => (
-        <div key={String(row.id)}>
-          {columns.map((column) => (
-            <div key={column.field}>
-              {column.renderCell ? column.renderCell({ row, value: row[column.field] }) : String(row[column.field] ?? '')}
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  ),
 }));
 
 function makeSensor(overrides: Partial<Sensor> = {}): Sensor {
@@ -89,7 +69,7 @@ describe('PendingSensorsCard', () => {
     render(<PendingSensorsCard />);
 
     expect(await screen.findByText('front-door')).toBeInTheDocument();
-    expect(screen.getByText('Aqara MCCGQ11LM')).toBeInTheDocument();
+    expect(screen.getByText('Aqara MCCGQ11LM · zigbee2mqtt')).toBeInTheDocument();
     expect(screen.queryByText('Door/window contact sensor')).not.toBeInTheDocument();
   });
 
@@ -109,6 +89,6 @@ describe('PendingSensorsCard', () => {
 
     expect(await screen.findByText('garage-motion')).toBeInTheDocument();
     expect(screen.queryByText('Motion sensor')).not.toBeInTheDocument();
-    expect(screen.queryByText('Aqara MCCGQ11LM')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Aqara MCCGQ11LM/)).not.toBeInTheDocument();
   });
 });

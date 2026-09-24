@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { GridColDef, GridRowId, GridValidRowModel, GridValueGetter } from '@mui/x-data-grid';
 import type { StatusKey } from '../theme';
 
@@ -51,4 +52,12 @@ export function displayedValue<R extends TableRow>(
   if (value instanceof Date) return column.type === 'date' ? value.toLocaleDateString() : value.toLocaleString();
   if (typeof value === 'number' && column.type === 'number') return value.toLocaleString();
   return String(value);
+}
+
+export interface RowAction {
+  label: string;
+  icon?: ReactNode;
+  color?: 'primary' | 'success' | 'warning' | 'error';
+  disabled?: boolean;
+  onClick: () => void;
 }

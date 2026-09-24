@@ -102,6 +102,12 @@ export const theme = createTheme({
         initialState: { pagination: { paginationModel: { pageSize: 10, page: 0 } } },
         getRowHeight: () => 'auto',
       },
+      styleOverrides: {
+        cell: {
+          paddingTop: 6,
+          paddingBottom: 6,
+        },
+      },
     },
     MuiDialog: {
       styleOverrides: {
