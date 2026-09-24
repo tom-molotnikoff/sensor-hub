@@ -346,6 +346,7 @@ func TestZigbee2MQTTBridgeDevices_RenamesPhantomIEEESensorInPlace(t *testing.T) 
 
 	phantom, err := fixture.sensorRepo.GetSensorByName(fixture.ctx, ieeeName)
 	require.NoError(t, err)
+	require.NotNil(t, phantom)
 
 	mqttClient := fixture.newPublisher(t, fmt.Sprintf("integration-z2m-rename-publisher-%d", port))
 
