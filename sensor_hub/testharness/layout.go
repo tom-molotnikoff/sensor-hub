@@ -111,6 +111,7 @@ func grantViewerReadAccess(ctx context.Context, env *Env) error {
 	if err != nil {
 		return fmt.Errorf("failed to list permissions: %w", err)
 	}
+	granted := 0
 	for _, permission := range permissions {
 		if !slices.Contains(layoutViewerGrants, permission.Name) {
 			continue
@@ -118,6 +119,10 @@ func grantViewerReadAccess(ctx context.Context, env *Env) error {
 		if err := roles.AssignPermissionToRole(ctx, viewerRole, permission.Id); err != nil {
 			return fmt.Errorf("failed to grant %s to viewer: %w", permission.Name, err)
 		}
+		granted++
+	}
+	if granted != len(layoutViewerGrants) {
+		return fmt.Errorf("granted %d of the viewer permissions %v", granted, layoutViewerGrants)
 	}
 	return nil
 }

@@ -21,8 +21,8 @@ function SensorHealthCard() {
           onAction={() => scrollToAndHighlight('add-sensor-form')}
         />
       ) : (
-        <ChartArea size="md">
-          {loaded ? <SensorHealthPieChart sensors={sensors} /> : <CircularDrawLoader />}
+        <ChartArea size="md" placeholder={loaded ? undefined : <CircularDrawLoader />}>
+          <SensorHealthPieChart sensors={sensors} />
         </ChartArea>
       )}
     </Card>

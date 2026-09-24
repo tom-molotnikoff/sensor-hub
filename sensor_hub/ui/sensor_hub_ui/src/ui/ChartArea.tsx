@@ -7,10 +7,11 @@ import { chartAreaHeight, type ChartAreaSize } from './theme/tokens';
 
 interface ChartAreaProps {
   size: ChartAreaSize;
+  placeholder?: ReactNode;
   children?: ReactNode;
 }
 
-export default function ChartArea({ size, children }: ChartAreaProps) {
+export default function ChartArea({ size, placeholder, children }: ChartAreaProps) {
   const bounded = useBounded();
   const height = chartAreaHeight[size];
 
@@ -24,9 +25,11 @@ export default function ChartArea({ size, children }: ChartAreaProps) {
           : { height: responsivePixels(height), minWidth: 0 }
       }
     >
-      <ResponsiveContainer width="100%" height="100%">
-        {children}
-      </ResponsiveContainer>
+      {placeholder ?? (
+        <ResponsiveContainer width="100%" height="100%">
+          {children}
+        </ResponsiveContainer>
+      )}
     </Box>
   );
 }

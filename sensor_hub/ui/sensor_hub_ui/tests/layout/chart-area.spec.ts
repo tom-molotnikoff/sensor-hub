@@ -24,3 +24,21 @@ test.describe('ChartArea in a widget frame', () => {
     });
   }
 });
+
+test.describe('ChartArea while sensors load', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  for (const path of ['/sensors-overview', '/dashboard']) {
+    test(`shows a visible loader on ${path}`, async ({ page }) => {
+      await page.routeWebSocket('**/api/sensors/ws', () => {});
+      await signIn(page, 'admin');
+      await page.goto(path);
+
+      const loaders = page.locator('[data-ui=chart-area] [data-testid=widget-loader] svg');
+      await expect(loaders).toHaveCount(2);
+      for (const box of await loaders.evaluateAll((svgs) => svgs.map((svg) => svg.getBoundingClientRect().height))) {
+        expect(box).toBeGreaterThan(0);
+      }
+    });
+  }
+});

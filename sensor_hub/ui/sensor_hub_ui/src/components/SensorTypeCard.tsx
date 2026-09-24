@@ -20,8 +20,8 @@ function SensorTypeCard() {
           description="Sensor type breakdown will appear here once sensors are added."
         />
       ) : (
-        <ChartArea size="md">
-          {loaded ? <SensorTypePieChart sensors={sensors} drivers={drivers} /> : <CircularDrawLoader />}
+        <ChartArea size="md" placeholder={loaded ? undefined : <CircularDrawLoader />}>
+          <SensorTypePieChart sensors={sensors} drivers={drivers} />
         </ChartArea>
       )}
     </Card>
