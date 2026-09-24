@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Box,
   Button,
   Dialog,
   DialogActions,
@@ -16,6 +15,8 @@ import type { Sensor } from '../gen/aliases';
 import { apiClient } from '../gen/client';
 import { formatRetention } from '../tools/retention';
 import { logger } from '../tools/logger';
+import Inline from '../ui/Inline';
+import Stack from '../ui/Stack';
 
 type RetentionUnit = 'hours' | 'days' | 'weeks';
 
@@ -100,79 +101,67 @@ export default function EditRetentionDialog({ open, onClose, onSaved, sensor, gl
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Edit Data Retention</DialogTitle>
       <DialogContent>
-        <TextField
-          fullWidth
-          label="Sensor"
-          value={sensor?.name || ''}
-          disabled
-          sx={{ mt: 1 }}
-        />
+        <Stack>
+          <TextField
+            fullWidth
+            label="Sensor"
+            value={sensor?.name || ''}
+            disabled
+          />
 
-        <Typography
-          variant="body2"
-          sx={{
-            color: "text.secondary",
-            mt: 2
-          }}>
-          Effective: <strong>{formatRetention(pendingEffectiveHours)}</strong>
-          {' '}(global default: {formatRetention(globalRetentionHours)})
-        </Typography>
-
-        <FormControlLabel
-          control={
-            <Switch
-              checked={useCustom}
-              onChange={(e) => {
-                setUseCustom(e.target.checked);
-                if (!e.target.checked) setValue('');
-              }}
-            />
-          }
-          label="Override global retention"
-          sx={{ mt: 2 }}
-        />
-
-        {useCustom && (
-          <Box
-            sx={{
-              display: "flex",
-              gap: 2,
-              mt: 2
-            }}>
-            <TextField
-              label="Retention"
-              type="number"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              slotProps={{ htmlInput: { min: 1, step: 1 } }}
-              sx={{ flex: 1 }}
-            />
-            <TextField
-              select
-              label="Unit"
-              value={unit}
-              onChange={(e) => {
-                const newUnit = e.target.value as RetentionUnit;
-                if (value) {
-                  const hours = unitToHours(parseFloat(value), unit);
-                  setValue(String(hoursToUnit(hours, newUnit)));
-                }
-                setUnit(newUnit);
-              }}
-              sx={{ minWidth: 120 }}
-            >
-              <MenuItem value="hours">Hours</MenuItem>
-              <MenuItem value="days">Days</MenuItem>
-              <MenuItem value="weeks">Weeks</MenuItem>
-            </TextField>
-          </Box>
-        )}
-
-        {error && (
-          <Typography color="error" variant="body2" sx={{ mt: 2 }}>
-            {error}
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Effective: <strong>{formatRetention(pendingEffectiveHours)}</strong>
+            {' '}(global default: {formatRetention(globalRetentionHours)})
           </Typography>
-        )}
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={useCustom}
+                onChange={(e) => {
+                  setUseCustom(e.target.checked);
+                  if (!e.target.checked) setValue('');
+                }}
+              />
+            }
+            label="Override global retention"
+          />
+
+          {useCustom && (
+            <Inline>
+              <TextField
+                label="Retention"
+                type="number"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                slotProps={{ htmlInput: { min: 1, step: 1 } }}
+              />
+              <TextField
+                select
+                label="Unit"
+                value={unit}
+                onChange={(e) => {
+                  const newUnit = e.target.value as RetentionUnit;
+                  if (value) {
+                    const hours = unitToHours(parseFloat(value), unit);
+                    setValue(String(hoursToUnit(hours, newUnit)));
+                  }
+                  setUnit(newUnit);
+                }}
+              >
+                <MenuItem value="hours">Hours</MenuItem>
+                <MenuItem value="days">Days</MenuItem>
+                <MenuItem value="weeks">Weeks</MenuItem>
+              </TextField>
+            </Inline>
+          )}
+
+          {error && (
+            <Typography color="error" variant="body2">
+              {error}
+            </Typography>
+          )}
+        </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
