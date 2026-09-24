@@ -11,11 +11,7 @@ export default function AllSensorsCard() {
 
   return (
     <SensorsDataGrid
-      cardHeight="500px"
       sensors={sensors}
-      showReason={true}
-      showType={true}
-      showEnabled={true}
       user={user}
       onAddSensor={() => scrollToAndHighlight('add-sensor-form')}
     />

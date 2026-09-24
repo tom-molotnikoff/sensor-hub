@@ -33,6 +33,7 @@ type layoutFixture func(ctx context.Context, env *Env) error
 var layoutFixtures = map[string]layoutFixture{
 	"dashboard":      createLayoutDashboard,
 	"health-history": createLayoutHealthHistory,
+	"sensors":        createLayoutSensors,
 }
 
 func StartLayoutServer(ctx context.Context, opts LayoutOptions) (*Env, func(), error) {
@@ -156,6 +157,29 @@ func createLayoutHealthHistory(ctx context.Context, env *Env) error {
 	if _, err := env.DB.Writer.ExecContext(ctx,
 		"INSERT INTO sensor_health_history (sensor_id, health_status, recorded_at) VALUES (1, 'good', datetime('now', '-29 days'))"); err != nil {
 		return fmt.Errorf("failed to insert health history: %w", err)
+	}
+	return nil
+}
+
+func createLayoutSensors(ctx context.Context, env *Env) error {
+	sensors := []struct {
+		name, driver, health string
+		enabled              bool
+	}{
+		{"attic-bulb", "mqtt-zigbee2mqtt", "good", true},
+		{"back-door-contact", "mqtt-zigbee2mqtt", "bad", true},
+		{"garage-temp", "mqtt-zigbee2mqtt", "unknown", true},
+		{"hallway-motion", "mqtt-zigbee2mqtt", "good", false},
+		{"kitchen-plug", "mqtt-zigbee2mqtt", "good", true},
+		{"loft-hygrometer", "sensor-hub-http-temperature", "bad", false},
+		{"porch-light", "mqtt-zigbee2mqtt", "good", true},
+	}
+	for _, sensor := range sensors {
+		if _, err := env.DB.Writer.ExecContext(ctx,
+			"INSERT INTO sensors (name, sensor_driver, config, health_status, health_reason, enabled) VALUES (?, ?, '{}', ?, 'fixture', ?)",
+			sensor.name, sensor.driver, sensor.health, sensor.enabled); err != nil {
+			return fmt.Errorf("failed to insert sensor %s: %w", sensor.name, err)
+		}
 	}
 	return nil
 }

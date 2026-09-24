@@ -1,4 +1,5 @@
 import { createTheme, type TypographyStyle } from '@mui/material/styles';
+import type {} from '@mui/x-data-grid/themeAugmentation';
 import { breakpointValues, compactMediaQuery, wideMediaQuery, type TierValues } from '../tiers';
 import { chartPalettes, statusPalettes, type ChartPalette, type StatusPalette } from './palette';
 import { density, type Density } from './tokens';
@@ -93,6 +94,13 @@ export const theme = createTheme({
       defaultProps: {
         color: 'primary',
         enableColorOnDark: true,
+      },
+    },
+    MuiDataGrid: {
+      defaultProps: {
+        pageSizeOptions: [5, 10, 25, 50, 100],
+        initialState: { pagination: { paginationModel: { pageSize: 10, page: 0 } } },
+        getRowHeight: () => 'auto',
       },
     },
     MuiDialog: {

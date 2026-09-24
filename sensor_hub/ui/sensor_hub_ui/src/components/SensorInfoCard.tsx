@@ -10,7 +10,7 @@ import type { MeasurementTypeInfo } from '../gen/aliases';
 import type {AuthUser} from "../providers/AuthContext.tsx";
 import {hasPerm} from "../tools/Utils.ts";
 import {TypographyH2} from "../tools/Typography.tsx";
-import type { StatusKey } from "../ui/theme";
+import { healthStatus } from "../tools/healthStatus";
 import {useProperties} from "../hooks/useProperties.ts";
 import {formatRetention} from "../tools/retention.ts";
 import {getDisplayableDeviceInfo} from "../tools/deviceMetadata.ts";
@@ -22,12 +22,6 @@ interface SensorInfoCardProps {
   onEnable?: (name: string) => void
   user: AuthUser;
 }
-
-const healthStatus: Record<Sensor['health_status'], StatusKey> = {
-  good: 'ok',
-  bad: 'bad',
-  unknown: 'unknown',
-};
 
 function InfoField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
