@@ -7,7 +7,6 @@ import {
   DialogTitle,
   TextField,
   Alert,
-  Box,
   Typography,
   IconButton,
   InputAdornment,
@@ -15,6 +14,7 @@ import {
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { apiClient } from '../gen/client';
+import Stack from '../ui/Stack';
 
 type CreateApiKeyResponse = { key?: string; message?: string };
 
@@ -80,8 +80,8 @@ export default function CreateApiKeyDialog({ open, onClose, onCreated }: CreateA
       <DialogTitle>{createdKey ? 'API Key Created' : 'Create API Key'}</DialogTitle>
       <DialogContent>
         {createdKey ? (
-          <Box sx={{ mt: 1 }}>
-            <Alert severity="warning" sx={{ mb: 2 }}>
+          <Stack>
+            <Alert severity="warning">
               Copy this key now — it will not be shown again.
             </Alert>
             <TextField
@@ -104,30 +104,19 @@ export default function CreateApiKeyDialog({ open, onClose, onCreated }: CreateA
               }}
               sx={{ fontFamily: 'monospace' }}
             />
-            <Typography
-              variant="caption"
-              sx={{
-                color: "text.secondary",
-                mt: 1,
-                display: 'block'
-              }}>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               Store this key securely. You won't be able to see it again.
             </Typography>
-          </Box>
+          </Stack>
         ) : (
-          <>
-            {error && (
-              <Alert severity="error" sx={{ mb: 2, mt: 1 }}>
-                {error}
-              </Alert>
-            )}
+          <Stack>
+            {error && <Alert severity="error">{error}</Alert>}
             <TextField
               fullWidth
               label="Key Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. My CLI Key"
-              sx={{ mt: 1 }}
               autoFocus
             />
             <TextField
@@ -136,13 +125,12 @@ export default function CreateApiKeyDialog({ open, onClose, onCreated }: CreateA
               type="datetime-local"
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
-              sx={{ mt: 2 }}
               slotProps={{
                 inputLabel: { shrink: true },
               }}
               helperText="Leave empty for a key that never expires"
             />
-          </>
+          </Stack>
         )}
       </DialogContent>
       <DialogActions>
