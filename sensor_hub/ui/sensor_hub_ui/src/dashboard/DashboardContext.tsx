@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { Dashboard, DashboardConfig, DashboardWidget, CreateDashboardRequest } from '../gen/aliases';
 
-interface DashboardContextValue {
+export interface DashboardContextValue {
     dashboards: Dashboard[];
     activeDashboard: Dashboard | null;
     config: DashboardConfig;

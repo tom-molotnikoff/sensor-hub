@@ -1,74 +1,24 @@
 import { expect, test, type Page } from '@playwright/test';
+import {
+  copyLayoutDashboard,
+  dashboardId,
+  gridMargin as margin,
+  recordDashboardWrites,
+  renderedGrid,
+  renderedLayouts,
+  storedLayouts,
+} from './dashboards';
 import { signIn } from './users';
 
-const columns = 12;
-const margin = 16;
-const rowHeight = 80;
-
-interface GridLayout {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-interface StoredDashboard {
-  id: number;
-  name: string;
-  config: string;
-}
-
-async function storedLayouts(page: Page, id: number): Promise<Record<string, GridLayout>> {
-  const response = await page.request.get(`/api/dashboards/${id}`);
-  expect(response.status()).toBe(200);
-  const dashboard = (await response.json()) as StoredDashboard;
-  const widgets = (JSON.parse(dashboard.config) as { widgets: { id: string; layout: GridLayout }[] }).widgets;
-  return Object.fromEntries(widgets.map((widget) => [widget.id, widget.layout]));
-}
-
-async function dashboardId(page: Page, name: string) {
-  const response = await page.request.get('/api/dashboards');
-  const dashboards = (await response.json()) as StoredDashboard[];
-  return dashboards.find((dashboard) => dashboard.name === name)!.id;
-}
-
-async function renderedGrid(page: Page) {
-  return page.locator('.react-grid-layout').evaluate(
-    (grid, { columns, margin, rowHeight }) => {
-      const container = grid.getBoundingClientRect();
-      const columnWidth = (container.width - margin * (columns - 1) - margin * 2) / columns;
-      const items = [...grid.querySelectorAll<HTMLElement>('[data-widget-id]')].map((item) => {
-        const box = item.getBoundingClientRect();
-        return {
-          id: item.dataset.widgetId!,
-          width: box.width,
-          layout: {
-            x: Math.round((box.left - container.left - margin) / (columnWidth + margin)),
-            y: Math.round((box.top - container.top - margin) / (rowHeight + margin)),
-            w: Math.round((box.width + margin) / (columnWidth + margin)),
-            h: Math.round((box.height + margin) / (rowHeight + margin)),
-          },
-        };
-      });
-      return { columnWidth, items };
-    },
-    { columns, margin, rowHeight },
-  );
-}
-
-async function renderedLayouts(page: Page) {
-  const { items } = await renderedGrid(page);
-  return Object.fromEntries(items.map((item) => [item.id, item.layout]));
-}
-
-async function openDashboard(page: Page, id?: number) {
-  await signIn(page, 'admin');
-  if (id !== undefined) {
-    await page.addInitScript((value) => localStorage.setItem('sensor-hub-active-dashboard-id', value), String(id));
-  }
+async function showDashboard(page: Page) {
   await page.goto('/dashboard');
   await page.waitForLoadState('networkidle');
   await expect(page.locator('[data-widget-id]').first()).toBeVisible();
+}
+
+async function openDashboard(page: Page) {
+  await signIn(page, 'admin');
+  await showDashboard(page);
 }
 
 test.describe('Wide dashboard', () => {
@@ -89,10 +39,7 @@ test.describe('Wide dashboard', () => {
   });
 
   test('resizing the window outside edit mode keeps the stored layout and writes nothing', async ({ page }) => {
-    const writes: string[] = [];
-    page.on('request', (request) => {
-      if (request.method() !== 'GET' && request.url().includes('/api/dashboards')) writes.push(`${request.method()} ${request.url()}`);
-    });
+    const writes = recordDashboardWrites(page);
     await openDashboard(page);
     const stored = await storedLayouts(page, await dashboardId(page, 'Layout'));
 
@@ -105,24 +52,8 @@ test.describe('Wide dashboard', () => {
   });
 
   test('resizing a widget in edit mode saves the 12-column layout shown on screen', async ({ page }) => {
-    const csrf = { 'X-CSRF-Token': (await signIn(page, 'admin'))! };
-    const fixture = await storedLayouts(page, await dashboardId(page, 'Layout'));
-    const created = await page.request.post('/api/dashboards', {
-      headers: csrf,
-      data: {
-        name: `Resize ${test.info().workerIndex}-${Date.now()}`,
-        config: {
-          widgets: [
-            { id: 'uptime', type: 'uptime', config: { sensorId: 1 }, layout: fixture['uptime'] },
-            { id: 'sensor-health-pie', type: 'sensor-health-pie', config: {}, layout: fixture['sensor-health-pie'] },
-          ],
-        },
-      },
-    });
-    expect(created.status()).toBe(201);
-    const { id } = (await created.json()) as { id: number };
-
-    await openDashboard(page, id);
+    const copy = await copyLayoutDashboard(page, (widget) => ['uptime', 'sensor-health-pie'].includes(widget.id));
+    await showDashboard(page);
     await page.getByRole('button', { name: 'Edit dashboard' }).click();
 
     const handle = page.locator('[data-widget-id=uptime] .react-resizable-handle').first();
@@ -138,7 +69,7 @@ test.describe('Wide dashboard', () => {
     await page.getByRole('button', { name: 'Save' }).click();
     await page.waitForLoadState('networkidle');
 
-    await expect.poll(() => storedLayouts(page, id)).toEqual(shown);
-    await page.request.delete(`/api/dashboards/${id}`, { headers: csrf });
+    await expect.poll(() => storedLayouts(page, copy.id)).toEqual(shown);
+    await copy.remove();
   });
 });

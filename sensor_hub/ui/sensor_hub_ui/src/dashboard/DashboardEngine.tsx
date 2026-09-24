@@ -1,4 +1,6 @@
 import { useCallback, useMemo } from 'react';
+import { Alert, Button } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import { GridLayout, useContainerWidth, type Layout, type LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -16,6 +18,7 @@ interface DashboardEngineProps {
     onLayoutChange: (widgets: DashboardWidget[]) => void;
     onRemoveWidget: (id: string) => void;
     onConfigureWidget: (id: string) => void;
+    onAddWidget: () => void;
 }
 
 export default function DashboardEngine(props: DashboardEngineProps) {
@@ -26,11 +29,16 @@ function readingOrder(a: DashboardWidget, b: DashboardWidget) {
     return a.layout.y - b.layout.y || a.layout.x - b.layout.x;
 }
 
-function CompactDashboard({ config, isEditing, onRemoveWidget, onConfigureWidget }: DashboardEngineProps) {
+function CompactDashboard({ config, isEditing, onRemoveWidget, onConfigureWidget, onAddWidget }: DashboardEngineProps) {
     const widgets = useMemo(() => [...config.widgets].sort(readingOrder), [config.widgets]);
 
     return (
         <Stack>
+            {isEditing && (
+                <Alert severity="info">
+                    Editing on a phone: add, configure and remove widgets. Arrange the layout on a wider screen.
+                </Alert>
+            )}
             {widgets.map((widget) => (
                 <DashboardSlot key={widget.id} height={getWidget(widget.type)?.compactHeight ?? 'content'}>
                     <WidgetFrame
@@ -42,6 +50,11 @@ function CompactDashboard({ config, isEditing, onRemoveWidget, onConfigureWidget
                     />
                 </DashboardSlot>
             ))}
+            {isEditing && (
+                <Button variant="outlined" fullWidth startIcon={<AddIcon />} onClick={onAddWidget}>
+                    Add widget
+                </Button>
+            )}
         </Stack>
     );
 }

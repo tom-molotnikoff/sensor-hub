@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { recordDashboardWrites } from './dashboards';
 import { signIn } from './users';
 
 async function openDashboard(page: Page) {
@@ -83,10 +84,7 @@ test.describe('Dashboard at 390x844', () => {
 
   test('sends no write request for a minute outside edit mode', async ({ page }) => {
     await page.clock.install();
-    const writes: string[] = [];
-    page.on('request', (request) => {
-      if (request.method() !== 'GET' && request.url().includes('/api/dashboards')) writes.push(`${request.method()} ${request.url()}`);
-    });
+    const writes = recordDashboardWrites(page);
     await openDashboard(page);
     await page.clock.runFor(60_000);
     await page.waitForLoadState('networkidle');

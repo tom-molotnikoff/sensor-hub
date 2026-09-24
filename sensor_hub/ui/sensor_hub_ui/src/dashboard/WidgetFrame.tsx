@@ -114,6 +114,11 @@ export default function WidgetFrame({ widget, isEditing, draggable, onRemove, on
         return (
             <Paper data-widget-state="error" sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Typography color="error">Unknown widget: {widget.type}</Typography>
+                {isEditing && (
+                    <IconButton size="small" aria-label="Remove widget" onClick={() => onRemove(widget.id)}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                )}
             </Paper>
         );
     }
@@ -171,11 +176,11 @@ export default function WidgetFrame({ widget, isEditing, draggable, onRemove, on
                         {isEditing && (
                             <>
                                 {hasConfig && (
-                                    <IconButton size="small" onClick={() => onConfigure(widget.id)}>
+                                    <IconButton size="small" aria-label="Configure widget" onClick={() => onConfigure(widget.id)}>
                                         <SettingsIcon fontSize="small" />
                                     </IconButton>
                                 )}
-                                <IconButton size="small" onClick={() => onRemove(widget.id)}>
+                                <IconButton size="small" aria-label="Remove widget" onClick={() => onRemove(widget.id)}>
                                     <CloseIcon fontSize="small" />
                                 </IconButton>
                             </>

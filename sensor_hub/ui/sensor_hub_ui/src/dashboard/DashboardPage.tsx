@@ -115,6 +115,7 @@ function DashboardPageInner() {
                     onLayoutChange={updateWidgets}
                     onRemoveWidget={removeWidget}
                     onConfigureWidget={(id) => setConfigWidgetId(id)}
+                    onAddWidget={() => setPickerOpen(true)}
                 />
             )}
 
