@@ -10,6 +10,7 @@ import Card from './Card';
 import DashboardCanvas from './DashboardCanvas';
 import DashboardSlot from './DashboardSlot';
 import ChartArea from './ChartArea';
+import ChartTooltip from './ChartTooltip';
 import DataTable from './DataTable';
 import EmptyState from './EmptyState';
 import Frame from './Frame';
@@ -133,6 +134,58 @@ describe('ChartArea', () => {
     const area = container.querySelector('[data-ui=chart-area]')!;
     expect(area).not.toHaveAttribute('data-ui-min-height');
     expect(area).toHaveStyle({ height: '100%' });
+  });
+});
+
+describe('ChartTooltip', () => {
+  const pointTime = new Date(2026, 8, 24, 17, 20).toISOString();
+  const payload = [
+    { name: 'Bathroom', value: 9.96, color: '#ED5125', graphicalItemId: 'bathroom' },
+    { name: 'Bedroom', value: 15.67, color: '#4FC3F7', graphicalItemId: 'bedroom' },
+  ];
+
+  it('renders nothing while inactive', () => {
+    const { container } = renderUi(<ChartTooltip active={false} payload={payload} label={pointTime} />);
+
+    expect(container.querySelector('[data-ui=chart-tooltip]')).toBeNull();
+  });
+
+  it('heads the tooltip with the point time in the locale instead of an ISO string', () => {
+    renderUi(<ChartTooltip active payload={payload} label={pointTime} />);
+
+    const time = screen.getByText((_, element) => element?.getAttribute('data-ui') === 'chart-tooltip-time');
+    expect(time.textContent).toMatch(/Thu/);
+    expect(time.textContent).toMatch(/Sep/);
+    expect(time.textContent).toMatch(/24/);
+    expect(time.textContent).toMatch(/20/);
+    expect(time.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+  });
+
+  it('gives each series a swatch in its colour, its name and a right-aligned tabular value', () => {
+    const { container } = renderUi(<ChartTooltip active payload={payload} label={pointTime} />);
+
+    const rows = Array.from(container.querySelectorAll('[data-ui=chart-tooltip-row]'));
+    expect(rows.map((row) => row.textContent)).toEqual(['Bathroom9.96', 'Bedroom15.67']);
+    expect(rows[0].querySelector('[data-ui=chart-tooltip-swatch]')).toHaveStyle({ backgroundColor: 'rgb(237, 81, 37)' });
+    expect(rows[1].querySelector('[data-ui=chart-tooltip-swatch]')).toHaveStyle({ backgroundColor: 'rgb(79, 195, 247)' });
+    expect(rows[0].querySelector('[data-ui=chart-tooltip-value]')).toHaveStyle({
+      marginLeft: 'auto',
+      fontVariantNumeric: 'tabular-nums',
+    });
+  });
+
+  it('shows the value and name a formatter returns and drops rows it returns nothing for', () => {
+    const { container } = renderUi(
+      <ChartTooltip
+        active
+        payload={payload}
+        label={pointTime}
+        formatter={(value, name) => (name === 'Bathroom' ? [`${value} °C`, 'Bath'] : null)}
+      />,
+    );
+
+    const rows = Array.from(container.querySelectorAll('[data-ui=chart-tooltip-row]'));
+    expect(rows.map((row) => row.textContent)).toEqual(['Bath9.96 °C']);
   });
 });
 

@@ -20,6 +20,8 @@ const Version = 2
 
 const insertBatchRows = 500
 
+const readingTimeLayout = "2006-01-02 15:04:05"
+
 type Shape struct {
 	Sensors          int
 	MeasurementTypes int
@@ -144,7 +146,34 @@ func IsCurrent(dbPath string, shape Shape) bool {
 		return false
 	}
 	version, stored, err := StoredStamp(dbPath)
-	return err == nil && version == Version && stored == shape
+	if err != nil || version != Version || stored != shape {
+		return false
+	}
+	newest, err := NewestReading(dbPath)
+	return err == nil && !newest.Before(startOfDay(time.Now()))
+}
+
+func NewestReading(dbPath string) (time.Time, error) {
+	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?_pragma=query_only(1)", dbPath))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("could not open seed database: %w", err)
+	}
+	defer db.Close()
+
+	var latest string
+	if err := db.QueryRow("SELECT MAX(time) FROM readings").Scan(&latest); err != nil {
+		return time.Time{}, fmt.Errorf("could not read the newest seed reading: %w", err)
+	}
+	newest, err := time.Parse(readingTimeLayout, latest)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("could not parse the newest seed reading time %q: %w", latest, err)
+	}
+	return newest, nil
+}
+
+func startOfDay(now time.Time) time.Time {
+	year, month, day := now.Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, now.Location())
 }
 
 func removeDatabaseFiles(dbPath string) error {
@@ -259,7 +288,7 @@ func insertReadings(ctx context.Context, db *sql.DB, shape Shape, sensorIDs, typ
 			}
 			for row := range rows {
 				at := start.Add(time.Duration(row) * step).Round(time.Second)
-				batch = append(batch, sensorID, typeID, seriesValue(sensorIndex, typeIndex, row), at.Format("2006-01-02 15:04:05"))
+				batch = append(batch, sensorID, typeID, seriesValue(sensorIndex, typeIndex, row), at.Format(readingTimeLayout))
 				written++
 
 				if len(batch) == insertBatchRows*4 {

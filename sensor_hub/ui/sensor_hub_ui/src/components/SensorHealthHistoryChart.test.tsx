@@ -1,4 +1,6 @@
+import type { ComponentType } from 'react';
 import { render, screen } from '@testing-library/react';
+import type { TooltipContentProps } from 'recharts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sensor, SensorHealthHistory } from '../gen/aliases';
 import SensorHealthHistoryChart from './SensorHealthHistoryChart';
@@ -42,7 +44,17 @@ vi.mock('recharts', () => ({
   CartesianGrid: () => null,
   Legend: () => null,
   Line: () => null,
-  Tooltip: () => null,
+  Tooltip: ({ content: Content, formatter }: Pick<TooltipContentProps, 'formatter'> & { content: ComponentType<Partial<TooltipContentProps>> }) => (
+    <Content
+      active
+      label="2026-05-09T11:00:00Z"
+      formatter={formatter}
+      payload={[
+        { name: 'healthValue', value: 1, color: 'transparent', graphicalItemId: 'health' },
+        { name: 'Bad', value: 1, color: '#f00', graphicalItemId: 'bad' },
+      ]}
+    />
+  ),
   XAxis: () => null,
   YAxis: () => null,
   Area: () => null,
@@ -122,5 +134,14 @@ describe('SensorHealthHistoryChart', () => {
     expect(screen.getByText('Current bad')).toBeInTheDocument();
     expect(screen.getByText('Last change 1h ago')).toBeInTheDocument();
     expect(screen.getByText('Good 1h · Bad 1h · Unknown 22h')).toBeInTheDocument();
+  });
+
+  it('labels the health row of its tooltip with the status name', () => {
+    useSensorHealthHistoryMock.mockReturnValue([[makeHistory({ health_status: 'bad' })], vi.fn()]);
+
+    const { container } = render(<SensorHealthHistoryChart sensor={makeSensor()} />);
+
+    const rows = Array.from(container.querySelectorAll('[data-ui=chart-tooltip-row]'));
+    expect(rows.map((row) => row.textContent)).toEqual(['Healthbad', 'Bad1']);
   });
 });

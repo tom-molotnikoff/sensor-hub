@@ -22,6 +22,7 @@ import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
 import { useChartColours } from "../ui/theme/chartColours";
 import { theme } from "../ui/theme";
 import ChartArea from "../ui/ChartArea";
+import ChartTooltip from "../ui/ChartTooltip";
 import { WidgetSwap, SignalTraceLoader } from "../ui/loaders";
 
 const ReadingsChart = React.memo(function ReadingsChart({
@@ -152,7 +153,7 @@ const ReadingsChart = React.memo(function ReadingsChart({
           tick={{ fontSize: theme.typography.caption.fontSize }}
           label={yAxisLabel}
         />
-        <Tooltip />
+        <Tooltip content={ChartTooltip} />
         <Legend onClick={legendClickHandler} />
         {activeSensors.map((sensor, index) => (
           <Line

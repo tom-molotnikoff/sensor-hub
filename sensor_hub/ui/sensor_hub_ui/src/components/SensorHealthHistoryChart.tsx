@@ -16,6 +16,7 @@ import {
 import { useChartColours } from "../ui/theme/chartColours";
 import { theme } from "../ui/theme";
 import ChartArea from "../ui/ChartArea";
+import ChartTooltip from "../ui/ChartTooltip";
 import Inline from "../ui/Inline";
 import Stack from "../ui/Stack";
 import EmptyState from "../ui/EmptyState";
@@ -162,14 +163,10 @@ function SensorHealthHistoryChart({sensor}: SensorHealthHistoryChartProps) {
               width={80}
             />
             <Tooltip
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              formatter={(value: any, name: any) => {
+              content={ChartTooltip}
+              formatter={(value, name) => {
                 if (name === 'healthValue') return [valueToLabel(Number(value)), 'Health'];
                 return [value, name];
-              }}
-              labelFormatter={(label) => {
-                if (!label || (typeof label !== 'string' && typeof label !== 'number')) return '';
-                return new Date(label).toLocaleString();
               }}
             />
             <Area

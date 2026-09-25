@@ -16,6 +16,7 @@ import {
 import { useChartColours } from '../../ui/theme/chartColours';
 import { theme } from '../../ui/theme';
 import ChartArea from '../../ui/ChartArea';
+import ChartTooltip from '../../ui/ChartTooltip';
 import EmptyState from '../../ui/EmptyState';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { resolveTimeRange } from '../timeRange';
@@ -101,7 +102,7 @@ export default function ComparisonChartWidget({ config }: WidgetProps) {
                     minTickGap={50}
                 />
                 <YAxis label={yAxisLabel} />
-                <Tooltip />
+                <Tooltip content={ChartTooltip} />
                 <Legend />
                 {filteredSensors.map((sensor, index) => (
                     <Line

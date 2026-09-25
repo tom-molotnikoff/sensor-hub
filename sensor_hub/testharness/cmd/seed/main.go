@@ -33,7 +33,7 @@ func main() {
 	shape.Readings = *readings
 
 	if !*force && seed.IsCurrent(*out, shape) {
-		logger.Info("seed database already at the current version and shape", "path", *out, "version", seed.Version)
+		logger.Info("seed database already current: same version and shape, with readings up to today", "path", *out, "version", seed.Version)
 		return
 	}
 
