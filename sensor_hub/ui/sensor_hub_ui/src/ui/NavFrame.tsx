@@ -16,6 +16,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import { navDrawer, navPermanent } from './theme/tokens';
+import { charcoalSurface } from './charcoalSurface';
 
 type NavFrameVariant = { variant: 'permanent' } | { variant: 'temporary'; open: boolean; onClose: () => void };
 
@@ -33,7 +34,7 @@ const avatarSize = 32;
 const skeletonRowHeight = 32;
 const indicatorWidth = 3;
 
-const paperSx = { bgcolor: 'nav.bg', backgroundImage: 'none', borderRight: 0 } as const;
+const paperSx = { ...charcoalSurface.paint, borderRight: 0 } as const;
 
 export default function NavFrame({ logo, name, brandAction, navRef, foot, children, ...frame }: NavFrameProps) {
   const temporary = frame.variant === 'temporary';
@@ -59,8 +60,8 @@ export default function NavFrame({ logo, name, brandAction, navRef, foot, childr
         ref={navRef}
         component="nav"
         aria-label="Main"
-        className="dark"
-        sx={{ display: 'flex', flexDirection: 'column', flex: '1 0 auto', color: 'nav.text' }}
+        className={charcoalSurface.content.className}
+        sx={[charcoalSurface.content.sx, { display: 'flex', flexDirection: 'column', flex: '1 0 auto' }]}
       >
         <Box
           data-ui="nav-brand"
@@ -71,7 +72,6 @@ export default function NavFrame({ logo, name, brandAction, navRef, foot, childr
             paddingLeft: 2,
             paddingRight: 1,
             paddingY: 1.5,
-            '& .MuiIconButton-root:hover': { bgcolor: 'nav.hover' },
           }}
         >
           <Box component="img" src={logo} alt="" sx={{ width: logoSize, height: logoSize, flexShrink: 0 }} />
