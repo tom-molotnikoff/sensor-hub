@@ -155,7 +155,7 @@ for (const viewport of wideViewports) {
   });
 }
 
-const navBoxWidth = async (nav: Locator) => (await nav.boundingBox())!.width;
+const navBoxWidth = async (nav: Locator) => (await nav.boundingBox())?.width;
 
 const savedNav = (page: Page) => page.evaluate((key) => localStorage.getItem(key), navCollapsedKey);
 
