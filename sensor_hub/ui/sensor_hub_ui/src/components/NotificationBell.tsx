@@ -51,7 +51,11 @@ function formatTimeAgo(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-export default function NotificationBell() {
+interface NotificationBellProps {
+  panelBeside?: HTMLElement | null;
+}
+
+export default function NotificationBell({ panelBeside }: NotificationBellProps) {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const { notifications, unreadCount, loading, markAsRead } = useNotifications();
@@ -89,7 +93,8 @@ export default function NotificationBell() {
         </Badge>
       </IconButton>
       <MenuPanel
-        anchorEl={anchorEl}
+        anchorEl={anchorEl && (panelBeside ?? anchorEl)}
+        placement={panelBeside ? 'beside-top' : undefined}
         onClose={handleClose}
         title="Notifications"
         meta={unreadCount > 0 ? `${unreadCount} unread` : undefined}

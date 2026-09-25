@@ -4,24 +4,18 @@ import MenuIcon from '@mui/icons-material/Menu';
 
 interface AppBarProps {
   title: string;
-  brand?: string;
   onMenuClick: () => void;
   account: { initial: string; onClick: (event: MouseEvent<HTMLElement>) => void };
   children?: ReactNode;
 }
 
-export default function AppBar({ title, brand, onMenuClick, account, children }: AppBarProps) {
+export default function AppBar({ title, onMenuClick, account, children }: AppBarProps) {
   return (
     <MuiAppBar position="sticky" data-ui="app-bar">
       <Toolbar sx={{ gap: 1 }}>
         <IconButton edge="start" color="inherit" aria-label="menu" onClick={onMenuClick} sx={{ marginRight: 1 }}>
           <MenuIcon />
         </IconButton>
-        {brand && (
-          <Typography variant="pageTitle" component="div" color="inherit" noWrap sx={{ flexShrink: 0 }}>
-            {brand}
-          </Typography>
-        )}
         <Typography
           variant="pageTitle"
           color="inherit"

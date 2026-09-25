@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from './test';
-import { viewports } from './checks';
+import { contractViewports, narrowWide, viewports, wideViewports } from './checks';
 import { signIn } from './users';
 
 const navBackground = { light: 'rgb(33, 30, 27)', dark: 'rgb(18, 18, 18)' } as const;
@@ -21,7 +21,7 @@ async function openNav(page: Page, path: string) {
   await signIn(page, 'admin');
   await page.goto(path);
   await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: 'menu' }).click();
+  if (page.viewportSize()!.width < narrowWide.width) await page.getByRole('button', { name: 'menu' }).click();
   const nav = page.getByRole('navigation', { name: 'Main' });
   await expect(nav).toBeVisible();
   return nav;
@@ -49,7 +49,7 @@ for (const viewport of viewports) {
     test.describe(`nav at ${viewport.width}x${viewport.height} in ${colorScheme}`, () => {
       test.use({ viewport: { width: viewport.width, height: viewport.height }, colorScheme });
 
-      test('is a charcoal drawer that leaves part of the page visible', async ({ page }) => {
+      test('is charcoal and leaves part of the page visible', async ({ page }) => {
         const nav = await openNav(page, '/dashboard');
 
         expect(await paintedBackground(nav), 'nav background').toEqual({ color: navBackground[colorScheme], image: 'none' });
@@ -59,6 +59,53 @@ for (const viewport of viewports) {
       });
     });
   }
+}
+
+for (const viewport of wideViewports) {
+  test.describe(`permanent nav at ${viewport.width}x${viewport.height}`, () => {
+    test.use({ viewport: { width: viewport.width, height: viewport.height }, colorScheme: 'light' });
+
+    test('sits expanded beside the page without any click', async ({ page }) => {
+      const nav = await openNav(page, '/dashboard');
+
+      const [navBox, pageBox] = [await nav.boundingBox(), await page.locator('[data-ui=page]').boundingBox()];
+      expect(navBox, 'nav box').toMatchObject({ x: 0, y: 0, width: 256, height: viewport.height });
+      expect(pageBox!.x, 'page left edge').toBeGreaterThanOrEqual(navBox!.width);
+      await expect(page.locator('[data-ui=app-bar]')).toHaveCount(0);
+    });
+
+    test('shows the logo, the name and the bell with the unread count, left to right', async ({ page }) => {
+      const nav = await openNav(page, '/dashboard');
+      const brand = nav.locator('[data-ui=nav-brand]');
+
+      const logo = brand.locator('img');
+      await expect(logo).toHaveAttribute('src', '/sensor_hub.svg');
+      expect(await logo.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0), 'logo loaded').toBe(true);
+      const name = brand.getByText('Sensor Hub', { exact: true });
+      const bell = brand.getByRole('button', { name: 'notifications', exact: true });
+      const [logoBox, nameBox, bellBox] = [await logo.boundingBox(), await name.boundingBox(), await bell.boundingBox()];
+      expect(logoBox!.x + logoBox!.width, 'logo before the name').toBeLessThanOrEqual(nameBox!.x);
+      expect(nameBox!.x + nameBox!.width, 'name before the bell').toBeLessThanOrEqual(bellBox!.x);
+      await expect(bell.locator('.MuiBadge-badge'), 'unread count').toHaveText(/^[1-9]\d*$/);
+      await expect(brand.getByRole('button', { name: 'close navigation' })).toHaveCount(0);
+    });
+
+    test('opens the bell panel to the right of the nav and inside the viewport', async ({ page }) => {
+      const nav = await openNav(page, '/dashboard');
+      const navBox = await nav.boundingBox();
+
+      await nav.getByRole('button', { name: 'notifications', exact: true }).click();
+
+      const paper = page.locator('[data-ui=menu-panel] .MuiPaper-root');
+      await expect(paper).toHaveCSS('opacity', '1');
+      const panelBox = await paper.boundingBox();
+      expect(panelBox!.x, 'panel left edge right of the nav').toBeGreaterThanOrEqual(navBox!.x + navBox!.width);
+      expect(panelBox!.y, 'panel top edge').toBeGreaterThanOrEqual(0);
+      expect(panelBox!.x + panelBox!.width, 'panel right edge').toBeLessThanOrEqual(viewport.width);
+      expect(panelBox!.y + panelBox!.height, 'panel bottom edge').toBeLessThanOrEqual(viewport.height);
+      await expect(page.getByRole('menu').getByText('Notifications', { exact: true })).toBeVisible();
+    });
+  });
 }
 
 test.describe('nav at 390x844', () => {
@@ -132,7 +179,7 @@ async function openAccountMenu(page: Page) {
   return { block, menu };
 }
 
-for (const viewport of viewports) {
+for (const viewport of contractViewports) {
   test.describe(`nav account menu at ${viewport.width}x${viewport.height}`, () => {
     test.use({ viewport: { width: viewport.width, height: viewport.height }, colorScheme: 'light' });
 

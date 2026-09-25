@@ -13,13 +13,13 @@ describe('theme', () => {
   });
 
   it.each([
-    ['pageTitle', '18px', '20px', 500],
-    ['cardTitle', '18px', '20px', 600],
-  ] as const)('sizes %s by tier', (variant, compact, wide, weight) => {
+    ['pageTitle', ['18px', 500], ['24px', 600]],
+    ['cardTitle', ['18px', 600], ['20px', 600]],
+  ] as const)('sizes %s by tier', (variant, [compactSize, compactWeight], [wideSize, wideWeight]) => {
     expect(theme.typography[variant]).toMatchObject({
-      fontSize: compact,
-      fontWeight: weight,
-      [wideMediaQuery]: { fontSize: wide },
+      fontSize: compactSize,
+      fontWeight: compactWeight,
+      [wideMediaQuery]: { fontSize: wideSize, fontWeight: wideWeight },
     });
   });
 

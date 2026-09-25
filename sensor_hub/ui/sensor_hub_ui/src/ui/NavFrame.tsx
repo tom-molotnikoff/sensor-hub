@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactNode } from 'react';
+import type { MouseEvent, ReactNode, Ref } from 'react';
 import {
   Avatar,
   Box,
@@ -15,40 +15,48 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
-import { navDrawer } from './theme/tokens';
+import { navDrawer, navPermanent } from './theme/tokens';
 
-interface NavFrameProps {
-  open: boolean;
-  onClose: () => void;
+type NavFrameVariant = { variant: 'permanent' } | { variant: 'temporary'; open: boolean; onClose: () => void };
+
+type NavFrameProps = NavFrameVariant & {
   logo: string;
   name: string;
+  brandAction?: ReactNode;
+  navRef?: Ref<HTMLElement>;
   foot?: ReactNode;
   children?: ReactNode;
-}
+};
 
 const logoSize = 32;
 const avatarSize = 32;
 const skeletonRowHeight = 32;
 const indicatorWidth = 3;
 
-export default function NavFrame({ open, onClose, logo, name, foot, children }: NavFrameProps) {
-  return (
-    <Drawer
-      variant="temporary"
-      open={open}
-      onClose={onClose}
-      ModalProps={{ keepMounted: false }}
-      slotProps={{
-        paper: {
-          sx: {
-            width: `min(${navDrawer.width}px, calc(100vw - ${navDrawer.pageVisible}px))`,
-            bgcolor: 'nav.bg',
-            backgroundImage: 'none',
-          },
+const paperSx = { bgcolor: 'nav.bg', backgroundImage: 'none', borderRight: 0 } as const;
+
+export default function NavFrame({ logo, name, brandAction, navRef, foot, children, ...frame }: NavFrameProps) {
+  const temporary = frame.variant === 'temporary';
+  const drawerProps = temporary
+    ? {
+        variant: 'temporary' as const,
+        open: frame.open,
+        onClose: frame.onClose,
+        ModalProps: { keepMounted: false },
+        slotProps: {
+          paper: { sx: { ...paperSx, width: `min(${navDrawer.width}px, calc(100vw - ${navDrawer.pageVisible}px))` } },
         },
-      }}
-    >
+      }
+    : {
+        variant: 'permanent' as const,
+        sx: { width: navPermanent.expanded, flexShrink: 0 },
+        slotProps: { paper: { sx: { ...paperSx, width: navPermanent.expanded } } },
+      };
+
+  return (
+    <Drawer {...drawerProps}>
       <Box
+        ref={navRef}
         component="nav"
         aria-label="Main"
         className="dark"
@@ -56,15 +64,26 @@ export default function NavFrame({ open, onClose, logo, name, foot, children }: 
       >
         <Box
           data-ui="nav-brand"
-          sx={{ display: 'flex', alignItems: 'center', gap: 1.5, paddingLeft: 2, paddingRight: 1, paddingY: 1.5 }}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            paddingLeft: 2,
+            paddingRight: 1,
+            paddingY: 1.5,
+            '& .MuiIconButton-root:hover': { bgcolor: 'nav.hover' },
+          }}
         >
           <Box component="img" src={logo} alt="" sx={{ width: logoSize, height: logoSize, flexShrink: 0 }} />
-          <Typography variant="pageTitle" component="div" noWrap sx={{ flex: '1 1 auto', minWidth: 0 }}>
+          <Typography variant="cardTitle" component="div" noWrap sx={{ flex: '1 1 auto', minWidth: 0 }}>
             {name}
           </Typography>
-          <IconButton color="inherit" aria-label="close navigation" onClick={onClose} sx={{ '&:hover': { bgcolor: 'nav.hover' } }}>
-            <CloseIcon />
-          </IconButton>
+          {brandAction}
+          {temporary && (
+            <IconButton color="inherit" aria-label="close navigation" onClick={frame.onClose}>
+              <CloseIcon />
+            </IconButton>
+          )}
         </Box>
         {children}
         {foot && (

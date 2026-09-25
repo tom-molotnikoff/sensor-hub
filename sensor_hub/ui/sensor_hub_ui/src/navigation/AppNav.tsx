@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -10,8 +10,9 @@ import CellTowerIcon from '@mui/icons-material/CellTower';
 import StorageIcon from '@mui/icons-material/Storage';
 import { SidebarContext } from '../providers/SidebarContextType';
 import { useAuth } from '../providers/AuthContext';
-import { hasAnyPerm } from '../tools/Utils';
+import { hasAnyPerm, hasPerm } from '../tools/Utils';
 import NavFrame, { NavItem, NavList, NavSkeleton } from '../ui/NavFrame';
+import NotificationBell from '../components/NotificationBell';
 import NavAccount from './NavAccount';
 
 interface NavEntry {
@@ -42,24 +43,31 @@ const inSection = (pathname: string, section: string) => pathname === section ||
 const isCurrent = (pathname: string, entry: NavEntry) =>
   [entry.path, ...(entry.alsoMarks ?? [])].some((section) => inSection(pathname, section));
 
-function AppNav() {
+interface AppNavProps {
+  permanent?: boolean;
+}
+
+function AppNav({ permanent = false }: AppNavProps) {
   const { open, setOpen } = useContext(SidebarContext);
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [navElement, setNavElement] = useState<HTMLElement | null>(null);
 
   const close = () => setOpen(false);
   const handleNavigate = (path: string) => {
     close();
     navigate(path);
   };
+  const frame = permanent ? ({ variant: 'permanent' } as const) : ({ variant: 'temporary', open, onClose: close } as const);
 
   return (
     <NavFrame
-      open={open}
-      onClose={close}
+      {...frame}
       logo="/sensor_hub.svg"
       name="Sensor Hub"
+      navRef={setNavElement}
+      brandAction={permanent && hasPerm(user, 'view_notifications') && <NotificationBell panelBeside={navElement} />}
       foot={user && <NavAccount user={user} onNavigate={handleNavigate} />}
     >
       {user === undefined ? (

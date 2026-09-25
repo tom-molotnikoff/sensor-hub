@@ -50,8 +50,10 @@ export default function Card({ title, actions, variant = 'default', id, children
           data-ui="card-header"
           sx={{
             display: 'flex',
+            flexWrap: 'wrap',
             alignItems: 'center',
-            gap: responsivePixels(density.gap),
+            columnGap: responsivePixels(density.gap),
+            rowGap: 1,
             ...(bounded && { paddingX: responsivePixels(density.card), paddingTop: 1 }),
           }}
         >
@@ -61,7 +63,12 @@ export default function Card({ title, actions, variant = 'default', id, children
             </Typography>
           )}
           {actions && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, marginLeft: 'auto' }}>{actions}</Box>
+            <Box
+              data-ui="card-actions"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, maxWidth: '100%', marginLeft: 'auto' }}
+            >
+              {actions}
+            </Box>
           )}
         </Box>
       )}

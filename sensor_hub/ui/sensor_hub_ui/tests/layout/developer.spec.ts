@@ -64,3 +64,20 @@ test.describe('Developer page at 390x844', () => {
     expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
   });
 });
+
+test.describe('Developer page at 1440x900', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('shows the API title, version and description in the API Reference card instead of Swagger UI', async ({ page }) => {
+    await openDeveloper(page);
+    const card = page.locator('[data-ui=card]', { has: page.getByRole('heading', { name: 'API Reference', exact: true }) });
+    const frame = card.locator('[data-ui=swagger-frame]');
+    await expect(frame.locator('.opblock').first()).toBeVisible();
+
+    await expect(card.getByRole('heading', { level: 3, name: 'Sensor Hub API', exact: true })).toBeVisible();
+    await expect(card.getByText('Version 1.0.0', { exact: true })).toBeVisible();
+    await expect(card.getByText(/^API for Sensor Hub\./)).toBeVisible();
+    await expect(frame.locator('.info')).toHaveCount(0);
+    await expect(page.locator('h1')).toHaveCount(1);
+  });
+});

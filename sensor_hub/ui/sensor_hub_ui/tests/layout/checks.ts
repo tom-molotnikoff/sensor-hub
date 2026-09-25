@@ -9,6 +9,12 @@ export const viewports = [
   { tier: 'wide', width: 1440, height: 900 },
 ] as const;
 
+export const narrowWide = { tier: 'wide', width: 900, height: 900 } as const;
+
+export const wideViewports = [narrowWide, viewports[1]] as const;
+
+export const contractViewports = [...viewports, narrowWide] as const;
+
 const pagePadding: Record<Tier, number> = { compact: 12, wide: 24 };
 
 async function noSidewaysScroll(page: Page) {
@@ -53,9 +59,26 @@ async function shell(page: Page, tier: Tier) {
     [document.documentElement, document.body, element].map((node) => getComputedStyle(node).overflowX),
   );
   expect(overflowX.filter((value) => value === 'hidden' || value === 'clip'), 'hidden overflow on html, body or page').toEqual([]);
+
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  if (tier === 'wide') {
+    await expect(nav, 'nav without any click').toBeVisible();
+    await expect(page.locator('[data-ui=app-bar]'), 'app bar').toHaveCount(0);
+    await expect(page.locator('h1'), 'h1').toHaveCount(1);
+    const firstRow = root.locator(':scope > :first-child');
+    await expect(firstRow, 'page header as the first row').toHaveAttribute('data-ui', 'page-header');
+    await expect(firstRow.locator(':scope > h1'), 'h1 in the page header').toHaveCount(1);
+  } else {
+    await expect(page.locator('[data-ui=app-bar]'), 'app bar').toHaveCount(1);
+    await expect(nav, 'closed nav').toHaveCount(0);
+    await expect(page.locator('[data-ui=page-header]'), 'page header').toHaveCount(0);
+  }
 }
 
-const pageTitleSize: Record<Tier, string> = { compact: '18px', wide: '20px' };
+const pageTitleType: Record<Tier, { fontSize: string; fontWeight: string }> = {
+  compact: { fontSize: '18px', fontWeight: '500' },
+  wide: { fontSize: '24px', fontWeight: '600' },
+};
 
 export async function appBarControls(page: Page) {
   return page
@@ -69,8 +92,12 @@ export async function appBarControls(page: Page) {
     );
 }
 
-export async function appBarTitle(page: Page) {
-  return page.locator('[data-ui=app-bar-title]').evaluate((title) => {
+export function titleLocator(page: Page, tier: Tier) {
+  return page.locator(tier === 'wide' ? '[data-ui=page-header] > h1' : '[data-ui=app-bar-title]');
+}
+
+export async function pageTitle(page: Page, tier: Tier) {
+  return titleLocator(page, tier).evaluate((title) => {
     const style = getComputedStyle(title);
     return {
       fontSize: style.fontSize,
@@ -82,33 +109,30 @@ export async function appBarTitle(page: Page) {
   });
 }
 
-async function appBar(page: Page, tier: Tier) {
-  const expected =
-    tier === 'compact'
-      ? ['menu', 'notifications', 'account']
-      : ['menu', 'notifications', 'theme switcher', 'documentation', 'account'];
+async function compactAppBar(page: Page) {
   const controls = await appBarControls(page);
-  expect(controls.map((control) => control.label), 'app bar controls').toEqual(expected);
+  expect(controls.map((control) => control.label), 'app bar controls').toEqual(['menu', 'notifications', 'account']);
   expect(controls.filter((control) => !control.inViewport), 'app bar controls outside the viewport').toEqual([]);
-  await expect(page.locator('[data-ui=app-bar]').getByText('Sensor Hub', { exact: true }), 'app bar brand').toHaveCount(
-    tier === 'wide' ? 1 : 0,
-  );
-
-  const title = await appBarTitle(page);
-  expect(title, 'app bar title').toMatchObject({
-    fontSize: pageTitleSize[tier],
-    fontWeight: '500',
-    singleLine: true,
-    ellipsis: true,
-  });
+  await expect(page.locator('[data-ui=app-bar]').getByText('Sensor Hub', { exact: true }), 'app bar brand').toHaveCount(0);
 
   await page.getByRole('button', { name: 'account' }).click();
   const menu = page.getByRole('menu');
   const entries = await menu.getByRole('menuitem').allTextContents();
   const moved = entries.filter((entry) => entry === 'Theme' || entry === 'Documentation');
-  expect(moved, 'avatar menu entries').toEqual(tier === 'compact' ? ['Theme', 'Documentation'] : []);
+  expect(moved, 'avatar menu entries').toEqual(['Theme', 'Documentation']);
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
+}
+
+async function appBar(page: Page, tier: Tier) {
+  if (tier === 'compact') await compactAppBar(page);
+  else await expect(page.locator('[data-ui=app-bar]'), 'app bar').toHaveCount(0);
+
+  expect(await pageTitle(page, tier), 'page title').toMatchObject({
+    ...pageTitleType[tier],
+    singleLine: true,
+    ellipsis: true,
+  });
 }
 
 export const checks: Record<LayoutCheck, (page: Page, tier: Tier, user: LayoutUser) => Promise<void>> = {
