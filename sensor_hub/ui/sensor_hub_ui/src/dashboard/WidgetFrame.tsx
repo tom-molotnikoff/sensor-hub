@@ -79,7 +79,7 @@ function WidgetLastUpdatedBadge() {
 
 export default function WidgetFrame({ widget, isEditing, draggable, onRemove, onConfigure }: WidgetFrameProps) {
     const definition = getWidget(widget.type);
-    const subtitle = useWidgetSubtitle(widget.type, widget.config);
+    const subtitle = useWidgetSubtitle(definition?.type ?? widget.type, widget.config);
     const [visible, observeFrame] = useFrameVisibility();
     const [reportedState, setReportedState] = useState<WidgetState>('held');
     const reportState = useCallback((state: WidgetState) => setReportedState(state), []);

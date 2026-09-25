@@ -1,11 +1,17 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardWidget } from '../gen/aliases';
-import { registerWidget } from './WidgetRegistry';
+import { registerAlias, registerWidget } from './WidgetRegistry';
 import { useWidgetStateReport, useWidgetViewport, type WidgetState } from './WidgetContext';
 import WidgetFrame from './WidgetFrame';
 
-vi.mock('./useWidgetSubtitle', () => ({ useWidgetSubtitle: () => undefined }));
+const subtitleTypes: string[] = [];
+vi.mock('./useWidgetSubtitle', () => ({
+    useWidgetSubtitle: (type: string) => {
+        subtitleTypes.push(type);
+        return undefined;
+    },
+}));
 
 let reported: WidgetState = 'held';
 
@@ -41,6 +47,8 @@ registerWidget({
     compactHeight: 'content',
 });
 
+registerAlias('test-probe-legacy', 'test-probe');
+
 function widgetOf(type: string): DashboardWidget {
     return { id: 'w1', type, config: {}, layout: { x: 0, y: 0, w: 1, h: 1 } };
 }
@@ -62,6 +70,7 @@ function frameState(): string | null {
 describe('WidgetFrame', () => {
     beforeEach(() => {
         reported = 'held';
+        subtitleTypes.splice(0, subtitleTypes.length);
     });
 
     afterEach(() => {
@@ -76,6 +85,11 @@ describe('WidgetFrame', () => {
             expect(frameState()).toBe(state);
         },
     );
+
+    it('builds the subtitle from the registered type when the widget uses an alias', () => {
+        renderFrame('test-probe-legacy');
+        expect(new Set(subtitleTypes)).toEqual(new Set(['test-probe']));
+    });
 
     it('reports error for an unknown widget type', () => {
         render(
