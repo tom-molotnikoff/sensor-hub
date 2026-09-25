@@ -22,30 +22,32 @@ import NavFrame, { NavDivider, NavItem, NavList, NavSkeleton } from '../ui/NavFr
 interface NavEntry {
   label: string;
   path: string;
-  sections: string[];
+  alsoMarks?: string[];
   icon: ReactNode;
   permissions: string[];
 }
 
 const mainEntries: NavEntry[] = [
-  { label: 'Dashboards', path: '/dashboard', sections: ['/dashboard'], icon: <DashboardIcon />, permissions: ['view_dashboards'] },
-  { label: 'Sensors', path: '/sensors-overview', sections: ['/sensors-overview', '/sensor'], icon: <SensorsIcon />, permissions: ['view_sensors'] },
-  { label: 'Data Retention', path: '/data-retention', sections: ['/data-retention'], icon: <StorageIcon />, permissions: ['view_sensors'] },
-  { label: 'Properties', path: '/properties-overview', sections: ['/properties-overview'], icon: <SettingsIcon />, permissions: ['view_properties'] },
-  { label: 'MQTT', path: '/mqtt', sections: ['/mqtt'], icon: <CellTowerIcon />, permissions: ['view_mqtt'] },
+  { label: 'Dashboards', path: '/dashboard', icon: <DashboardIcon />, permissions: ['view_dashboards'] },
+  { label: 'Sensors', path: '/sensors-overview', alsoMarks: ['/sensor'], icon: <SensorsIcon />, permissions: ['view_sensors'] },
+  { label: 'Data Retention', path: '/data-retention', icon: <StorageIcon />, permissions: ['view_sensors'] },
+  { label: 'Properties', path: '/properties-overview', icon: <SettingsIcon />, permissions: ['view_properties'] },
+  { label: 'MQTT', path: '/mqtt', icon: <CellTowerIcon />, permissions: ['view_mqtt'] },
   {
     label: 'Alerts & Notifications',
     path: '/notifications',
-    sections: ['/notifications'],
     icon: <NotificationsActiveIcon />,
     permissions: ['view_alerts', 'view_notifications', 'manage_notifications', 'manage_oauth'],
   },
-  { label: 'User Management', path: '/admin', sections: ['/admin'], icon: <PeopleIcon />, permissions: ['view_users', 'view_roles'] },
+  { label: 'User Management', path: '/admin', icon: <PeopleIcon />, permissions: ['view_users', 'view_roles'] },
 ];
 
 const allowed = (user: AuthUser | undefined, permissions: string[]) => permissions.some((permission) => hasPerm(user, permission));
 
 const inSection = (pathname: string, section: string) => pathname === section || pathname.startsWith(`${section}/`);
+
+const isCurrent = (pathname: string, entry: NavEntry) =>
+  [entry.path, ...(entry.alsoMarks ?? [])].some((section) => inSection(pathname, section));
 
 function AppNav() {
   const { open, setOpen } = useContext(SidebarContext);
@@ -80,7 +82,7 @@ function AppNav() {
                 key={entry.path}
                 icon={entry.icon}
                 label={entry.label}
-                active={entry.sections.some((section) => inSection(pathname, section))}
+                active={isCurrent(pathname, entry)}
                 onClick={() => handleNavigate(entry.path)}
               />
             ))}

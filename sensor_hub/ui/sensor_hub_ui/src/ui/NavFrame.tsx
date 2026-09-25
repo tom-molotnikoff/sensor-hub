@@ -24,6 +24,7 @@ interface NavFrameProps {
 }
 
 const logoSize = 32;
+const skeletonRowHeight = 32;
 const indicatorWidth = 3;
 
 export default function NavFrame({ open, onClose, logo, name, children }: NavFrameProps) {
@@ -35,14 +36,19 @@ export default function NavFrame({ open, onClose, logo, name, children }: NavFra
       ModalProps={{ keepMounted: false }}
       slotProps={{
         paper: {
-          sx: { width: `min(${navDrawer.width}px, calc(100vw - ${navDrawer.pageVisible}px))` },
+          sx: {
+            width: `min(${navDrawer.width}px, calc(100vw - ${navDrawer.pageVisible}px))`,
+            bgcolor: 'nav.bg',
+            backgroundImage: 'none',
+          },
         },
       }}
     >
       <Box
         component="nav"
         aria-label="Main"
-        sx={{ display: 'flex', flexDirection: 'column', flex: '1 0 auto', bgcolor: 'nav.bg', color: 'nav.text' }}
+        className="dark"
+        sx={{ display: 'flex', flexDirection: 'column', flex: '1 0 auto', color: 'nav.text' }}
       >
         <Box
           data-ui="nav-brand"
@@ -67,7 +73,7 @@ export function NavList({ children }: { children?: ReactNode }) {
 }
 
 export function NavDivider() {
-  return <Divider sx={{ borderColor: 'nav.hover' }} />;
+  return <Divider />;
 }
 
 interface NavItemProps {
@@ -121,7 +127,7 @@ export function NavSkeleton({ rows }: { rows: number }) {
     <List data-ui="nav-skeleton" aria-busy="true">
       {Array.from({ length: rows }, (_, row) => (
         <ListItem key={row}>
-          <Skeleton variant="rounded" width="100%" height={logoSize} sx={{ bgcolor: 'nav.hover' }} />
+          <Skeleton variant="rounded" width="100%" height={skeletonRowHeight} />
         </ListItem>
       ))}
     </List>

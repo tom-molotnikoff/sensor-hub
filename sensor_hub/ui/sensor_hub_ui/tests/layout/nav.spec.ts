@@ -5,6 +5,17 @@ import { signIn } from './users';
 const navBackground = { light: 'rgb(33, 30, 27)', dark: 'rgb(18, 18, 18)' } as const;
 const activeBackground = 'rgba(237, 81, 37, 0.18)';
 const indicator = 'rgb(237, 81, 37)';
+const darkDivider = 'rgb(51, 51, 51)';
+
+async function paintedBackground(nav: Locator) {
+  return nav.evaluate((element) => {
+    for (let node: Element | null = element; node; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.backgroundColor !== 'rgba(0, 0, 0, 0)') return { color: style.backgroundColor, image: style.backgroundImage };
+    }
+    return null;
+  });
+}
 
 async function openNav(page: Page, path: string) {
   await signIn(page, 'admin');
@@ -41,7 +52,8 @@ for (const viewport of viewports) {
       test('is a charcoal drawer that leaves part of the page visible', async ({ page }) => {
         const nav = await openNav(page, '/dashboard');
 
-        await expect(nav).toHaveCSS('background-color', navBackground[colorScheme]);
+        expect(await paintedBackground(nav), 'nav background').toEqual({ color: navBackground[colorScheme], image: 'none' });
+        await expect(nav.locator('hr').first(), 'nav parts resolve the dark scheme').toHaveCSS('border-bottom-color', darkDivider);
         const box = await nav.boundingBox();
         expect(box!.x + box!.width, 'drawer right edge').toBeLessThan(viewport.width);
       });
