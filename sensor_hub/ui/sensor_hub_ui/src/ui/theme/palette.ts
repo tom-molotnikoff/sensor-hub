@@ -11,6 +11,16 @@ export interface ChartPalette {
   categorical: string[];
 }
 
+export interface NavPalette {
+  bg: string;
+  text: string;
+  muted: string;
+  hover: string;
+  activeBg: string;
+  activeText: string;
+  indicator: string;
+}
+
 export type Scheme = 'light' | 'dark';
 
 const amber: Record<Scheme, StatusColour> = {
@@ -42,4 +52,18 @@ export const chartPalettes: Record<Scheme, ChartPalette> = {
   dark: {
     categorical: ['#ED5125', '#4FC3F7', '#81C784', '#FFB74D', '#CE93D8', '#4DD0E1', '#A1887F', '#90A4AE'],
   },
+};
+
+const charcoalNav: Omit<NavPalette, 'bg'> = {
+  text: '#D9D3CC',
+  muted: '#8F867D',
+  hover: 'rgba(255,255,255,0.06)',
+  activeBg: 'rgba(237,81,37,0.18)',
+  activeText: '#FFFFFF',
+  indicator: '#ED5125',
+};
+
+export const navPalettes: Record<Scheme, NavPalette> = {
+  light: { bg: '#211E1B', ...charcoalNav },
+  dark: { bg: '#121212', ...charcoalNav },
 };

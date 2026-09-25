@@ -33,6 +33,8 @@ export const metricFit = {
 
 export const stripNarrowWidth = 480;
 
+export const navDrawer = { width: 280, pageVisible: 56 } as const;
+
 export const stripCells = {
   sm: {
     gap: 1,

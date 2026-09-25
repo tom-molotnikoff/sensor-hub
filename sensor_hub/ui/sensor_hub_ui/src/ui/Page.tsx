@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, CircularProgress } from '@mui/material';
-import NavigationSidebar from '../navigation/NavigationSidebar';
+import AppNav from '../navigation/AppNav';
 import TopAppBar from '../navigation/TopAppBar';
 import { responsivePixels } from './tiers';
 import { density } from './theme/tokens';
@@ -15,7 +15,7 @@ export default function Page({ title, loading = false, children }: PageProps) {
   return (
     <>
       <TopAppBar pageTitle={title} />
-      <NavigationSidebar />
+      <AppNav />
       <Box
         component="main"
         data-ui="page"
