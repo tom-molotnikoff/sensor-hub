@@ -7,3 +7,5 @@ export const hasPerm = (user: AuthUser | undefined, perm: string) => {
   if (user.roles && user.roles.includes('admin')) return true;
   return false;
 }
+
+export const hasAnyPerm = (user: AuthUser | undefined, perms: string[]) => perms.some((perm) => hasPerm(user, perm));

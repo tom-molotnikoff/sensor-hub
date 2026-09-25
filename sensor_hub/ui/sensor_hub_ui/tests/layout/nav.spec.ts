@@ -121,3 +121,77 @@ test.describe('nav current page at 1440x900', () => {
     expect(states.filter((state) => state.current !== null || state.bar !== null || state.background === activeBackground)).toEqual([]);
   });
 });
+
+async function openAccountMenu(page: Page) {
+  await openNav(page, '/dashboard');
+  const block = page.locator('[data-ui=nav-account]');
+  await block.click();
+  const menu = page.getByRole('menu', { name: 'Signed in as testadmin' });
+  await expect(menu).toBeVisible();
+  await expect(block).toHaveAttribute('aria-expanded', 'true');
+  return { block, menu };
+}
+
+for (const viewport of viewports) {
+  test.describe(`nav account menu at ${viewport.width}x${viewport.height}`, () => {
+    test.use({ viewport: { width: viewport.width, height: viewport.height }, colorScheme: 'light' });
+
+    test('shows the account block at the foot of the nav', async ({ page }) => {
+      const nav = await openNav(page, '/dashboard');
+
+      const foot = nav.locator('[data-ui=nav-foot]');
+      const block = foot.locator('[data-ui=nav-account]');
+      await expect(block).toContainText('testadmin');
+      await expect(block).toContainText('admin');
+      const [footBox, navBox] = [await foot.boundingBox(), await nav.boundingBox()];
+      expect(footBox!.y + footBox!.height, 'foot bottom edge').toBeCloseTo(navBox!.y + navBox!.height, 0);
+    });
+
+    test('opens above the block and lies entirely inside the viewport', async ({ page }) => {
+      const { block, menu } = await openAccountMenu(page);
+
+      const paper = page.locator('[data-ui=nav-account-menu] .MuiPaper-root');
+      await expect(paper).toHaveCSS('opacity', '1');
+      const [menuBox, blockBox] = [await paper.boundingBox(), await block.boundingBox()];
+      expect(menuBox!.y + menuBox!.height, 'menu bottom edge above the block').toBeLessThanOrEqual(blockBox!.y + 1);
+      expect(menuBox!.x, 'menu left edge').toBeGreaterThanOrEqual(0);
+      expect(menuBox!.y, 'menu top edge').toBeGreaterThanOrEqual(0);
+      expect(menuBox!.x + menuBox!.width, 'menu right edge').toBeLessThanOrEqual(viewport.width);
+      expect(menuBox!.y + menuBox!.height, 'menu bottom edge').toBeLessThanOrEqual(viewport.height);
+      await expect(menu.getByRole('menuitem', { name: 'Logout' })).toBeInViewport({ ratio: 1 });
+    });
+  });
+}
+
+test.describe('nav account menu at 1440x900 in light', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, colorScheme: 'light' });
+
+  test('switches to dark and shows Dark as selected', async ({ page }) => {
+    const { menu } = await openAccountMenu(page);
+
+    await menu.getByRole('menuitemradio', { name: 'Dark' }).click();
+
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+    await expect(menu.getByRole('menuitemradio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
+    await expect(menu.getByRole('menuitemradio', { name: 'Light' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('opens the documentation in a new tab', async ({ page }) => {
+    const { menu } = await openAccountMenu(page);
+
+    const docs = menu.getByRole('menuitem', { name: 'Documentation opens in a new tab' });
+    const [popup] = await Promise.all([page.waitForEvent('popup'), docs.click()]);
+
+    await expect(popup).toHaveURL(/\/docs\/$/);
+    await expect(page).toHaveURL(/\/dashboard$/);
+  });
+
+  test('logs out and lands on /login', async ({ page }) => {
+    const { menu } = await openAccountMenu(page);
+
+    await menu.getByRole('menuitem', { name: 'Logout' }).click();
+
+    await expect(page).toHaveURL(/\/login$/);
+    expect((await page.request.get('/api/auth/me')).status(), 'session after logout').toBe(401);
+  });
+});

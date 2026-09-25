@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Box, CircularProgress, Divider, Menu, Typography } from '@mui/material';
+import { Box, CircularProgress, Divider, Typography } from '@mui/material';
+import AnchoredMenu from './AnchoredMenu';
 
 interface MenuPanelProps {
   anchorEl: HTMLElement | null;
@@ -11,30 +12,11 @@ interface MenuPanelProps {
   children?: ReactNode;
 }
 
-const panelWidth = 360;
 const panelMaxHeight = 450;
-const viewportMargin = 16;
 
 export default function MenuPanel({ anchorEl, onClose, title, meta, loading = false, footer, children }: MenuPanelProps) {
   return (
-    <Menu
-      data-ui="menu-panel"
-      anchorEl={anchorEl}
-      open={anchorEl !== null}
-      onClose={onClose}
-      marginThreshold={viewportMargin}
-      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-      slotProps={{
-        paper: {
-          sx: {
-            width: `min(${panelWidth}px, calc(100vw - ${viewportMargin * 2}px))`,
-            maxHeight: panelMaxHeight,
-            '& .MuiMenuItem-root': { paddingY: 1.5 },
-          },
-        },
-      }}
-    >
+    <AnchoredMenu data-ui="menu-panel" anchorEl={anchorEl} onClose={onClose} width="md" maxHeight={panelMaxHeight} spacedItems>
       <Box
         data-ui="menu-panel-header"
         sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, paddingX: 2, paddingY: 1 }}
@@ -62,6 +44,6 @@ export default function MenuPanel({ anchorEl, onClose, title, meta, loading = fa
           {footer}
         </Box>
       )}
-    </Menu>
+    </AnchoredMenu>
   );
 }

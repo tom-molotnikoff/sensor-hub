@@ -1,12 +1,16 @@
 import { ThemeProvider } from '@mui/material';
-import { fireEvent, render, screen, waitForElementToBeRemoved, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
 import { useState } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthUser } from '../providers/AuthContext';
 import { SidebarContext } from '../providers/SidebarContextType';
 import { theme } from '../ui/theme';
 import AppNav from './AppNav';
+
+const { postMock } = vi.hoisted(() => ({ postMock: vi.fn() }));
+
+vi.mock('../gen/client', () => ({ apiClient: { POST: postMock } }));
 
 const admin = { id: 1, username: 'testadmin', roles: ['admin'], permissions: [] };
 const user = {
@@ -32,7 +36,7 @@ const viewer = {
 };
 
 const adminItems = ['Dashboards', 'Sensors', 'Data Retention', 'Properties', 'MQTT', 'Alerts & Notifications', 'User Management'];
-const accountItems = ['Sessions', 'Developer', 'Documentation', 'Logout'];
+const accountDestinations = ['Sessions', 'My sessions', 'Change password', 'Developer', 'Documentation', 'Logout'];
 
 function Location() {
   return <output aria-label="location">{useLocation().pathname}</output>;
@@ -53,10 +57,10 @@ function press(control: HTMLElement) {
   fireEvent.click(control);
 }
 
-function renderNav({ as = admin as AuthUser | 'loading', at = '/dashboard' } = {}) {
+function renderNav({ as = admin as AuthUser | 'loading', at = '/dashboard', refresh = async () => {} } = {}) {
   render(
     <ThemeProvider theme={theme}>
-      <AuthContext.Provider value={{ user: as === 'loading' ? undefined : as, refresh: async () => {} }}>
+      <AuthContext.Provider value={{ user: as === 'loading' ? undefined : as, refresh }}>
         <MemoryRouter initialEntries={[at]}>
           <Shell />
           <Routes>
@@ -77,7 +81,34 @@ const labels = (list: Element) => Array.from(list.querySelectorAll('[data-ui=nav
 
 const current = () => within(nav()).queryAllByRole('button', { current: 'page' }).map((item) => item.textContent);
 
+const accountBlock = () => nav().querySelector<HTMLElement>('[data-ui=nav-account]');
+
+const location = () => screen.getByRole('status', { name: 'location', hidden: true });
+
+function openAccountMenu() {
+  press(accountBlock()!);
+  return screen.getByRole('menu', { name: /^Signed in as / });
+}
+
+function outline(menu: HTMLElement) {
+  return Array.from(menu.children).map((part) => {
+    if (part.getAttribute('role') === 'separator') return 'divider';
+    const group = part.querySelector<HTMLElement>('[role=group]');
+    if (group) {
+      const choices = within(group).getAllByRole('menuitemradio').map((choice) => choice.textContent);
+      return `${group.getAttribute('aria-label')}: ${choices.join(' / ')}`;
+    }
+    return part.querySelector('.MuiListItemText-root')?.textContent ?? part.textContent;
+  });
+}
+
 describe('AppNav', () => {
+  afterEach(() => {
+    postMock.mockReset();
+    localStorage.clear();
+    document.documentElement.className = '';
+  });
+
   it('is a navigation landmark labelled Main', () => {
     renderNav();
 
@@ -94,14 +125,15 @@ describe('AppNav', () => {
     await waitForElementToBeRemoved(nav);
   });
 
-  it('lists the seven main items for an admin, then the account items below a divider', () => {
+  it('lists only the seven main items for an admin', () => {
     renderNav({ as: admin });
 
-    const [main, account] = lists();
-    expect(labels(main)).toEqual(adminItems);
-    expect(main.nextElementSibling?.tagName).toBe('HR');
-    expect(labels(account)).toEqual(accountItems);
-    expect(within(account as HTMLElement).getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', '/docs/');
+    expect(lists()).toHaveLength(1);
+    expect(labels(lists()[0])).toEqual(adminItems);
+    for (const destination of accountDestinations) {
+      expect(within(nav()).queryByRole('button', { name: destination })).not.toBeInTheDocument();
+      expect(within(nav()).queryByRole('link', { name: destination })).not.toBeInTheDocument();
+    }
   });
 
   it.each([
@@ -110,9 +142,8 @@ describe('AppNav', () => {
   ])('shows a %s only the items their role grants', (_, as) => {
     renderNav({ as });
 
-    const [main, account] = lists();
-    expect(labels(main)).toEqual(['Dashboards', 'MQTT']);
-    expect(labels(account)).toEqual(accountItems);
+    expect(lists()).toHaveLength(1);
+    expect(labels(lists()[0])).toEqual(['Dashboards', 'MQTT']);
   });
 
   it.each([
@@ -129,9 +160,8 @@ describe('AppNav', () => {
   ])('gates items on %s', (permission, items) => {
     renderNav({ as: { id: 4, username: 'someone', roles: [], permissions: [permission] } });
 
-    const [main, account] = lists();
-    expect(labels(main)).toEqual(items);
-    expect(labels(account)).toEqual(['Sessions', 'Documentation', 'Logout']);
+    expect(lists()).toHaveLength(1);
+    expect(labels(lists()[0])).toEqual(items);
   });
 
   it.each([
@@ -181,6 +211,136 @@ describe('AppNav', () => {
     press(within(nav()).getByRole('button', { name: 'Sensors' }));
 
     await waitForElementToBeRemoved(nav);
-    expect(screen.getByRole('status', { name: 'location', hidden: true })).toHaveTextContent('/sensors-overview');
+    expect(location()).toHaveTextContent('/sensors-overview');
+  });
+
+  it.each([
+    ['loading', 'loading' as const],
+    ['signed out', null],
+  ])('has no account block while %s', (_, as) => {
+    renderNav({ as });
+
+    expect(accountBlock()).toBeNull();
+  });
+
+  it.each([
+    [['admin'], 'admin'],
+    [['admin', 'viewer'], 'admin, viewer'],
+  ])('shows the avatar initial, username, roles %j and an unfold icon at the foot', (roles, joined) => {
+    renderNav({ as: { ...admin, roles } });
+
+    const foot = nav().querySelector<HTMLElement>('[data-ui=nav-foot]')!;
+    expect(foot).toBe(nav().lastElementChild);
+    const block = accountBlock()!;
+    expect(foot).toContainElement(block);
+    expect(block.querySelector('.MuiAvatar-root')).toHaveTextContent(/^T$/);
+    expect(within(block).getByText('testadmin')).toBeInTheDocument();
+    expect(within(block).getByText(joined)).toHaveClass('MuiTypography-noWrap');
+    expect(within(block).getByTestId('UnfoldMoreIcon')).toBeInTheDocument();
+    expect(block).toHaveAttribute('aria-haspopup', 'menu');
+    expect(block).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens the account menu with everything about the admin, in order', () => {
+    renderNav({ as: admin });
+    const block = accountBlock();
+
+    const menu = openAccountMenu();
+
+    expect(block).toHaveAttribute('aria-expanded', 'true');
+    expect(document.getElementById(block!.getAttribute('aria-controls')!)).toContainElement(menu);
+    expect(outline(menu)).toEqual([
+      'Signed in as testadmin',
+      'Theme: Light / Dark / System',
+      'divider',
+      'My sessions',
+      'Change password',
+      'Developer',
+      'Documentation',
+      'divider',
+      'Logout',
+    ]);
+  });
+
+  it.each([
+    ['manage_api_keys', true],
+    ['view_api_docs', true],
+    ['view_dashboards', false],
+  ])('gates Developer on %s', (permission, shown) => {
+    renderNav({ as: { id: 4, username: 'someone', roles: ['user'], permissions: [permission] } });
+
+    const items = outline(openAccountMenu());
+
+    expect(items.includes('Developer')).toBe(shown);
+    expect(items.filter((item) => item !== 'Developer')).toEqual([
+      'Signed in as someone',
+      'Theme: Light / Dark / System',
+      'divider',
+      'My sessions',
+      'Change password',
+      'Documentation',
+      'divider',
+      'Logout',
+    ]);
+  });
+
+  it('names the menu by its heading and keeps only list items in it', () => {
+    renderNav();
+
+    const menu = openAccountMenu();
+
+    expect(menu).toHaveAccessibleName('Signed in as testadmin');
+    expect(menu.tagName).toBe('UL');
+    expect(Array.from(menu.children).map((part) => part.tagName)).toEqual(Array(menu.children.length).fill('LI'));
+    expect(within(menu).getByRole('group', { name: 'Theme' }).parentElement).toHaveAttribute('role', 'none');
+    expect(document.getElementById(menu.getAttribute('aria-labelledby')!)!.parentElement).toHaveAttribute('role', 'none');
+  });
+
+  it('switches to dark mode and shows Dark as selected', async () => {
+    renderNav();
+
+    press(within(openAccountMenu()).getByRole('menuitemradio', { name: 'Dark' }));
+
+    await waitFor(() => expect(document.documentElement).toHaveClass('dark'));
+    const menu = screen.getByRole('menu', { name: 'Signed in as testadmin' });
+    expect(within(menu).getByRole('menuitemradio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
+    expect(within(menu).getByRole('menuitemradio', { name: 'Light' })).toHaveAttribute('aria-checked', 'false');
+    expect(within(menu).getByRole('menuitemradio', { name: 'System' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('opens the documentation in a new tab and says so', () => {
+    renderNav();
+
+    const docs = within(openAccountMenu()).getByRole('menuitem', { name: 'Documentation opens in a new tab' });
+
+    expect(docs).toHaveAttribute('href', '/docs/');
+    expect(docs).toHaveAttribute('target', '_blank');
+    expect(docs).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it.each([
+    ['My sessions', '/account/sessions'],
+    ['Change password', '/account/change-password'],
+    ['Developer', '/account/developer'],
+  ])('closes the menu and the drawer and goes to %s', async (item, path) => {
+    renderNav();
+
+    press(within(openAccountMenu()).getByRole('menuitem', { name: item }));
+
+    await waitForElementToBeRemoved(nav);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(location()).toHaveTextContent(path);
+  });
+
+  it('logs out, refreshes auth and lands on /login', async () => {
+    postMock.mockResolvedValue({});
+    const refresh = vi.fn(async () => {});
+    renderNav({ refresh });
+
+    press(within(openAccountMenu()).getByRole('menuitem', { name: 'Logout' }));
+
+    await waitFor(() => expect(location()).toHaveTextContent('/login'));
+    expect(postMock).toHaveBeenCalledWith('/auth/logout');
+    expect(refresh).toHaveBeenCalledOnce();
   });
 });

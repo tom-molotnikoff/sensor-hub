@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import {
+  Avatar,
   Box,
   Divider,
   Drawer,
@@ -13,6 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import { navDrawer } from './theme/tokens';
 
 interface NavFrameProps {
@@ -20,14 +22,16 @@ interface NavFrameProps {
   onClose: () => void;
   logo: string;
   name: string;
+  foot?: ReactNode;
   children?: ReactNode;
 }
 
 const logoSize = 32;
+const avatarSize = 32;
 const skeletonRowHeight = 32;
 const indicatorWidth = 3;
 
-export default function NavFrame({ open, onClose, logo, name, children }: NavFrameProps) {
+export default function NavFrame({ open, onClose, logo, name, foot, children }: NavFrameProps) {
   return (
     <Drawer
       variant="temporary"
@@ -63,6 +67,12 @@ export default function NavFrame({ open, onClose, logo, name, children }: NavFra
           </IconButton>
         </Box>
         {children}
+        {foot && (
+          <Box data-ui="nav-foot" sx={{ marginTop: 'auto' }}>
+            <Divider />
+            <Box sx={{ padding: 1 }}>{foot}</Box>
+          </Box>
+        )}
       </Box>
     </Drawer>
   );
@@ -72,16 +82,11 @@ export function NavList({ children }: { children?: ReactNode }) {
   return <List data-ui="nav-list">{children}</List>;
 }
 
-export function NavDivider() {
-  return <Divider />;
-}
-
 interface NavItemProps {
   icon: ReactNode;
   label: string;
   active?: boolean;
   onClick?: () => void;
-  href?: string;
 }
 
 const itemSx = {
@@ -100,24 +105,13 @@ const itemSx = {
   },
 } as const;
 
-export function NavItem({ icon, label, active = false, onClick, href }: NavItemProps) {
-  const content = (
-    <>
-      <ListItemIcon sx={{ color: 'inherit' }}>{icon}</ListItemIcon>
-      <ListItemText primary={label} />
-    </>
-  );
+export function NavItem({ icon, label, active = false, onClick }: NavItemProps) {
   return (
     <ListItem disablePadding data-ui="nav-item">
-      {href ? (
-        <ListItemButton component="a" href={href} sx={itemSx}>
-          {content}
-        </ListItemButton>
-      ) : (
-        <ListItemButton selected={active} aria-current={active ? 'page' : undefined} onClick={onClick} sx={itemSx}>
-          {content}
-        </ListItemButton>
-      )}
+      <ListItemButton selected={active} aria-current={active ? 'page' : undefined} onClick={onClick} sx={itemSx}>
+        <ListItemIcon sx={{ color: 'inherit' }}>{icon}</ListItemIcon>
+        <ListItemText primary={label} />
+      </ListItemButton>
     </ListItem>
   );
 }
@@ -131,5 +125,45 @@ export function NavSkeleton({ rows }: { rows: number }) {
         </ListItem>
       ))}
     </List>
+  );
+}
+
+interface NavAccountBlockProps {
+  initial: string;
+  name: string;
+  detail: string;
+  menuId: string;
+  menuOpen: boolean;
+  onClick: (event: MouseEvent<HTMLElement>) => void;
+}
+
+export function NavAccountBlock({ initial, name, detail, menuId, menuOpen, onClick }: NavAccountBlockProps) {
+  return (
+    <ListItemButton
+      data-ui="nav-account"
+      aria-haspopup="menu"
+      aria-controls={menuOpen ? menuId : undefined}
+      aria-expanded={menuOpen}
+      onClick={onClick}
+      sx={{
+        gap: 1.5,
+        paddingX: 1,
+        borderRadius: 1,
+        color: 'nav.text',
+        bgcolor: menuOpen ? 'nav.hover' : undefined,
+        '&:hover, &.Mui-focusVisible': { bgcolor: 'nav.hover' },
+      }}
+    >
+      <Avatar aria-hidden sx={{ width: avatarSize, height: avatarSize }}>
+        {initial}
+      </Avatar>
+      <ListItemText
+        primary={name}
+        secondary={detail}
+        slotProps={{ primary: { noWrap: true }, secondary: { noWrap: true, sx: { color: 'nav.muted' } } }}
+        sx={{ minWidth: 0 }}
+      />
+      <UnfoldMoreIcon fontSize="small" sx={{ color: 'nav.muted' }} />
+    </ListItemButton>
   );
 }
