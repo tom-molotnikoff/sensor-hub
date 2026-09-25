@@ -186,37 +186,52 @@ func (r *ReadingsRepositoryImpl) GetBetweenDates(ctx context.Context, startDate,
 	return r.getAggregatedBetweenDates(ctx, startDate, endDate, sensorName, measurementType, interval, aggFunc)
 }
 
-// seriesFilter resolves the optional sensor/measurement names to ids and returns an
-// id-based WHERE fragment (plus its bind args). Filtering on r.sensor_id /
-// r.measurement_type_id lets the (sensor_id, measurement_type_id, time DESC) composite
+type seriesScope struct {
+	sensorID *int
+	typeID   *int
+}
+
+func (s seriesScope) filter(alias string) (clause string, args []any) {
+	if s.sensorID != nil {
+		clause += " AND " + alias + ".sensor_id = ?"
+		args = append(args, *s.sensorID)
+	}
+	if s.typeID != nil {
+		clause += " AND " + alias + ".measurement_type_id = ?"
+		args = append(args, *s.typeID)
+	}
+	return clause, args
+}
+
+// resolveSeries resolves the optional sensor/measurement names to ids, which the scope
+// renders as an id-based WHERE fragment (plus its bind args). Filtering on sensor_id /
+// measurement_type_id lets the (sensor_id, measurement_type_id, time DESC) composite
 // index serve the query, instead of a full-table scan filtered by joined names.
 // resolved is false when a provided name does not exist, signalling the caller to return
 // an empty result (matching the prior LOWER(name) behaviour). Resolution is
 // case-insensitive, as before.
-func (r *ReadingsRepositoryImpl) seriesFilter(ctx context.Context, sensorName, measurementType string) (clause string, args []any, resolved bool, err error) {
+func (r *ReadingsRepositoryImpl) resolveSeries(ctx context.Context, sensorName, measurementType string) (scope seriesScope, resolved bool, err error) {
 	if sensorName != "" {
 		id, e := r.sensors.GetSensorIdByName(ctx, sensorName)
 		if errors.Is(e, sql.ErrNoRows) {
-			return "", nil, false, nil
+			return seriesScope{}, false, nil
 		}
 		if e != nil {
-			return "", nil, false, e
+			return seriesScope{}, false, e
 		}
-		clause += " AND r.sensor_id = ?"
-		args = append(args, id)
+		scope.sensorID = &id
 	}
 	if measurementType != "" {
 		id, e := r.types.GetIdByName(ctx, measurementType)
 		if errors.Is(e, sql.ErrNoRows) {
-			return "", nil, false, nil
+			return seriesScope{}, false, nil
 		}
 		if e != nil {
-			return "", nil, false, e
+			return seriesScope{}, false, e
 		}
-		clause += " AND r.measurement_type_id = ?"
-		args = append(args, id)
+		scope.typeID = &id
 	}
-	return clause, args, true, nil
+	return scope, true, nil
 }
 
 func rawBetweenQuery(seriesClause string) string {
@@ -232,13 +247,14 @@ func rawBetweenQuery(seriesClause string) string {
 }
 
 func (r *ReadingsRepositoryImpl) getRawBetweenDates(ctx context.Context, startDate, endDate, sensorName, measurementType string) ([]gen.Reading, error) {
-	clause, filterArgs, resolved, err := r.seriesFilter(ctx, sensorName, measurementType)
+	scope, resolved, err := r.resolveSeries(ctx, sensorName, measurementType)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving readings filter: %w", err)
 	}
 	if !resolved {
 		return nil, nil
 	}
+	clause, filterArgs := scope.filter("r")
 
 	args := append([]any{startDate, endDate}, filterArgs...)
 	rows, err := r.db.Reader.QueryContext(ctx, rawBetweenQuery(clause), args...)
@@ -259,16 +275,20 @@ func (r *ReadingsRepositoryImpl) getAggregatedBetweenDates(ctx context.Context, 
 	if aggFunc == AggregationFunctionLast {
 		return r.getLastBetweenDates(ctx, startDate, endDate, sensorName, measurementType, bucket)
 	}
+	if aggFunc == AggregationFunctionIncrease {
+		return r.getIncreaseBetweenDates(ctx, startDate, endDate, sensorName, measurementType, bucket)
+	}
 
 	sqlAgg := aggregateExpression(aggFunc)
 
-	clause, filterArgs, resolved, err := r.seriesFilter(ctx, sensorName, measurementType)
+	scope, resolved, err := r.resolveSeries(ctx, sensorName, measurementType)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving readings filter: %w", err)
 	}
 	if !resolved {
 		return nil, nil
 	}
+	clause, filterArgs := scope.filter("r")
 
 	args := append([]any{startDate, endDate}, filterArgs...)
 	rows, err := r.db.Reader.QueryContext(ctx, aggregatedBetweenQuery(sqlAgg, bucket, clause), args...)
@@ -323,18 +343,77 @@ func lastBetweenQuery(bucket, seriesClause string) string {
 }
 
 func (r *ReadingsRepositoryImpl) getLastBetweenDates(ctx context.Context, startDate, endDate, sensorName, measurementType, bucket string) ([]gen.Reading, error) {
-	clause, filterArgs, resolved, err := r.seriesFilter(ctx, sensorName, measurementType)
+	scope, resolved, err := r.resolveSeries(ctx, sensorName, measurementType)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving readings filter: %w", err)
 	}
 	if !resolved {
 		return nil, nil
 	}
+	clause, filterArgs := scope.filter("r")
 
 	args := append([]any{startDate, endDate}, filterArgs...)
 	rows, err := r.db.Reader.QueryContext(ctx, lastBetweenQuery(bucket, clause), args...)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching last-value readings between %s and %s: %w", startDate, endDate, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	return scanReadings(rows)
+}
+
+func increaseBetweenQuery(bucket, seriesClause, pairClause string) string {
+	return fmt.Sprintf(`
+		WITH in_play AS (
+			SELECT r.id, r.sensor_id, r.measurement_type_id, r.time, r.numeric_value, %s AS bucket_time, 1 AS in_range
+			FROM %s r
+			WHERE r.time BETWEEN ? AND ?%s
+			UNION ALL
+			SELECT r.id, r.sensor_id, r.measurement_type_id, r.time, r.numeric_value, NULL, 0
+			FROM %s pair
+			JOIN %s r ON r.id = (
+				SELECT earlier.id FROM %s earlier
+				WHERE earlier.sensor_id = pair.sensor_id AND earlier.measurement_type_id = pair.measurement_type_id
+					AND earlier.time < ?
+				ORDER BY earlier.time DESC, earlier.id DESC
+				LIMIT 1
+			)
+			WHERE 1 = 1%s
+		),
+		stepped AS (
+			SELECT sensor_id, measurement_type_id, numeric_value, bucket_time, in_range,
+				numeric_value - LAG(numeric_value) OVER (PARTITION BY sensor_id, measurement_type_id ORDER BY time, id) AS step
+			FROM in_play
+		)
+		SELECT 0 AS id, s.name, mt.name,
+			ROUND(SUM(CASE WHEN st.step IS NULL THEN 0 WHEN st.step < 0 THEN st.numeric_value ELSE st.step END), 2),
+			NULL, COALESCE(NULLIF(smt.unit, ''), mt.default_unit), st.bucket_time
+		FROM stepped st
+		JOIN sensors s ON st.sensor_id = s.id
+		JOIN %s mt ON st.measurement_type_id = mt.id
+		LEFT JOIN %s smt ON smt.sensor_id = s.id AND smt.measurement_type_id = mt.id
+		WHERE st.in_range = 1
+		GROUP BY s.name, mt.name, st.bucket_time ORDER BY st.bucket_time ASC
+	`, bucket, TableReadings, seriesClause, TableSensorMeasurementTypes, TableReadings, TableReadings, pairClause, TableMeasurementTypes, TableSensorMeasurementTypes)
+}
+
+func (r *ReadingsRepositoryImpl) getIncreaseBetweenDates(ctx context.Context, startDate, endDate, sensorName, measurementType, bucket string) ([]gen.Reading, error) {
+	scope, resolved, err := r.resolveSeries(ctx, sensorName, measurementType)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving readings filter: %w", err)
+	}
+	if !resolved {
+		return nil, nil
+	}
+	clause, filterArgs := scope.filter("r")
+	pairClause, pairArgs := scope.filter("pair")
+
+	args := append([]any{startDate, endDate}, filterArgs...)
+	args = append(args, startDate)
+	args = append(args, pairArgs...)
+	rows, err := r.db.Reader.QueryContext(ctx, increaseBetweenQuery(bucket, clause, pairClause), args...)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching increase readings between %s and %s: %w", startDate, endDate, err)
 	}
 	defer func() { _ = rows.Close() }()
 

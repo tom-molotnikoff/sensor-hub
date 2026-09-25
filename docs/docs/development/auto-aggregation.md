@@ -49,3 +49,13 @@ Each function produces one value per sensor, measurement type and bucket:
 | `max` | Highest reading, rounded to 2 decimal places |
 | `count` | Number of readings |
 | `last` | The most recent reading, unchanged |
+| `increase` | How much a running counter rose, rounded to 2 decimal places |
+
+`increase` is for counters that only go up between resets, such as the cumulative energy totals smart plugs report. It
+works from the difference between each reading and the previous one in the same series:
+
+- Each difference counts towards the bucket of the later reading, so a rise that straddles a bucket boundary is not lost.
+- The last reading before the start of the range is used as the first comparison point, so the first bucket is not
+  undercounted. Where a series has no earlier reading, its first reading in range contributes nothing.
+- A reading lower than the one before it is treated as a counter reset (for example a daily total rolling over at
+  midnight), and the new reading's own value counts as the rise.

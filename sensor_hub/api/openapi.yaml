@@ -121,11 +121,13 @@ paths:
           required: false
           schema:
             type: string
-            enum: ["avg", "count", "last", "min", "max"]
+            enum: ["avg", "count", "last", "min", "max", "increase"]
           description: >-
             Override the aggregation function. Defaults are looked up
             per-measurement-type (e.g. `avg` for temperature, `count` for
-            binary sensors). Only meaningful when aggregation is not `raw`.
+            binary sensors). `increase` reports how much a running counter,
+            such as an energy meter, rose within each bucket, treating a drop
+            as a counter reset. Only meaningful when aggregation is not `raw`.
             Requires `type`; the request is rejected with 400 without it.
           example: "avg"
       responses:
@@ -3539,7 +3541,7 @@ components:
           description: >-
             The aggregate function applied within each bucket.
             `"none"` when readings are raw.
-          enum: ["none", "avg", "count", "last", "min", "max"]
+          enum: ["none", "avg", "count", "last", "min", "max", "increase"]
           example: "avg"
         readings:
           type: array

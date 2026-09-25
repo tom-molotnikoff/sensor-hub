@@ -59,5 +59,5 @@ func init() {
 	readingsBetweenCmd.Flags().String("start", "", "Start date (YYYY-MM-DD) or datetime (ISO 8601, e.g. 2024-01-15T10:30:00Z)")
 	readingsBetweenCmd.Flags().String("end", "", "End date (YYYY-MM-DD) or datetime (ISO 8601, e.g. 2024-01-15T11:30:00Z)")
 	readingsBetweenCmd.Flags().String("aggregation", "", "Override aggregation interval (ISO 8601 duration, e.g. PT1H, PT5M)")
-	readingsBetweenCmd.Flags().String("aggregation-function", "", "Override aggregation function (avg, count, last, min, max); requires --type, see measurement-types list for what each type supports")
+	readingsBetweenCmd.Flags().String("aggregation-function", "", "Override aggregation function (avg, count, last, min, max, increase); requires --type, see measurement-types list for what each type supports")
 }
