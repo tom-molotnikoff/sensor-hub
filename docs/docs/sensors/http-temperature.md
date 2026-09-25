@@ -84,15 +84,15 @@ sudo apt install -y python3 python3-venv python3-pip
 
 ### Installing
 
-Download the package from the [GitHub Releases](https://github.com/tom-molotnikoff/home-temperature-monitoring/releases) page and install it:
+Download the package from the [GitHub Releases](https://github.com/tom-molotnikoff/sensor-hub/releases) page and install it:
 
 ```bash
 # Lite (recommended for Pi Zero / Pi 1)
-wget https://github.com/tom-molotnikoff/home-temperature-monitoring/releases/download/vVERSION/temperature-sensor-lite_VERSION_all.deb
+wget https://github.com/tom-molotnikoff/sensor-hub/releases/download/vVERSION/temperature-sensor-lite_VERSION_all.deb
 sudo apt install ./temperature-sensor-lite_VERSION_all.deb
 
 # Full (with OpenTelemetry tracing)
-wget https://github.com/tom-molotnikoff/home-temperature-monitoring/releases/download/vVERSION/temperature-sensor_VERSION_all.deb
+wget https://github.com/tom-molotnikoff/sensor-hub/releases/download/vVERSION/temperature-sensor_VERSION_all.deb
 sudo apt install ./temperature-sensor_VERSION_all.deb
 ```
 
@@ -114,7 +114,7 @@ Each release includes a detached GPG signature (`.deb.sig`). To verify:
 
 ```bash
 # Import the public key (one-time)
-wget https://github.com/tom-molotnikoff/home-temperature-monitoring/releases/download/vVERSION/sensor-hub-gpg-public.key
+wget https://github.com/tom-molotnikoff/sensor-hub/releases/download/vVERSION/sensor-hub-gpg-public.key
 gpg --import sensor-hub-gpg-public.key
 
 # Verify the package
@@ -158,7 +158,7 @@ curl http://<sensor-ip>:5000/temperature
 Download and install the new `.deb` package. The upgrade is handled automatically — dependencies are reinstalled and the service is restarted:
 
 ```bash
-wget https://github.com/tom-molotnikoff/home-temperature-monitoring/releases/download/vNEW_VERSION/temperature-sensor_NEW_VERSION_all.deb
+wget https://github.com/tom-molotnikoff/sensor-hub/releases/download/vNEW_VERSION/temperature-sensor_NEW_VERSION_all.deb
 sudo apt install ./temperature-sensor_NEW_VERSION_all.deb
 ```
 

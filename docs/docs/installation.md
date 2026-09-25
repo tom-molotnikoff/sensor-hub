@@ -8,7 +8,7 @@ sidebar_position: 3
 
 ## Download the package
 
-Download the latest RPM or DEB package from the [GitHub Releases](https://github.com/tom-molotnikoff/home-temperature-monitoring/releases) page. Packages are GPG-signed.
+Download the latest RPM or DEB package from the [GitHub Releases](https://github.com/tom-molotnikoff/sensor-hub/releases) page. Packages are GPG-signed.
 
 ## Install
 

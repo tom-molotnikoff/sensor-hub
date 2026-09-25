@@ -14,7 +14,7 @@ sudo cp /var/lib/sensor-hub/sensor_hub.db ~/sensor-hub-backup.db
 
 ## Download and install the new package
 
-Download the latest package from the [GitHub Releases](https://github.com/tommolyit/home-temperature-monitoring/releases) page.
+Download the latest package from the [GitHub Releases](https://github.com/tom-molotnikoff/sensor-hub/releases) page.
 
 **Fedora / RHEL:**
 
@@ -62,10 +62,22 @@ rm ~/sensor-hub-backup.db
 
 If you encounter issues after upgrading, you can downgrade back to the previous version and restore the database from the backup you created:
 
+**Fedora / RHEL:**
+
 ```bash
-# Downgrade to the previous package version by uninstalling the current version and installing the old one
 sudo dnf remove sensor-hub
-sudo dnf install ./sensor-hub-previous-version.rpm   # Fedora / RHEL
+sudo dnf install ./sensor-hub-previous-version.rpm
+```
+
+**Debian / Ubuntu:**
+
+```bash
+sudo apt install --allow-downgrades ./sensor-hub_previous-version.deb
+```
+
+Then restore the database:
+
+```bash
 # Stop the service after installing the old version
 sudo systemctl stop sensor-hub
 # Restore the database from the backup
