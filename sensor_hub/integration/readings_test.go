@@ -327,6 +327,22 @@ func TestReadings_AggregationFunction_IncreaseTreatsADropAsAReset(t *testing.T) 
 	assert.Equal(t, []float64{0.6}, increaseBuckets(t, sensor, "energy_today", start, time.Hour))
 }
 
+func TestReadings_AggregationFunction_IncreaseOrdersSameSecondReadingsByArrival(t *testing.T) {
+	const sensor = "Increase Same Second Sensor"
+	addSeededSensor(t, sensor)
+
+	start := time.Now().UTC().Truncate(time.Hour).Add(-108 * time.Hour)
+	seedReadings(t, sensor, "energy_today", []seededReading{
+		{start.Add(-5 * time.Minute), 7.0},
+		{start.Add(10 * time.Minute), 7.5},
+		{start.Add(30 * time.Minute), 7.6},
+		{start.Add(30 * time.Minute), 7.61},
+		{start.Add(40 * time.Minute), 7.7},
+	})
+
+	assert.Equal(t, []float64{0.7}, increaseBuckets(t, sensor, "energy_today", start, time.Hour))
+}
+
 func TestReadings_AggregationFunction_IncreaseWithNoEarlierReading(t *testing.T) {
 	const sensor = "Increase Lone Reading Sensor"
 	addSeededSensor(t, sensor)

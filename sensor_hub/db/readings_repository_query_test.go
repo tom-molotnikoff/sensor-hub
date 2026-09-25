@@ -68,9 +68,10 @@ func TestRawBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	repo, db := migratedReadingsRepo(t)
 	ctx := context.Background()
 
-	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "r", "Office", "temperature")
+	scope, resolved, err := repo.resolveSeries(ctx, "Office", "temperature")
 	require.NoError(t, err)
 	require.True(t, resolved)
+	clause, filterArgs := scope.filter("r")
 
 	args := append([]any{"2025-01-01 00:00:00", "2025-02-01 00:00:00"}, filterArgs...)
 	plan := queryPlan(t, db, rawBetweenQuery(clause), args...)
@@ -83,9 +84,10 @@ func TestAggregatedBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	repo, db := migratedReadingsRepo(t)
 	ctx := context.Background()
 
-	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "r", "Office", "temperature")
+	scope, resolved, err := repo.resolveSeries(ctx, "Office", "temperature")
 	require.NoError(t, err)
 	require.True(t, resolved)
+	clause, filterArgs := scope.filter("r")
 
 	bucket, err := timeBucketExpression(AggregationPT1H)
 	require.NoError(t, err)
@@ -101,9 +103,10 @@ func TestLastBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	repo, db := migratedReadingsRepo(t)
 	ctx := context.Background()
 
-	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "r", "Office", "temperature")
+	scope, resolved, err := repo.resolveSeries(ctx, "Office", "temperature")
 	require.NoError(t, err)
 	require.True(t, resolved)
+	clause, filterArgs := scope.filter("r")
 
 	bucket, err := timeBucketExpression(AggregationPT1H)
 	require.NoError(t, err)
@@ -119,18 +122,18 @@ func TestIncreaseBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	repo, db := migratedReadingsRepo(t)
 	ctx := context.Background()
 
-	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "r", "Office", "energy_today")
+	scope, resolved, err := repo.resolveSeries(ctx, "Office", "energy_today")
 	require.NoError(t, err)
 	require.True(t, resolved)
-	pairClause, _, _, err := repo.seriesFilter(ctx, "pair", "Office", "energy_today")
-	require.NoError(t, err)
+	clause, filterArgs := scope.filter("r")
+	pairClause, pairArgs := scope.filter("pair")
 
 	bucket, err := timeBucketExpression(AggregationPT1H)
 	require.NoError(t, err)
 
 	args := append([]any{"2025-01-01 00:00:00", "2025-02-01 00:00:00"}, filterArgs...)
 	args = append(args, "2025-01-01 00:00:00")
-	args = append(args, filterArgs...)
+	args = append(args, pairArgs...)
 	plan := queryPlan(t, db, increaseBetweenQuery(bucket, clause, pairClause), args...)
 
 	assert.Contains(t, plan, "idx_readings_sensor_type_time", "should use the composite index")
