@@ -1735,7 +1735,7 @@ export interface components {
              * @example avg
              * @enum {string}
              */
-            aggregation_function: "none" | "avg" | "count" | "last";
+            aggregation_function: "none" | "avg" | "count" | "last" | "min" | "max";
             /** @description The readings, potentially aggregated. */
             readings: components["schemas"]["Reading"][];
         };
@@ -2491,10 +2491,10 @@ export interface operations {
                  */
                 aggregation?: "raw" | "PT10S" | "PT1M" | "PT5M" | "PT15M" | "PT1H" | "P1D";
                 /**
-                 * @description Override the aggregation function. Defaults are looked up per-measurement-type (e.g. `avg` for temperature, `last` for binary sensors). Only meaningful when aggregation is not `raw`. Requires `type`; the request is rejected with 400 without it.
+                 * @description Override the aggregation function. Defaults are looked up per-measurement-type (e.g. `avg` for temperature, `count` for binary sensors). Only meaningful when aggregation is not `raw`. Requires `type`; the request is rejected with 400 without it.
                  * @example avg
                  */
-                aggregation_function?: "avg" | "count" | "last";
+                aggregation_function?: "avg" | "count" | "last" | "min" | "max";
             };
             header?: never;
             path?: never;

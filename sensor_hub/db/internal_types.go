@@ -53,6 +53,8 @@ const (
 	AggregationFunctionAvg   AggregationFunction = "avg"
 	AggregationFunctionCount AggregationFunction = "count"
 	AggregationFunctionLast  AggregationFunction = "last"
+	AggregationFunctionMin   AggregationFunction = "min"
+	AggregationFunctionMax   AggregationFunction = "max"
 )
 
 // ============================================================================

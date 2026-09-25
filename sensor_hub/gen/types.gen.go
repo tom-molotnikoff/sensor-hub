@@ -18,6 +18,8 @@ const (
 	AggregatedReadingsResponseAggregationFunctionAvg   AggregatedReadingsResponseAggregationFunction = "avg"
 	AggregatedReadingsResponseAggregationFunctionCount AggregatedReadingsResponseAggregationFunction = "count"
 	AggregatedReadingsResponseAggregationFunctionLast  AggregatedReadingsResponseAggregationFunction = "last"
+	AggregatedReadingsResponseAggregationFunctionMax   AggregatedReadingsResponseAggregationFunction = "max"
+	AggregatedReadingsResponseAggregationFunctionMin   AggregatedReadingsResponseAggregationFunction = "min"
 	AggregatedReadingsResponseAggregationFunctionNone  AggregatedReadingsResponseAggregationFunction = "none"
 )
 
@@ -29,6 +31,10 @@ func (e AggregatedReadingsResponseAggregationFunction) Valid() bool {
 	case AggregatedReadingsResponseAggregationFunctionCount:
 		return true
 	case AggregatedReadingsResponseAggregationFunctionLast:
+		return true
+	case AggregatedReadingsResponseAggregationFunctionMax:
+		return true
+	case AggregatedReadingsResponseAggregationFunctionMin:
 		return true
 	case AggregatedReadingsResponseAggregationFunctionNone:
 		return true
@@ -366,6 +372,8 @@ const (
 	GetReadingsBetweenDatesParamsAggregationFunctionAvg   GetReadingsBetweenDatesParamsAggregationFunction = "avg"
 	GetReadingsBetweenDatesParamsAggregationFunctionCount GetReadingsBetweenDatesParamsAggregationFunction = "count"
 	GetReadingsBetweenDatesParamsAggregationFunctionLast  GetReadingsBetweenDatesParamsAggregationFunction = "last"
+	GetReadingsBetweenDatesParamsAggregationFunctionMax   GetReadingsBetweenDatesParamsAggregationFunction = "max"
+	GetReadingsBetweenDatesParamsAggregationFunctionMin   GetReadingsBetweenDatesParamsAggregationFunction = "min"
 )
 
 // Valid indicates whether the value is a known member of the GetReadingsBetweenDatesParamsAggregationFunction enum.
@@ -376,6 +384,10 @@ func (e GetReadingsBetweenDatesParamsAggregationFunction) Valid() bool {
 	case GetReadingsBetweenDatesParamsAggregationFunctionCount:
 		return true
 	case GetReadingsBetweenDatesParamsAggregationFunctionLast:
+		return true
+	case GetReadingsBetweenDatesParamsAggregationFunctionMax:
+		return true
+	case GetReadingsBetweenDatesParamsAggregationFunctionMin:
 		return true
 	default:
 		return false
@@ -1208,7 +1220,7 @@ type GetReadingsBetweenDatesParams struct {
 	// Aggregation Override the automatic aggregation interval. Use an ISO 8601 duration such as `PT5M` (5 minutes) or `PT1H` (1 hour). Pass `raw` to force unaggregated readings regardless of span.
 	Aggregation *GetReadingsBetweenDatesParamsAggregation `form:"aggregation,omitempty" json:"aggregation,omitempty"`
 
-	// AggregationFunction Override the aggregation function. Defaults are looked up per-measurement-type (e.g. `avg` for temperature, `last` for binary sensors). Only meaningful when aggregation is not `raw`. Requires `type`; the request is rejected with 400 without it.
+	// AggregationFunction Override the aggregation function. Defaults are looked up per-measurement-type (e.g. `avg` for temperature, `count` for binary sensors). Only meaningful when aggregation is not `raw`. Requires `type`; the request is rejected with 400 without it.
 	AggregationFunction *GetReadingsBetweenDatesParamsAggregationFunction `form:"aggregation_function,omitempty" json:"aggregation_function,omitempty"`
 }
 

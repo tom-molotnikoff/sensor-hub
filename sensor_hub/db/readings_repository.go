@@ -260,10 +260,7 @@ func (r *ReadingsRepositoryImpl) getAggregatedBetweenDates(ctx context.Context, 
 		return r.getLastBetweenDates(ctx, startDate, endDate, sensorName, measurementType, bucket)
 	}
 
-	sqlAgg := "ROUND(AVG(r.numeric_value), 2)"
-	if aggFunc == AggregationFunctionCount {
-		sqlAgg = "COUNT(*)"
-	}
+	sqlAgg := aggregateExpression(aggFunc)
 
 	clause, filterArgs, resolved, err := r.seriesFilter(ctx, sensorName, measurementType)
 	if err != nil {
@@ -281,6 +278,19 @@ func (r *ReadingsRepositoryImpl) getAggregatedBetweenDates(ctx context.Context, 
 	defer func() { _ = rows.Close() }()
 
 	return scanReadings(rows)
+}
+
+func aggregateExpression(aggFunc AggregationFunction) string {
+	switch aggFunc {
+	case AggregationFunctionCount:
+		return "COUNT(*)"
+	case AggregationFunctionMin:
+		return "ROUND(MIN(r.numeric_value), 2)"
+	case AggregationFunctionMax:
+		return "ROUND(MAX(r.numeric_value), 2)"
+	default:
+		return "ROUND(AVG(r.numeric_value), 2)"
+	}
 }
 
 func aggregatedBetweenQuery(sqlAgg, bucket, seriesClause string) string {

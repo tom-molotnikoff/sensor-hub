@@ -37,3 +37,15 @@ endpoint.
 
 When no aggregation is applied (short range or explicit `raw`), the response uses `"aggregation_interval": "raw"`
 and `"aggregation_function": "none"`.
+
+### Aggregation functions
+
+Each function produces one value per sensor, measurement type and bucket:
+
+| Function | Value per bucket |
+|---|---|
+| `avg` | Mean of the readings, rounded to 2 decimal places |
+| `min` | Lowest reading, rounded to 2 decimal places |
+| `max` | Highest reading, rounded to 2 decimal places |
+| `count` | Number of readings |
+| `last` | The most recent reading, unchanged |
