@@ -11,6 +11,7 @@ const placements = {
   'below-start': { anchor: { vertical: 'bottom', horizontal: 'left' }, transform: { vertical: 'top', horizontal: 'left' } },
   'above-start': { anchor: { vertical: 'top', horizontal: 'left' }, transform: { vertical: 'bottom', horizontal: 'left' } },
   'beside-top': { anchor: { vertical: 'top', horizontal: 'right' }, transform: { vertical: 'top', horizontal: 'left' } },
+  'beside-bottom': { anchor: { vertical: 'bottom', horizontal: 'right' }, transform: { vertical: 'bottom', horizontal: 'left' } },
 } as const satisfies Record<string, { anchor: PopoverOrigin; transform: PopoverOrigin }>;
 
 export type MenuPlacement = keyof typeof placements;

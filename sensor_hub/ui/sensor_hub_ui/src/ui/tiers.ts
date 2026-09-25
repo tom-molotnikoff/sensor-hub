@@ -12,6 +12,8 @@ const wideQuery = `(min-width:${breakpointValues[tierBreakpoints.wide]}px)`;
 
 export const wideMediaQuery = `@media ${wideQuery}`;
 
+const expandedNavQuery = `(min-width:${breakpointValues.lg}px)`;
+
 export const compactMediaQuery = `@media (max-width:${breakpointValues[tierBreakpoints.wide] - 0.05}px)`;
 
 export function responsive<T>(values: TierValues<T>) {
@@ -24,4 +26,8 @@ export function responsivePixels(values: TierValues<number>) {
 
 export function useTier(): Tier {
   return useMediaQuery(wideQuery, { noSsr: true }) ? 'wide' : 'compact';
+}
+
+export function useRoomForExpandedNav(): boolean {
+  return useMediaQuery(expandedNavQuery, { noSsr: true });
 }

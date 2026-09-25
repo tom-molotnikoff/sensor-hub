@@ -26,9 +26,10 @@ const docsHref = '/docs/';
 interface NavAccountProps {
   user: NonNullable<AuthUser>;
   onNavigate: (path: string) => void;
+  menuBeside?: HTMLElement | null;
 }
 
-function NavAccount({ user, onNavigate }: NavAccountProps) {
+function NavAccount({ user, onNavigate, menuBeside }: NavAccountProps) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const menuId = useId();
   const headingId = useId();
@@ -63,10 +64,10 @@ function NavAccount({ user, onNavigate }: NavAccountProps) {
         id={menuId}
         data-ui="nav-account-menu"
         variant="menu"
-        anchorEl={anchor}
+        anchorEl={anchor && (menuBeside ?? anchor)}
         onClose={close}
         width="sm"
-        placement="above-start"
+        placement={menuBeside ? 'beside-bottom' : 'above-start'}
         labelledBy={headingId}
       >
         <MenuHeading id={headingId}>

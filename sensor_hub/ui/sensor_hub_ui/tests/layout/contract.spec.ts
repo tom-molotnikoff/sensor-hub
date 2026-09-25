@@ -1,5 +1,5 @@
 import { expect, test } from './test';
-import { checks, contractViewports } from './checks';
+import { checks, contractViewports, saveNav } from './checks';
 import { layoutChecks, routes } from './routes';
 import { signIn } from './users';
 
@@ -14,6 +14,7 @@ for (const route of routes) {
 
           test('holds the layout contract', async ({ page }) => {
             await signIn(page, user);
+            await saveNav(page, 'expanded');
             await page.goto(route.path);
             await page.waitForLoadState('networkidle');
             await expect(page).toHaveURL(new RegExp(`${route.path}$`));

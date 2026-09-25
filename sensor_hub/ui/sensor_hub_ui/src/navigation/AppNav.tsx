@@ -48,7 +48,7 @@ interface AppNavProps {
 }
 
 function AppNav({ permanent = false }: AppNavProps) {
-  const { open, setOpen } = useContext(SidebarContext);
+  const { open, setOpen, collapsed, toggleCollapsed } = useContext(SidebarContext);
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -59,7 +59,10 @@ function AppNav({ permanent = false }: AppNavProps) {
     close();
     navigate(path);
   };
-  const frame = permanent ? ({ variant: 'permanent' } as const) : ({ variant: 'temporary', open, onClose: close } as const);
+  const rail = permanent && collapsed;
+  const frame = permanent
+    ? ({ variant: 'permanent', rail, onToggleRail: toggleCollapsed } as const)
+    : ({ variant: 'temporary', open, onClose: close } as const);
 
   return (
     <NavFrame
@@ -68,7 +71,7 @@ function AppNav({ permanent = false }: AppNavProps) {
       name="Sensor Hub"
       navRef={setNavElement}
       brandAction={permanent && hasPerm(user, 'view_notifications') && <NotificationBell panelBeside={navElement} />}
-      foot={user && <NavAccount user={user} onNavigate={handleNavigate} />}
+      foot={user && <NavAccount user={user} onNavigate={handleNavigate} menuBeside={rail ? navElement : null} />}
     >
       {user === undefined ? (
         <NavSkeleton rows={mainEntries.length} />
