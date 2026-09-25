@@ -1,7 +1,7 @@
 import { createTheme, type TypographyStyle } from '@mui/material/styles';
 import type {} from '@mui/x-data-grid/themeAugmentation';
 import { breakpointValues, compactMediaQuery, wideMediaQuery, type TierValues } from '../tiers';
-import { chartPalettes, statusPalettes, type ChartPalette, type StatusPalette } from './palette';
+import { chartPalettes, navPalettes, statusPalettes, type ChartPalette, type NavPalette, type StatusPalette } from './palette';
 import { density, type Density } from './tokens';
 
 export type { StatusKey } from './palette';
@@ -10,10 +10,12 @@ declare module '@mui/material/styles' {
   interface Palette {
     status: StatusPalette;
     chart: ChartPalette;
+    nav: NavPalette;
   }
   interface PaletteOptions {
     status?: StatusPalette;
     chart?: ChartPalette;
+    nav?: NavPalette;
   }
   interface Theme {
     density: Density;
@@ -170,6 +172,7 @@ export const theme = createTheme({
         },
         status: statusPalettes.light,
         chart: chartPalettes.light,
+        nav: navPalettes.light,
       },
     },
     dark: {
@@ -194,6 +197,7 @@ export const theme = createTheme({
         },
         status: statusPalettes.dark,
         chart: chartPalettes.dark,
+        nav: navPalettes.dark,
       },
     },
   },

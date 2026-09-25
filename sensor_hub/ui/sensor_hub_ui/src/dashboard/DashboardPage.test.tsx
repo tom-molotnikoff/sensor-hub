@@ -29,7 +29,7 @@ vi.mock('./DashboardProvider', () => ({
 vi.mock('../providers/AuthContext', () => ({
   useAuth: () => ({ user: { id: 1, username: 'tom', roles: [], permissions: [] } }),
 }));
-vi.mock('../navigation/NavigationSidebar', () => ({ default: () => <nav>sidebar</nav> }));
+vi.mock('../navigation/AppNav', () => ({ default: () => <nav>sidebar</nav> }));
 vi.mock('../navigation/TopAppBar', () => ({
   default: ({ pageTitle }: { pageTitle: string }) => <header>{pageTitle}</header>,
 }));

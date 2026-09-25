@@ -53,4 +53,20 @@ describe('theme', () => {
     }
     expect(palette.chart.categorical).toHaveLength(8);
   });
+
+  it.each([
+    ['light', '#211E1B'],
+    ['dark', '#121212'],
+  ] as const)('gives the nav its charcoal colours in %s', (scheme, bg) => {
+    const { palette } = (theme as unknown as { colorSchemes: Record<string, { palette: Palette }> }).colorSchemes[scheme];
+    expect(palette.nav).toEqual({
+      bg,
+      text: '#D9D3CC',
+      muted: '#8F867D',
+      hover: 'rgba(255,255,255,0.06)',
+      activeBg: 'rgba(237,81,37,0.18)',
+      activeText: '#FFFFFF',
+      indicator: '#ED5125',
+    });
+  });
 });
