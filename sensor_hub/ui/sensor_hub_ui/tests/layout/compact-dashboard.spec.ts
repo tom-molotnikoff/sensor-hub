@@ -11,6 +11,18 @@ async function openDashboard(page: Page) {
 test.describe('Dashboard at 390x844', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
+  test('keeps the Dashboards bar title and the picker, lock, New Dashboard and delete in the page body', async ({ page }) => {
+    await openDashboard(page);
+    await expect(page.locator('[data-ui=app-bar-title]')).toHaveText('Dashboards');
+    await expect(page.locator('[data-ui=page-header]')).toHaveCount(0);
+
+    const body = page.locator('[data-ui=page] [data-ui=action-bar]');
+    await expect(body.getByRole('combobox')).toHaveText('Layout ★');
+    for (const name of ['Edit dashboard', 'New dashboard', 'Delete dashboard']) {
+      await expect(body.getByRole('button', { name })).toBeVisible();
+    }
+  });
+
   test('stacks every widget full width in desktop reading order, with no grid library', async ({ page }) => {
     await openDashboard(page);
     await expect(page.locator('.react-grid-layout, .react-grid-item')).toHaveCount(0);

@@ -8,6 +8,7 @@ const widths = { sm: 260, md: 360 } as const;
 
 const placements = {
   'below-end': { anchor: { vertical: 'bottom', horizontal: 'right' }, transform: { vertical: 'top', horizontal: 'right' } },
+  'below-start': { anchor: { vertical: 'bottom', horizontal: 'left' }, transform: { vertical: 'top', horizontal: 'left' } },
   'above-start': { anchor: { vertical: 'top', horizontal: 'left' }, transform: { vertical: 'bottom', horizontal: 'left' } },
   'beside-top': { anchor: { vertical: 'top', horizontal: 'right' }, transform: { vertical: 'top', horizontal: 'left' } },
 } as const satisfies Record<string, { anchor: PopoverOrigin; transform: PopoverOrigin }>;

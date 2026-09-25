@@ -77,4 +77,71 @@ test.describe('Wide dashboard', () => {
       .toMatchObject({ stored: { uptime: { w: 5 } }, matchesScreen: true });
     await copy.remove();
   });
+
+  test('titles the page with the dashboard name, the lock right after it and the dashboard actions at the end of the row', async ({ page }) => {
+    await openDashboard(page);
+    const header = page.locator('[data-ui=page-header]');
+    const heading = header.getByRole('heading', { level: 1 });
+    const title = heading.getByRole('button', { name: 'Layout', exact: true });
+    await expect(title).toHaveText('Layout');
+    await expect(title.locator('.MuiButton-endIcon > svg')).toBeVisible();
+    await expect(page.locator('h1 [role=combobox], [role=combobox]:has(h1)')).toHaveCount(0);
+    await expect(page.locator('[data-ui=action-bar]'), 'separate toolbar row').toHaveCount(0);
+
+    const type = await Promise.all(
+      [heading, title].map((element) =>
+        element.evaluate((node) => {
+          const style = getComputedStyle(node);
+          return { fontSize: style.fontSize, fontWeight: style.fontWeight, textTransform: style.textTransform };
+        }),
+      ),
+    );
+    expect(type[1], 'title button type').toEqual({ ...type[0], textTransform: 'none' });
+
+    const edges = await page.locator('[data-ui=page]').evaluate((root) => {
+      const label = root.querySelector('[data-ui=page-title-label]')!;
+      return {
+        label: label.getBoundingClientRect().left,
+        content: root.getBoundingClientRect().left + parseFloat(getComputedStyle(root).paddingLeft),
+      };
+    });
+    expect(Math.abs(edges.label - edges.content), 'title text left edge against the page content').toBeLessThan(1);
+
+    const [row, name, lock, create, remove] = await Promise.all(
+      [
+        header,
+        title,
+        header.getByRole('button', { name: 'Edit dashboard' }),
+        header.getByRole('button', { name: 'New dashboard' }),
+        header.getByRole('button', { name: 'Delete dashboard' }),
+      ].map(async (element) => (await element.boundingBox())!),
+    );
+    const middle = (box: typeof row) => box.y + box.height / 2;
+    for (const control of [lock, create, remove]) expect(Math.abs(middle(control) - middle(name))).toBeLessThan(2);
+    expect(lock.x - (name.x + name.width), 'gap between the title and the lock').toBeGreaterThanOrEqual(0);
+    expect(lock.x - (name.x + name.width), 'gap between the title and the lock').toBeLessThanOrEqual(24);
+    expect(create.x).toBeGreaterThan(lock.x + lock.width + 100);
+    expect(remove.x).toBeGreaterThan(create.x + create.width);
+    expect(Math.abs(row.x + row.width - (remove.x + remove.width)), 'delete at the end of the row').toBeLessThan(1);
+  });
+
+  test('switches dashboard from the title menu, with the star only on the default entry', async ({ page }) => {
+    const copy = await copyLayoutDashboard(page, () => false);
+    await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
+    const title = page.locator('h1').getByRole('button');
+    await expect(title).toHaveText(copy.name);
+
+    await title.click();
+    const menu = page.getByRole('menu', { name: copy.name });
+    const entries = await menu.getByRole('menuitem').allTextContents();
+    expect(entries).toContain(copy.name);
+    expect(entries.filter((entry) => entry.includes('★'))).toEqual(['Layout ★']);
+
+    await menu.getByRole('menuitem', { name: 'Layout ★' }).click();
+    await expect(menu).toHaveCount(0);
+    await expect(title).toHaveText('Layout');
+    await expect(page.locator('[data-widget-id]').first()).toBeVisible();
+    await copy.remove();
+  });
 });

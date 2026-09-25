@@ -82,15 +82,14 @@ export function recordDashboardWrites(page: Page) {
 export async function copyLayoutDashboard(page: Page, pick?: (widget: StoredWidget) => boolean) {
   const csrf = { 'X-CSRF-Token': (await signIn(page, 'admin'))! };
   const widgets = (await storedWidgets(page, await dashboardId(page, 'Layout'))).filter(pick ?? (() => true));
-  const created = await page.request.post('/api/dashboards', {
-    headers: csrf,
-    data: { name: `Copy ${Date.now()}-${Math.random().toString(36).slice(2)}`, config: { widgets } },
-  });
+  const name = `Copy ${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const created = await page.request.post('/api/dashboards', { headers: csrf, data: { name, config: { widgets } } });
   expect(created.status()).toBe(201);
   const { id } = (await created.json()) as { id: number };
   await page.addInitScript((value) => localStorage.setItem('sensor-hub-active-dashboard-id', value), String(id));
   return {
     id,
+    name,
     widgets,
     remove: async () => {
       const response = await page.request.delete(`/api/dashboards/${id}`, { headers: csrf });
