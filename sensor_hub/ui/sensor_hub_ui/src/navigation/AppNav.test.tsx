@@ -454,15 +454,31 @@ describe('AppNav permanent', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Sensors');
   });
 
-  it('switches between the rail and the expanded nav with the toggle', () => {
+  it('switches between the rail and the expanded nav with the toggle, keeping its name and focus', () => {
     renderPermanentNav();
+    const toggle = collapseToggle();
 
-    press(collapseToggle());
-    expect(collapseToggle()).toHaveAttribute('aria-expanded', 'false');
+    press(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveAccessibleName('Collapse');
+    expect(toggle).toHaveFocus();
     expect(labels(lists()[0])).toEqual(adminItems.map(() => ''));
 
-    press(collapseToggle());
-    expect(collapseToggle()).toHaveAttribute('aria-expanded', 'true');
+    press(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveAccessibleName('Collapse');
+    expect(toggle).toHaveFocus();
     expect(labels(lists()[0])).toEqual(adminItems);
+  });
+
+  it('describes the rail toggle with an Expand tooltip', async () => {
+    renderPermanentNav(admin, { rail: true });
+
+    fireEvent.mouseOver(collapseToggle());
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Expand');
+    expect(collapseToggle()).toHaveAccessibleName('Collapse');
+    expect(collapseToggle()).toHaveAccessibleDescription('Expand');
   });
 });

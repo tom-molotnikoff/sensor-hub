@@ -45,10 +45,12 @@ const NavRail = createContext(false);
 
 function RailTooltip({ label, children }: { label: string; children: ReactElement }) {
   const rail = useContext(NavRail);
-  return (
-    <Tooltip title={rail ? label : ''} placement="right">
+  return rail ? (
+    <Tooltip title={label} placement="right">
       {children}
     </Tooltip>
+  ) : (
+    children
   );
 }
 
@@ -131,20 +133,19 @@ const footRowSx = {
 } as const;
 
 function NavCollapseToggle({ rail, onToggle }: { rail: boolean; onToggle: () => void }) {
-  const label = rail ? 'Expand' : 'Collapse';
   return (
-    <RailTooltip label={label}>
+    <Tooltip title={rail ? 'Expand' : ''} placement="right" describeChild>
       <ListItemButton
         data-ui="nav-collapse"
-        aria-label={label}
+        aria-label="Collapse"
         aria-expanded={!rail}
         onClick={onToggle}
         sx={{ ...footRowSx, color: 'nav.muted', ...(rail && railRowSx) }}
       >
         <ListItemIcon sx={{ color: 'inherit' }}>{rail ? <KeyboardDoubleArrowRightIcon /> : <KeyboardDoubleArrowLeftIcon />}</ListItemIcon>
-        {!rail && <ListItemText primary={label} />}
+        {!rail && <ListItemText primary="Collapse" />}
       </ListItemButton>
-    </RailTooltip>
+    </Tooltip>
   );
 }
 
@@ -183,7 +184,6 @@ export function NavItem({ icon, label, active = false, onClick }: NavItemProps) 
         <ListItemButton
           selected={active}
           aria-current={active ? 'page' : undefined}
-          aria-label={rail ? label : undefined}
           onClick={onClick}
           sx={{ ...itemSx, ...(rail && railRowSx) }}
         >
