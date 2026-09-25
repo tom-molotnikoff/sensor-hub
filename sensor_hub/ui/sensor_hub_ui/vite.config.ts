@@ -6,7 +6,7 @@ import path from 'path';
 import type { ServerOptions } from 'https';
 
 // Vite dev server will use these files if present. You can override via env vars.
-const certDir = process.env.DEV_CERT_DIR || path.resolve(__dirname, 'certs');
+const certDir = process.env.DEV_CERT_DIR || path.resolve(import.meta.dirname, 'certs');
 const certFile = process.env.DEV_CERT_FILE || path.join(certDir, 'home.sensor-hub.pem');
 const keyFile = process.env.DEV_KEY_FILE || path.join(certDir, 'home.sensor-hub-key.pem');
 
