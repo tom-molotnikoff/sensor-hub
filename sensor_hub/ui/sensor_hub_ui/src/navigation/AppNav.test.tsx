@@ -46,7 +46,7 @@ function Location() {
 function Shell() {
   const [open, setOpen] = useState(false);
   return (
-    <SidebarContext.Provider value={{ open, setOpen }}>
+    <SidebarContext.Provider value={{ open, setOpen, collapsed: true, toggleCollapsed: () => {} }}>
       <button onClick={() => setOpen(true)}>menu</button>
       <AppNav />
     </SidebarContext.Provider>
@@ -206,6 +206,15 @@ describe('AppNav', () => {
     expect(within(nav()).queryByText('Login')).not.toBeInTheDocument();
   });
 
+  it('has no collapse toggle and keeps its labels while the rail is collapsed', () => {
+    renderNav();
+
+    expect(nav().querySelector('[data-ui=nav-collapse]')).toBeNull();
+    expect(labels(lists()[0])).toEqual(adminItems);
+    expect(nav().querySelector('[data-ui=nav-brand]')).toHaveTextContent('Sensor Hub');
+    expect(accountBlock()).toHaveTextContent('testadmin');
+  });
+
   it('closes the drawer and navigates when an item is picked', async () => {
     renderNav({ at: '/dashboard' });
 
@@ -359,19 +368,32 @@ const notifications: NotificationContextValue = {
   updatePreference: async () => {},
 };
 
-function renderPermanentNav(as: AuthUser = admin) {
+function PermanentShell({ rail }: { rail: boolean }) {
+  const [collapsed, setCollapsed] = useState(rail);
+  return (
+    <SidebarContext.Provider
+      value={{ open: false, setOpen: () => {}, collapsed, toggleCollapsed: () => setCollapsed((current) => !current) }}
+    >
+      <AppNav permanent />
+    </SidebarContext.Provider>
+  );
+}
+
+function renderPermanentNav(as: AuthUser = admin, { rail = false } = {}) {
   render(
     <ThemeProvider theme={theme}>
       <AuthContext.Provider value={{ user: as, refresh: async () => {} }}>
         <NotificationContext.Provider value={notifications}>
           <MemoryRouter initialEntries={['/dashboard']}>
-            <AppNav permanent />
+            <PermanentShell rail={rail} />
           </MemoryRouter>
         </NotificationContext.Provider>
       </AuthContext.Provider>
     </ThemeProvider>,
   );
 }
+
+const collapseToggle = () => nav().querySelector<HTMLElement>('[data-ui=nav-collapse]')!;
 
 const brandParts = () =>
   Array.from(nav().querySelector('[data-ui=nav-brand]')!.children).map(
@@ -398,5 +420,49 @@ describe('AppNav permanent', () => {
     renderPermanentNav({ id: 4, username: 'someone', roles: ['user'], permissions: ['view_dashboards'] });
 
     expect(brandParts()).toEqual(['/sensor_hub.svg', 'Sensor Hub']);
+  });
+
+  it('shows the collapse toggle above the account block at the foot', () => {
+    renderPermanentNav();
+
+    const foot = nav().querySelector<HTMLElement>('[data-ui=nav-foot]')!;
+    expect(foot).toContainElement(collapseToggle());
+    expect(collapseToggle().compareDocumentPosition(accountBlock()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(collapseToggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(collapseToggle()).toHaveTextContent('Collapse');
+  });
+
+  it('stacks the logo over the bell, hides the name and shows only the avatar on the rail', () => {
+    renderPermanentNav(admin, { rail: true });
+
+    expect(brandParts()).toEqual(['/sensor_hub.svg', 'notifications']);
+    expect(within(nav()).getByRole('button', { name: 'notifications' })).toHaveTextContent('6');
+    const block = accountBlock()!;
+    expect(block).toHaveTextContent(/^T$/);
+    expect(block).toHaveAccessibleName('testadmin');
+    expect(within(block).queryByTestId('UnfoldMoreIcon')).not.toBeInTheDocument();
+    expect(collapseToggle()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('names each rail item by its label and shows it in a tooltip', async () => {
+    renderPermanentNav(admin, { rail: true });
+
+    expect(labels(lists()[0])).toEqual(adminItems.map(() => ''));
+    const sensors = within(nav()).getByRole('button', { name: 'Sensors' });
+    fireEvent.mouseOver(sensors);
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Sensors');
+  });
+
+  it('switches between the rail and the expanded nav with the toggle', () => {
+    renderPermanentNav();
+
+    press(collapseToggle());
+    expect(collapseToggle()).toHaveAttribute('aria-expanded', 'false');
+    expect(labels(lists()[0])).toEqual(adminItems.map(() => ''));
+
+    press(collapseToggle());
+    expect(collapseToggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(labels(lists()[0])).toEqual(adminItems);
   });
 });

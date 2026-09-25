@@ -1,10 +1,21 @@
 import { expect, test, type Locator, type Page } from './test';
-import { contractViewports, narrowWide, navBackground, viewports, wideViewports } from './checks';
+import {
+  contractViewports,
+  narrowWide,
+  navBackground,
+  navCollapsedKey,
+  saveNav,
+  viewports,
+  wideViewports,
+  type NavState,
+} from './checks';
 import { signIn } from './users';
 
 const activeBackground = 'rgba(237, 81, 37, 0.18)';
 const indicator = 'rgb(237, 81, 37)';
 const darkDivider = 'rgb(51, 51, 51)';
+const navWidth: Record<NavState, number> = { expanded: 256, rail: 72 };
+const navStates = ['expanded', 'rail'] as const;
 
 async function paintedBackground(nav: Locator) {
   return nav.evaluate((element) => {
@@ -16,8 +27,9 @@ async function paintedBackground(nav: Locator) {
   });
 }
 
-async function openNav(page: Page, path: string) {
+async function openNav(page: Page, path: string, state?: NavState) {
   await signIn(page, 'admin');
+  if (state) await saveNav(page, state);
   await page.goto(path);
   await page.waitForLoadState('networkidle');
   if (page.viewportSize()!.width < narrowWide.width) await page.getByRole('button', { name: 'menu' }).click();
@@ -64,17 +76,35 @@ for (const viewport of wideViewports) {
   test.describe(`permanent nav at ${viewport.width}x${viewport.height}`, () => {
     test.use({ viewport: { width: viewport.width, height: viewport.height }, colorScheme: 'light' });
 
-    test('sits expanded beside the page without any click', async ({ page }) => {
-      const nav = await openNav(page, '/dashboard');
+    for (const state of navStates) {
+      test(`sits beside the page ${state} without any click`, async ({ page }) => {
+        const nav = await openNav(page, '/dashboard', state);
 
-      const [navBox, pageBox] = [await nav.boundingBox(), await page.locator('[data-ui=page]').boundingBox()];
-      expect(navBox, 'nav box').toMatchObject({ x: 0, y: 0, width: 256, height: viewport.height });
-      expect(pageBox!.x, 'page left edge').toBeGreaterThanOrEqual(navBox!.width);
-      await expect(page.locator('[data-ui=app-bar]')).toHaveCount(0);
-    });
+        const [navBox, pageBox] = [await nav.boundingBox(), await page.locator('[data-ui=page]').boundingBox()];
+        expect(navBox, 'nav box').toMatchObject({ x: 0, y: 0, width: navWidth[state], height: viewport.height });
+        expect(pageBox!.x, 'page left edge').toBeGreaterThanOrEqual(navBox!.width);
+        await expect(page.locator('[data-ui=app-bar]')).toHaveCount(0);
+      });
+
+      test(`opens the bell panel to the right of the ${state} nav and inside the viewport`, async ({ page }) => {
+        const nav = await openNav(page, '/dashboard', state);
+        const navBox = await nav.boundingBox();
+
+        await nav.getByRole('button', { name: 'notifications', exact: true }).click();
+
+        const paper = page.locator('[data-ui=menu-panel] .MuiPaper-root');
+        await expect(paper).toHaveCSS('opacity', '1');
+        const panelBox = await paper.boundingBox();
+        expect(panelBox!.x, 'panel left edge right of the nav').toBeGreaterThanOrEqual(navBox!.x + navBox!.width);
+        expect(panelBox!.y, 'panel top edge').toBeGreaterThanOrEqual(0);
+        expect(panelBox!.x + panelBox!.width, 'panel right edge').toBeLessThanOrEqual(viewport.width);
+        expect(panelBox!.y + panelBox!.height, 'panel bottom edge').toBeLessThanOrEqual(viewport.height);
+        await expect(page.getByRole('menu').getByText('Notifications', { exact: true })).toBeVisible();
+      });
+    }
 
     test('shows the logo, the name and the bell with the unread count, left to right', async ({ page }) => {
-      const nav = await openNav(page, '/dashboard');
+      const nav = await openNav(page, '/dashboard', 'expanded');
       const brand = nav.locator('[data-ui=nav-brand]');
 
       const logo = brand.locator('img');
@@ -89,23 +119,159 @@ for (const viewport of wideViewports) {
       await expect(brand.getByRole('button', { name: 'close navigation' })).toHaveCount(0);
     });
 
-    test('opens the bell panel to the right of the nav and inside the viewport', async ({ page }) => {
-      const nav = await openNav(page, '/dashboard');
+    test('stacks the logo over the bell on the rail, hides the name and shows only the avatar', async ({ page }) => {
+      const nav = await openNav(page, '/dashboard', 'rail');
+      const brand = nav.locator('[data-ui=nav-brand]');
+
+      const logo = brand.locator('img');
+      const bell = brand.getByRole('button', { name: 'notifications', exact: true });
+      const [logoBox, bellBox] = [await logo.boundingBox(), await bell.boundingBox()];
+      expect(logoBox!.y + logoBox!.height, 'logo above the bell').toBeLessThanOrEqual(bellBox!.y);
+      await expect(brand.getByText('Sensor Hub', { exact: true })).toHaveCount(0);
+      await expect(bell.locator('.MuiBadge-badge'), 'unread count').toHaveText(/^[1-9]\d*$/);
+      const block = nav.locator('[data-ui=nav-account]');
+      await expect(block.locator('.MuiAvatar-root')).toHaveText('T');
+      await expect(block).toHaveText('T');
+    });
+
+    test('opens the account menu to the right of the rail and inside the viewport', async ({ page }) => {
+      const nav = await openNav(page, '/dashboard', 'rail');
       const navBox = await nav.boundingBox();
 
-      await nav.getByRole('button', { name: 'notifications', exact: true }).click();
+      await nav.locator('[data-ui=nav-account]').click();
 
-      const paper = page.locator('[data-ui=menu-panel] .MuiPaper-root');
+      const menu = page.getByRole('menu', { name: 'Signed in as testadmin' });
+      const paper = page.locator('[data-ui=nav-account-menu] .MuiPaper-root');
       await expect(paper).toHaveCSS('opacity', '1');
-      const panelBox = await paper.boundingBox();
-      expect(panelBox!.x, 'panel left edge right of the nav').toBeGreaterThanOrEqual(navBox!.x + navBox!.width);
-      expect(panelBox!.y, 'panel top edge').toBeGreaterThanOrEqual(0);
-      expect(panelBox!.x + panelBox!.width, 'panel right edge').toBeLessThanOrEqual(viewport.width);
-      expect(panelBox!.y + panelBox!.height, 'panel bottom edge').toBeLessThanOrEqual(viewport.height);
-      await expect(page.getByRole('menu').getByText('Notifications', { exact: true })).toBeVisible();
+      const menuBox = await paper.boundingBox();
+      expect(menuBox!.x, 'menu left edge right of the rail').toBeGreaterThanOrEqual(navBox!.x + navBox!.width);
+      expect(menuBox!.y, 'menu top edge').toBeGreaterThanOrEqual(0);
+      expect(menuBox!.x + menuBox!.width, 'menu right edge').toBeLessThanOrEqual(viewport.width);
+      expect(menuBox!.y + menuBox!.height, 'menu bottom edge').toBeLessThanOrEqual(viewport.height);
+      await expect(menu.getByRole('menuitem', { name: 'Logout' })).toBeInViewport({ ratio: 1 });
     });
   });
 }
+
+const navBoxWidth = async (nav: Locator) => (await nav.boundingBox())!.width;
+
+const savedNav = (page: Page) => page.evaluate((key) => localStorage.getItem(key), navCollapsedKey);
+
+for (const [width, state] of [
+  [900, 'rail'],
+  [1199, 'rail'],
+  [1200, 'expanded'],
+  [1440, 'expanded'],
+] as const) {
+  test.describe(`nav with nothing saved at ${width}x900`, () => {
+    test.use({ viewport: { width, height: 900 }, colorScheme: 'light' });
+
+    test(`loads ${state}`, async ({ page }) => {
+      const nav = await openNav(page, '/dashboard');
+
+      expect(await navBoxWidth(nav), 'nav width').toBe(navWidth[state]);
+      await expect(nav.locator('[data-ui=nav-collapse]')).toHaveAttribute('aria-expanded', String(state === 'expanded'));
+      expect(await savedNav(page), 'saved choice').toBeNull();
+    });
+  });
+}
+
+test.describe('nav rail at 1440x900', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, colorScheme: 'light' });
+
+  test('collapses to a rail and expands again with the toggle, saving each choice', async ({ page }) => {
+    const nav = await openNav(page, '/dashboard');
+    const toggle = nav.locator('[data-ui=nav-collapse]');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    await toggle.click();
+
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(await navBoxWidth(nav), 'collapsed width').toBe(navWidth.rail);
+    expect(await savedNav(page), 'saved choice').toBe('true');
+
+    await toggle.click();
+
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(await navBoxWidth(nav), 'expanded width').toBe(navWidth.expanded);
+    expect(await savedNav(page), 'saved choice').toBe('false');
+  });
+
+  test('stays collapsed after a reload', async ({ page }) => {
+    const nav = await openNav(page, '/dashboard');
+    await nav.locator('[data-ui=nav-collapse]').click();
+    await expect(nav.locator('[data-ui=nav-collapse]')).toHaveAttribute('aria-expanded', 'false');
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    await expect(nav.locator('[data-ui=nav-collapse]')).toHaveAttribute('aria-expanded', 'false');
+    expect(await navBoxWidth(nav), 'width after reload').toBe(navWidth.rail);
+  });
+
+  test('follows the window across 1200px while nothing is saved', async ({ page }) => {
+    const nav = await openNav(page, '/dashboard');
+
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await expect.poll(() => navBoxWidth(nav), { message: 'width at 1000px' }).toBe(navWidth.rail);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(() => navBoxWidth(nav), { message: 'width at 1440px' }).toBe(navWidth.expanded);
+    expect(await savedNav(page), 'saved choice').toBeNull();
+  });
+
+  for (const state of navStates) {
+    test(`stays ${state} across 1200px once saved`, async ({ page }) => {
+      const nav = await openNav(page, '/dashboard', state);
+      expect(await navBoxWidth(nav), 'width at 1440px').toBe(navWidth[state]);
+
+      await page.setViewportSize({ width: 1000, height: 900 });
+      await page.waitForFunction(() => window.innerWidth === 1000);
+      expect(await navBoxWidth(nav), 'width at 1000px').toBe(navWidth[state]);
+
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.waitForFunction(() => window.innerWidth === 1440);
+      expect(await navBoxWidth(nav), 'width back at 1440px').toBe(navWidth[state]);
+    });
+  }
+
+  test('shows an item label in a tooltip to the right on hover', async ({ page }) => {
+    const nav = await openNav(page, '/dashboard', 'rail');
+    const item = nav.getByRole('button', { name: 'Sensors', exact: true });
+
+    await item.hover();
+
+    const tooltip = page.getByRole('tooltip');
+    await expect(tooltip).toHaveText('Sensors');
+    const [itemBox, tooltipBox] = [await item.boundingBox(), await tooltip.boundingBox()];
+    expect(tooltipBox!.x, 'tooltip left edge right of the item').toBeGreaterThanOrEqual(itemBox!.x + itemBox!.width);
+  });
+
+  test('shows an item label in a tooltip to the right on keyboard focus', async ({ page }) => {
+    const nav = await openNav(page, '/dashboard', 'rail');
+    const item = nav.getByRole('button', { name: 'MQTT', exact: true });
+
+    await nav.getByRole('button', { name: 'Properties', exact: true }).focus();
+    await page.keyboard.press('Tab');
+
+    await expect(item).toBeFocused();
+    const tooltip = page.getByRole('tooltip');
+    await expect(tooltip).toHaveText('MQTT');
+    const [itemBox, tooltipBox] = [await item.boundingBox(), await tooltip.boundingBox()];
+    expect(tooltipBox!.x, 'tooltip left edge right of the item').toBeGreaterThanOrEqual(itemBox!.x + itemBox!.width);
+  });
+
+  test('keeps the rail when navigating', async ({ page }) => {
+    const nav = await openNav(page, '/dashboard');
+    await nav.locator('[data-ui=nav-collapse]').click();
+
+    await nav.getByRole('button', { name: 'Sensors', exact: true }).click();
+
+    await expect(page).toHaveURL(/\/sensors-overview$/);
+    await expect(nav.locator('[data-ui=nav-collapse]')).toHaveAttribute('aria-expanded', 'false');
+    expect(await navBoxWidth(nav), 'width after navigating').toBe(navWidth.rail);
+  });
+});
 
 test.describe('nav at 390x844', () => {
   test.use({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
@@ -128,6 +294,7 @@ test.describe('nav at 390x844', () => {
     const buttons = nav.locator('[data-ui=nav-foot]').getByRole('button');
     await expect(buttons).toHaveCount(1);
     await expect(buttons).toHaveAttribute('data-ui', 'nav-account');
+    await expect(nav.locator('[data-ui=nav-collapse]')).toHaveCount(0);
   });
 
   test('closes and navigates when an item is picked', async ({ page }) => {
@@ -177,7 +344,7 @@ test.describe('nav current page at 1440x900', () => {
 });
 
 async function openAccountMenu(page: Page) {
-  await openNav(page, '/dashboard');
+  await openNav(page, '/dashboard', 'expanded');
   const block = page.locator('[data-ui=nav-account]');
   await block.click();
   const menu = page.getByRole('menu', { name: 'Signed in as testadmin' });
@@ -191,7 +358,7 @@ for (const viewport of contractViewports) {
     test.use({ viewport: { width: viewport.width, height: viewport.height }, colorScheme: 'light' });
 
     test('shows the account block at the foot of the nav', async ({ page }) => {
-      const nav = await openNav(page, '/dashboard');
+      const nav = await openNav(page, '/dashboard', 'expanded');
 
       const foot = nav.locator('[data-ui=nav-foot]');
       const block = foot.locator('[data-ui=nav-account]');

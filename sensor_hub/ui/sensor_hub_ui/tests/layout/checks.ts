@@ -17,6 +17,14 @@ export const contractViewports = [...viewports, narrowWide] as const;
 
 export const navBackground = { light: 'rgb(33, 30, 27)', dark: 'rgb(18, 18, 18)' } as const;
 
+export const navCollapsedKey = 'sensor-hub.nav.collapsed';
+
+export type NavState = 'expanded' | 'rail';
+
+export async function saveNav(page: Page, state: NavState) {
+  await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [navCollapsedKey, String(state === 'rail')]);
+}
+
 const pagePadding: Record<Tier, number> = { compact: 12, wide: 24 };
 
 async function noSidewaysScroll(page: Page) {

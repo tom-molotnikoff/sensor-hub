@@ -1,5 +1,5 @@
 import { expect, test, type Page } from './test';
-import { appBarControls, checks, narrowWide, pageTitle, titleLocator, viewports } from './checks';
+import { appBarControls, checks, narrowWide, pageTitle, saveNav, titleLocator, viewports } from './checks';
 import { signIn } from './users';
 
 async function openNotifications(page: Page) {
@@ -105,6 +105,7 @@ test.describe(`page header at ${narrowWide.width}x${narrowWide.height} with the 
   test.use({ viewport: { width: narrowWide.width, height: narrowWide.height }, colorScheme: 'light' });
 
   test('truncates a long title to one line and keeps the actions on one row', async ({ page }) => {
+    await saveNav(page, 'expanded');
     await openNotifications(page);
     await titleLocator(page, 'wide').evaluate((title, text) => (title.textContent = text), `${longTitle} ${longTitle}`);
     await page.locator('[data-ui=page-actions]').evaluate((actions) => {
