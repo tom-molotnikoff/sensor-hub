@@ -4,8 +4,10 @@ import {
   narrowWide,
   navBackground,
   navCollapsedKey,
+  railTransition,
   saveNav,
   viewports,
+  watchRailTransition,
   wideViewports,
   type NavState,
 } from './checks';
@@ -187,14 +189,28 @@ test.describe('nav rail at 1440x900', () => {
     await toggle.click();
 
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(await navBoxWidth(nav), 'collapsed width').toBe(navWidth.rail);
+    await expect.poll(() => navBoxWidth(nav), { message: 'collapsed width' }).toBe(navWidth.rail);
     expect(await savedNav(page), 'saved choice').toBe('true');
 
     await toggle.click();
 
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(await navBoxWidth(nav), 'expanded width').toBe(navWidth.expanded);
+    await expect.poll(() => navBoxWidth(nav), { message: 'expanded width' }).toBe(navWidth.expanded);
     expect(await savedNav(page), 'saved choice').toBe('false');
+  });
+
+  test('animates its width over 180ms each way on a page without a dashboard', async ({ page }) => {
+    const nav = await openNav(page, '/sensors-overview');
+    const toggle = nav.locator('[data-ui=nav-collapse]');
+
+    for (const state of ['rail', 'expanded'] as const) {
+      await watchRailTransition(page);
+      await toggle.click();
+
+      const { durations } = await railTransition(page);
+      expect(durations, `width transition to ${state}`).toEqual([180]);
+      await expect.poll(() => navBoxWidth(nav), { message: `${state} width` }).toBe(navWidth[state]);
+    }
   });
 
   test('stays collapsed after a reload', async ({ page }) => {
@@ -269,7 +285,7 @@ test.describe('nav rail at 1440x900', () => {
 
     await expect(page).toHaveURL(/\/sensors-overview$/);
     await expect(nav.locator('[data-ui=nav-collapse]')).toHaveAttribute('aria-expanded', 'false');
-    expect(await navBoxWidth(nav), 'width after navigating').toBe(navWidth.rail);
+    await expect.poll(() => navBoxWidth(nav), { message: 'width after navigating' }).toBe(navWidth.rail);
   });
 });
 

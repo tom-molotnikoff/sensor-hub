@@ -2,7 +2,7 @@ import { ThemeProvider } from '@mui/material';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { act } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import ActionBar from './ActionBar';
 import AnchorStack from './AnchorStack';
 import AnchoredMenu, { MenuDivider, MenuHeading, MenuNewTabLink, MenuSegments } from './AnchoredMenu';
@@ -326,6 +326,10 @@ describe('Metric', () => {
 });
 
 describe('Frame', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('is a flat surface with its title in the caption variant', () => {
     const { container } = renderUi(<Frame title="Gauge: attic">body</Frame>);
 
@@ -361,6 +365,34 @@ describe('Frame', () => {
     );
     expect(container.querySelector('[data-ui=frame-header]')).toHaveClass('drag-handle');
     expect(container.querySelector('[data-ui=frame]')).toHaveStyle({ borderStyle: 'dashed' });
+  });
+
+  it('covers its body while the content stays mounted, hidden and held at the size it had', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 320, 180));
+    const framed = (cover?: string) => (
+      <ThemeProvider theme={theme}>
+        <MemoryRouter>
+          <Frame title="t" cover={cover}>
+            <span>content</span>
+          </Frame>
+        </MemoryRouter>
+      </ThemeProvider>
+    );
+    const { container, rerender } = render(framed());
+    const content = screen.getByText('content');
+    const contentBox = container.querySelector<HTMLElement>('[data-ui=frame-content]')!;
+
+    rerender(framed('placeholder'));
+    expect(container.querySelector('[data-ui=frame-cover]')).toHaveTextContent('placeholder');
+    expect(screen.getByText('content')).toBe(content);
+    expect(contentBox).toHaveStyle({ visibility: 'hidden', width: '320px', height: '180px' });
+
+    rerender(framed());
+    expect(container.querySelector('[data-ui=frame-cover]')).toBeNull();
+    expect(screen.getByText('content')).toBe(content);
+    expect(contentBox).not.toHaveStyle({ visibility: 'hidden' });
+    expect(contentBox.style.width).toBe('');
+    expect(contentBox.style.height).toBe('');
   });
 });
 

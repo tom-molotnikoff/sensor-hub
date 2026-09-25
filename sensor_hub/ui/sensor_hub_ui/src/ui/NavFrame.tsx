@@ -1,4 +1,4 @@
-import { createContext, useContext, type MouseEvent, type ReactElement, type ReactNode, type Ref } from 'react';
+import { createContext, useContext, type MouseEvent, type ReactElement, type ReactNode, type Ref, type TransitionEvent } from 'react';
 import {
   Avatar,
   Box,
@@ -18,11 +18,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
+import type { Theme } from '@mui/material/styles';
 import { navDrawer, navPermanent } from './theme/tokens';
 import { charcoalSurface } from './charcoalSurface';
 
 type NavFrameVariant =
-  | { variant: 'permanent'; rail: boolean; onToggleRail: () => void }
+  | { variant: 'permanent'; rail: boolean; onToggleRail: () => void; onRailSettled: () => void }
   | { variant: 'temporary'; open: boolean; onClose: () => void };
 
 type NavFrameProps = NavFrameVariant & {
@@ -40,6 +41,10 @@ const skeletonRowHeight = 32;
 const indicatorWidth = 3;
 
 const paperSx = { ...charcoalSurface.paint, borderRight: 0 } as const;
+
+const widthTransition = (theme: Theme) => ({
+  transition: theme.transitions.create('width', { duration: navPermanent.duration, easing: theme.transitions.easing.sharp }),
+});
 
 const NavRail = createContext(false);
 
@@ -72,12 +77,15 @@ export default function NavFrame({ logo, name, brandAction, navRef, foot, childr
       }
     : {
         variant: 'permanent' as const,
-        sx: { width, flexShrink: 0 },
-        slotProps: { paper: { sx: { ...paperSx, width } } },
+        onTransitionEnd: (event: TransitionEvent) => {
+          if (event.target === event.currentTarget && event.propertyName === 'width') frame.onRailSettled();
+        },
+        sx: [{ width, flexShrink: 0 }, widthTransition],
+        slotProps: { paper: { sx: [paperSx, { width }, widthTransition] } },
       };
 
   return (
-    <Drawer {...drawerProps}>
+    <Drawer data-ui="nav-drawer" {...drawerProps}>
       <NavRail.Provider value={rail}>
         <Box
           ref={navRef}

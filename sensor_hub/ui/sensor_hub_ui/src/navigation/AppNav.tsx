@@ -48,7 +48,7 @@ interface AppNavProps {
 }
 
 function AppNav({ permanent = false }: AppNavProps) {
-  const { open, setOpen, collapsed, toggleCollapsed } = useContext(SidebarContext);
+  const { open, setOpen, collapsed, toggleCollapsed, endWidthTransition } = useContext(SidebarContext);
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -61,7 +61,7 @@ function AppNav({ permanent = false }: AppNavProps) {
   };
   const rail = permanent && collapsed;
   const frame = permanent
-    ? ({ variant: 'permanent', rail, onToggleRail: toggleCollapsed } as const)
+    ? ({ variant: 'permanent', rail, onToggleRail: toggleCollapsed, onRailSettled: endWidthTransition } as const)
     : ({ variant: 'temporary', open, onClose: close } as const);
 
   return (

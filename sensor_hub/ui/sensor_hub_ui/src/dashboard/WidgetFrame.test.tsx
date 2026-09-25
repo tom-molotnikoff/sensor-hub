@@ -111,6 +111,35 @@ describe('WidgetFrame', () => {
         expect(frameState()).toBe('populated');
     });
 
+    it('covers the widget with its edit placeholder, without edit actions and without remounting it', () => {
+        reported = 'populated';
+        const framed = (covered: boolean) => (
+            <WidgetFrame widget={widgetOf('test-probe')} isEditing={false} draggable covered={covered} onRemove={() => {}} onConfigure={() => {}} />
+        );
+        const { rerender } = render(framed(false));
+        const probe = screen.getByTestId('probe');
+
+        rerender(framed(true));
+        expect(document.querySelector('[data-ui=frame-cover] [data-ui=frame-placeholder]')).toHaveTextContent('Probe');
+        expect(screen.getByTestId('probe')).toBe(probe);
+        expect(frameState()).toBe('populated');
+        expect(screen.queryByRole('button', { name: 'Configure widget' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Remove widget' })).not.toBeInTheDocument();
+        expect(document.querySelector('.drag-handle')).toBeNull();
+
+        rerender(framed(false));
+        expect(document.querySelector('[data-ui=frame-placeholder]')).toBeNull();
+        expect(screen.getByTestId('probe')).toBe(probe);
+    });
+
+    it('shows only the edit placeholder when covered while editing', () => {
+        render(<WidgetFrame widget={widgetOf('test-probe')} isEditing draggable covered onRemove={() => {}} onConfigure={() => {}} />);
+
+        expect(document.querySelector('[data-ui=frame-cover]')).toBeNull();
+        expect(document.querySelectorAll('[data-ui=frame-placeholder]')).toHaveLength(1);
+        expect(screen.getByRole('button', { name: 'Remove widget' })).toBeInTheDocument();
+    });
+
     it('reports the frame visible when IntersectionObserver is unavailable', () => {
         renderFrame();
         expect(probeVisible()).toBe('true');

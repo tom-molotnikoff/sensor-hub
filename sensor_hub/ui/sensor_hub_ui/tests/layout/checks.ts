@@ -25,6 +25,68 @@ export async function saveNav(page: Page, state: NavState) {
   await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [navCollapsedKey, String(state === 'rail')]);
 }
 
+export interface RailSample {
+  moment: 'run' | 'frame' | 'end';
+  uncovered: string[];
+  covers: number;
+  editControls: number;
+}
+
+export interface RailTransition {
+  durations: number[];
+  samples: RailSample[];
+  ended: boolean;
+}
+
+type WatchedWindow = Window & { railTransition?: RailTransition };
+
+export async function watchRailTransition(page: Page) {
+  await page.evaluate(() => {
+    const drawer = document.querySelector<HTMLElement>('[data-ui=nav-drawer]')!;
+    const watch: RailTransition = { durations: [], samples: [], ended: false };
+    (window as WatchedWindow).railTransition = watch;
+    let frame = 0;
+
+    const sample = (moment: RailSample['moment']) => {
+      const frames = [...document.querySelectorAll<HTMLElement>('[data-widget-id]')];
+      watch.samples.push({
+        moment,
+        uncovered: frames.filter((item) => !item.querySelector('[data-ui=frame-placeholder]')).map((item) => item.dataset.widgetId!),
+        covers: document.querySelectorAll('[data-ui=frame-cover]').length,
+        editControls: [
+          ...document.querySelectorAll('.drag-handle, .react-resizable-handle, [aria-label="Configure widget"], [aria-label="Remove widget"]'),
+        ].filter((control) => control.checkVisibility()).length,
+      });
+    };
+    const everyFrame = () => {
+      sample('frame');
+      frame = requestAnimationFrame(everyFrame);
+    };
+    const ownWidth = (event: TransitionEvent) => event.target === drawer && event.propertyName === 'width';
+
+    drawer.addEventListener('transitionrun', (event) => {
+      if (!ownWidth(event)) return;
+      watch.durations = drawer
+        .getAnimations()
+        .filter((animation) => animation instanceof CSSTransition && animation.transitionProperty === 'width')
+        .map((animation) => Number(animation.effect!.getTiming().duration));
+      sample('run');
+      frame = requestAnimationFrame(everyFrame);
+    });
+    drawer.addEventListener('transitionend', (event) => {
+      if (!ownWidth(event)) return;
+      cancelAnimationFrame(frame);
+      sample('end');
+      watch.ended = true;
+    });
+  });
+}
+
+export async function railTransition(page: Page): Promise<RailTransition> {
+  await page.waitForFunction(() => (window as WatchedWindow).railTransition?.ended);
+  return page.evaluate(() => (window as WatchedWindow).railTransition!);
+}
+
 const pagePadding: Record<Tier, number> = { compact: 12, wide: 24 };
 
 async function noSidewaysScroll(page: Page) {

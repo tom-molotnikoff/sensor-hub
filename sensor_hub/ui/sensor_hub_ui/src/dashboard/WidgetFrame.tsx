@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -17,7 +17,7 @@ import {
     type WidgetState,
     type WidgetViewport,
 } from './WidgetContext';
-import type { WidgetProps } from './types';
+import type { WidgetDefinition } from './types';
 import type { DashboardWidget } from '../gen/aliases';
 
 export const WIDGET_VISIBILITY_MARGIN = '0px 0px 33% 0px';
@@ -67,6 +67,7 @@ interface WidgetFrameProps {
     widget: DashboardWidget;
     isEditing: boolean;
     draggable: boolean;
+    covered?: boolean;
     onRemove: (id: string) => void;
     onConfigure: (id: string) => void;
 }
@@ -77,7 +78,26 @@ function WidgetLastUpdatedBadge() {
     return <RelativeTime date={lastUpdated} />;
 }
 
-export default function WidgetFrame({ widget, isEditing, draggable, onRemove, onConfigure }: WidgetFrameProps) {
+interface WidgetContentProps {
+    widget: DashboardWidget;
+    definition: WidgetDefinition;
+    isEditing: boolean;
+    onRemove: (id: string) => void;
+    onConfigure: (id: string) => void;
+}
+
+const WidgetContent = memo(function WidgetContent({ widget, definition, isEditing, onRemove, onConfigure }: WidgetContentProps) {
+    if (isEditing) return <FramePlaceholder label={definition.label} />;
+    const Component = definition.component;
+    const hasConfig = definition.configFields && definition.configFields.length > 0;
+    return (
+        <WidgetErrorBoundary widgetId={widget.id} onRemove={onRemove} onConfigure={hasConfig ? () => onConfigure(widget.id) : undefined}>
+            <Component id={widget.id} config={widget.config} isEditing={isEditing} />
+        </WidgetErrorBoundary>
+    );
+});
+
+function WidgetFrame({ widget, isEditing, draggable, covered = false, onRemove, onConfigure }: WidgetFrameProps) {
     const definition = getWidget(widget.type);
     const subtitle = useWidgetSubtitle(definition?.type ?? widget.type, widget.config);
     const [visible, observeFrame] = useFrameVisibility();
@@ -101,14 +121,8 @@ export default function WidgetFrame({ widget, isEditing, draggable, onRemove, on
         );
     }
 
-    const Component = definition.component;
     const hasConfig = definition.configFields && definition.configFields.length > 0;
     const titleText = subtitle ? `${definition.label}: ${subtitle}` : definition.label;
-    const widgetProps: WidgetProps = {
-        id: widget.id,
-        config: widget.config,
-        isEditing,
-    };
 
     return (
         <WidgetFrameProviders viewport={viewport} reportState={reportState}>
@@ -118,6 +132,7 @@ export default function WidgetFrame({ widget, isEditing, draggable, onRemove, on
                 title={titleText}
                 editing={isEditing}
                 dragHandle={draggable}
+                cover={covered && !isEditing && <FramePlaceholder label={definition.label} />}
                 actions={isEditing ? (
                     <>
                         {hasConfig && (
@@ -133,14 +148,16 @@ export default function WidgetFrame({ widget, isEditing, draggable, onRemove, on
                     <WidgetLastUpdatedBadge />
                 )}
             >
-                {isEditing ? (
-                    <FramePlaceholder label={definition.label} />
-                ) : (
-                    <WidgetErrorBoundary widgetId={widget.id} onRemove={onRemove} onConfigure={hasConfig ? () => onConfigure(widget.id) : undefined}>
-                        <Component {...widgetProps} />
-                    </WidgetErrorBoundary>
-                )}
+                <WidgetContent
+                    widget={widget}
+                    definition={definition}
+                    isEditing={isEditing}
+                    onRemove={onRemove}
+                    onConfigure={onConfigure}
+                />
             </Frame>
         </WidgetFrameProviders>
     );
 }
+
+export default memo(WidgetFrame);
