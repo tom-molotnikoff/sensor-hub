@@ -10,8 +10,8 @@ You'll need **Go**, **Node**, and **npm**. The required versions are defined in
 From the repo root:
 
 ```bash
-git clone https://github.com/tom-molotnikoff/home-temperature-monitoring.git
-cd home-temperature-monitoring/sensor_hub
+git clone https://github.com/tom-molotnikoff/sensor-hub.git
+cd sensor-hub/sensor_hub
 ```
 
 Then build the UI and the Go binary:

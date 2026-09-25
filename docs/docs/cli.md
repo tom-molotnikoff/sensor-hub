@@ -26,7 +26,7 @@ sudo dnf install ./sensor-hub-cli-*.rpm
 sudo apt install ./sensor-hub-cli_*.deb
 ```
 
-Download the latest package from the [GitHub Releases](https://github.com/tom-molotnikoff/home-temperature-monitoring/releases) page. Packages are GPG-signed — see the [installation guide](installation) for verification steps.
+Download the latest package from the [GitHub Releases](https://github.com/tom-molotnikoff/sensor-hub/releases) page. Packages are GPG-signed — see the [installation guide](installation) for verification steps.
 
 :::note
 The `sensor-hub-cli` and `sensor-hub` packages conflict with each other since they both provide the same binary. If you have the full server package installed, you already have the CLI — no need to install `sensor-hub-cli`.
@@ -34,7 +34,7 @@ The `sensor-hub-cli` and `sensor-hub` packages conflict with each other since th
 
 ### Standalone binary
 
-Alternatively, download a standalone binary from [GitHub Releases](https://github.com/tom-molotnikoff/home-temperature-monitoring/releases). Binaries are available for Linux, macOS, and Windows on both amd64 and arm64:
+Alternatively, download a standalone binary from [GitHub Releases](https://github.com/tom-molotnikoff/sensor-hub/releases). Binaries are available for Linux, macOS, and Windows on both amd64 and arm64:
 
 ```bash
 tar xzf sensor-hub_*_linux_amd64.tar.gz
