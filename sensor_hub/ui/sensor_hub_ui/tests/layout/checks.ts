@@ -15,6 +15,8 @@ export const wideViewports = [narrowWide, viewports[1]] as const;
 
 export const contractViewports = [...viewports, narrowWide] as const;
 
+export const navBackground = { light: 'rgb(33, 30, 27)', dark: 'rgb(18, 18, 18)' } as const;
+
 const pagePadding: Record<Tier, number> = { compact: 12, wide: 24 };
 
 async function noSidewaysScroll(page: Page) {
@@ -110,18 +112,14 @@ export async function pageTitle(page: Page, tier: Tier) {
 }
 
 async function compactAppBar(page: Page) {
+  const bar = page.locator('[data-ui=app-bar]');
   const controls = await appBarControls(page);
-  expect(controls.map((control) => control.label), 'app bar controls').toEqual(['menu', 'notifications', 'account']);
+  expect(controls.map((control) => control.label), 'app bar controls').toEqual(['menu', 'notifications']);
   expect(controls.filter((control) => !control.inViewport), 'app bar controls outside the viewport').toEqual([]);
-  await expect(page.locator('[data-ui=app-bar]').getByText('Sensor Hub', { exact: true }), 'app bar brand').toHaveCount(0);
+  await expect(bar.getByText('Sensor Hub', { exact: true }), 'app bar brand').toHaveCount(0);
 
-  await page.getByRole('button', { name: 'account' }).click();
-  const menu = page.getByRole('menu');
-  const entries = await menu.getByRole('menuitem').allTextContents();
-  const moved = entries.filter((entry) => entry === 'Theme' || entry === 'Documentation');
-  expect(moved, 'avatar menu entries').toEqual(['Theme', 'Documentation']);
-  await page.keyboard.press('Escape');
-  await expect(menu).toHaveCount(0);
+  const scheme = await page.locator('html').evaluate((html) => (html.classList.contains('dark') ? 'dark' : 'light'));
+  await expect(bar, 'app bar background').toHaveCSS('background-color', navBackground[scheme]);
 }
 
 async function appBar(page: Page, tier: Tier) {

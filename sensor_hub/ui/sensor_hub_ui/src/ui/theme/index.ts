@@ -95,12 +95,13 @@ export const theme = createTheme({
   components: {
     MuiAppBar: {
       styleOverrides: {
-        root: {
+        root: ({ theme }) => ({
+          '--AppBar-background': theme.vars.palette.nav.bg,
+          '--AppBar-color': theme.vars.palette.nav.text,
           backgroundImage: 'none',
-        },
+        }),
       },
       defaultProps: {
-        color: 'primary',
         enableColorOnDark: true,
       },
     },

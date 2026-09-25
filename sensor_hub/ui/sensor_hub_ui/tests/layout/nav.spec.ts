@@ -1,8 +1,7 @@
 import { expect, test, type Locator, type Page } from './test';
-import { contractViewports, narrowWide, viewports, wideViewports } from './checks';
+import { contractViewports, narrowWide, navBackground, viewports, wideViewports } from './checks';
 import { signIn } from './users';
 
-const navBackground = { light: 'rgb(33, 30, 27)', dark: 'rgb(18, 18, 18)' } as const;
 const activeBackground = 'rgba(237, 81, 37, 0.18)';
 const indicator = 'rgb(237, 81, 37)';
 const darkDivider = 'rgb(51, 51, 51)';
@@ -121,6 +120,14 @@ test.describe('nav at 390x844', () => {
     await expect(brand).toContainText('Sensor Hub');
     await brand.getByRole('button', { name: 'close navigation' }).click();
     await expect(nav).toHaveCount(0);
+  });
+
+  test('has only the account block in the foot and no collapse toggle', async ({ page }) => {
+    const nav = await openNav(page, '/dashboard');
+
+    const buttons = nav.locator('[data-ui=nav-foot]').getByRole('button');
+    await expect(buttons).toHaveCount(1);
+    await expect(buttons).toHaveAttribute('data-ui', 'nav-account');
   });
 
   test('closes and navigates when an item is picked', async ({ page }) => {

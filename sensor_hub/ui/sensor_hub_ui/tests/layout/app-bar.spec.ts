@@ -10,11 +10,6 @@ async function openNotifications(page: Page) {
 
 const longTitle = 'Alerts, Notifications, Preferences and Delivery History';
 
-async function chooseDark(page: Page) {
-  await page.getByRole('menuitem', { name: 'Dark' }).click();
-  await expect(page.locator('html')).toHaveClass(/\bdark\b/);
-}
-
 async function openAccountMenu(page: Page) {
   await page.locator('[data-ui=nav-account]').click();
   const menu = page.getByRole('menu', { name: 'Signed in as testadmin' });
@@ -22,31 +17,57 @@ async function openAccountMenu(page: Page) {
   return menu;
 }
 
+const accountDestinations = /Light|Dark|System|Theme|Documentation|My sessions|Change password|Developer|Logout/;
+
 test.describe('app bar at 390x844', () => {
   test.use({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
 
-  test('truncates a long title to one line and keeps the bell and avatar on screen', async ({ page }) => {
+  test('truncates a long title to one line and keeps the menu and bell on screen', async ({ page }) => {
     await openNotifications(page);
     await titleLocator(page, 'compact').evaluate((title, text) => (title.textContent = text), longTitle);
 
     expect(await pageTitle(page, 'compact')).toMatchObject({ singleLine: true, ellipsis: true, truncated: true });
     const controls = await appBarControls(page);
-    expect(controls.map((control) => control.label)).toEqual(['menu', 'notifications', 'account']);
+    expect(controls.map((control) => control.label)).toEqual(['menu', 'notifications']);
     expect(controls.every((control) => control.inViewport)).toBe(true);
     await checks.noSidewaysScroll(page, 'compact', 'admin');
   });
 
-  test('switches theme from the avatar menu like the wide theme icon', async ({ page }) => {
+  test('has no avatar and keeps the account destinations out of the bar and the nav list', async ({ page }) => {
     await openNotifications(page);
-    await page.getByRole('button', { name: 'account' }).click();
-    await page.getByRole('menuitem', { name: 'Theme' }).click();
-    await chooseDark(page);
+    const bar = page.locator('[data-ui=app-bar]');
+    await expect(bar.locator('.MuiAvatar-root')).toHaveCount(0);
+    await expect(bar.getByText(accountDestinations)).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'menu' }).click();
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    await expect(nav.locator('[data-ui=nav-list]')).toBeVisible();
+    await expect(nav.locator('[data-ui=nav-list]').getByText(accountDestinations)).toHaveCount(0);
+
+    const menu = await openAccountMenu(page);
+    for (const name of ['Light', 'Dark', 'System']) await expect(menu.getByRole('menuitemradio', { name })).toBeVisible();
+    for (const name of ['My sessions', 'Change password', 'Documentation opens in a new tab', 'Logout']) {
+      await expect(menu.getByRole('menuitem', { name })).toBeVisible();
+    }
   });
 
-  test('links to the documentation from the avatar menu like the wide documentation icon', async ({ page }) => {
+  test('switches theme from the account menu in the drawer', async ({ page }) => {
     await openNotifications(page);
-    await page.getByRole('button', { name: 'account' }).click();
-    await expect(page.getByRole('menuitem', { name: 'Documentation' })).toHaveAttribute('href', '/docs/');
+    await page.getByRole('button', { name: 'menu' }).click();
+
+    const menu = await openAccountMenu(page);
+    await menu.getByRole('menuitemradio', { name: 'Dark' }).click();
+
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+  });
+
+  test('links to the documentation from the account menu in the drawer', async ({ page }) => {
+    await openNotifications(page);
+    await page.getByRole('button', { name: 'menu' }).click();
+
+    const menu = await openAccountMenu(page);
+
+    await expect(menu.getByRole('menuitem', { name: 'Documentation opens in a new tab' })).toHaveAttribute('href', '/docs/');
   });
 });
 
