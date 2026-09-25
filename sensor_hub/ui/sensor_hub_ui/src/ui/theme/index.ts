@@ -93,17 +93,6 @@ export const theme = createTheme({
     metricLg: metric(56),
   },
   components: {
-    MuiAppBar: {
-      styleOverrides: {
-        root: {
-          backgroundImage: 'none',
-        },
-      },
-      defaultProps: {
-        color: 'primary',
-        enableColorOnDark: true,
-      },
-    },
     MuiDataGrid: {
       defaultProps: {
         pageSizeOptions: [5, 10, 25, 50, 100],

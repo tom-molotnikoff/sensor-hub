@@ -1,18 +1,18 @@
-import type { MouseEvent, ReactNode } from 'react';
-import { AppBar as MuiAppBar, Avatar, Box, IconButton, Toolbar, Typography } from '@mui/material';
+import type { ReactNode } from 'react';
+import { AppBar as MuiAppBar, Box, IconButton, Toolbar, Typography } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import { charcoalSurface } from './charcoalSurface';
 
 interface AppBarProps {
   title: string;
   onMenuClick: () => void;
-  account: { initial: string; onClick: (event: MouseEvent<HTMLElement>) => void };
   children?: ReactNode;
 }
 
-export default function AppBar({ title, onMenuClick, account, children }: AppBarProps) {
+export default function AppBar({ title, onMenuClick, children }: AppBarProps) {
   return (
-    <MuiAppBar position="sticky" data-ui="app-bar">
-      <Toolbar sx={{ gap: 1 }}>
+    <MuiAppBar position="sticky" enableColorOnDark data-ui="app-bar" sx={charcoalSurface.paint}>
+      <Toolbar className={charcoalSurface.content.className} sx={[charcoalSurface.content.sx, { gap: 1 }]}>
         <IconButton edge="start" color="inherit" aria-label="menu" onClick={onMenuClick} sx={{ marginRight: 1 }}>
           <MenuIcon />
         </IconButton>
@@ -25,12 +25,7 @@ export default function AppBar({ title, onMenuClick, account, children }: AppBar
         >
           {title}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-          {children}
-          <IconButton color="inherit" aria-label="account" onClick={account.onClick}>
-            <Avatar sx={{ width: 32, height: 32 }}>{account.initial}</Avatar>
-          </IconButton>
-        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>{children}</Box>
       </Toolbar>
     </MuiAppBar>
   );
