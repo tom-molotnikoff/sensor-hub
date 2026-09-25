@@ -9,13 +9,32 @@ import ActionBar from '../ui/ActionBar';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';
 
-interface DashboardEditControlsProps {
+interface DashboardEditActionsProps {
     onAddWidget: () => void;
 }
 
-export function DashboardEditControls({ onAddWidget }: DashboardEditControlsProps) {
+interface DashboardLockProps {
+    edge?: 'start';
+}
+
+export function DashboardLock({ edge }: DashboardLockProps) {
     const { user } = useAuth();
-    const { isEditing, setIsEditing, saveDashboard } = useDashboard();
+    const { isEditing, setIsEditing } = useDashboard();
+
+    if (!hasPerm(user, 'manage_dashboards')) return null;
+
+    return (
+        <Tooltip title={isEditing ? 'Lock dashboard' : 'Edit dashboard'}>
+            <IconButton edge={edge} onClick={() => setIsEditing(!isEditing)} color={isEditing ? 'primary' : 'default'}>
+                {isEditing ? <EditIcon /> : <LockIcon />}
+            </IconButton>
+        </Tooltip>
+    );
+}
+
+function DashboardEditActions({ onAddWidget }: DashboardEditActionsProps) {
+    const { user } = useAuth();
+    const { isEditing, saveDashboard } = useDashboard();
 
     if (!hasPerm(user, 'manage_dashboards')) {
         return (
@@ -25,24 +44,16 @@ export function DashboardEditControls({ onAddWidget }: DashboardEditControlsProp
         );
     }
 
+    if (!isEditing) return null;
+
     return (
         <>
-            <Tooltip title={isEditing ? 'Lock dashboard' : 'Edit dashboard'}>
-                <IconButton onClick={() => setIsEditing(!isEditing)} color={isEditing ? 'primary' : 'default'}>
-                    {isEditing ? <EditIcon /> : <LockIcon />}
-                </IconButton>
-            </Tooltip>
-
-            {isEditing && (
-                <>
-                    <Button startIcon={<SaveIcon />} variant="contained" size="small" onClick={saveDashboard}>
-                        Save
-                    </Button>
-                    <Button startIcon={<AddIcon />} variant="outlined" size="small" onClick={onAddWidget}>
-                        Add Widget
-                    </Button>
-                </>
-            )}
+            <Button startIcon={<SaveIcon />} variant="contained" size="small" onClick={saveDashboard}>
+                Save
+            </Button>
+            <Button startIcon={<AddIcon />} variant="outlined" size="small" onClick={onAddWidget}>
+                Add Widget
+            </Button>
         </>
     );
 }
@@ -52,7 +63,7 @@ interface DashboardManageActionsProps {
     onDeleteDashboard: () => void;
 }
 
-export function DashboardManageActions({ onNewDashboard, onDeleteDashboard }: DashboardManageActionsProps) {
+function DashboardManageActions({ onNewDashboard, onDeleteDashboard }: DashboardManageActionsProps) {
     const { user } = useAuth();
     const { activeDashboard } = useDashboard();
 
@@ -77,7 +88,16 @@ export function DashboardManageActions({ onNewDashboard, onDeleteDashboard }: Da
     );
 }
 
-type DashboardToolbarProps = DashboardEditControlsProps & DashboardManageActionsProps;
+type DashboardToolbarProps = DashboardEditActionsProps & DashboardManageActionsProps;
+
+export function DashboardHeaderActions({ onAddWidget, onNewDashboard, onDeleteDashboard }: DashboardToolbarProps) {
+    return (
+        <>
+            <DashboardEditActions onAddWidget={onAddWidget} />
+            <DashboardManageActions onNewDashboard={onNewDashboard} onDeleteDashboard={onDeleteDashboard} />
+        </>
+    );
+}
 
 export default function DashboardToolbar({ onAddWidget, onNewDashboard, onDeleteDashboard }: DashboardToolbarProps) {
     const { user } = useAuth();
@@ -105,7 +125,8 @@ export default function DashboardToolbar({ onAddWidget, onNewDashboard, onDelete
                 <DashboardManageActions onNewDashboard={onNewDashboard} onDeleteDashboard={onDeleteDashboard} />
             )}
         >
-            <DashboardEditControls onAddWidget={onAddWidget} />
+            <DashboardLock />
+            <DashboardEditActions onAddWidget={onAddWidget} />
         </ActionBar>
     );
 }

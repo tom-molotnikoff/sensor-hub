@@ -8,31 +8,37 @@ import { density } from './theme/tokens';
 interface PageProps {
   title: string;
   titleElement?: ReactElement;
-  titleActions?: ReactNode;
+  beforeTitle?: ReactNode;
   actions?: ReactNode;
   loading?: boolean;
   children?: ReactNode;
 }
 
 interface PageHeaderProps {
-  title: ReactNode;
-  titleActions?: ReactNode;
+  title: string;
+  titleElement?: ReactElement;
+  beforeTitle?: ReactNode;
   actions?: ReactNode;
 }
 
 const headerGroup = { display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 } as const;
 
-function PageHeader({ title, titleActions, actions }: PageHeaderProps) {
+function PageHeader({ title, titleElement, beforeTitle, actions }: PageHeaderProps) {
   return (
     <Box data-ui="page-header" sx={{ display: 'flex', alignItems: 'center', gap: 2, paddingBottom: 1 }}>
-      <Typography variant="pageTitle" noWrap data-ui="page-title" sx={{ flex: '0 1 auto', minWidth: 0 }}>
-        {title}
-      </Typography>
-      {titleActions && (
-        <Box data-ui="page-title-actions" sx={headerGroup}>
-          {titleActions}
+      {beforeTitle && (
+        <Box data-ui="page-before-title" sx={headerGroup}>
+          {beforeTitle}
         </Box>
       )}
+      <Typography
+        variant="pageTitle"
+        noWrap={!titleElement}
+        data-ui="page-title"
+        sx={{ flex: '0 1 auto', minWidth: 0, ...(titleElement && { display: 'flex' }) }}
+      >
+        {titleElement ?? title}
+      </Typography>
       <Box data-ui="page-actions" sx={{ ...headerGroup, marginLeft: 'auto' }}>
         {actions}
       </Box>
@@ -66,14 +72,14 @@ function PageMain({ header, loading, children }: { header?: ReactNode; loading: 
   );
 }
 
-export default function Page({ title, titleElement, titleActions, actions, loading = false, children }: PageProps) {
+export default function Page({ title, titleElement, beforeTitle, actions, loading = false, children }: PageProps) {
   const wide = useTier() === 'wide';
 
   return (
     <Box data-ui="shell" sx={{ display: responsive({ compact: 'block', wide: 'flex' }) }}>
       {!wide && <TopAppBar pageTitle={title} />}
       <AppNav permanent={wide} />
-      <PageMain header={wide && <PageHeader title={titleElement ?? title} titleActions={titleActions} actions={actions} />} loading={loading}>
+      <PageMain header={wide && <PageHeader title={title} titleElement={titleElement} beforeTitle={beforeTitle} actions={actions} />} loading={loading}>
         {children}
       </PageMain>
     </Box>

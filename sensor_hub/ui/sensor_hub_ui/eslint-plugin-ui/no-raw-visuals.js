@@ -2,7 +2,7 @@ import { propertyName } from './style-objects.js';
 
 const colourLiteral = /(?:^|[^\w&])(?<colour>#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])|\brgba?\([^)]*\)?)/;
 const numericText = /^\s*[-+]?(\d|\.\d)/;
-const typeKeys = /^(fontSize|fontWeight)$/;
+const typeKeys = /^(fontSize|fontWeight|lineHeight)$/;
 
 function isNumeric(node) {
   if (!node) return false;
@@ -31,7 +31,7 @@ function isNumeric(node) {
 export default {
   meta: {
     type: 'problem',
-    docs: { description: 'Colours and type sizes come from the theme' },
+    docs: { description: 'Colours, type sizes and line heights come from the theme' },
     messages: {
       colour: 'Raw colour "{{colour}}". Use a theme palette path instead.',
       typeScale: 'Numeric {{key}}. Use a typography variant or theme value instead.',

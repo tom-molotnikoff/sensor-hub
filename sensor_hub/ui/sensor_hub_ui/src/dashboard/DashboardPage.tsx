@@ -9,7 +9,7 @@ import { DashboardProvider } from './DashboardProvider';
 import DashboardEngine from './DashboardEngine';
 import DashboardSkeleton from './DashboardSkeleton';
 import DashboardTitle from './DashboardTitle';
-import DashboardToolbar, { DashboardEditControls, DashboardManageActions } from './DashboardToolbar';
+import DashboardToolbar, { DashboardHeaderActions, DashboardLock } from './DashboardToolbar';
 import WidgetPickerDialog from './WidgetPickerDialog';
 import WidgetConfigDialog from './WidgetConfigDialog';
 import EmptyState from '../ui/EmptyState';
@@ -169,8 +169,8 @@ function DashboardPageInner() {
         <Page
             title="Dashboards"
             titleElement={showControls ? <DashboardTitle /> : undefined}
-            titleActions={showControls && <DashboardEditControls onAddWidget={openPicker} />}
-            actions={showControls && <DashboardManageActions onNewDashboard={openCreate} onDeleteDashboard={openDelete} />}
+            beforeTitle={showControls && canManage && <DashboardLock edge="start" />}
+            actions={showControls && <DashboardHeaderActions onAddWidget={openPicker} onNewDashboard={openCreate} onDeleteDashboard={openDelete} />}
             loading={user === undefined}
         >
             <DashboardContent

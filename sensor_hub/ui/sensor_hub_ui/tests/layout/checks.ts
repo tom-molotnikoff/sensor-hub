@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import type { LayoutCheck } from './routes';
 import type { LayoutUser } from './users';
 
@@ -171,13 +171,39 @@ export function titleLocator(page: Page, tier: Tier) {
 export async function pageTitle(page: Page, tier: Tier) {
   return titleLocator(page, tier).evaluate((title) => {
     const style = getComputedStyle(title);
+    const text = title.querySelector('[data-ui=page-title-label]') ?? title;
+    const textStyle = getComputedStyle(text);
     return {
       fontSize: style.fontSize,
       fontWeight: style.fontWeight,
-      singleLine: title.getBoundingClientRect().height < 2 * parseFloat(style.lineHeight),
-      ellipsis: style.whiteSpace === 'nowrap' && style.overflowX === 'hidden' && style.textOverflow === 'ellipsis',
-      truncated: title.scrollWidth > title.clientWidth,
+      singleLine: text.getBoundingClientRect().height < 2 * parseFloat(textStyle.lineHeight),
+      ellipsis: textStyle.whiteSpace === 'nowrap' && textStyle.overflowX === 'hidden' && textStyle.textOverflow === 'ellipsis',
+      truncated: text.scrollWidth > text.clientWidth,
     };
+  });
+}
+
+export async function clippedGlyphs(title: Locator) {
+  return title.evaluate((root) => {
+    const clipped: string[] = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const glyphs = range.getBoundingClientRect();
+      for (let box = node.parentElement; box; box = box === root ? null : box.parentElement) {
+        const style = getComputedStyle(box);
+        if (style.overflowX === 'visible' && style.overflowY === 'visible') continue;
+        const bounds = box.getBoundingClientRect();
+        if (glyphs.top < bounds.top || glyphs.bottom > bounds.bottom || box.scrollHeight > box.clientHeight) {
+          clipped.push(
+            `"${node.textContent}" glyphs ${glyphs.top}-${glyphs.bottom} in ${box.tagName.toLowerCase()} ${bounds.top}-${bounds.bottom} scrollHeight ${box.scrollHeight} clientHeight ${box.clientHeight}`,
+          );
+        }
+      }
+    }
+    return clipped;
   });
 }
 
@@ -201,6 +227,7 @@ async function appBar(page: Page, tier: Tier) {
     singleLine: true,
     ellipsis: true,
   });
+  expect(await clippedGlyphs(titleLocator(page, tier)), 'page title glyphs clipped').toEqual([]);
 }
 
 export const checks: Record<LayoutCheck, (page: Page, tier: Tier, user: LayoutUser) => Promise<void>> = {

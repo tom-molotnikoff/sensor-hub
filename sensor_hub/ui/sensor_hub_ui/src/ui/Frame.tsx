@@ -81,7 +81,7 @@ export default function Frame({ title, actions, editing = false, dragHandle = fa
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
             {grabbable && <DragIndicatorIcon fontSize="small" color="action" />}
             {title && (
-              <Typography variant="caption" color="text.secondary" noWrap>
+              <Typography variant="caption" color="text.secondary" noWrap data-ui="frame-title">
                 {title}
               </Typography>
             )}
