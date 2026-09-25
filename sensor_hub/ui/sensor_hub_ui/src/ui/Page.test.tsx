@@ -47,6 +47,33 @@ describe('Page', () => {
     expect(screen.queryByText('Dashboards')).not.toBeInTheDocument();
   });
 
+  it('puts title actions directly after the heading and the actions at the end of the wide header', () => {
+    atWidth(1440);
+    const { container } = renderPage(
+      <Page
+        title="Dashboards"
+        titleElement={picker}
+        titleActions={<button type="button">Lock</button>}
+        actions={<button type="button">New</button>}
+      />,
+    );
+
+    const header = container.querySelector<HTMLElement>('[data-ui=page-header]')!;
+    const heading = within(header).getByRole('heading', { level: 1 });
+    expect(heading).not.toContainElement(screen.getByRole('button', { name: 'Lock' }));
+    expect(heading.nextElementSibling).toHaveAttribute('data-ui', 'page-title-actions');
+    expect(heading.nextElementSibling).toContainElement(screen.getByRole('button', { name: 'Lock' }));
+    expect(header.lastElementChild).toHaveAttribute('data-ui', 'page-actions');
+    expect(header.lastElementChild).toContainElement(screen.getByRole('button', { name: 'New' }));
+  });
+
+  it('renders no title actions on the compact tier', () => {
+    atWidth(390);
+    renderPage(<Page title="Dashboards" titleActions={<button type="button">Lock</button>} />);
+
+    expect(screen.queryByRole('button', { name: 'Lock' })).not.toBeInTheDocument();
+  });
+
   it('renders the text title as the page header heading on the wide tier', () => {
     atWidth(1440);
     const { container } = renderPage(<Page title="Sensors Overview">content</Page>);
