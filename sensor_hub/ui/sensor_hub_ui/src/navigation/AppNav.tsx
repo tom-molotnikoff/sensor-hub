@@ -3,21 +3,16 @@ import { useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import SettingsIcon from '@mui/icons-material/Settings';
-import HistoryIcon from '@mui/icons-material/History';
 import PeopleIcon from '@mui/icons-material/People';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import IntegrationInstructionsIcon from '@mui/icons-material/IntegrationInstructions';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import LogoutIcon from '@mui/icons-material/Logout';
 import CellTowerIcon from '@mui/icons-material/CellTower';
 import StorageIcon from '@mui/icons-material/Storage';
 import { SidebarContext } from '../providers/SidebarContextType';
 import { useAuth, type AuthUser } from '../providers/AuthContext';
-import { apiClient } from '../gen/client';
-import { setCsrfToken } from '../api/Csrf';
 import { hasPerm } from '../tools/Utils';
-import NavFrame, { NavDivider, NavItem, NavList, NavSkeleton } from '../ui/NavFrame';
+import NavFrame, { NavItem, NavList, NavSkeleton } from '../ui/NavFrame';
+import NavAccount from './NavAccount';
 
 interface NavEntry {
   label: string;
@@ -53,7 +48,7 @@ function AppNav() {
   const { open, setOpen } = useContext(SidebarContext);
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { user, refresh } = useAuth();
+  const { user } = useAuth();
 
   const close = () => setOpen(false);
   const handleNavigate = (path: string) => {
@@ -61,16 +56,14 @@ function AppNav() {
     navigate(path);
   };
 
-  const doLogout = async () => {
-    await apiClient.POST('/auth/logout').catch(() => undefined);
-    setCsrfToken(null);
-    await refresh();
-    close();
-    navigate('/login');
-  };
-
   return (
-    <NavFrame open={open} onClose={close} logo="/sensor_hub.svg" name="Sensor Hub">
+    <NavFrame
+      open={open}
+      onClose={close}
+      logo="/sensor_hub.svg"
+      name="Sensor Hub"
+      foot={user && <NavAccount user={user} onNavigate={handleNavigate} />}
+    >
       {user === undefined ? (
         <NavSkeleton rows={mainEntries.length} />
       ) : (
@@ -87,19 +80,6 @@ function AppNav() {
               />
             ))}
         </NavList>
-      )}
-      {user && (
-        <>
-          <NavDivider />
-          <NavList>
-            <NavItem icon={<HistoryIcon />} label="Sessions" onClick={() => handleNavigate('/account/sessions')} />
-            {allowed(user, ['manage_api_keys', 'view_api_docs']) && (
-              <NavItem icon={<IntegrationInstructionsIcon />} label="Developer" onClick={() => handleNavigate('/account/developer')} />
-            )}
-            <NavItem icon={<MenuBookIcon />} label="Documentation" href="/docs/" />
-            <NavItem icon={<LogoutIcon />} label="Logout" onClick={doLogout} />
-          </NavList>
-        </>
       )}
     </NavFrame>
   );
