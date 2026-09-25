@@ -2,7 +2,7 @@ import { ThemeProvider } from '@mui/material';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { act } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import ActionBar from './ActionBar';
 import AnchorStack from './AnchorStack';
 import AnchoredMenu, { MenuDivider, MenuHeading, MenuNewTabLink, MenuSegments } from './AnchoredMenu';
@@ -326,6 +326,10 @@ describe('Metric', () => {
 });
 
 describe('Frame', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('is a flat surface with its title in the caption variant', () => {
     const { container } = renderUi(<Frame title="Gauge: attic">body</Frame>);
 
@@ -389,7 +393,6 @@ describe('Frame', () => {
     expect(contentBox).not.toHaveStyle({ visibility: 'hidden' });
     expect(contentBox.style.width).toBe('');
     expect(contentBox.style.height).toBe('');
-    vi.restoreAllMocks();
   });
 });
 

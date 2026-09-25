@@ -5,11 +5,12 @@ const editingRoomBelow = 200;
 
 interface DashboardCanvasProps {
   editing: boolean;
+  tracking?: boolean;
   ref?: Ref<HTMLDivElement>;
   children?: ReactNode;
 }
 
-export default function DashboardCanvas({ editing, ref, children }: DashboardCanvasProps) {
+export default function DashboardCanvas({ editing, tracking = false, ref, children }: DashboardCanvasProps) {
   return (
     <Box
       ref={ref}
@@ -17,7 +18,7 @@ export default function DashboardCanvas({ editing, ref, children }: DashboardCan
       sx={{
         minWidth: 0,
         paddingBottom: editing ? `${editingRoomBelow}px` : 0,
-        ...(!editing && { '& .react-grid-item': { transition: 'none' } }),
+        ...(tracking && { '& .react-grid-item': { transition: 'none' } }),
       }}
     >
       {children}

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useLayoutEffect, useMemo } from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo, useState } from 'react';
 import { Alert, Button } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { GridLayout, useContainerWidth, type Layout, type LayoutItem } from 'react-grid-layout';
@@ -70,9 +70,14 @@ function WideDashboard({
 }: DashboardEngineProps) {
     const { width, containerRef, measureWidth } = useContainerWidth();
     const { widthTransitioning } = useContext(SidebarContext);
+    const [tracking, setTracking] = useState(false);
+    if (widthTransitioning && !tracking) setTracking(true);
 
     useLayoutEffect(() => {
-        if (!widthTransitioning) measureWidth();
+        if (widthTransitioning) return;
+        measureWidth();
+        const frame = requestAnimationFrame(() => setTracking(false));
+        return () => cancelAnimationFrame(frame);
     }, [widthTransitioning, measureWidth]);
 
     const layout = useMemo(
@@ -108,7 +113,7 @@ function WideDashboard({
     );
 
     return (
-        <DashboardCanvas ref={containerRef} editing={isEditing}>
+        <DashboardCanvas ref={containerRef} editing={isEditing} tracking={tracking}>
             <GridLayout
                 width={width}
                 layout={layout}
