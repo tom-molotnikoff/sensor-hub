@@ -21,9 +21,9 @@ export default function PageTitleButton({ id, label, menuId, open, onClick }: Pa
       aria-controls={open ? menuId : undefined}
       aria-expanded={open}
       onClick={onClick}
-      sx={{ font: 'inherit', letterSpacing: 'inherit', textTransform: 'none', maxWidth: '100%' }}
+      sx={{ font: 'inherit', letterSpacing: 'inherit', textTransform: 'none', maxWidth: '100%', paddingX: 1, marginLeft: -1 }}
     >
-      <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <Box component="span" data-ui="page-title-label" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {label}
       </Box>
     </Button>

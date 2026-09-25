@@ -98,6 +98,15 @@ test.describe('Wide dashboard', () => {
     );
     expect(type[1], 'title button type').toEqual({ ...type[0], textTransform: 'none' });
 
+    const edges = await page.locator('[data-ui=page]').evaluate((root) => {
+      const label = root.querySelector('[data-ui=page-title-label]')!;
+      return {
+        label: label.getBoundingClientRect().left,
+        content: root.getBoundingClientRect().left + parseFloat(getComputedStyle(root).paddingLeft),
+      };
+    });
+    expect(Math.abs(edges.label - edges.content), 'title text left edge against the page content').toBeLessThan(1);
+
     const [row, name, lock, create, remove] = await Promise.all(
       [
         header,
