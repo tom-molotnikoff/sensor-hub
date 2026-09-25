@@ -49,6 +49,3 @@ Each function produces one value per sensor, measurement type and bucket:
 | `max` | Highest reading, rounded to 2 decimal places |
 | `count` | Number of readings |
 | `last` | The most recent reading, unchanged |
-
-Numeric types support `avg`, `min` and `max`, defaulting to `avg`. Binary types support `count` and `last`,
-defaulting to `count`.
