@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desktop shell: permanent nav, no top bar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --bg: #F5F0EB; --paper: #FFFFFF; --text: #1A1A1A; --muted: #5C5C5C; --divider: #D9D0C7;
+    --primary: #D4451A; --primary-soft: rgba(212,69,26,0.08);
+    --ok: #2E7D32; --warn: #B26A00; --bad: #B3261E; --info: #1B5E9E;
+  }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.55; }
+  .doc { max-width: 1180px; margin: 0 auto; padding: 40px 28px 120px; }
+  h1 { font-size: 34px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; font-weight: 700; margin: 56px 0 12px; }
+  h3 { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
+  p { margin: 0 0 12px; max-width: 78ch; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 72ch; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  code { font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 13px; background: rgba(0,0,0,0.05); padding: 1px 5px; border-radius: 4px; }
+  .card { background: var(--paper); border: 1px solid var(--divider); border-radius: 14px; padding: 20px 22px; }
+  .grid2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
+  @media (max-width: 860px) { .grid2, .grid3 { grid-template-columns: minmax(0,1fr); } }
+  .disagree { border-left: 4px solid var(--primary); background: #FFF8F4; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); }
+  .tag.ok { background: rgba(46,125,50,.1); color: var(--ok); }
+  .tag.open { background: rgba(27,94,158,.1); color: var(--info); }
+  figure { margin: 0; }
+  figure img { width: 100%; border-radius: 10px; border: 1px solid var(--divider); display: block; }
+  figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  ol.causes { padding-left: 20px; margin: 0; }
+  ol.causes li { margin-bottom: 10px; }
+
+  /* ---------- prototype controls ---------- */
+  .controls { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: flex-start; margin: 14px 0 14px; padding: 14px 16px; background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; position: sticky; top: 0; z-index: 20; }
+  .ctl { display: flex; flex-direction: column; gap: 4px; }
+  .ctl > span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  .seg { display: inline-flex; border: 1px solid var(--divider); border-radius: 8px; overflow: hidden; }
+  .seg button { font: inherit; font-size: 13px; border: 0; background: transparent; padding: 5px 11px; cursor: pointer; color: var(--text); border-right: 1px solid var(--divider); }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: #fff; }
+  .chk { font-size: 13px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .chk label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+
+  .stage { width: 100%; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 18px 50px rgba(60,30,10,.18), 0 0 0 1px rgba(0,0,0,.08); }
+  .stage-inner { width: 1440px; height: 900px; transform-origin: 0 0; position: absolute; top: 0; left: 0; }
+
+  /* ---------- the mock app ---------- */
+  .app { --a-bg: #F5F0EB; --a-paper: #FFFFFF; --a-text: #1A1A1A; --a-muted: #5C5C5C; --a-divider: #D9D0C7; --a-primary: #D4451A; --a-hover: rgba(212,69,26,0.06);
+         --a-ok: #2E7D32; --a-warn: #B26A00; --a-bad: #B3261E; --a-info: #1B5E9E;
+         width: 1440px; height: 900px; display: flex; background: var(--a-bg); color: var(--a-text); font-family: Roboto, Arial, sans-serif; position: relative; overflow: hidden; }
+  .app.dark { --a-bg: #1A1A1A; --a-paper: #242424; --a-text: #E8E8E8; --a-muted: #A0A0A0; --a-divider: #333333; --a-primary: #ED5125; --a-hover: rgba(237,81,37,0.08);
+              --a-ok: #7BC67E; --a-warn: #F0B24A; --a-bad: #F28B82; --a-info: #7FB3E8; }
+  .app .mi { font-family: 'Material Icons'; font-size: 22px; line-height: 1; font-style: normal; font-weight: normal; letter-spacing: normal; text-transform: none; white-space: nowrap; direction: ltr; -webkit-font-smoothing: antialiased; }
+
+  /* sidebar palettes */
+  .app { --s-bg: #FFFFFF; --s-text: #3A3A3A; --s-muted: #8A8078; --s-border: #D9D0C7; --s-active-bg: rgba(212,69,26,0.10); --s-active-text: #B33612; --s-hover: rgba(0,0,0,0.04); --s-indicator: transparent; }
+  .app.dark { --s-bg: #242424; --s-text: #D8D8D8; --s-muted: #8C8C8C; --s-border: #333; --s-active-bg: rgba(237,81,37,0.16); --s-active-text: #F47A56; --s-hover: rgba(255,255,255,0.05); }
+  .app.s-charcoal { --s-bg: #211E1B; --s-text: #D9D3CC; --s-muted: #8F867D; --s-border: #211E1B; --s-active-bg: rgba(237,81,37,0.18); --s-active-text: #FFFFFF; --s-hover: rgba(255,255,255,0.06); --s-indicator: #ED5125; }
+  .app.s-charcoal.dark { --s-bg: #121212; --s-border: #2A2A2A; }
+  .app.s-brand { --s-bg: #D4451A; --s-text: #FFFFFF; --s-muted: rgba(255,255,255,0.72); --s-border: #D4451A; --s-active-bg: rgba(255,255,255,0.20); --s-active-text: #FFFFFF; --s-hover: rgba(255,255,255,0.10); --s-indicator: transparent; }
+  .app.s-brand.dark { --s-bg: #B33612; --s-border: #B33612; }
+
+  .side { width: 256px; flex: 0 0 auto; background: var(--s-bg); color: var(--s-text); border-right: 1px solid var(--s-border); display: flex; flex-direction: column; transition: width .18s ease; position: relative; z-index: 3; }
+  .app.rail .side { width: 72px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px 14px 18px; height: 68px; }
+  .brand .logo { width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%; background: #ED5125; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; font-family: Arial, sans-serif; }
+  .app.s-brand .brand .logo { background: #fff; color: #D4451A; }
+  .brand .name { font-size: 17px; font-weight: 600; flex: 1; white-space: nowrap; }
+  .app.rail .brand { padding-left: 20px; }
+  .app.rail .brand .name, .app.rail .brand .bell { display: none; }
+  .iconbtn { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; position: relative; color: inherit; background: transparent; border: 0; }
+  .iconbtn:hover { background: var(--s-hover); }
+  .badge { position: absolute; top: 2px; right: 0px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #D32F2F; color: #fff; font-size: 11px; font-weight: 600; display: grid; place-items: center; line-height: 1; }
+  .app.s-brand .badge { background: #fff; color: #B3261E; }
+
+  .nav { flex: 1; overflow: hidden; padding: 4px 10px; }
+  .group { margin-top: 14px; }
+  .group:first-child { margin-top: 4px; }
+  .group-label { font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--s-muted); padding: 0 12px 6px; white-space: nowrap; }
+  .app.rail .group-label { visibility: hidden; height: 1px; padding: 0; margin: 0 8px 8px; border-top: 1px solid var(--s-hover); }
+  .app.flat .group-label { display: none; }
+  .app.flat .group { margin-top: 0; }
+  .item { display: flex; align-items: center; gap: 14px; height: 42px; padding: 0 12px; border-radius: 10px; cursor: pointer; color: var(--s-text); font-size: 14.5px; position: relative; white-space: nowrap; margin-bottom: 2px; }
+  .item:hover { background: var(--s-hover); }
+  .item.active { background: var(--s-active-bg); color: var(--s-active-text); font-weight: 500; }
+  .item.active::before { content: ""; position: absolute; left: -10px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--s-indicator); }
+  .item .mi { font-size: 21px; opacity: .9; }
+  .item .label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .item .count { font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(211,47,47,0.9); color: #fff; }
+  .item .count.bad { background: #D32F2F; }
+  .app.s-brand .item .count { background: #fff; color: #B3261E; }
+  .item .count.plain { background: var(--s-hover); color: var(--s-text); }
+  .app.rail .item { justify-content: center; padding: 0; gap: 0; }
+  .app.rail .item .label { display: none; }
+  .app.rail .item .count { position: absolute; top: 5px; right: 8px; font-size: 0; padding: 0; width: 8px; height: 8px; min-width: 0; }
+  .app.no-badges .item .count:not(.always) { display: none; }
+
+  .side-foot { padding: 8px 10px 12px; border-top: 1px solid var(--s-hover); position: relative; }
+  .acct { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; cursor: pointer; }
+  .acct:hover, .acct.open { background: var(--s-hover); }
+  .avatar { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; background: #9E9E9E; color: #fff; display: grid; place-items: center; font-weight: 500; }
+  .app.s-charcoal .avatar { background: #4A443E; }
+  .app.s-brand .avatar { background: rgba(255,255,255,.25); }
+  .acct .who { flex: 1; min-width: 0; line-height: 1.25; }
+  .acct .who b { font-weight: 500; font-size: 14px; display: block; }
+  .acct .who span { font-size: 12px; color: var(--s-muted); }
+  .app.rail .acct { justify-content: center; padding: 8px 0; }
+  .app.rail .acct .who, .app.rail .acct .chev { display: none; }
+  .collapse { display: flex; align-items: center; gap: 14px; height: 38px; padding: 0 12px; border-radius: 10px; cursor: pointer; font-size: 13.5px; color: var(--s-muted); white-space: nowrap; }
+  .collapse:hover { background: var(--s-hover); }
+  .app.rail .collapse { justify-content: center; padding: 0; }
+  .app.rail .collapse .label { display: none; }
+  .app.rail .collapse .mi { transform: rotate(180deg); }
+
+  /* popovers */
+  .pop { position: absolute; background: var(--a-paper); color: var(--a-text); border: 1px solid var(--a-divider); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,.22); z-index: 30; display: none; }
+  .pop.show { display: block; }
+  .acct-menu { left: 10px; bottom: 70px; width: 260px; padding: 6px; }
+  .app.rail .acct-menu { left: 78px; bottom: 12px; }
+  .menu-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  .menu-row:hover { background: var(--a-hover); }
+  .menu-row .mi { font-size: 20px; color: var(--a-muted); }
+  .menu-sep { height: 1px; background: var(--a-divider); margin: 6px 4px; }
+  .menu-head { padding: 10px 12px 6px; font-size: 12px; color: var(--a-muted); }
+  .themeseg { display: flex; margin: 4px 8px 8px; border: 1px solid var(--a-divider); border-radius: 8px; overflow: hidden; }
+  .themeseg div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11.5px; padding: 6px 0; cursor: pointer; border-right: 1px solid var(--a-divider); color: var(--a-muted); }
+  .themeseg div:last-child { border-right: 0; }
+  .themeseg div.on { background: var(--a-hover); color: var(--a-primary); font-weight: 500; }
+  .themeseg .mi { font-size: 18px; color: inherit; }
+  .bell-pop { width: 360px; padding: 0 0 6px; }
+  .bell-pop.from-side { left: 264px; top: 14px; }
+  .app.rail .bell-pop.from-side { left: 80px; }
+  .bell-pop.from-head { right: 28px; top: 70px; }
+  .bell-pop header { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 16px 10px; border-bottom: 1px solid var(--a-divider); }
+  .bell-pop header b { font-size: 15px; font-weight: 600; }
+  .bell-pop header span { font-size: 12px; color: var(--a-muted); }
+  .note { display: flex; gap: 10px; padding: 10px 16px; font-size: 13px; border-bottom: 1px solid var(--a-divider); }
+  .note.unread { background: var(--a-hover); font-weight: 500; }
+  .note .mi { font-size: 19px; }
+  .note small { display: block; color: var(--a-muted); font-weight: 400; font-size: 12px; }
+  .bell-pop footer { text-align: center; padding: 8px; font-size: 13px; font-weight: 500; color: var(--a-primary); text-transform: uppercase; letter-spacing: .4px; }
+
+  /* main */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .phead { display: flex; align-items: center; gap: 14px; padding: 22px 28px 0; min-height: 68px; }
+  .ptitle { font-size: 24px; font-weight: 600; letter-spacing: -.2px; margin: 0; white-space: nowrap; }
+  .picker { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px 2px 10px; margin-left: -10px; border-radius: 10px; cursor: pointer; }
+  .picker:hover { background: var(--a-hover); }
+  .picker .mi { color: var(--a-muted); }
+  .star { color: var(--a-primary); font-size: 18px; margin-left: 2px; }
+  .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 13px; font-weight: 500; letter-spacing: .3px; text-transform: uppercase; padding: 6px 14px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--a-primary) 50%, transparent); color: var(--a-primary); background: transparent; cursor: pointer; }
+  .btn.solid { background: var(--a-primary); color: #fff; border-color: var(--a-primary); }
+  .ib { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--a-muted); cursor: pointer; position: relative; }
+  .ib:hover { background: var(--a-hover); }
+  .ib .badge { top: 0; right: -2px; }
+  .ib.danger { color: #D32F2F; }
+  .summary { display: flex; gap: 22px; align-items: center; padding: 6px 28px 0; font-size: 13.5px; color: var(--a-muted); }
+  .summary .pill { display: inline-flex; align-items: center; gap: 7px; }
+  .summary .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .summary b { color: var(--a-text); font-weight: 600; }
+  .app.no-summary .summary { display: none; }
+  .content { flex: 1; overflow: hidden; padding: 20px 28px 28px; }
+
+  .dash { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); grid-auto-rows: 80px; gap: 16px; }
+  .w { background: var(--a-paper); border: 1px solid var(--a-divider); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .wh { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid var(--a-divider); font-size: 12px; color: var(--a-muted); letter-spacing: .3px; }
+  .wh .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wh .t em { font-style: normal; }
+  .wh .meta { font-size: 11.5px; white-space: nowrap; }
+  .app.strong-titles .wh { border-bottom: 0; padding: 14px 18px 2px; font-size: 15px; color: var(--a-text); letter-spacing: 0; }
+  .app.strong-titles .wh .t { font-weight: 600; }
+  .app.strong-titles .wh .t em { font-weight: 400; color: var(--a-muted); }
+  .app.strong-titles .wh .meta { color: var(--a-muted); font-size: 12px; }
+  .wb { flex: 1; min-height: 0; position: relative; padding: 8px 12px 10px; }
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; font-size: 14px; }
+  .legend i { display: inline-block; width: 12px; height: 2px; vertical-align: middle; margin-right: 5px; }
+  .legend.sq i { width: 11px; height: 11px; }
+  .metric { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 6px; }
+  .metric .v { font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .metric .s { font-size: 13px; text-align: center; }
+
+  .cards { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 16px; }
+  .pc { background: var(--a-paper); border: 1px solid var(--a-divider); border-radius: 14px; padding: 18px 20px; min-width: 0; }
+  .pc h4 { margin: 0 0 12px; font-size: 18px; font-weight: 600; }
+  table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.t th { text-align: left; font-weight: 500; padding: 10px; border-bottom: 1px solid var(--a-divider); }
+  table.t td { padding: 9px 10px; border-bottom: 1px solid var(--a-divider); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .field { border: 1px solid var(--a-divider); border-radius: 8px; padding: 9px 12px; color: var(--a-muted); font-size: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; }
+  .placeholder { height: 100%; display: grid; place-items: center; color: var(--a-muted); border: 2px dashed var(--a-divider); border-radius: 14px; font-size: 15px; }
+
+  /* ---------- questions ---------- */
+  .q { margin-top: 18px; }
+  .q form { margin: 0; }
+  .opts { display: grid; gap: 10px; margin: 12px 0; }
+  .opt { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 8px; padding: 12px 14px; border: 1px solid var(--divider); border-radius: 10px; cursor: pointer; background: #FFFDFB; }
+  .opt:has(input:checked) { border-color: var(--primary); background: #FFF4EE; }
+  .opt input { margin-top: 4px; accent-color: var(--primary); }
+  .opt b { font-weight: 600; }
+  .opt .rec { color: var(--primary); font-weight: 700; font-size: 12px; margin-left: 6px; }
+  .opt p { margin: 3px 0 0; font-size: 13.5px; color: var(--muted); }
+  .wrong { font-size: 13.5px; background: #F7F3EF; border-radius: 8px; padding: 10px 12px; margin: 8px 0 10px; }
+  .wrong b { color: var(--text); }
+  .qfoot { display: flex; gap: 10px; align-items: center; }
+  .qfoot textarea { flex: 1; font: inherit; font-size: 13.5px; border: 1px solid var(--divider); border-radius: 8px; padding: 8px 10px; min-height: 38px; resize: vertical; background: #fff; }
+  .qbtn { font: inherit; font-weight: 600; font-size: 13.5px; padding: 9px 16px; border-radius: 8px; border: 0; background: var(--primary); color: #fff; cursor: pointer; white-space: nowrap; }
+  .qbtn.done { background: var(--ok); }
+  .qhead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .try { font-size: 13px; color: var(--primary); cursor: pointer; text-decoration: underline; background: none; border: 0; padding: 0; font: inherit; font-size: 13px; }
+  .agreed { border-left: 4px solid var(--ok); }
+  .agreed p { font-size: 14px; }
+  .agreed p:last-child { margin-bottom: 0; }
+  .note-quote { color: var(--muted); background: #F7F3EF; border-radius: 8px; padding: 8px 10px; }
+  .app.rail .brand { flex-direction: column; height: auto; gap: 8px; padding: 16px 0 6px; }
+  .app.rail .brand .bell { display: grid; }
+  .phones { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin: 14px 0 6px; }
+  @media (max-width: 860px) { .phones { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  .phones figcaption { text-align: center; }
+  .phone-wrap { width: 100%; aspect-ratio: 390 / 760; position: relative; border-radius: 22px; overflow: hidden; box-shadow: 0 0 0 6px #1a1a1a, 0 10px 30px rgba(0,0,0,.2); }
+  .phone { width: 390px; height: 760px; transform-origin: 0 0; position: absolute; top: 0; left: 0; }
+  .phone .app { width: 390px; height: 760px; flex-direction: column; }
+  .pbar { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 6px; color: #fff; flex: 0 0 auto; }
+  .pbar .ttl { flex: 1; font-size: 18px; font-weight: 500; }
+  .pbar .iconbtn { color: #fff; }
+  .pbar.charcoal { background: var(--s-bg); color: var(--s-text); }
+  .pbar.charcoal .iconbtn { color: var(--s-text); }
+  .pbar.orange { background: #D4451A; }
+  .pbody { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .pcard { background: var(--a-paper); border: 1px solid var(--a-divider); border-radius: 14px; padding: 12px; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+  .phone .side { position: absolute; top: 0; bottom: 0; left: 0; width: 290px; box-shadow: 8px 0 24px rgba(0,0,0,.3); }
+  .tt-demo { background: #1A1A1A; border-radius: 10px; border: 1px solid var(--divider); height: 100%; min-height: 250px; display: grid; place-items: center; padding: 16px; }
+  .tt { background: #242424; border: 1px solid #333; border-radius: 10px; padding: 10px 12px; color: #E8E8E8; font-size: 13px; min-width: 210px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .tt-h { color: #A0A0A0; font-size: 12px; margin-bottom: 6px; }
+  .tt-r { display: flex; align-items: center; gap: 8px; line-height: 1.75; }
+  .tt-r i { width: 10px; height: 10px; border-radius: 3px; }
+  .tt-r b { margin-left: auto; font-weight: 500; font-variant-numeric: tabular-nums; padding-left: 18px; }
+  .diag { width: 100%; height: auto; margin: 8px 0 12px; }
+  .diag .n { fill: #FFFDFB; stroke: var(--divider); }
+  .diag .n.hi { fill: #2A2522; stroke: #211E1B; }
+  .diag .n.hi + text, .diag .n.hi + text + text { fill: #F2EDE8; }
+  .diag .grp { fill: #F7F3EF; stroke: var(--divider); stroke-dasharray: 4 4; }
+  .diag .t { font: 600 14px Roboto, sans-serif; text-anchor: middle; fill: var(--text); }
+  .diag .s { font: 12px Roboto, sans-serif; text-anchor: middle; fill: var(--muted); }
+  .diag .l { font: 12.5px Roboto, sans-serif; fill: var(--text); }
+  .diag .e { stroke: #8F867D; stroke-width: 1.5; fill: none; }
+  .diag .e.dash { stroke-dasharray: 4 4; }
+  .design ul { margin: 6px 0 12px; padding-left: 20px; }
+  .design li { margin-bottom: 6px; }
+  .qfoot select { font: inherit; font-size: 13.5px; border: 1px solid var(--divider); border-radius: 8px; padding: 8px; background: #fff; }
+</style>
+<script type="application/json" data-lavish-revisions>
+[{ "id": "r2", "label": "Round 2", "timestamp": "2026-09-25T12:30:00Z", "summary": "Round 1 marked agreed; prototype shows agreed choices; mobile, Developer and tooltip questions; design sections D1-D4" },
+ { "id": "r3", "label": "Round 3", "timestamp": "2026-09-25T13:00:00Z", "summary": "Round 2 agreed; MUI and codebase fit check" }]
+</script>
+</head>
+<body>
+<div class="doc">
+
+  <span class="tag">Brainstorm · desktop shell</span>
+  <h1>Desktop shell: permanent nav, no top bar</h1>
+  <p class="lede">Your idea: on wide screens (900px and up), keep the left nav always visible, move the top-right controls into the bottom of the nav, and drop the top app bar. Below is what that looks like, a clickable prototype you can switch between the options, and the decisions I need from you. Phones keep the current top bar and drawer; this only changes the wide tier.</p>
+
+  <h2>Where I disagree first</h2>
+  <div class="card disagree">
+    <p><b>The strongest case for your idea:</b> the nav is a temporary drawer at every width, so on a 1440px screen you're always one click away from knowing where you are and two clicks from going anywhere. The drawer doesn't even highlight the current page. A permanent nav fixes both, gives back the 64px the bar takes, and turns the scattered top-right icons into one account area.</p>
+    <p><b>My objection:</b> in the current app the orange top bar is the only colour on the page apart from the chart lines. Take it away and put a white nav next to white cards on beige, and the app ends up <i>quieter</i>, not livelier. So removing the bar only helps if the colour moves somewhere else. That's why the first decision below is about how the nav looks.</p>
+    <p style="margin:0"><b>Second objection:</b> at 900px, the narrow end of "wide", a 256px nav leaves 644px for a 12-column dashboard. That's less room than a tablet in portrait gets now. The nav needs a way to collapse, or the dashboards get squeezed at that end.</p>
+  </div>
+
+  <h2>Why it looks visually dead today</h2>
+  <div class="grid2">
+    <figure><img src="shots/now-dashboard.png" alt="Current desktop dashboard, light"><figcaption>Current dashboard, light, 1440×900</figcaption></figure>
+    <figure><img src="shots/now-dashboard-dark.png" alt="Current desktop dashboard, dark"><figcaption>Current dashboard, dark</figcaption></figure>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <ol class="causes">
+      <li><b>One slab of colour, then nothing.</b> All the brand colour is in the bar. Everything below it is flat white boxes on beige with 1px borders and no depth, so every region looks equally important.</li>
+      <li><b>Nothing shows where you are.</b> The page title is 20px, right-aligned and pushed up against the icons, and the drawer has no active item. You can't tell which part of the app you're in at a glance.</li>
+      <li><b>Widget titles are the quietest text on the page.</b> "Readings Chart: Temperature" is a 12px grey caption above a divider. The chart legend underneath is bigger than the title.</li>
+      <li><b>The dashboard toolbar is a stray row.</b> The picker, lock, New Dashboard and delete sit on their own line with nothing tying them to the title above.</li>
+      <li><b>No sense that it's live.</b> The data comes in over a websocket, but apart from "just now" labels nothing on the page shows that the system is healthy and running.</li>
+    </ol>
+  </div>
+  <div class="grid2" style="margin-top:16px">
+    <figure><img src="shots/now-drawer.png" alt="Current drawer"><figcaption>Current drawer: temporary at every width, 11 items in one flat list, no active state, and Sessions / Documentation / Logout are also in the account menu.</figcaption></figure>
+    <figure><img src="shots/now-sensors.png" alt="Current sensors page"><figcaption>Sensors Overview: page cards already use 18px titles. Only the dashboard widgets use the tiny caption.</figcaption></figure>
+  </div>
+
+  <h2>Prototype</h2>
+  <p>This is a mock of the real app at 1440×900, using the real theme colours, Roboto and Material icons. <b>It now shows the agreed round 1 decisions.</b> Click nav items, the bell, the account block at the bottom of the nav, and Collapse.</p>
+
+  <div class="controls" id="controls">
+    <div class="ctl"><span>Width</span><div class="seg" data-key="width"><button data-v="expanded">Expanded</button><button data-v="rail">Rail</button></div></div>
+    <div class="ctl"><span>Mode</span><div class="seg" data-key="mode"><button data-v="light">Light</button><button data-v="dark">Dark</button></div></div>
+    <div class="ctl"><span>Page</span><div class="seg" data-key="page"><button data-v="dashboard">Dashboard</button><button data-v="sensors">Sensors</button><button data-v="mqtt">Other</button></div></div>
+    <div class="ctl" style="align-self:center"><span>&nbsp;</span><span class="small muted" style="text-transform:none;letter-spacing:0;font-weight:400">Showing the round 1 decisions: charcoal nav, bell in the nav header, flat list, name as title</span></div>
+  </div>
+
+  <div class="stage" id="stage"><div class="stage-inner" id="stageInner"><div class="app" id="app"></div></div></div>
+
+  <h2>Decisions, round 1</h2>
+  <p class="muted">All seven are agreed. The prototype above now shows those choices.</p>
+
+  <div class="grid2">
+    <div class="card agreed"><div class="qhead"><h3>Q1. Nav look</h3><span class="tag ok">Agreed</span></div>
+      <p><b>Charcoal nav with an orange active marker</b>, in both light and dark mode.</p>
+      <p class="small note-quote">Your note: carry it into the mobile layout too, so the two tiers don't look inconsistent. <span class="tag ok">R2-1: A, phone bar turns charcoal</span></p></div>
+    <div class="card agreed"><div class="qhead"><h3>Q2. Bell</h3><span class="tag ok">Agreed</span></div>
+      <p><b>In the nav header next to the brand</b>, and the quick-look panel opens to the right. In rail mode the bell sits under the logo rather than disappearing, so the unread count is always visible.</p></div>
+    <div class="card agreed"><div class="qhead"><h3>Q3. Account block</h3><span class="tag ok">Agreed</span></div>
+      <p><b>Everything about "me" goes in the account menu, and appears only once:</b> a Light/Dark/System switch, My sessions, Change password, Developer, Documentation and Logout. None of those appear in the main nav. <span class="tag ok">R2-2: confirmed</span></p></div>
+    <div class="card agreed"><div class="qhead"><h3>Q4. Collapse</h3><span class="tag ok">Agreed</span></div>
+      <p><b>You can collapse it to a 72px rail, and it remembers.</b> With no saved choice, it starts as a rail from 900 to 1199px and expanded from 1200px up.</p></div>
+    <div class="card agreed"><div class="qhead"><h3>Q5. Grouping</h3><span class="tag ok">Agreed</span></div>
+      <p><b>One flat list, in today's order, with the duplicates removed:</b> Dashboards, Sensors, Data Retention, Properties, MQTT, Alerts & Notifications, User Management. Each item still only shows if you have permission for it.</p></div>
+    <div class="card agreed"><div class="qhead"><h3>Q6. Page header</h3><span class="tag ok">Agreed</span></div>
+      <p><b>The dashboard's name is the page title, and clicking it switches dashboard.</b> The lock, New Dashboard and delete sit on the same row.</p>
+      <p class="small note-quote">Your note: there's no favourite feature, so the ★ can go. <b>What I found in the code:</b> the ★ marks the <code>is_default</code> dashboard. That's the one that loads when you haven't picked one. The API can set it (<code>PUT /dashboards/{id}/default</code>), but nothing in the UI does. The title no longer shows the ★. I've left it on the entries in the dropdown, where it's shown today. That's a detail worth revisiting separately.</p></div>
+    <div class="card agreed"><div class="qhead"><h3>Q7. Extras</h3><span class="tag ok">Agreed</span></div>
+      <p><b>None of them.</b> Widget titles stay as they are, there are no status counts in the nav, and there's no summary line. The only count left is the unread count on the bell.</p></div>
+    <div class="card agreed"><div class="qhead"><h3>Added: chart tooltip in dark mode</h3><span class="tag ok">In scope</span></div>
+      <p>You asked to include this. It's confirmed below, and R2-3 settles how far the fix goes.</p></div>
+  </div>
+
+  <section data-lavish-revision="r2">
+  <h2>Round 2: decisions</h2>
+  <p class="muted">All agreed: R2-1 A, R2-2 account menu, R2-3 one shared ChartTooltip. D1-D4 confirmed as written.</p>
+
+  <!-- R2-1 -->
+  <div class="card q" data-lavish-question="r2-1-mobile">
+    <div class="qhead"><h3>R2-1. What does "carry it into mobile" cover?</h3><span class="tag ok">Agreed</span></div>
+    <p class="small muted">On phones the nav stays a drawer that opens from the hamburger. What's open is whether the orange top bar stays too. Both options below use the same nav component and look as the desktop.</p>
+    <div class="phones">
+      <figure><div class="phone-wrap"><div class="phone" id="phoneA1"></div></div><figcaption><b>A.</b> Charcoal top bar</figcaption></figure>
+      <figure><div class="phone-wrap"><div class="phone" id="phoneA2"></div></div><figcaption><b>A.</b> Drawer open</figcaption></figure>
+      <figure><div class="phone-wrap"><div class="phone" id="phoneB1"></div></div><figcaption><b>B.</b> Orange top bar stays</figcaption></figure>
+      <figure><div class="phone-wrap"><div class="phone" id="phoneB2"></div></div><figcaption><b>B.</b> Drawer open</figcaption></figure>
+    </div>
+    <form onsubmit="event.preventDefault(); queue(this, 'r2-1-mobile', 'R2-1 mobile');">
+      <div class="opts">
+        <label class="opt"><input type="radio" name="a" value="A: one nav component for both tiers; compact top bar turns charcoal and holds hamburger, page title and bell; avatar leaves the top bar and the account block sits at the bottom of the drawer" checked><div><b>A. One nav, and the phone top bar turns charcoal too</b><span class="rec">RECOMMENDED</span><p>The compact top bar becomes the same charcoal as the desktop nav. It keeps the hamburger, the page title and the bell. The avatar comes out of the bar, and the drawer ends with the same account block as the desktop. Both tiers then share one colour scheme, one nav and one account menu. Orange is only used for "you are here" and for primary buttons everywhere.</p></div></label>
+        <label class="opt"><input type="radio" name="a" value="B: one nav component for both tiers, charcoal drawer, but compact top bar stays orange"><div><b>B. One nav, but the phone top bar stays orange</b><p>The drawer and account block are shared, but the orange bar stays on phones. That keeps a strong brand block on the small screen, but it's the inconsistency your note was trying to avoid: on a phone the app opens orange, and the moment you open the drawer it goes charcoal.</p></div></label>
+      </div>
+      <div class="wrong"><b>What would make A wrong:</b> an all-charcoal phone bar looks like a generic dark-chrome app, and you lose the orange you use to recognise it at a glance on a phone. If that's something you care about, B keeps it.</div>
+      <div class="qfoot"><textarea name="note" placeholder="Optional note"></textarea><button class="qbtn">Queue answer</button></div>
+    </form>
+  </div>
+
+  <!-- R2-2 -->
+  <div class="card q" data-lavish-question="r2-2-developer">
+    <div class="qhead"><h3>R2-2. Developer is in the account menu. Is that right?</h3><span class="tag ok">Agreed</span></div>
+    <p class="small muted">The option you picked for Q3 listed Developer, but my description of it didn't, so I'm checking rather than assuming. The page holds two things. One is API keys, which belong to each user (<code>api_keys.user_id</code>, gated by <code>manage_api_keys</code>). The other is the API reference (gated by <code>view_api_docs</code>). Both are about you, not the system, so I think the account menu is the right home for it.</p>
+    <form onsubmit="event.preventDefault(); queue(this, 'r2-2-developer', 'R2-2 developer placement');">
+      <div class="opts">
+        <label class="opt"><input type="radio" name="a" value="Developer lives in the account menu" checked><div><b>Account menu</b><span class="rec">RECOMMENDED</span><p>The main nav then only lists parts of the system: 7 items for an admin.</p></div></label>
+        <label class="opt"><input type="radio" name="a" value="Developer stays in the main nav, after User Management"><div><b>Main nav, after User Management</b><p>Easier to find for people who connect other tools with API keys.</p></div></label>
+      </div>
+      <div class="qfoot"><textarea name="note" placeholder="Optional note"></textarea><button class="qbtn">Queue answer</button></div>
+    </form>
+  </div>
+
+  <!-- R2-3 -->
+  <div class="card q" data-lavish-question="r2-3-tooltip">
+    <div class="qhead"><h3>R2-3. How far does the tooltip fix go?</h3><span class="tag ok">Agreed</span></div>
+    <div class="grid2" style="margin:12px 0">
+      <figure><img src="shots/now-tooltip-dark.png" alt="Current dark mode tooltip"><figcaption><b>Now:</b> Recharts' default white box with the pale dark-mode series colours on it. The time also shows as a raw ISO string.</figcaption></figure>
+      <figure><div class="tt-demo"><div class="tt"><div class="tt-h">Thu 24 Sep, 17:20</div>
+        <div class="tt-r"><i style="background:#ED5125"></i>Bathroom<b>9.96</b></div><div class="tt-r"><i style="background:#4FC3F7"></i>Bedroom<b>15.67</b></div><div class="tt-r"><i style="background:#81C784"></i>Conservatory<b>7.00</b></div><div class="tt-r"><i style="background:#FFB74D"></i>Kitchen<b>12.29</b></div><div class="tt-r"><i style="background:#CE93D8"></i>Living Room<b>6.77</b></div><div class="tt-r"><i style="background:#4DD0E1"></i>Nursery<b>8.67</b></div><div class="tt-r"><i style="background:#A1887F"></i>Office<b>19.05</b></div><div class="tt-r"><i style="background:#90A4AE"></i>Study<b>10.92</b></div></div></div>
+        <figcaption><b>Proposed:</b> the tooltip uses the paper background and divider border. Each row has a colour swatch with the name in normal text colour and the value in tabular figures. The time is formatted to match the axis.</figcaption></figure>
+    </div>
+    <p class="small muted">There are three Recharts tooltips: <code>ReadingsChart</code>, <code>ComparisonChartWidget</code> and <code>SensorHealthHistoryChart</code>. Two of them are a bare <code>&lt;Tooltip /&gt;</code>. The pie charts don't have one.</p>
+    <form onsubmit="event.preventDefault(); queue(this, 'r2-3-tooltip', 'R2-3 tooltip scope');">
+      <div class="opts">
+        <label class="opt"><input type="radio" name="a" value="One shared themed ChartTooltip used by all three charts: paper/divider surface, swatch + name in text colour + tabular value, time label formatted like the axis" checked><div><b>One shared, themed <code>ChartTooltip</code> for all three charts</b><span class="rec">RECOMMENDED</span><p>Fixes dark mode, readability and the ISO timestamp in one place. The next chart that gets added picks it up automatically.</p></div></label>
+        <label class="opt"><input type="radio" name="a" value="Minimal: pass themed contentStyle/itemStyle to each existing Tooltip, keep default layout"><div><b>Minimal: theme the existing tooltips' colours only</b><p>The smallest change. The series-coloured text stays, so pale colours are still harder to read than they need to be, and the ISO time stays too.</p></div></label>
+      </div>
+      <div class="qfoot"><textarea name="note" placeholder="Optional note"></textarea><button class="qbtn">Queue answer</button></div>
+    </form>
+  </div>
+
+  <h2>Round 2: the design, section by section</h2>
+  <p class="muted">For each section, confirm it or say what's wrong. These describe what gets built. They assume my recommendations for R2-1 to R2-3, and I'll update them if you pick differently.</p>
+
+  <div class="card q design" data-lavish-question="d1-structure">
+    <div class="qhead"><h3>D1. Structure and components</h3><span class="tag ok">Agreed</span></div>
+    <svg viewBox="0 0 1000 250" class="diag" role="img" aria-label="Component structure">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8F867D"/></marker></defs>
+      <rect x="10" y="95" width="150" height="56" rx="10" class="n"/><text x="85" y="119" class="t">Page</text><text x="85" y="138" class="s">title, actions</text>
+      <line x1="160" y1="112" x2="235" y2="55" class="e" marker-end="url(#ar)"/><text x="182" y="72" class="s">wide</text>
+      <line x1="160" y1="134" x2="235" y2="192" class="e" marker-end="url(#ar)"/><text x="178" y="182" class="s">compact</text>
+      <rect x="240" y="20" width="200" height="70" rx="10" class="n hi"/><text x="340" y="48" class="t">AppNav permanent</text><text x="340" y="68" class="s">256px or 72px rail</text>
+      <rect x="460" y="20" width="200" height="70" rx="10" class="n"/><text x="560" y="48" class="t">PageHeader</text><text x="560" y="68" class="s">h1 title + actions</text>
+      <rect x="240" y="160" width="200" height="70" rx="10" class="n"/><text x="340" y="188" class="t">TopAppBar (charcoal)</text><text x="340" y="208" class="s">hamburger, title, bell</text>
+      <rect x="460" y="160" width="200" height="70" rx="10" class="n hi"/><text x="560" y="188" class="t">AppNav temporary</text><text x="560" y="208" class="s">drawer, 280px</text>
+      <rect x="720" y="10" width="270" height="230" rx="12" class="grp"/><text x="855" y="34" class="t">AppNav parts</text>
+      <text x="740" y="64" class="l">NavBrand: logo, name, NotificationBell</text>
+      <text x="740" y="94" class="l">NavList: flat, permission-gated,</text><text x="752" y="112" class="l">active item from the current route</text>
+      <text x="740" y="142" class="l">NavAccount: avatar, name, role</text><text x="752" y="160" class="l">+ AccountMenu (theme switch, sessions,</text><text x="752" y="178" class="l">password, developer, docs, logout)</text>
+      <text x="740" y="208" class="l">CollapseToggle (wide only)</text>
+    </svg>
+    <ul class="small">
+      <li><code>ui/Page.tsx</code> picks the shell using the existing <code>useTier()</code>. On wide screens there's no <code>AppBar</code> at all: <code>&lt;AppNav permanent/&gt;</code> sits next to <code>main</code>, and main starts with a <code>PageHeader</code>. On compact screens it's today's structure, with the charcoal bar and the same <code>AppNav</code> as a temporary drawer.</li>
+      <li><code>Page</code> gets an optional <code>actions</code> slot and a <code>title</code> that can be any element, so Dashboards can pass its picker as the title. On compact, the title still goes into the top bar as text and the actions stay in the page, as they do today.</li>
+      <li><code>NavigationSidebar</code> is replaced by <code>AppNav</code>, and the account menu moves out of <code>TopAppBar</code> into <code>NavAccount</code>. <code>NotificationBell</code> is reused as it is, just placed differently.</li>
+      <li><b>Theme:</b> a new <code>palette.nav</code> token group (bg, text, muted, hover, activeBg, activeText, indicator), set for both colour schemes in <code>palette.ts</code>, so nothing in the nav hard-codes a colour. The <code>pageTitle</code> variant grows from 20px/500 to 24px/600 on wide screens now that it's the only headline on the page. Compact stays at 18px.</li>
+    </ul>
+    <form onsubmit="event.preventDefault(); queueSection(this, 'd1-structure', 'D1 structure');"><div class="qfoot"><select name="a"><option>Looks right</option><option>Needs changes (see note)</option></select><textarea name="note" placeholder="What's wrong or missing?"></textarea><button class="qbtn">Queue</button></div></form>
+  </div>
+
+  <div class="card q design" data-lavish-question="d2-state">
+    <div class="qhead"><h3>D2. State and data flow</h3><span class="tag ok">Agreed</span></div>
+    <ul class="small">
+      <li><b>Collapse state:</b> <code>SidebarContext</code> keeps <code>open</code> (the compact drawer) and adds <code>collapsed</code> (the wide rail). When you toggle it, <code>collapsed</code> is saved to localStorage under <code>sensor-hub.nav.collapsed</code>. With nothing saved, it's worked out from width, as a rail below 1200px. If you resize past 1200px it doesn't flip on its own, because a saved choice always wins and an unsaved default follows the width.</li>
+      <li><b>Active item:</b> worked out from <code>useLocation()</code> with a prefix match, so <code>/sensor/7</code> highlights Sensors and <code>/account/*</code> highlights nothing in the nav. Today's drawer doesn't highlight anything at all.</li>
+      <li><b>Unread count:</b> <code>NotificationProvider</code> as it is today. The bell is the only thing that reads it.</li>
+      <li><b>Theme:</b> the segmented switch calls <code>useColorScheme().setMode</code>, the same as today's theme menu.</li>
+      <li><b>Navigating</b> closes the drawer on compact, as it does today. On wide it doesn't touch the rail state.</li>
+    </ul>
+    <form onsubmit="event.preventDefault(); queueSection(this, 'd2-state', 'D2 state');"><div class="qfoot"><select name="a"><option>Looks right</option><option>Needs changes (see note)</option></select><textarea name="note" placeholder="What's wrong or missing?"></textarea><button class="qbtn">Queue</button></div></form>
+  </div>
+
+  <div class="card q design" data-lavish-question="d3-edges">
+    <div class="qhead"><h3>D3. Edge cases</h3><span class="tag ok">Agreed</span></div>
+    <ul class="small">
+      <li><b>Auth still loading:</b> the nav shows skeleton rows in place of the items, instead of today's "Loading..." item, so the layout doesn't jump when they arrive.</li>
+      <li><b>Signed out:</b> sign-in is a <code>StandalonePage</code> and has no nav. Any other page you reach while signed out redirects through <code>RequireAuth</code>. The nav's logged-out "Login" item can go.</li>
+      <li><b>Viewer with few permissions:</b> fewer items. Users with no <code>view_notifications</code> don't get the bell, and the brand row just shows the name.</li>
+      <li><b>Rail mode:</b> each item shows its label as a tooltip on hover or keyboard focus. The bell sits under the logo. The account menu and the bell panel open to the right of the rail.</li>
+      <li><b>Keyboard and screen readers:</b> the nav is a <code>&lt;nav aria-label="Main"&gt;</code>, and the current item gets <code>aria-current="page"</code>. The collapse toggle is a button with <code>aria-expanded</code>. Each page's <code>h1</code> is its title, which on wide screens used to be in the bar.</li>
+      <li><b>Long page titles and many actions</b> at 900px with the nav expanded: the title truncates before the actions wrap.</li>
+    </ul>
+    <form onsubmit="event.preventDefault(); queueSection(this, 'd3-edges', 'D3 edge cases');"><div class="qfoot"><select name="a"><option>Looks right</option><option>Needs changes (see note)</option></select><textarea name="note" placeholder="What's wrong or missing?"></textarea><button class="qbtn">Queue</button></div></form>
+  </div>
+
+  <div class="card q design" data-lavish-question="d4-testing">
+    <div class="qhead"><h3>D4. Testing</h3><span class="tag ok">Agreed</span></div>
+    <ul class="small">
+      <li><b>Playwright layout suite:</b> the <code>shell</code> and <code>appBar</code> checks change per tier. On wide screens: nav visible, no <code>app-bar</code>, one <code>h1</code> in the page header, and no sideways scroll with the nav expanded at 900px. On compact screens: today's app-bar checks, with the bar colour matching the nav token.</li>
+      <li><b>New layout specs:</b> a rail toggle that survives a reload. The default switching to a rail below 1200px when nothing is saved. The active item on <code>/sensor/1</code>. The bell panel and account menu opening inside the viewport in both widths.</li>
+      <li><b>Tooltip:</b> a dark-scheme spec hovers the readings chart and checks the tooltip's background colour matches <code>background.paper</code> and that its label isn't an ISO string.</li>
+      <li><b>Vitest:</b> NavList permission gating per role, and the account menu's contents and deduplication. Also the <code>Page</code> title slot rendering to the header on wide screens and to the bar on compact.</li>
+      <li>No Go changes, so the integration suite isn't affected.</li>
+    </ul>
+    <form onsubmit="event.preventDefault(); queueSection(this, 'd4-testing', 'D4 testing');"><div class="qfoot"><select name="a"><option>Looks right</option><option>Needs changes (see note)</option></select><textarea name="note" placeholder="What's wrong or missing?"></textarea><button class="qbtn">Queue</button></div></form>
+  </div>
+  </section>
+
+
+  <section data-lavish-revision="r3">
+  <h2>Does it fit MUI and the codebase?</h2>
+  <p>Yes. Nothing in the prototype needs anything MUI 9.4 doesn't already give you. I checked it against the code, and these are the four places where building it naively would go wrong.</p>
+  <div class="grid2">
+    <div class="card"><h3>1. The layout goes in <code>src/ui</code></h3><p class="small"><code>eslint-plugin-ui</code> blocks <code>Box</code>, <code>Stack</code> and layout keys (width, flex, position, padding) outside <code>src/ui</code>, and blocks raw colour literals anywhere outside the theme. So the nav's frame (the permanent/temporary Drawer, the 256/72 width and the width transition) is a new <code>src/ui</code> primitive. <code>navigation/AppNav</code> only composes it with <code>List</code>/<code>ListItemButton</code>, and every colour comes from the new <code>palette.nav</code> tokens.</p></div>
+    <div class="card"><h3>2. Charcoal nav in light mode</h3><p class="small">In light mode, MUI parts inside the nav (<code>ListItemButton</code> selected/hover, <code>IconButton</code>, <code>Divider</code>, <code>Tooltip</code>) would pick up light-scheme colours and look wrong on charcoal. The theme uses <code>cssVariables</code> with <code>colorSchemeSelector: 'class'</code>, so the <code>dark</code> class on the nav root should make everything inside it resolve dark-scheme variables, with no override for each part. That needs checking first. If it doesn't work, the fallback is <code>palette.nav</code> overrides on those four parts. Menus and the bell panel render in a portal, so they follow the page's scheme, which is what the prototype shows.</p></div>
+    <div class="card"><h3>3. The dashboard title isn't a <code>Select</code></h3><p class="small">A <code>Select</code> renders a <code>role="combobox"</code>, and a heading can't sit inside a combobox, so screen readers would lose the page's <code>h1</code>. Instead it's an <code>h1</code> containing a text <code>Button</code> (with an <code>ExpandMore</code> end icon) that opens a <code>Menu</code> of dashboards, with ★ on the default one.</p></div>
+    <div class="card"><h3>4. The dashboard grid reflows when the rail toggles</h3><p class="small">I checked <code>DashboardEngine</code>. It sizes the grid with react-grid-layout's <code>useContainerWidth</code>, which uses a <code>ResizeObserver</code> on the container, so collapsing or expanding the nav lays the grid out again without a window resize. During the width animation it re-lays-out every frame (RGL throttles this with rAF). If that stutters, the fix is to snap the width with no transition.</p></div>
+  </div>
+  <p class="small muted">The rest is standard MUI: <code>Drawer</code> in permanent/temporary variants (the documented "mini variant" pattern for the rail). <code>ListItemButton selected</code> with <code>aria-current</code>. <code>Tooltip placement="right"</code> in rail mode. <code>Menu</code> anchored above the account block, or to the right of it in rail mode. <code>ToggleButtonGroup</code> for Light/Dark/System. <code>Badge</code> on the bell. Recharts 3.10's <code>Tooltip content</code> prop takes the shared <code>ChartTooltip</code>.</p>
+  </section>
+</div>
+
+<script>
+const state = { style: 'charcoal', bell: 'side', width: 'expanded', grouping: 'flat', mode: 'light', page: 'dashboard',
+                extras: { titles: false, badges: false, summary: false }, open: null };
+
+const NAV = [
+  { group: '', items: [
+    { id: 'dashboard', icon: 'dashboard', label: 'Dashboards' },
+    { id: 'sensors', icon: 'sensors', label: 'Sensors' },
+    { id: 'retention', icon: 'storage', label: 'Data Retention' },
+    { id: 'properties', icon: 'settings', label: 'Properties' },
+    { id: 'mqtt', icon: 'cell_tower', label: 'MQTT' },
+    { id: 'alerts', icon: 'notifications_active', label: 'Alerts & Notifications' },
+    { id: 'users', icon: 'people', label: 'User Management' } ] },
+];
+const TITLES = { dashboard: 'Layout', sensors: 'Sensors', alerts: 'Alerts & Notifications', properties: 'Properties', retention: 'Data Retention', mqtt: 'MQTT', users: 'User Management', developer: 'Developer' };
+
+const SERIES_LIGHT = ['#D4451A','#0288D1','#388E3C','#E65100','#7B1FA2','#00838F','#5D4037','#455A64'];
+const SERIES_DARK  = ['#ED5125','#4FC3F7','#81C784','#FFB74D','#CE93D8','#4DD0E1','#A1887F','#90A4AE'];
+const NAMES = ['Bathroom','Bedroom','Conservatory','Kitchen','Living Room','Nursery','Office','Study'];
+const BASES = [10.2, 15.6, 7.0, 12.1, 6.6, 8.7, 19.3, 10.9];
+
+function seriesPath(i, w, h) {
+  const pts = [];
+  for (let x = 0; x <= 120; x++) {
+    const t = x / 120;
+    const v = BASES[i] + 1.6 * Math.sin(t * Math.PI * 2.2 + i * 0.7) + 0.6 * Math.sin(t * 17 + i) + (i === 3 ? t * 1.5 : 0);
+    const y = h - ((v - 4) / 18) * h;
+    pts.push((x ? 'L' : 'M') + (t * w).toFixed(1) + ' ' + y.toFixed(1));
+  }
+  return pts.join(' ');
+}
+
+function donut(parts, colors, size) {
+  const r = 58, c = 2 * Math.PI * r, total = parts.reduce((a, b) => a + b, 0);
+  let off = 0, gap = 4;
+  const segs = parts.map((p, i) => {
+    const len = (p / total) * c - gap;
+    const s = `<circle cx="80" cy="80" r="${r}" fill="none" stroke="${colors[i]}" stroke-width="18" stroke-dasharray="${len} ${c - len}" stroke-dashoffset="${-off}" transform="rotate(-90 80 80)"/>`;
+    off += (p / total) * c; return s;
+  }).join('');
+  return `<svg viewBox="0 0 160 160" width="${size}" height="${size}">${segs}</svg>`;
+}
+
+function navHTML() {
+  const bellInNav = state.bell === 'side';
+  const groups = NAV.map(g => `<div class="group"><div class="group-label">${g.group}</div>${g.items.map(it => {
+    let count = '';
+    if (it.count) {
+      const always = it.bellCount && state.bell !== 'side';
+      count = `<span class="count bad${always ? ' always' : ''}" title="${it.countTitle || it.count + ' unread'}">${it.count}</span>`;
+      if (it.bellCount && state.bell === 'side' && state.width !== 'rail') count = state.extras.badges ? count : '';
+      if (it.bellCount && state.bell === 'side' && state.width === 'rail') count = `<span class="count bad always">${it.count}</span>`;
+    }
+    return `<div class="item${state.page === it.id ? ' active' : ''}" data-nav="${it.id}" title="${it.label}"><span class="mi">${it.icon}</span><span class="label">${it.label}</span>${count}</div>`;
+  }).join('')}</div>`).join('');
+  return `
+  <aside class="side">
+    <div class="brand"><div class="logo">SH</div><div class="name">Sensor Hub</div>
+      ${bellInNav ? `<button class="iconbtn bell" data-open="bell" title="Notifications"><span class="mi">notifications</span><span class="badge">6</span></button>` : ''}
+    </div>
+    <nav class="nav">${groups}</nav>
+    <div class="side-foot">
+      <div class="collapse" data-act="collapse" title="Collapse"><span class="mi">keyboard_double_arrow_left</span><span class="label">Collapse</span></div>
+      <div class="acct${state.open === 'acct' ? ' open' : ''}" data-open="acct" title="testadmin"><div class="avatar">T</div><div class="who"><b>testadmin</b><span>Administrator</span></div><span class="mi chev" style="font-size:20px;opacity:.7">unfold_more</span></div>
+    </div>
+  </aside>`;
+}
+
+function acctMenu() {
+  const m = state.mode;
+  return `<div class="pop acct-menu${state.open === 'acct' ? ' show' : ''}">
+    <div class="menu-head">Signed in as <b>testadmin</b></div>
+    <div class="themeseg">
+      <div data-theme="light" class="${m === 'light' ? 'on' : ''}"><span class="mi">wb_sunny</span>Light</div>
+      <div data-theme="dark" class="${m === 'dark' ? 'on' : ''}"><span class="mi">dark_mode</span>Dark</div>
+      <div data-theme="system"><span class="mi">laptop</span>System</div>
+    </div>
+    <div class="menu-sep"></div>
+    <div class="menu-row"><span class="mi">history</span>My sessions</div>
+    <div class="menu-row"><span class="mi">account_circle</span>Change password</div>
+    <div class="menu-row"><span class="mi">integration_instructions</span>Developer</div>
+    <div class="menu-row"><span class="mi">menu_book</span>Documentation<span class="spacer"></span><span class="mi" style="font-size:16px">open_in_new</span></div>
+    <div class="menu-sep"></div>
+    <div class="menu-row"><span class="mi">logout</span>Logout</div>
+  </div>`;
+}
+
+function bellPop() {
+  const where = state.bell === 'head' ? 'from-head' : 'from-side';
+  const n = (icon, color, text, sub, unread) => `<div class="note${unread ? ' unread' : ''}"><span class="mi" style="color:${color}">${icon}</span><div>${text}<small>${sub}</small></div></div>`;
+  return `<div class="pop bell-pop ${where}${state.open === 'bell' ? ' show' : ''}">
+    <header><b>Notifications</b><span>6 unread</span></header>
+    ${n('error', 'var(--a-bad)', 'back-door-contact reported bad health', '4 minutes ago', true)}
+    ${n('warning', 'var(--a-warn)', 'Office above 19°C threshold', '22 minutes ago', true)}
+    ${n('warning', 'var(--a-warn)', 'garage-temp has not reported for 1h', '1 hour ago', true)}
+    ${n('info', 'var(--a-info)', 'New sensor pending approval: hall-motion', '3 hours ago', false)}
+    ${n('info', 'var(--a-info)', 'Data retention cleanup removed 12,402 readings', 'yesterday', false)}
+    <footer>View all notifications</footer>
+  </div>`;
+}
+
+function headBell() {
+  return state.bell === 'head' ? `<div class="ib" data-open="bell" title="Notifications"><span class="mi">notifications</span><span class="badge">6</span></div>` : '';
+}
+
+function dashboardPage() {
+  const dark = state.mode === 'dark';
+  const cols = dark ? SERIES_DARK : SERIES_LIGHT;
+  const st = dark ? ['#F28B82', '#7BC67E', '#F0B24A'] : ['#B3261E', '#2E7D32', '#B26A00'];
+  const W = 1000, H = 260;
+  const lines = cols.map((c, i) => `<path d="${seriesPath(i, W, H)}" fill="none" stroke="${c}" stroke-width="1.4" vector-effect="non-scaling-stroke"/>`).join('');
+  const grid = [0, 1, 2, 3, 4].map(k => `<line x1="0" x2="${W}" y1="${k * H / 4}" y2="${k * H / 4}" stroke="var(--a-divider)" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>`).join('');
+  const legend = NAMES.map((nm, i) => `<span style="color:${cols[i]}"><i style="background:${cols[i]}"></i>${nm}</span>`).join('');
+  const t = (title, ctx) => `<span class="t">${title}${ctx ? `<em>${state.extras.titles ? ' · ' : ': '}${ctx}</em>` : ''}</span>`;
+  return `
+  <div class="phead">
+    <div class="picker"><h1 class="ptitle">Layout</h1><span class="mi">expand_more</span></div>
+    <div class="ib" title="Unlock to edit"><span class="mi">lock</span></div>
+    <span class="spacer"></span>
+    <button class="btn">New dashboard</button>
+    <div class="ib danger" title="Delete dashboard"><span class="mi">delete</span></div>
+    ${headBell()}
+  </div>
+  <div class="summary">
+    <span class="pill"><b>15</b> sensors</span>
+    <span class="pill"><span class="dot" style="background:${st[1]}"></span><b>12</b> good</span>
+    <span class="pill"><span class="dot" style="background:${st[0]}"></span><b>2</b> bad</span>
+    <span class="pill"><span class="dot" style="background:${st[2]}"></span><b>1</b> unknown</span>
+    <span class="pill"><span class="mi" style="font-size:16px">bolt</span>last reading <b>12s</b> ago</span>
+  </div>
+  <div class="content"><div class="dash">
+    <div class="w" style="grid-column: span 12; grid-row: span 4">
+      <div class="wh">${t('Readings Chart', 'Temperature · mean')}<span class="meta">just now</span></div>
+      <div class="wb" style="display:flex;flex-direction:column;gap:8px">
+        <div style="flex:1;min-height:0;display:flex;gap:6px">
+          <div style="display:flex;flex-direction:column;justify-content:space-between;font-size:12px;color:var(--a-muted);padding-bottom:18px">${[22, 17.5, 13, 8.5, 4].map(v => `<span>${v}</span>`).join('')}</div>
+          <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+            <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;flex:1;min-height:0;border-left:1px solid var(--a-muted);border-bottom:1px solid var(--a-muted)">${grid}${lines}</svg>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--a-muted);padding-top:4px">${['12:40', '14:10', '15:45', '17:20', '18:50', '20:25', '22:00'].map(v => `<span>${v}</span>`).join('')}</div>
+          </div>
+        </div>
+        <div class="legend">${legend}</div>
+      </div>
+    </div>
+    <div class="w" style="grid-column: span 3; grid-row: span 3">
+      <div class="wh">${t('Sensor Uptime', 'Living Room')}<span class="meta">just now</span></div>
+      <div class="wb"><div class="metric"><div class="v" style="color:var(--a-ok)">96.5%</div><div class="s">Good for 28d 23h of last 30d<br><span style="color:var(--a-muted);font-size:12px">Bad 1h · Unknown 1d</span></div></div></div>
+    </div>
+    <div class="w" style="grid-column: span 4; grid-row: span 3">
+      <div class="wh">${t('Sensor Health')}<span class="meta">just now</span></div>
+      <div class="wb" style="display:flex;flex-direction:column;align-items:center;gap:6px">
+        <div class="legend sq">${['Bad', 'Good', 'Unknown'].map((l, i) => `<span style="color:${st[i]}"><i style="background:${st[i]}"></i>${l}</span>`).join('')}</div>
+        ${donut([2, 12, 1], st, 150)}
+      </div>
+    </div>
+    <div class="w" style="grid-column: span 5; grid-row: span 3">
+      <div class="wh">${t('Sensor Types')}<span class="meta">just now</span></div>
+      <div class="wb" style="display:flex;flex-direction:column;align-items:center;gap:6px">
+        <div class="legend sq"><span style="color:${cols[0]}"><i style="background:${cols[0]}"></i>Sensor Hub HTTP Temperature</span><span style="color:${cols[1]}"><i style="background:${cols[1]}"></i>Zigbee2MQTT</span></div>
+        ${donut([9, 6], [cols[0], cols[1]], 150)}
+      </div>
+    </div>
+  </div></div>`;
+}
+
+function sensorsPage() {
+  const dark = state.mode === 'dark';
+  const cols = dark ? SERIES_DARK : SERIES_LIGHT;
+  const st = dark ? ['#F28B82', '#7BC67E', '#F0B24A'] : ['#B3261E', '#2E7D32', '#B26A00'];
+  const rows = [['attic-bulb', 'mqtt-zigbee2mqtt', 1], ['back-door-contact', 'mqtt-zigbee2mqtt', 0], ['Bathroom', 'sensor-hub-http-temperature', 1], ['Bedroom', 'sensor-hub-http-temperature', 1], ['Conservatory', 'sensor-hub-http-temperature', 1], ['garage-temp', 'mqtt-zigbee2mqtt', 2], ['hall-motion', 'mqtt-zigbee2mqtt', 0], ['Kitchen', 'sensor-hub-http-temperature', 1]];
+  const label = ['bad', 'good', 'unknown'];
+  return `
+  <div class="phead"><h1 class="ptitle">Sensors</h1><span class="muted" style="color:var(--a-muted);font-size:14px;margin-top:4px">15 sensors, 2 unhealthy</span><span class="spacer"></span><button class="btn solid">Add sensor</button>${headBell()}</div>
+  <div class="content"><div class="cards">
+    <div class="pc" style="grid-column: span 4"><h4>Sensor Health</h4><div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div class="legend sq">${['Bad', 'Good', 'Unknown'].map((l, i) => `<span style="color:${st[i]}"><i style="background:${st[i]}"></i>${l}</span>`).join('')}</div>${donut([2, 12, 1], st, 140)}</div></div>
+    <div class="pc" style="grid-column: span 4"><h4>Sensor Types</h4><div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div class="legend sq"><span style="color:${cols[0]}"><i style="background:${cols[0]}"></i>HTTP Temperature</span><span style="color:${cols[1]}"><i style="background:${cols[1]}"></i>Zigbee2MQTT</span></div>${donut([9, 6], [cols[0], cols[1]], 140)}</div></div>
+    <div class="pc" style="grid-column: span 4"><h4>Pending</h4><div style="font-size:14px;color:var(--a-muted);margin-bottom:10px">1 sensor waiting for approval</div><div class="field"><span>hall-motion · zigbee2mqtt</span><span style="color:var(--a-primary);font-weight:500">APPROVE</span></div></div>
+    <div class="pc" style="grid-column: span 12"><h4>Sensor Summary</h4>
+      <table class="t"><thead><tr><th>Sensor</th><th>Driver</th><th>Health</th><th>Last reading</th><th style="text-align:right">Enabled</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td>${r[0]}</td><td style="color:var(--a-muted)">${r[1]}</td><td><span class="chip"><span class="dot" style="background:${st[r[2]]}"></span>${label[r[2]]}</span></td><td style="color:var(--a-muted)">${r[2] === 2 ? '1h ago' : 'just now'}</td><td style="text-align:right"><span class="mi" style="font-size:18px">check</span></td></tr>`).join('')}
+      </tbody></table></div>
+  </div></div>`;
+}
+
+function otherPage() {
+  return `<div class="phead"><h1 class="ptitle">${TITLES[state.page]}</h1><span class="spacer"></span>${headBell()}</div>
+  <div class="content"><div class="placeholder">Page content unchanged: only the header row is new</div></div>`;
+}
+
+function render() {
+  const app = document.getElementById('app');
+  app.className = ['app', 's-' + state.style, state.mode === 'dark' ? 'dark' : '', state.width === 'rail' ? 'rail' : '', state.grouping === 'flat' ? 'flat' : '',
+    state.extras.titles ? 'strong-titles' : '', state.extras.badges ? '' : 'no-badges', state.extras.summary ? '' : 'no-summary'].join(' ');
+  const page = state.page === 'dashboard' ? dashboardPage() : state.page === 'sensors' ? sensorsPage() : otherPage();
+  app.innerHTML = navHTML() + `<main class="main">${page}</main>` + acctMenu() + bellPop();
+  document.querySelectorAll('.seg').forEach(seg => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(state[seg.dataset.key] === b.dataset.v))));
+  
+}
+
+function setState(patch) { Object.assign(state, patch); state.open = null; render(); document.getElementById('controls').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+
+document.getElementById('controls').addEventListener('click', e => {
+  const b = e.target.closest('.seg button'); if (!b) return;
+  state[b.closest('.seg').dataset.key] = b.dataset.v; state.open = null; render(); renderPhones();
+});
+document.getElementById('controls').addEventListener('change', e => {
+  const c = e.target.closest('[data-extra]'); if (!c) return;
+  state.extras[c.dataset.extra] = c.checked; render();
+});
+document.getElementById('app').addEventListener('click', e => {
+  const nav = e.target.closest('[data-nav]');
+  const opener = e.target.closest('[data-open]');
+  const th = e.target.closest('[data-theme]');
+  if (th) { if (th.dataset.theme !== 'system') state.mode = th.dataset.theme; render(); return; }
+  if (e.target.closest('[data-act="collapse"]')) { state.width = state.width === 'rail' ? 'expanded' : 'rail'; state.open = null; render(); return; }
+  if (opener) { state.open = state.open === opener.dataset.open ? null : opener.dataset.open; render(); return; }
+  if (nav) { state.page = nav.dataset.nav; if (nav.dataset.nav === 'alerts') state.open = null; state.open = null; render(); return; }
+  if (!e.target.closest('.pop') && state.open) { state.open = null; render(); }
+});
+
+function fit() {
+  const stage = document.getElementById('stage');
+  const s = stage.clientWidth / 1440;
+  document.getElementById('stageInner').style.transform = `scale(${s})`;
+  stage.style.height = (900 * s) + 'px';
+}
+window.addEventListener('resize', fit);
+
+function markQueued(form) { const b = form.querySelector('.qbtn'); b.textContent = 'Queued ✓'; b.classList.add('done'); }
+function queue(form, id, label) {
+  const fd = new FormData(form); const answer = fd.get('a'); const note = (fd.get('note') || '').trim();
+  if (!answer) return;
+  const text = `${label}: ${answer}${note ? ' (note: ' + note + ')' : ''}`;
+  if (window.lavish) window.lavish.queuePrompt(text, { tag: 'choice', text, element: form, queueKey: id, data: { question: id, answer, note } });
+  markQueued(form);
+}
+function queueMulti(form, id, label) {
+  const fd = new FormData(form); const answers = fd.getAll('a'); const note = (fd.get('note') || '').trim();
+  const text = `${label}: ${answers.length ? answers.join('; ') : 'none of them'}${note ? ' (note: ' + note + ')' : ''}`;
+  if (window.lavish) window.lavish.queuePrompt(text, { tag: 'choice', text, element: form, queueKey: id, data: { question: id, answers, note } });
+  markQueued(form);
+}
+
+function phoneHTML(bar, open) {
+  const body = `<div class="pbody"><div class="pcard" style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:16px">Layout</b><span class="mi" style="color:var(--a-muted)">expand_more</span></div>
+    <div class="pcard" style="height:190px"><div style="font-size:12px;color:var(--a-muted)">Readings Chart: Temperature</div><svg viewBox="0 0 1000 260" preserveAspectRatio="none" style="width:100%;height:150px">${SERIES_LIGHT.map((c,i)=>`<path d="${seriesPath(i,1000,260)}" fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke"/>`).join('')}</svg></div>
+    <div class="pcard" style="height:150px;display:grid;place-items:center"><div style="font-size:38px;font-weight:700;color:var(--a-ok)">96.5%</div></div></div>`;
+  const barHTML = `<div class="pbar ${bar}"><button class="iconbtn"><span class="mi">menu</span></button><div class="ttl">Dashboards</div><button class="iconbtn"><span class="mi">notifications</span><span class="badge">6</span></button></div>`;
+  const drawer = open ? `<div class="scrim"></div><aside class="side"><div class="brand"><div class="logo">SH</div><div class="name">Sensor Hub</div><button class="iconbtn"><span class="mi">close</span></button></div>
+    <nav class="nav">${NAV[0].items.map(it=>`<div class="item${it.id==='dashboard'?' active':''}"><span class="mi">${it.icon}</span><span class="label">${it.label}</span></div>`).join('')}</nav>
+    <div class="side-foot"><div class="acct"><div class="avatar">T</div><div class="who"><b>testadmin</b><span>Administrator</span></div><span class="mi chev" style="font-size:20px;opacity:.7">unfold_more</span></div></div></aside>` : '';
+  return `<div class="app s-charcoal flat" style="position:relative">${barHTML}${body}${drawer}</div>`;
+}
+function renderPhones() {
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  set('phoneA1', phoneHTML('charcoal', false)); set('phoneA2', phoneHTML('charcoal', true));
+  set('phoneB1', phoneHTML('orange', false)); set('phoneB2', phoneHTML('orange', true));
+  fitPhones();
+}
+function fitPhones() { document.querySelectorAll('.phone').forEach(ph => { ph.style.transform = `scale(${ph.parentElement.clientWidth / 390})`; }); }
+window.addEventListener('resize', fitPhones);
+function queueSection(form, id, label) {
+  const fd = new FormData(form); const answer = fd.get('a'); const note = (fd.get('note') || '').trim();
+  const text = `${label}: ${answer}${note ? ' (note: ' + note + ')' : ''}`;
+  if (window.lavish) window.lavish.queuePrompt(text, { tag: 'choice', text, element: form, queueKey: id, data: { question: id, answer, note } });
+  markQueued(form);
+}
+
+render(); fit(); renderPhones();
+</script>
+</body>
+</html>
