@@ -43,7 +43,7 @@ function sensorNames(config: Record<string, unknown>, sensors: Sensor[]): string
     return names.length > 3 ? `${names.length} sensors` : names.join(', ');
 }
 
-function chartSubtitle(config: Record<string, unknown>, measurementTypes: MeasurementTypeInfo[], sensors: string | null): string | null {
+function chartSubtitle(config: Record<string, unknown>, measurementTypes: MeasurementTypeInfo[], sensorLabel: string | null): string | null {
     const parts: string[] = [];
     if (typeof config.measurementType === 'string' && config.measurementType) {
         const info = measurementTypes.find(mt => mt.name === config.measurementType);
@@ -52,6 +52,6 @@ function chartSubtitle(config: Record<string, unknown>, measurementTypes: Measur
     if (typeof config.aggregationFunction === 'string' && config.aggregationFunction) {
         parts.push(config.aggregationFunction);
     }
-    if (sensors) parts.push(sensors);
+    if (sensorLabel) parts.push(sensorLabel);
     return parts.length > 0 ? parts.join(' · ') : null;
 }
