@@ -1,4 +1,4 @@
-import {IconButton, Menu, MenuItem, useColorScheme, ListItemIcon, ListItemText} from '@mui/material';
+import {Menu, MenuItem, useColorScheme, ListItemIcon, ListItemText} from '@mui/material';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LaptopIcon from '@mui/icons-material/Laptop';
@@ -16,7 +16,6 @@ import {hasPerm} from "../tools/Utils.ts";
 import HelpIcon from '@mui/icons-material/Help';
 import NotificationBell from "../components/NotificationBell";
 import AppBar from '../ui/AppBar';
-import { useTier } from '../ui/tiers';
 
 interface TopAppBarProps {
   pageTitle: string;
@@ -35,13 +34,8 @@ function TopAppBar({ pageTitle }: TopAppBarProps) {
   const {mode, setMode} = useColorScheme();
   const [themeAnchor, setThemeAnchor] = useState<null | HTMLElement>(null);
   const [accountAnchor, setAccountAnchor] = useState<null | HTMLElement>(null);
-  const wide = useTier() === 'wide';
   const navigate = useNavigate();
   const { user, refresh } = useAuth();
-
-  const handleThemeOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setThemeAnchor(event.currentTarget);
-  };
 
   const handleThemeClose = () => {
     setThemeAnchor(null);
@@ -78,21 +72,16 @@ function TopAppBar({ pageTitle }: TopAppBarProps) {
   if (mode === 'dark') ModeIcon = DarkModeIcon;
   else if (mode === 'system') ModeIcon = LaptopIcon;
 
-  const accountMenuItems: React.ReactNode[] = [];
-  if (!wide) {
-    accountMenuItems.push(
-      <MenuItem key="theme" onClick={handleThemeFromAccount}>
-        <ListItemIcon><ModeIcon fontSize="small" /></ListItemIcon>
-        Theme
-      </MenuItem>
-    );
-    accountMenuItems.push(
-      <MenuItem key="docs" component="a" href={docsHref} onClick={handleAccountClose}>
-        <ListItemIcon><HelpIcon fontSize="small" /></ListItemIcon>
-        Documentation
-      </MenuItem>
-    );
-  }
+  const accountMenuItems: React.ReactNode[] = [
+    <MenuItem key="theme" onClick={handleThemeFromAccount}>
+      <ListItemIcon><ModeIcon fontSize="small" /></ListItemIcon>
+      Theme
+    </MenuItem>,
+    <MenuItem key="docs" component="a" href={docsHref} onClick={handleAccountClose}>
+      <ListItemIcon><HelpIcon fontSize="small" /></ListItemIcon>
+      Documentation
+    </MenuItem>,
+  ];
   if (user) {
     accountMenuItems.push(
       <MenuItem key="mysessions" onClick={() => { handleAccountClose(); navigate('/account/sessions'); }}>
@@ -125,21 +114,10 @@ function TopAppBar({ pageTitle }: TopAppBarProps) {
     <>
       <AppBar
         title={pageTitle}
-        brand={wide ? 'Sensor Hub' : undefined}
         onMenuClick={() => setOpen(!open)}
         account={{ initial: user?.username?.charAt(0).toUpperCase() ?? 'S', onClick: handleAccountOpen }}
       >
         {user && hasPerm(user, 'view_notifications') && <NotificationBell />}
-        {wide && (
-          <>
-            <IconButton color="inherit" aria-label="theme switcher" onClick={handleThemeOpen}>
-              <ModeIcon />
-            </IconButton>
-            <IconButton color="inherit" aria-label="documentation" component="a" href={docsHref}>
-              <HelpIcon />
-            </IconButton>
-          </>
-        )}
       </AppBar>
       <Menu
         anchorEl={themeAnchor}

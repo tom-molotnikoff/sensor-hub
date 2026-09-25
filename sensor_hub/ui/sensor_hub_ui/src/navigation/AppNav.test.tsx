@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthUser } from '../providers/AuthContext';
+import { NotificationContext, type NotificationContextValue } from '../providers/NotificationContext';
 import { SidebarContext } from '../providers/SidebarContextType';
 import { theme } from '../ui/theme';
 import AppNav from './AppNav';
@@ -342,5 +343,60 @@ describe('AppNav', () => {
     await waitFor(() => expect(location()).toHaveTextContent('/login'));
     expect(postMock).toHaveBeenCalledWith('/auth/logout');
     expect(refresh).toHaveBeenCalledOnce();
+  });
+});
+
+const notifications: NotificationContextValue = {
+  notifications: [],
+  unreadCount: 6,
+  preferences: [],
+  loading: false,
+  refresh: async () => {},
+  markAsRead: async () => {},
+  dismiss: async () => {},
+  markAllAsRead: async () => {},
+  dismissAll: async () => {},
+  updatePreference: async () => {},
+};
+
+function renderPermanentNav(as: AuthUser = admin) {
+  render(
+    <ThemeProvider theme={theme}>
+      <AuthContext.Provider value={{ user: as, refresh: async () => {} }}>
+        <NotificationContext.Provider value={notifications}>
+          <MemoryRouter initialEntries={['/dashboard']}>
+            <AppNav permanent />
+          </MemoryRouter>
+        </NotificationContext.Provider>
+      </AuthContext.Provider>
+    </ThemeProvider>,
+  );
+}
+
+const brandParts = () =>
+  Array.from(nav().querySelector('[data-ui=nav-brand]')!.children).map(
+    (part) => part.getAttribute('aria-label') ?? part.getAttribute('src') ?? part.textContent,
+  );
+
+describe('AppNav permanent', () => {
+  it('is on screen without opening it and has no close button', () => {
+    renderPermanentNav();
+
+    expect(nav().tagName).toBe('NAV');
+    expect(labels(lists()[0])).toEqual(adminItems);
+    expect(within(nav()).queryByRole('button', { name: 'close navigation' })).not.toBeInTheDocument();
+  });
+
+  it('shows the logo, the name and the bell with the unread count, left to right', () => {
+    renderPermanentNav();
+
+    expect(brandParts()).toEqual(['/sensor_hub.svg', 'Sensor Hub', 'notifications']);
+    expect(within(nav()).getByRole('button', { name: 'notifications' })).toHaveTextContent('6');
+  });
+
+  it('shows only the logo and the name to a user without view_notifications', () => {
+    renderPermanentNav({ id: 4, username: 'someone', roles: ['user'], permissions: ['view_dashboards'] });
+
+    expect(brandParts()).toEqual(['/sensor_hub.svg', 'Sensor Hub']);
   });
 });

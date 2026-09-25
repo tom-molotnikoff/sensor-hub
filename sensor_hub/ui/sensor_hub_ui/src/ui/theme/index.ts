@@ -58,9 +58,15 @@ declare module '@mui/material/Typography' {
   }
 }
 
-function typeScale(fontSize: number | TierValues<number>, fontWeight: number): TypographyStyle {
-  if (typeof fontSize === 'number') return { fontSize: `${fontSize}px`, fontWeight };
-  return { fontSize: `${fontSize.compact}px`, fontWeight, [wideMediaQuery]: { fontSize: `${fontSize.wide}px` } };
+const byTier = (value: number | TierValues<number>): TierValues<number> =>
+  typeof value === 'number' ? { compact: value, wide: value } : value;
+
+function typeScale(fontSize: number | TierValues<number>, fontWeight: number | TierValues<number>): TypographyStyle {
+  const size = byTier(fontSize);
+  const weight = byTier(fontWeight);
+  const compact = { fontSize: `${size.compact}px`, fontWeight: weight.compact };
+  if (size.compact === size.wide && weight.compact === weight.wide) return compact;
+  return { ...compact, [wideMediaQuery]: { fontSize: `${size.wide}px`, fontWeight: weight.wide } };
 }
 
 function metric(fontSize: number): TypographyStyle {
@@ -76,7 +82,7 @@ export const theme = createTheme({
   },
   density,
   typography: {
-    pageTitle: typeScale({ compact: 18, wide: 20 }, 500),
+    pageTitle: typeScale({ compact: 18, wide: 24 }, { compact: 500, wide: 600 }),
     cardTitle: typeScale({ compact: 18, wide: 20 }, 600),
     sectionTitle: typeScale(15, 600),
     body: typeScale(15, 400),

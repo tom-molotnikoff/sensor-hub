@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useBounded } from './useBounded';
 import { BleedContext, InsetContext } from './inset';
-import { responsivePixels } from './tiers';
+import { responsive, responsivePixels } from './tiers';
 import { density } from './theme/tokens';
 
 interface CardProps {
@@ -50,8 +50,10 @@ export default function Card({ title, actions, variant = 'default', id, children
           data-ui="card-header"
           sx={{
             display: 'flex',
+            flexWrap: responsive({ compact: 'nowrap', wide: 'wrap' }),
             alignItems: 'center',
-            gap: responsivePixels(density.gap),
+            columnGap: responsivePixels(density.gap),
+            rowGap: 1,
             ...(bounded && { paddingX: responsivePixels(density.card), paddingTop: 1 }),
           }}
         >
@@ -61,7 +63,18 @@ export default function Card({ title, actions, variant = 'default', id, children
             </Typography>
           )}
           {actions && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, marginLeft: 'auto' }}>{actions}</Box>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                flexShrink: responsive({ compact: 0, wide: 1 }),
+                minWidth: 0,
+                marginLeft: 'auto',
+              }}
+            >
+              {actions}
+            </Box>
           )}
         </Box>
       )}

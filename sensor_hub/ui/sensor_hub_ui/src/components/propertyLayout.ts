@@ -1,9 +1,11 @@
-const APP_BAR_HEIGHT = 64;
+import type { Tier, TierValues } from '../ui/tiers';
+
+const APP_BAR_HEIGHT: TierValues<number> = { compact: 64, wide: 0 };
 const LANDING_GAP = 24;
 const RAIL_GAP = 16;
 
-export function landingOffset(headerHeight: number): number {
-  return APP_BAR_HEIGHT + headerHeight + LANDING_GAP;
+export function landingOffset(headerHeight: number, tier: Tier): number {
+  return APP_BAR_HEIGHT[tier] + headerHeight + LANDING_GAP;
 }
 
 export function railOffset(headerHeight: number): number {

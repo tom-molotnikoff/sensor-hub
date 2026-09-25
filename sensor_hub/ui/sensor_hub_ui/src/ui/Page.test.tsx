@@ -1,9 +1,22 @@
 import { ThemeProvider } from '@mui/material';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import Page from './Page';
 import { theme } from './theme';
+
+function atWidth(width: number) {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: Number(/\(min-width:\s*(\d+)px\)/.exec(query)?.[1] ?? 0) <= width,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }));
+}
 
 function renderPage(page: React.ReactElement) {
   return render(
@@ -13,7 +26,45 @@ function renderPage(page: React.ReactElement) {
   );
 }
 
+const picker = <button type="button">Living room</button>;
+
 describe('Page', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders a title element in the page header on the wide tier', () => {
+    atWidth(1440);
+    const { container } = renderPage(<Page title="Dashboards" titleElement={picker} actions={<button type="button">New</button>} />);
+
+    const header = container.querySelector<HTMLElement>('[data-ui=page] > [data-ui=page-header]')!;
+    expect(header).toBe(container.querySelector('[data-ui=page]')!.firstElementChild);
+    const heading = within(header).getByRole('heading', { level: 1 });
+    expect(heading).toContainElement(screen.getByRole('button', { name: 'Living room' }));
+    expect(screen.getAllByRole('heading', { level: 1 })).toEqual([heading]);
+    expect(within(header).getByRole('button', { name: 'New' })).toBeInTheDocument();
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument();
+    expect(screen.queryByText('Dashboards')).not.toBeInTheDocument();
+  });
+
+  it('renders the text title as the page header heading on the wide tier', () => {
+    atWidth(1440);
+    const { container } = renderPage(<Page title="Sensors Overview">content</Page>);
+
+    const header = container.querySelector<HTMLElement>('[data-ui=page-header]')!;
+    expect(within(header).getByRole('heading', { level: 1, name: 'Sensors Overview' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
+  });
+
+  it('renders the text title in the bar and no page header on the compact tier', () => {
+    atWidth(390);
+    const { container } = renderPage(<Page title="Dashboards" titleElement={picker} />);
+
+    expect(within(screen.getByRole('banner')).getByRole('heading', { level: 1, name: 'Dashboards' })).toBeInTheDocument();
+    expect(container.querySelector('[data-ui=page-header]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Living room' })).not.toBeInTheDocument();
+  });
+
   it('renders the app bar title and its content inside the page root', () => {
     const { container } = renderPage(<Page title="Sensors Overview">content</Page>);
 

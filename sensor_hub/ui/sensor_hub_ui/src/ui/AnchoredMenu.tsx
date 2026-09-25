@@ -9,7 +9,10 @@ const widths = { sm: 260, md: 360 } as const;
 const placements = {
   'below-end': { anchor: { vertical: 'bottom', horizontal: 'right' }, transform: { vertical: 'top', horizontal: 'right' } },
   'above-start': { anchor: { vertical: 'top', horizontal: 'left' }, transform: { vertical: 'bottom', horizontal: 'left' } },
+  'beside-top': { anchor: { vertical: 'top', horizontal: 'right' }, transform: { vertical: 'top', horizontal: 'left' } },
 } as const satisfies Record<string, { anchor: PopoverOrigin; transform: PopoverOrigin }>;
+
+export type MenuPlacement = keyof typeof placements;
 
 interface AnchoredMenuProps {
   id?: string;
@@ -17,7 +20,7 @@ interface AnchoredMenuProps {
   anchorEl: HTMLElement | null;
   onClose: () => void;
   width: keyof typeof widths;
-  placement?: keyof typeof placements;
+  placement?: MenuPlacement;
   maxHeight?: number;
   spacedItems?: boolean;
   labelledBy?: string;

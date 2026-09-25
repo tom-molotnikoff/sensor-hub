@@ -1,7 +1,7 @@
 import type { ReactNode, Ref } from 'react';
 import { Box, Typography, type Theme } from '@mui/material';
 import type { CSSObject } from '@mui/system';
-import { responsive, responsivePixels } from './tiers';
+import { responsive, responsivePixels, wideMediaQuery } from './tiers';
 import { density } from './theme/tokens';
 
 function belowAppBar(theme: Theme, offset: number): CSSObject {
@@ -12,7 +12,7 @@ function belowAppBar(theme: Theme, offset: number): CSSObject {
       rules[key] = { top: (value as { minHeight: number }).minHeight + offset };
     }
   }
-  return rules;
+  return { ...rules, [wideMediaQuery]: { top: offset } };
 }
 
 interface StickyProps {
@@ -49,8 +49,8 @@ export function StickyBar({ title, actions, ref }: StickyBarProps) {
         flexWrap: 'wrap',
         alignItems: 'center',
         gap: responsivePixels(density.gap),
-        marginTop: responsive({ compact: `-${density.page.compact}px`, wide: `-${density.page.wide}px` }),
-        paddingTop: responsive({ compact: `${density.page.compact + barPadding}px`, wide: `${density.page.wide + barPadding}px` }),
+        marginTop: responsive({ compact: `-${density.page.compact}px`, wide: '0px' }),
+        paddingTop: responsive({ compact: `${density.page.compact + barPadding}px`, wide: `${barPadding}px` }),
         paddingBottom: `${barPadding}px`,
         minWidth: 0,
         bgcolor: 'background.default',
