@@ -3,7 +3,7 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import AppNav from '../navigation/AppNav';
 import TopAppBar from '../navigation/TopAppBar';
 import { responsive, responsivePixels, useTier } from './tiers';
-import { density, pageTitleButtonInset } from './theme/tokens';
+import { density } from './theme/tokens';
 
 interface PageProps {
   title: string;
@@ -33,9 +33,9 @@ function PageHeader({ title, titleElement, beforeTitle, actions }: PageHeaderPro
       )}
       <Typography
         variant="pageTitle"
-        noWrap
+        noWrap={!titleElement}
         data-ui="page-title"
-        sx={{ flex: '0 1 auto', minWidth: 0, marginLeft: titleElement ? -pageTitleButtonInset : 0 }}
+        sx={{ flex: '0 1 auto', minWidth: 0, ...(titleElement && { display: 'flex' }) }}
       >
         {titleElement ?? title}
       </Typography>

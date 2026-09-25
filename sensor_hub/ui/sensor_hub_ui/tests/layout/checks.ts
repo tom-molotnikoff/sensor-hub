@@ -171,12 +171,14 @@ export function titleLocator(page: Page, tier: Tier) {
 export async function pageTitle(page: Page, tier: Tier) {
   return titleLocator(page, tier).evaluate((title) => {
     const style = getComputedStyle(title);
+    const text = title.querySelector('[data-ui=page-title-label]') ?? title;
+    const textStyle = getComputedStyle(text);
     return {
       fontSize: style.fontSize,
       fontWeight: style.fontWeight,
-      singleLine: title.getBoundingClientRect().height < 2 * parseFloat(style.lineHeight),
-      ellipsis: style.whiteSpace === 'nowrap' && style.overflowX === 'hidden' && style.textOverflow === 'ellipsis',
-      truncated: title.scrollWidth > title.clientWidth,
+      singleLine: text.getBoundingClientRect().height < 2 * parseFloat(textStyle.lineHeight),
+      ellipsis: textStyle.whiteSpace === 'nowrap' && textStyle.overflowX === 'hidden' && textStyle.textOverflow === 'ellipsis',
+      truncated: text.scrollWidth > text.clientWidth,
     };
   });
 }

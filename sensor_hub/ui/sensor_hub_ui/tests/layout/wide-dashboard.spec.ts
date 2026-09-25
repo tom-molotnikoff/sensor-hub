@@ -186,7 +186,10 @@ test.describe('Wide dashboard', () => {
         header.getByRole('button', { name: 'Delete dashboard' }),
       ].map(async (element) => (await element.boundingBox())!),
     );
-    expect(name, 'title button inside the heading box').toEqual(headingBox);
+    const label = (await title.locator('[data-ui=page-title-label]').boundingBox())!;
+    expect(Math.abs(label.x - headingBox.x), 'title text left edge against the heading').toBeLessThan(1);
+    expect(Math.abs(name.x + name.width - (headingBox.x + headingBox.width)), 'title button right edge against the heading').toBeLessThan(1);
+    expect(await title.locator('[data-ui=page-title-label]').evaluate((node) => node.scrollWidth <= node.clientWidth), 'whole name shown').toBe(true);
     const middle = (box: typeof row) => box.y + box.height / 2;
     for (const control of [lockBox, create, remove]) expect(Math.abs(middle(control) - middle(name))).toBeLessThan(2);
     expect(name.x - (lockBox.x + lockBox.width), 'gap between the lock and the title').toBeGreaterThanOrEqual(0);
