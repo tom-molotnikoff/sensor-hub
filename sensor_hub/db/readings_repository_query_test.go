@@ -51,7 +51,7 @@ func queryPlan(t *testing.T, db *sql.DB, query string, args ...any) string {
 	return sb.String()
 }
 
-var readingsAliases = []string{"readings", "r", "r2", "latest", "counted"}
+var readingsAliases = []string{"readings", "r", "r2", "latest", "counted", "earlier"}
 
 func assertNoReadingsScan(t *testing.T, plan string) {
 	t.Helper()
@@ -68,7 +68,7 @@ func TestRawBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	repo, db := migratedReadingsRepo(t)
 	ctx := context.Background()
 
-	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "Office", "temperature")
+	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "r", "Office", "temperature")
 	require.NoError(t, err)
 	require.True(t, resolved)
 
@@ -83,7 +83,7 @@ func TestAggregatedBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	repo, db := migratedReadingsRepo(t)
 	ctx := context.Background()
 
-	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "Office", "temperature")
+	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "r", "Office", "temperature")
 	require.NoError(t, err)
 	require.True(t, resolved)
 
@@ -101,7 +101,7 @@ func TestLastBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	repo, db := migratedReadingsRepo(t)
 	ctx := context.Background()
 
-	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "Office", "temperature")
+	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "r", "Office", "temperature")
 	require.NoError(t, err)
 	require.True(t, resolved)
 
@@ -110,6 +110,28 @@ func TestLastBetweenQuery_UsesCompositeIndex(t *testing.T) {
 
 	args := append([]any{"2025-01-01 00:00:00", "2025-02-01 00:00:00"}, filterArgs...)
 	plan := queryPlan(t, db, lastBetweenQuery(bucket, clause), args...)
+
+	assert.Contains(t, plan, "idx_readings_sensor_type_time", "should use the composite index")
+	assertNoReadingsScan(t, plan)
+}
+
+func TestIncreaseBetweenQuery_UsesCompositeIndex(t *testing.T) {
+	repo, db := migratedReadingsRepo(t)
+	ctx := context.Background()
+
+	clause, filterArgs, resolved, err := repo.seriesFilter(ctx, "r", "Office", "energy_today")
+	require.NoError(t, err)
+	require.True(t, resolved)
+	pairClause, _, _, err := repo.seriesFilter(ctx, "pair", "Office", "energy_today")
+	require.NoError(t, err)
+
+	bucket, err := timeBucketExpression(AggregationPT1H)
+	require.NoError(t, err)
+
+	args := append([]any{"2025-01-01 00:00:00", "2025-02-01 00:00:00"}, filterArgs...)
+	args = append(args, "2025-01-01 00:00:00")
+	args = append(args, filterArgs...)
+	plan := queryPlan(t, db, increaseBetweenQuery(bucket, clause, pairClause), args...)
 
 	assert.Contains(t, plan, "idx_readings_sensor_type_time", "should use the composite index")
 	assertNoReadingsScan(t, plan)

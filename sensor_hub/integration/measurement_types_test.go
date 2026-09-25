@@ -118,3 +118,24 @@ func TestMeasurementTypes_MinAndMaxSupportedForNumericTypesOnly(t *testing.T) {
 	}
 	assert.Equal(t, len(numeric), seen)
 }
+
+func TestMeasurementTypes_IncreaseSupportedForEnergyCountersOnly(t *testing.T) {
+	counters := map[string]bool{"energy": true, "energy_today": true, "energy_month": true}
+
+	raw, status := client.GetAllMeasurementTypes()
+	require.Equal(t, http.StatusOK, status)
+	var mts []gen.MeasurementType
+	require.NoError(t, json.Unmarshal(raw, &mts))
+
+	seen := 0
+	for _, mt := range mts {
+		if counters[mt.Name] {
+			seen++
+			assert.Contains(t, mt.SupportedAggregationFunctions, "increase", mt.Name)
+			assert.Equal(t, "avg", mt.DefaultAggregationFunction, mt.Name)
+			continue
+		}
+		assert.NotContains(t, mt.SupportedAggregationFunctions, "increase", mt.Name)
+	}
+	assert.Equal(t, len(counters), seen)
+}

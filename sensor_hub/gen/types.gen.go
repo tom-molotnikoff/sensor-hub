@@ -15,12 +15,13 @@ const (
 
 // Defines values for AggregatedReadingsResponseAggregationFunction.
 const (
-	AggregatedReadingsResponseAggregationFunctionAvg   AggregatedReadingsResponseAggregationFunction = "avg"
-	AggregatedReadingsResponseAggregationFunctionCount AggregatedReadingsResponseAggregationFunction = "count"
-	AggregatedReadingsResponseAggregationFunctionLast  AggregatedReadingsResponseAggregationFunction = "last"
-	AggregatedReadingsResponseAggregationFunctionMax   AggregatedReadingsResponseAggregationFunction = "max"
-	AggregatedReadingsResponseAggregationFunctionMin   AggregatedReadingsResponseAggregationFunction = "min"
-	AggregatedReadingsResponseAggregationFunctionNone  AggregatedReadingsResponseAggregationFunction = "none"
+	AggregatedReadingsResponseAggregationFunctionAvg      AggregatedReadingsResponseAggregationFunction = "avg"
+	AggregatedReadingsResponseAggregationFunctionCount    AggregatedReadingsResponseAggregationFunction = "count"
+	AggregatedReadingsResponseAggregationFunctionIncrease AggregatedReadingsResponseAggregationFunction = "increase"
+	AggregatedReadingsResponseAggregationFunctionLast     AggregatedReadingsResponseAggregationFunction = "last"
+	AggregatedReadingsResponseAggregationFunctionMax      AggregatedReadingsResponseAggregationFunction = "max"
+	AggregatedReadingsResponseAggregationFunctionMin      AggregatedReadingsResponseAggregationFunction = "min"
+	AggregatedReadingsResponseAggregationFunctionNone     AggregatedReadingsResponseAggregationFunction = "none"
 )
 
 // Valid indicates whether the value is a known member of the AggregatedReadingsResponseAggregationFunction enum.
@@ -29,6 +30,8 @@ func (e AggregatedReadingsResponseAggregationFunction) Valid() bool {
 	case AggregatedReadingsResponseAggregationFunctionAvg:
 		return true
 	case AggregatedReadingsResponseAggregationFunctionCount:
+		return true
+	case AggregatedReadingsResponseAggregationFunctionIncrease:
 		return true
 	case AggregatedReadingsResponseAggregationFunctionLast:
 		return true
@@ -369,11 +372,12 @@ func (e GetReadingsBetweenDatesParamsAggregation) Valid() bool {
 
 // Defines values for GetReadingsBetweenDatesParamsAggregationFunction.
 const (
-	GetReadingsBetweenDatesParamsAggregationFunctionAvg   GetReadingsBetweenDatesParamsAggregationFunction = "avg"
-	GetReadingsBetweenDatesParamsAggregationFunctionCount GetReadingsBetweenDatesParamsAggregationFunction = "count"
-	GetReadingsBetweenDatesParamsAggregationFunctionLast  GetReadingsBetweenDatesParamsAggregationFunction = "last"
-	GetReadingsBetweenDatesParamsAggregationFunctionMax   GetReadingsBetweenDatesParamsAggregationFunction = "max"
-	GetReadingsBetweenDatesParamsAggregationFunctionMin   GetReadingsBetweenDatesParamsAggregationFunction = "min"
+	GetReadingsBetweenDatesParamsAggregationFunctionAvg      GetReadingsBetweenDatesParamsAggregationFunction = "avg"
+	GetReadingsBetweenDatesParamsAggregationFunctionCount    GetReadingsBetweenDatesParamsAggregationFunction = "count"
+	GetReadingsBetweenDatesParamsAggregationFunctionIncrease GetReadingsBetweenDatesParamsAggregationFunction = "increase"
+	GetReadingsBetweenDatesParamsAggregationFunctionLast     GetReadingsBetweenDatesParamsAggregationFunction = "last"
+	GetReadingsBetweenDatesParamsAggregationFunctionMax      GetReadingsBetweenDatesParamsAggregationFunction = "max"
+	GetReadingsBetweenDatesParamsAggregationFunctionMin      GetReadingsBetweenDatesParamsAggregationFunction = "min"
 )
 
 // Valid indicates whether the value is a known member of the GetReadingsBetweenDatesParamsAggregationFunction enum.
@@ -382,6 +386,8 @@ func (e GetReadingsBetweenDatesParamsAggregationFunction) Valid() bool {
 	case GetReadingsBetweenDatesParamsAggregationFunctionAvg:
 		return true
 	case GetReadingsBetweenDatesParamsAggregationFunctionCount:
+		return true
+	case GetReadingsBetweenDatesParamsAggregationFunctionIncrease:
 		return true
 	case GetReadingsBetweenDatesParamsAggregationFunctionLast:
 		return true
@@ -1220,7 +1226,7 @@ type GetReadingsBetweenDatesParams struct {
 	// Aggregation Override the automatic aggregation interval. Use an ISO 8601 duration such as `PT5M` (5 minutes) or `PT1H` (1 hour). Pass `raw` to force unaggregated readings regardless of span.
 	Aggregation *GetReadingsBetweenDatesParamsAggregation `form:"aggregation,omitempty" json:"aggregation,omitempty"`
 
-	// AggregationFunction Override the aggregation function. Defaults are looked up per-measurement-type (e.g. `avg` for temperature, `count` for binary sensors). Only meaningful when aggregation is not `raw`. Requires `type`; the request is rejected with 400 without it.
+	// AggregationFunction Override the aggregation function. Defaults are looked up per-measurement-type (e.g. `avg` for temperature, `count` for binary sensors). `increase` reports how much a running counter, such as an energy meter, rose within each bucket, treating a drop as a counter reset. Only meaningful when aggregation is not `raw`. Requires `type`; the request is rejected with 400 without it.
 	AggregationFunction *GetReadingsBetweenDatesParamsAggregationFunction `form:"aggregation_function,omitempty" json:"aggregation_function,omitempty"`
 }
 

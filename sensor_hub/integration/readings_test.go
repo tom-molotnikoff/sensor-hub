@@ -259,14 +259,15 @@ func TestReadings_AggregationFunction_MinAndMaxPerBucket(t *testing.T) {
 	assert.Equal(t, []float64{22.4, 23.46}, bucketValues(t, resp.Readings))
 }
 
-func TestReadings_AggregationFunction_MinRejectedForBinaryType(t *testing.T) {
+func unsupportedFunctionMessage(t *testing.T, measurementType, function string) string {
+	t.Helper()
 	now := time.Now().UTC()
 	query := url.Values{
 		"start":                {now.Add(-2 * time.Hour).Format("2006-01-02 15:04:05")},
 		"end":                  {now.Format("2006-01-02 15:04:05")},
-		"type":                 {"motion"},
+		"type":                 {measurementType},
 		"aggregation":          {"PT1H"},
-		"aggregation_function": {"min"},
+		"aggregation_function": {function},
 	}
 	resp, body, err := client.GetRaw("/api/readings/between?"+query.Encode(), nil)
 	require.NoError(t, err)
@@ -277,5 +278,70 @@ func TestReadings_AggregationFunction_MinRejectedForBinaryType(t *testing.T) {
 		Message string `json:"message"`
 	}
 	require.NoError(t, json.Unmarshal(body, &payload))
-	assert.Equal(t, `aggregation function "min" is not supported for measurement type "motion"; supported: count, last`, payload.Message)
+	return payload.Message
+}
+
+func TestReadings_AggregationFunction_MinRejectedForBinaryType(t *testing.T) {
+	assert.Equal(t, `aggregation function "min" is not supported for measurement type "motion"; supported: count, last`,
+		unsupportedFunctionMessage(t, "motion", "min"))
+}
+
+func increaseBuckets(t *testing.T, sensor, measurementType string, start time.Time, span time.Duration) []float64 {
+	t.Helper()
+	from := start.Format("2006-01-02 15:04:05")
+	to := start.Add(span - time.Second).Format("2006-01-02 15:04:05")
+	resp, status := client.GetReadingsBetweenAggregated(from, to, sensor, measurementType, "PT1H", "increase")
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, "increase", string(resp.AggregationFunction))
+	return bucketValues(t, resp.Readings)
+}
+
+func TestReadings_AggregationFunction_IncreaseAcrossBuckets(t *testing.T) {
+	const sensor = "Increase Buckets Sensor"
+	addSeededSensor(t, sensor)
+
+	start := time.Now().UTC().Truncate(time.Hour).Add(-96 * time.Hour)
+	seedReadings(t, sensor, "energy_today", []seededReading{
+		{start.Add(-10 * time.Minute), 1.0},
+		{start.Add(10 * time.Minute), 1.2},
+		{start.Add(50 * time.Minute), 1.5},
+		{start.Add(70 * time.Minute), 1.9},
+		{start.Add(100 * time.Minute), 2.3},
+	})
+
+	assert.Equal(t, []float64{0.5, 0.8}, increaseBuckets(t, sensor, "energy_today", start, 2*time.Hour))
+}
+
+func TestReadings_AggregationFunction_IncreaseTreatsADropAsAReset(t *testing.T) {
+	const sensor = "Increase Reset Sensor"
+	addSeededSensor(t, sensor)
+
+	start := time.Now().UTC().Truncate(time.Hour).Add(-100 * time.Hour)
+	seedReadings(t, sensor, "energy_today", []seededReading{
+		{start.Add(-5 * time.Minute), 3.0},
+		{start.Add(10 * time.Minute), 3.2},
+		{start.Add(20 * time.Minute), 0.1},
+		{start.Add(30 * time.Minute), 0.4},
+	})
+
+	assert.Equal(t, []float64{0.6}, increaseBuckets(t, sensor, "energy_today", start, time.Hour))
+}
+
+func TestReadings_AggregationFunction_IncreaseWithNoEarlierReading(t *testing.T) {
+	const sensor = "Increase Lone Reading Sensor"
+	addSeededSensor(t, sensor)
+
+	start := time.Now().UTC().Truncate(time.Hour).Add(-104 * time.Hour)
+	seedReadings(t, sensor, "energy", []seededReading{
+		{start.Add(10 * time.Minute), 5.0},
+	})
+
+	assert.Equal(t, []float64{0}, increaseBuckets(t, sensor, "energy", start, time.Hour))
+}
+
+func TestReadings_AggregationFunction_IncreaseRejectedForNonCounterTypes(t *testing.T) {
+	assert.Equal(t, `aggregation function "increase" is not supported for measurement type "temperature"; supported: avg, max, min`,
+		unsupportedFunctionMessage(t, "temperature", "increase"))
+	assert.Equal(t, `aggregation function "increase" is not supported for measurement type "energy_yesterday"; supported: avg, max, min`,
+		unsupportedFunctionMessage(t, "energy_yesterday", "increase"))
 }

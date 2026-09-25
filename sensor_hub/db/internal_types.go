@@ -49,12 +49,13 @@ const (
 type AggregationFunction string
 
 const (
-	AggregationFunctionNone  AggregationFunction = "none"
-	AggregationFunctionAvg   AggregationFunction = "avg"
-	AggregationFunctionCount AggregationFunction = "count"
-	AggregationFunctionLast  AggregationFunction = "last"
-	AggregationFunctionMin   AggregationFunction = "min"
-	AggregationFunctionMax   AggregationFunction = "max"
+	AggregationFunctionNone     AggregationFunction = "none"
+	AggregationFunctionAvg      AggregationFunction = "avg"
+	AggregationFunctionCount    AggregationFunction = "count"
+	AggregationFunctionLast     AggregationFunction = "last"
+	AggregationFunctionMin      AggregationFunction = "min"
+	AggregationFunctionMax      AggregationFunction = "max"
+	AggregationFunctionIncrease AggregationFunction = "increase"
 )
 
 // ============================================================================

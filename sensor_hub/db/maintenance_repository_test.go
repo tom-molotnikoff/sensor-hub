@@ -114,6 +114,12 @@ func TestMaintenanceRepository_ReclaimFreePages_ReturnsZeroWhenFreelistIsEmpty(t
 	db := newMigratedTempFileDB(t)
 	repo := NewMaintenanceRepository(handles(db))
 
+	_, err := db.Exec("PRAGMA incremental_vacuum")
+	require.NoError(t, err)
+	stats, err := repo.DatabaseStats(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(0), stats.FreelistCount)
+
 	freed, err := repo.ReclaimFreePages(context.Background(), 512)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), freed)
