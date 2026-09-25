@@ -87,15 +87,16 @@ const location = () => screen.getByRole('status', { name: 'location', hidden: tr
 
 function openAccountMenu() {
   press(accountBlock()!);
-  return screen.getByRole('menu', { name: 'Account' });
+  return screen.getByRole('menu', { name: /^Signed in as / });
 }
 
 function outline(menu: HTMLElement) {
   return Array.from(menu.children).map((part) => {
-    if (part.tagName === 'HR') return 'divider';
-    if (part.getAttribute('role') === 'group') {
-      const choices = within(part as HTMLElement).getAllByRole('menuitemradio').map((choice) => choice.textContent);
-      return `${part.getAttribute('aria-label')}: ${choices.join(' / ')}`;
+    if (part.getAttribute('role') === 'separator') return 'divider';
+    const group = part.querySelector<HTMLElement>('[role=group]');
+    if (group) {
+      const choices = within(group).getAllByRole('menuitemradio').map((choice) => choice.textContent);
+      return `${group.getAttribute('aria-label')}: ${choices.join(' / ')}`;
     }
     return part.querySelector('.MuiListItemText-root')?.textContent ?? part.textContent;
   });
@@ -283,13 +284,25 @@ describe('AppNav', () => {
     ]);
   });
 
+  it('names the menu by its heading and keeps only list items in it', () => {
+    renderNav();
+
+    const menu = openAccountMenu();
+
+    expect(menu).toHaveAccessibleName('Signed in as testadmin');
+    expect(menu.tagName).toBe('UL');
+    expect(Array.from(menu.children).map((part) => part.tagName)).toEqual(Array(menu.children.length).fill('LI'));
+    expect(within(menu).getByRole('group', { name: 'Theme' }).parentElement).toHaveAttribute('role', 'none');
+    expect(document.getElementById(menu.getAttribute('aria-labelledby')!)!.parentElement).toHaveAttribute('role', 'none');
+  });
+
   it('switches to dark mode and shows Dark as selected', async () => {
     renderNav();
 
     press(within(openAccountMenu()).getByRole('menuitemradio', { name: 'Dark' }));
 
     await waitFor(() => expect(document.documentElement).toHaveClass('dark'));
-    const menu = screen.getByRole('menu', { name: 'Account' });
+    const menu = screen.getByRole('menu', { name: 'Signed in as testadmin' });
     expect(within(menu).getByRole('menuitemradio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
     expect(within(menu).getByRole('menuitemradio', { name: 'Light' })).toHaveAttribute('aria-checked', 'false');
     expect(within(menu).getByRole('menuitemradio', { name: 'System' })).toHaveAttribute('aria-checked', 'false');

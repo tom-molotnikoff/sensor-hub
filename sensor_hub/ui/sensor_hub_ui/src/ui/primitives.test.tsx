@@ -5,6 +5,7 @@ import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import ActionBar from './ActionBar';
 import AnchorStack from './AnchorStack';
+import AnchoredMenu, { MenuDivider, MenuHeading, MenuNewTabLink, MenuSegments } from './AnchoredMenu';
 import Bounded from './Bounded';
 import Card from './Card';
 import DashboardCanvas from './DashboardCanvas';
@@ -597,6 +598,50 @@ describe('MenuPanel', () => {
     expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument();
     expect(screen.queryByText('row')).toBeNull();
     expect(document.querySelector('[data-ui=menu-panel-footer]')).toBeNull();
+  });
+});
+
+describe('AnchoredMenu', () => {
+  const modes = [
+    { value: 'light', label: 'Light', icon: null },
+    { value: 'dark', label: 'Dark', icon: null },
+  ] as const;
+
+  function anchor() {
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+    return button;
+  }
+
+  it('is named by its heading and holds only list items, with the segments as a labelled radio group', () => {
+    const onChange = vi.fn();
+    renderUi(
+      <AnchoredMenu anchorEl={anchor()} onClose={() => {}} width="sm" labelledBy="menu-heading">
+        <MenuHeading id="menu-heading">Signed in as tom</MenuHeading>
+        <MenuSegments label="Theme" choices={modes} value="dark" onChange={onChange} />
+        <MenuDivider />
+        <MenuNewTabLink href="/docs/">Docs</MenuNewTabLink>
+      </AnchoredMenu>,
+    );
+
+    const menu = screen.getByRole('menu', { name: 'Signed in as tom' });
+    expect(Array.from(menu.children).map((part) => [part.tagName, part.getAttribute('role')])).toEqual([
+      ['LI', 'none'],
+      ['LI', 'none'],
+      ['LI', 'separator'],
+      ['LI', 'none'],
+    ]);
+    const docs = screen.getByRole('menuitem', { name: 'Docs opens in a new tab' });
+    expect(docs).toHaveAttribute('href', '/docs/');
+    expect(docs).toHaveAttribute('target', '_blank');
+    expect(docs).toHaveAttribute('rel', 'noopener noreferrer');
+    const group = screen.getByRole('group', { name: 'Theme' });
+    expect(Array.from(group.children).map((choice) => [choice.textContent, choice.getAttribute('aria-checked')])).toEqual([
+      ['Light', 'false'],
+      ['Dark', 'true'],
+    ]);
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Light' }));
+    expect(onChange).toHaveBeenCalledWith('light');
   });
 });
 

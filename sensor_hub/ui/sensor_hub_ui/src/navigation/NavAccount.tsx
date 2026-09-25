@@ -1,5 +1,5 @@
 import { useId, useState, type MouseEvent } from 'react';
-import { Divider, ListItemIcon, ListItemText, MenuItem, useColorScheme } from '@mui/material';
+import { ListItemIcon, ListItemText, MenuItem, useColorScheme } from '@mui/material';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LaptopIcon from '@mui/icons-material/Laptop';
@@ -7,13 +7,13 @@ import HistoryIcon from '@mui/icons-material/History';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import IntegrationInstructionsIcon from '@mui/icons-material/IntegrationInstructions';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth, type AuthUser } from '../providers/AuthContext';
 import { apiClient } from '../gen/client';
 import { setCsrfToken } from '../api/Csrf';
-import { hasPerm } from '../tools/Utils';
-import { MenuSegments, NavAccountBlock, NavAccountMenu } from '../ui/NavFrame';
+import { hasAnyPerm } from '../tools/Utils';
+import { NavAccountBlock } from '../ui/NavFrame';
+import AnchoredMenu, { MenuDivider, MenuHeading, MenuNewTabLink, MenuSegments } from '../ui/AnchoredMenu';
 
 const modes = [
   { value: 'light', label: 'Light', icon: <WbSunnyIcon fontSize="small" /> },
@@ -31,6 +31,7 @@ interface NavAccountProps {
 function NavAccount({ user, onNavigate }: NavAccountProps) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const menuId = useId();
+  const headingId = useId();
   const { mode, setMode } = useColorScheme();
   const { refresh } = useAuth();
 
@@ -58,19 +59,21 @@ function NavAccount({ user, onNavigate }: NavAccountProps) {
         menuOpen={anchor !== null}
         onClick={(event: MouseEvent<HTMLElement>) => setAnchor(event.currentTarget)}
       />
-      <NavAccountMenu
+      <AnchoredMenu
         id={menuId}
-        label="Account"
+        data-ui="nav-account-menu"
+        variant="menu"
         anchorEl={anchor}
         onClose={close}
-        heading={
-          <>
-            Signed in as <strong>{user.username}</strong>
-          </>
-        }
+        width="sm"
+        placement="above-start"
+        labelledBy={headingId}
       >
+        <MenuHeading id={headingId}>
+          Signed in as <strong>{user.username}</strong>
+        </MenuHeading>
         <MenuSegments label="Theme" choices={modes} value={mode} onChange={setMode} />
-        <Divider />
+        <MenuDivider />
         <MenuItem onClick={() => go('/account/sessions')}>
           <ListItemIcon>
             <HistoryIcon fontSize="small" />
@@ -83,7 +86,7 @@ function NavAccount({ user, onNavigate }: NavAccountProps) {
           </ListItemIcon>
           <ListItemText>Change password</ListItemText>
         </MenuItem>
-        {(hasPerm(user, 'manage_api_keys') || hasPerm(user, 'view_api_docs')) && (
+        {hasAnyPerm(user, ['manage_api_keys', 'view_api_docs']) && (
           <MenuItem onClick={() => go('/account/developer')}>
             <ListItemIcon>
               <IntegrationInstructionsIcon fontSize="small" />
@@ -91,21 +94,20 @@ function NavAccount({ user, onNavigate }: NavAccountProps) {
             <ListItemText>Developer</ListItemText>
           </MenuItem>
         )}
-        <MenuItem component="a" href={docsHref} target="_blank" rel="noopener noreferrer" onClick={close}>
+        <MenuNewTabLink href={docsHref} onClick={close}>
           <ListItemIcon>
             <MenuBookIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Documentation</ListItemText>
-          <OpenInNewIcon fontSize="small" color="action" titleAccess="opens in a new tab" />
-        </MenuItem>
-        <Divider />
+        </MenuNewTabLink>
+        <MenuDivider />
         <MenuItem onClick={doLogout}>
           <ListItemIcon>
             <LogoutIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Logout</ListItemText>
         </MenuItem>
-      </NavAccountMenu>
+      </AnchoredMenu>
     </>
   );
 }

@@ -9,8 +9,8 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import CellTowerIcon from '@mui/icons-material/CellTower';
 import StorageIcon from '@mui/icons-material/Storage';
 import { SidebarContext } from '../providers/SidebarContextType';
-import { useAuth, type AuthUser } from '../providers/AuthContext';
-import { hasPerm } from '../tools/Utils';
+import { useAuth } from '../providers/AuthContext';
+import { hasAnyPerm } from '../tools/Utils';
 import NavFrame, { NavItem, NavList, NavSkeleton } from '../ui/NavFrame';
 import NavAccount from './NavAccount';
 
@@ -36,8 +36,6 @@ const mainEntries: NavEntry[] = [
   },
   { label: 'User Management', path: '/admin', icon: <PeopleIcon />, permissions: ['view_users', 'view_roles'] },
 ];
-
-const allowed = (user: AuthUser | undefined, permissions: string[]) => permissions.some((permission) => hasPerm(user, permission));
 
 const inSection = (pathname: string, section: string) => pathname === section || pathname.startsWith(`${section}/`);
 
@@ -69,7 +67,7 @@ function AppNav() {
       ) : (
         <NavList>
           {mainEntries
-            .filter((entry) => allowed(user, entry.permissions))
+            .filter((entry) => hasAnyPerm(user, entry.permissions))
             .map((entry) => (
               <NavItem
                 key={entry.path}

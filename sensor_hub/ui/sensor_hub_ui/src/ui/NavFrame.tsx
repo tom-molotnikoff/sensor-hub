@@ -10,8 +10,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Menu,
-  MenuItem,
   Skeleton,
   Typography,
 } from '@mui/material';
@@ -32,8 +30,6 @@ const logoSize = 32;
 const avatarSize = 32;
 const skeletonRowHeight = 32;
 const indicatorWidth = 3;
-const menuWidth = 260;
-const menuMargin = 16;
 
 export default function NavFrame({ open, onClose, logo, name, foot, children }: NavFrameProps) {
   return (
@@ -169,95 +165,5 @@ export function NavAccountBlock({ initial, name, detail, menuId, menuOpen, onCli
       />
       <UnfoldMoreIcon fontSize="small" sx={{ color: 'nav.muted' }} />
     </ListItemButton>
-  );
-}
-
-interface NavAccountMenuProps {
-  id: string;
-  label: string;
-  anchorEl: HTMLElement | null;
-  onClose: () => void;
-  heading: ReactNode;
-  children?: ReactNode;
-}
-
-export function NavAccountMenu({ id, label, anchorEl, onClose, heading, children }: NavAccountMenuProps) {
-  return (
-    <Menu
-      id={id}
-      data-ui="nav-account-menu"
-      variant="menu"
-      anchorEl={anchorEl}
-      open={anchorEl !== null}
-      onClose={onClose}
-      marginThreshold={menuMargin}
-      anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
-      transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      slotProps={{
-        list: { 'aria-label': label },
-        paper: { sx: { width: `min(${menuWidth}px, calc(100vw - ${menuMargin * 2}px))` } },
-      }}
-    >
-      <Typography
-        data-ui="nav-account-menu-heading"
-        component="div"
-        variant="caption"
-        color="text.secondary"
-        noWrap
-        sx={{ paddingX: 2, paddingY: 1 }}
-      >
-        {heading}
-      </Typography>
-      {children}
-    </Menu>
-  );
-}
-
-interface MenuChoice<T extends string> {
-  value: T;
-  label: string;
-  icon: ReactNode;
-}
-
-interface MenuSegmentsProps<T extends string> {
-  label: string;
-  choices: readonly MenuChoice<T>[];
-  value: T | undefined;
-  onChange: (value: T) => void;
-}
-
-export function MenuSegments<T extends string>({ label, choices, value, onChange }: MenuSegmentsProps<T>) {
-  return (
-    <Box
-      role="group"
-      aria-label={label}
-      data-ui="menu-segments"
-      sx={{ display: 'flex', marginX: 1, marginBottom: 1, border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
-    >
-      {choices.map((choice) => (
-        <MenuItem
-          key={choice.value}
-          role="menuitemradio"
-          aria-checked={choice.value === value}
-          selected={choice.value === value}
-          onClick={() => onChange(choice.value)}
-          sx={{
-            flex: '1 1 0',
-            flexDirection: 'column',
-            gap: 0.25,
-            minHeight: 0,
-            paddingX: 0.5,
-            paddingY: 0.75,
-            typography: 'caption',
-            color: 'text.secondary',
-            '& + &': { borderLeft: 1, borderColor: 'divider' },
-            '&.Mui-selected': { color: 'primary.main' },
-          }}
-        >
-          {choice.icon}
-          {choice.label}
-        </MenuItem>
-      ))}
-    </Box>
   );
 }

@@ -126,7 +126,7 @@ async function openAccountMenu(page: Page) {
   await openNav(page, '/dashboard');
   const block = page.locator('[data-ui=nav-account]');
   await block.click();
-  const menu = page.getByRole('menu', { name: 'Account' });
+  const menu = page.getByRole('menu', { name: 'Signed in as testadmin' });
   await expect(menu).toBeVisible();
   await expect(block).toHaveAttribute('aria-expanded', 'true');
   return { block, menu };
