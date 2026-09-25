@@ -121,10 +121,10 @@ paths:
           required: false
           schema:
             type: string
-            enum: ["avg", "count", "last"]
+            enum: ["avg", "count", "last", "min", "max"]
           description: >-
             Override the aggregation function. Defaults are looked up
-            per-measurement-type (e.g. `avg` for temperature, `last` for
+            per-measurement-type (e.g. `avg` for temperature, `count` for
             binary sensors). Only meaningful when aggregation is not `raw`.
             Requires `type`; the request is rejected with 400 without it.
           example: "avg"
@@ -3539,7 +3539,7 @@ components:
           description: >-
             The aggregate function applied within each bucket.
             `"none"` when readings are raw.
-          enum: ["none", "avg", "count", "last"]
+          enum: ["none", "avg", "count", "last", "min", "max"]
           example: "avg"
         readings:
           type: array

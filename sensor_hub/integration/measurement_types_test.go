@@ -90,3 +90,31 @@ func TestMeasurementTypes_Unauthenticated(t *testing.T) {
 	_, status := unauthed.GetAllMeasurementTypes()
 	assert.Equal(t, http.StatusUnauthorized, status)
 }
+
+func TestMeasurementTypes_MinAndMaxSupportedForNumericTypesOnly(t *testing.T) {
+	numeric := map[string]bool{
+		"temperature": true, "humidity": true, "pressure": true, "power": true, "battery": true,
+		"voltage": true, "luminance": true, "link_quality": true, "illuminance": true, "energy": true,
+		"current": true, "co2": true, "voc": true, "formaldehyde": true, "pm25": true,
+		"soil_moisture": true, "energy_today": true, "energy_month": true, "energy_yesterday": true,
+	}
+
+	raw, status := client.GetAllMeasurementTypes()
+	require.Equal(t, http.StatusOK, status)
+	var mts []gen.MeasurementType
+	require.NoError(t, json.Unmarshal(raw, &mts))
+
+	seen := 0
+	for _, mt := range mts {
+		if numeric[mt.Name] {
+			seen++
+			assert.Contains(t, mt.SupportedAggregationFunctions, "min", mt.Name)
+			assert.Contains(t, mt.SupportedAggregationFunctions, "max", mt.Name)
+			assert.Equal(t, "avg", mt.DefaultAggregationFunction, mt.Name)
+			continue
+		}
+		assert.NotContains(t, mt.SupportedAggregationFunctions, "min", mt.Name)
+		assert.NotContains(t, mt.SupportedAggregationFunctions, "max", mt.Name)
+	}
+	assert.Equal(t, len(numeric), seen)
+}
