@@ -68,12 +68,16 @@ test.describe('Developer page at 390x844', () => {
 test.describe('Developer page at 1440x900', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('keeps the API title and description under the API Reference card title', async ({ page }) => {
+  test('shows the API title, version and description in the API Reference card instead of Swagger UI', async ({ page }) => {
     await openDeveloper(page);
-    const frame = page.locator('[data-ui=swagger-frame]');
+    const card = page.locator('[data-ui=card]', { has: page.getByRole('heading', { name: 'API Reference', exact: true }) });
+    const frame = card.locator('[data-ui=swagger-frame]');
+    await expect(frame.locator('.opblock').first()).toBeVisible();
 
-    await expect(frame.getByRole('heading', { level: 3, name: /^Sensor Hub API/ })).toBeVisible();
-    await expect(frame.locator('.info__description')).toContainText('API for Sensor Hub.');
-    await expect(frame.locator('h1')).toHaveCount(0);
+    await expect(card.getByRole('heading', { level: 3, name: 'Sensor Hub API', exact: true })).toBeVisible();
+    await expect(card.getByText('Version 1.0.0', { exact: true })).toBeVisible();
+    await expect(card.getByText(/^API for Sensor Hub\./)).toBeVisible();
+    await expect(frame.locator('.info')).toHaveCount(0);
+    await expect(page.locator('h1')).toHaveCount(1);
   });
 });

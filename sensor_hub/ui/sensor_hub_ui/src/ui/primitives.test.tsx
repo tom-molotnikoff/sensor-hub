@@ -52,6 +52,8 @@ describe('Card', () => {
     expect(header.lastElementChild).toContainElement(screen.getByRole('button', { name: 'Refresh' }));
     expect(header).toHaveStyle({ display: 'flex', alignItems: 'center' });
     expect(header.lastElementChild).toHaveStyle({ marginLeft: 'auto' });
+    expect(header).toHaveStyle({ flexWrap: 'wrap' });
+    expect(header.lastElementChild).toHaveStyle({ flexShrink: '0', maxWidth: '100%' });
     expect(card.querySelector('[data-ui=card-body]')).toHaveTextContent('body');
     expect(screen.getByRole('heading', { name: 'Add Sensor' })).toHaveClass('MuiTypography-cardTitle');
   });

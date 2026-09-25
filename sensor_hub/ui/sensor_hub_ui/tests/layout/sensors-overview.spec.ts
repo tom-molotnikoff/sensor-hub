@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from './test';
 import { chartAreaHeight } from '../../src/ui/theme/tokens';
-import { checks, viewports, type Tier } from './checks';
+import { checks, narrowWide, viewports, type Tier } from './checks';
 import { signIn, type SignedInUser } from './users';
 
 const cardPadding: Record<Tier, number> = { compact: 12, wide: 20 };
@@ -160,3 +160,26 @@ for (const colorScheme of ['light', 'dark'] as const) {
     });
   });
 }
+
+test.describe(`Sensors Overview at ${narrowWide.width}x${narrowWide.height}`, () => {
+  test.use({ viewport: { width: narrowWide.width, height: narrowWide.height } });
+
+  test('wraps card header actions that do not fit onto their own row inside the card', async ({ page }) => {
+    await openOverview(page);
+    const card = page.locator('[data-ui=card]', { has: page.getByRole('heading', { name: 'Total Readings For Each Sensor' }) });
+    await expect(card.getByText(/^Sampled /)).toBeVisible();
+
+    const header = await card.locator('[data-ui=card-header]').evaluate((element) => {
+      const [title, actions] = [element.firstElementChild!, element.lastElementChild!].map((part) => part.getBoundingClientRect());
+      const box = element.getBoundingClientRect();
+      const content = element.lastElementChild!;
+      return {
+        actionsBelowTitle: actions.top >= title.bottom,
+        actionsInside: actions.left >= box.left && actions.right <= box.right,
+        actionsSqueezed: content.scrollWidth > content.clientWidth,
+      };
+    });
+    expect(header).toEqual({ actionsBelowTitle: true, actionsInside: true, actionsSqueezed: false });
+    await checks.noSidewaysScroll(page, 'wide', 'admin');
+  });
+});

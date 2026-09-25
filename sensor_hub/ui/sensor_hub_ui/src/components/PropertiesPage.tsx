@@ -14,7 +14,7 @@ import Inline from '../ui/Inline';
 import PageGrid from '../ui/PageGrid';
 import Stack from '../ui/Stack';
 import { StickyBar } from '../ui/Sticky';
-import { useTier } from '../ui/tiers';
+import { useStickyTop } from '../ui/stickyTop';
 import PropertyField from './PropertyField';
 import PropertyGroupSection from './PropertyGroupSection';
 import PropertySearchRail from './PropertySearchRail';
@@ -76,7 +76,7 @@ export default function PropertiesPage() {
   }, [sections, errors]);
 
   const { measuredRef: headerRef, height: headerHeight } = useMeasuredHeight();
-  const landingLine = landingOffset(headerHeight, useTier());
+  const landingLine = landingOffset(useStickyTop(), headerHeight);
 
   const currentGroupId = useScrollSpy(
     sections.map((section) => section.group.id),
