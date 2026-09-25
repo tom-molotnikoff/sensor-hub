@@ -12,6 +12,7 @@ ruleTester.run('no-raw-visuals', rule, {
     '<Box sx={{ color: (theme) => theme.palette.text.primary }} />',
     '<SvgIcon fontSize="small" />',
     '<Typography sx={{ fontSize: "inherit", fontWeight: "fontWeightBold" }} />',
+    '<Typography sx={{ lineHeight: "inherit" }} />',
     '<Typography sx={{ fontSize: theme.typography.body2.fontSize }} />',
     'const link = "/docs#add-sensor"; const entity = "&#123;";',
     'const border = `1px solid ${theme.palette.divider}`;',
@@ -37,5 +38,8 @@ ruleTester.run('no-raw-visuals', rule, {
     { code: '<Typography sx={{ fontWeight: "700" }} />', errors: typeScale('fontWeight') },
     { code: '<Typography fontWeight={500} />', errors: typeScale('fontWeight') },
     { code: '<Typography fontWeight="500" />', errors: typeScale('fontWeight') },
+    { code: '<Typography sx={{ lineHeight: 1 }} />', errors: typeScale('lineHeight') },
+    { code: '<Typography sx={{ lineHeight: "20px" }} />', errors: typeScale('lineHeight') },
+    { code: '<Typography lineHeight={1.2} />', errors: typeScale('lineHeight') },
   ],
 });

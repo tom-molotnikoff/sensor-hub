@@ -2,7 +2,7 @@ import { createTheme, type TypographyStyle } from '@mui/material/styles';
 import type {} from '@mui/x-data-grid/themeAugmentation';
 import { breakpointValues, compactMediaQuery, wideMediaQuery, type TierValues } from '../tiers';
 import { chartPalettes, navPalettes, statusPalettes, type ChartPalette, type NavPalette, type StatusPalette } from './palette';
-import { density, type Density } from './tokens';
+import { density, lineHeights, type Density } from './tokens';
 
 export type { StatusKey } from './palette';
 
@@ -61,16 +61,20 @@ declare module '@mui/material/Typography' {
 const byTier = (value: number | TierValues<number>): TierValues<number> =>
   typeof value === 'number' ? { compact: value, wide: value } : value;
 
-function typeScale(fontSize: number | TierValues<number>, fontWeight: number | TierValues<number>): TypographyStyle {
+function typeScale(
+  fontSize: number | TierValues<number>,
+  fontWeight: number | TierValues<number>,
+  lineHeight: number,
+): TypographyStyle {
   const size = byTier(fontSize);
   const weight = byTier(fontWeight);
-  const compact = { fontSize: `${size.compact}px`, fontWeight: weight.compact };
+  const compact = { fontSize: `${size.compact}px`, fontWeight: weight.compact, lineHeight };
   if (size.compact === size.wide && weight.compact === weight.wide) return compact;
   return { ...compact, [wideMediaQuery]: { fontSize: `${size.wide}px`, fontWeight: weight.wide } };
 }
 
 function metric(fontSize: number): TypographyStyle {
-  return { ...typeScale(fontSize, 700), fontVariantNumeric: 'tabular-nums' };
+  return { ...typeScale(fontSize, 700, lineHeights.text), fontVariantNumeric: 'tabular-nums' };
 }
 
 export const theme = createTheme({
@@ -82,12 +86,12 @@ export const theme = createTheme({
   },
   density,
   typography: {
-    pageTitle: typeScale({ compact: 18, wide: 24 }, { compact: 500, wide: 600 }),
-    cardTitle: typeScale({ compact: 18, wide: 20 }, 600),
-    sectionTitle: typeScale(15, 600),
-    body: typeScale(15, 400),
-    bodySmall: typeScale(13, 400),
-    caption: typeScale(12, 400),
+    pageTitle: typeScale({ compact: 18, wide: 24 }, { compact: 500, wide: 600 }, lineHeights.title),
+    cardTitle: typeScale({ compact: 18, wide: 20 }, 600, lineHeights.title),
+    sectionTitle: typeScale(15, 600, lineHeights.title),
+    body: typeScale(15, 400, lineHeights.text),
+    bodySmall: typeScale(13, 400, lineHeights.text),
+    caption: typeScale(12, 400, lineHeights.caption),
     metricSm: metric(24),
     metricMd: metric(36),
     metricLg: metric(56),

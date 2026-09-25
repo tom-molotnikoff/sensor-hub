@@ -8,6 +8,10 @@ export const density = {
 
 export type Density = typeof density;
 
+export const lineHeights = { title: 1.3, text: 1.5, caption: 1.66 } as const;
+
+export const pageTitleButtonInset = 1;
+
 export const standalonePageWidth = 444;
 
 export const emptyStateMinHeight = { sm: 120, md: 200, lg: 300 } as const;

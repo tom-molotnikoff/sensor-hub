@@ -94,10 +94,13 @@ export async function pausePolling(page: Page) {
   });
 }
 
-export async function copyLayoutDashboard(page: Page, pick?: (widget: StoredWidget) => boolean) {
+export async function copyLayoutDashboard(
+  page: Page,
+  pick?: (widget: StoredWidget) => boolean,
+  name = `Copy ${Date.now()}-${Math.random().toString(36).slice(2)}`,
+) {
   const csrf = { 'X-CSRF-Token': (await signIn(page, 'admin'))! };
   const widgets = (await storedWidgets(page, await dashboardId(page, 'Layout'))).filter(pick ?? (() => true));
-  const name = `Copy ${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const created = await page.request.post('/api/dashboards', { headers: csrf, data: { name, config: { widgets } } });
   expect(created.status()).toBe(201);
   const { id } = (await created.json()) as { id: number };

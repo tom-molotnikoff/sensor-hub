@@ -25,6 +25,33 @@ async function openDashboard(page: Page) {
   await showDashboard(page);
 }
 
+const mediumName = 'Upstairs Bedrooms, Landing and Loft Conversion';
+const longName = `${mediumName} Environmental Monitoring with Every Sensor in the House`;
+
+async function headerActions(page: Page) {
+  return page
+    .locator('[data-ui=page-actions] button')
+    .evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label') ?? button.textContent));
+}
+
+async function titleRoom(page: Page, editing: boolean) {
+  await page.goto('/dashboard');
+  await page.waitForLoadState('networkidle');
+  if (editing) await page.getByRole('button', { name: 'Edit dashboard' }).click();
+  await expect(page.getByRole('button', { name: editing ? 'Lock dashboard' : 'Edit dashboard' })).toBeVisible();
+  return page.locator('[data-ui=page-header]').evaluate((header) => {
+    const label = header.querySelector('[data-ui=page-title-label]')!;
+    const heading = header.querySelector('h1')!.getBoundingClientRect();
+    const actions = header.querySelector('[data-ui=page-actions]')!.getBoundingClientRect();
+    return {
+      text: label.textContent,
+      truncated: label.scrollWidth > label.clientWidth,
+      ellipsis: getComputedStyle(label).textOverflow === 'ellipsis',
+      room: actions.left - parseFloat(getComputedStyle(header).columnGap) - heading.right,
+    };
+  });
+}
+
 async function widenUptimeByTwoColumns(page: Page) {
   const handle = page.locator('[data-widget-id=uptime] .react-resizable-handle').first();
   const box = (await handle.boundingBox())!;
@@ -119,7 +146,7 @@ test.describe('Wide dashboard', () => {
     await copy.remove();
   });
 
-  test('titles the page with the dashboard name, the lock right after it and the dashboard actions at the end of the row', async ({ page }) => {
+  test('titles the page with the lock at the content edge, the dashboard name after it and the dashboard actions at the end of the row', async ({ page }) => {
     await openDashboard(page);
     const header = page.locator('[data-ui=page-header]');
     const heading = header.getByRole('heading', { level: 1 });
@@ -139,31 +166,77 @@ test.describe('Wide dashboard', () => {
     );
     expect(type[1], 'title button type').toEqual({ ...type[0], textTransform: 'none' });
 
-    const edges = await page.locator('[data-ui=page]').evaluate((root) => {
-      const label = root.querySelector('[data-ui=page-title-label]')!;
-      return {
-        label: label.getBoundingClientRect().left,
-        content: root.getBoundingClientRect().left + parseFloat(getComputedStyle(root).paddingLeft),
-      };
-    });
-    expect(Math.abs(edges.label - edges.content), 'title text left edge against the page content').toBeLessThan(1);
+    const lock = header.getByRole('button', { name: 'Edit dashboard' });
+    await expect(header.locator('[data-ui=page-before-title]').getByRole('button')).toHaveCount(1);
+    await expect(header.locator('[data-ui=page-before-title]').getByRole('button', { name: 'Edit dashboard' })).toBeVisible();
+    const edges = await page.locator('[data-ui=page]').evaluate((root) => ({
+      glyph: root.querySelector('[data-ui=page-before-title] svg path')!.getBoundingClientRect().left,
+      content: root.getBoundingClientRect().left + parseFloat(getComputedStyle(root).paddingLeft),
+    }));
+    expect(Math.abs(edges.glyph - edges.content), 'lock glyph left edge against the page content').toBeLessThan(1);
+    expect(await headerActions(page)).toEqual(['New dashboard', 'Delete dashboard']);
 
-    const [row, name, lock, create, remove] = await Promise.all(
+    const [row, headingBox, name, lockBox, create, remove] = await Promise.all(
       [
         header,
+        heading,
         title,
-        header.getByRole('button', { name: 'Edit dashboard' }),
+        lock,
         header.getByRole('button', { name: 'New dashboard' }),
         header.getByRole('button', { name: 'Delete dashboard' }),
       ].map(async (element) => (await element.boundingBox())!),
     );
+    expect(name, 'title button inside the heading box').toEqual(headingBox);
     const middle = (box: typeof row) => box.y + box.height / 2;
-    for (const control of [lock, create, remove]) expect(Math.abs(middle(control) - middle(name))).toBeLessThan(2);
-    expect(lock.x - (name.x + name.width), 'gap between the title and the lock').toBeGreaterThanOrEqual(0);
-    expect(lock.x - (name.x + name.width), 'gap between the title and the lock').toBeLessThanOrEqual(24);
-    expect(create.x).toBeGreaterThan(lock.x + lock.width + 100);
+    for (const control of [lockBox, create, remove]) expect(Math.abs(middle(control) - middle(name))).toBeLessThan(2);
+    expect(name.x - (lockBox.x + lockBox.width), 'gap between the lock and the title').toBeGreaterThanOrEqual(0);
+    expect(name.x - (lockBox.x + lockBox.width), 'gap between the lock and the title').toBeLessThanOrEqual(16);
+    expect(create.x).toBeGreaterThan(name.x + name.width + 100);
     expect(remove.x).toBeGreaterThan(create.x + create.width);
     expect(Math.abs(row.x + row.width - (remove.x + remove.width)), 'delete at the end of the row').toBeLessThan(1);
+  });
+
+  test('keeps the lock in place and puts the edit controls with the dashboard actions while editing', async ({ page }) => {
+    await openDashboard(page);
+    const header = page.locator('[data-ui=page-header]');
+    const before = (await header.getByRole('button', { name: 'Edit dashboard' }).boundingBox())!;
+
+    await header.getByRole('button', { name: 'Edit dashboard' }).click();
+
+    const after = (await header.getByRole('button', { name: 'Lock dashboard' }).boundingBox())!;
+    expect(after).toEqual(before);
+    await expect(header.locator('[data-ui=page-before-title]').getByRole('button')).toHaveCount(1);
+    expect(await headerActions(page)).toEqual(['Save', 'Add Widget', 'New dashboard', 'Delete dashboard']);
+  });
+
+  test('shows the whole dashboard name while there is room and ellipsises it only against the actions', async ({ page }) => {
+    for (const editing of [false, true]) {
+      const fits = await copyLayoutDashboard(page, () => false, mediumName);
+      const fitting = await titleRoom(page, editing);
+      expect(fitting, `${mediumName} while ${editing ? 'editing' : 'viewing'}`).toMatchObject({ text: mediumName, truncated: false });
+      expect(fitting.room, 'free room after the title').toBeGreaterThan(16);
+      await fits.remove();
+
+      const long = await copyLayoutDashboard(page, () => false, longName);
+      const cut = await titleRoom(page, editing);
+      expect(cut, `${longName} while ${editing ? 'editing' : 'viewing'}`).toMatchObject({ text: longName, truncated: true, ellipsis: true });
+      expect(Math.abs(cut.room), 'title reaching the actions').toBeLessThan(1);
+      await long.remove();
+    }
+  });
+
+  test('keeps the lock at the same place for a short and a long dashboard name', async ({ page }) => {
+    const places: Record<string, { x: number; y: number }> = {};
+    for (const name of ['Hall', longName]) {
+      const copy = await copyLayoutDashboard(page, () => false, name);
+      await page.goto('/dashboard');
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('[data-ui=page-title-label]')).toHaveText(name);
+      const { x, y } = (await page.locator('[data-ui=page-header]').getByRole('button', { name: 'Edit dashboard' }).boundingBox())!;
+      places[name] = { x, y };
+      await copy.remove();
+    }
+    expect(places[longName]).toEqual(places['Hall']);
   });
 
   test('switches dashboard from the title menu, with the star only on the default entry', async ({ page }) => {

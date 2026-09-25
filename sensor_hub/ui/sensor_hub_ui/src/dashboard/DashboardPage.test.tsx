@@ -65,10 +65,10 @@ function atWidth(width: number) {
   }));
 }
 
-function renderLoadedPage(width: number) {
+function renderLoadedPage(width: number, permissions = ['manage_dashboards']) {
   atWidth(width);
   Object.assign(dashboardState, { loading: false, dashboards: [layout, kitchen], activeDashboard: layout });
-  authState.user.permissions = ['manage_dashboards'];
+  authState.user.permissions = permissions;
   return render(
     <ThemeProvider theme={theme}>
       <MemoryRouter>
@@ -78,9 +78,13 @@ function renderLoadedPage(width: number) {
   );
 }
 
+function actionNames(actions: HTMLElement) {
+  return within(actions).getAllByRole('button').map((button) => button.getAttribute('aria-label') ?? button.textContent);
+}
+
 describe('DashboardPage', () => {
   beforeEach(() => {
-    Object.assign(dashboardState, { loading: true, dashboards: [], activeDashboard: null });
+    Object.assign(dashboardState, { loading: true, dashboards: [], activeDashboard: null, isEditing: false });
     authState.user.permissions = [];
     dashboardState.setActiveDashboard.mockClear();
   });
@@ -104,7 +108,7 @@ describe('DashboardPage', () => {
     expect(screen.queryByTestId('dashboard-skeleton')).not.toBeInTheDocument();
   });
 
-  it('titles the wide page with a button naming the dashboard, followed by the lock, with New Dashboard and delete at the end', () => {
+  it('titles the wide page with the lock, then a button naming the dashboard, with New Dashboard and delete at the end', () => {
     const { container } = renderLoadedPage(1440);
 
     const header = container.querySelector<HTMLElement>('[data-ui=page-header]')!;
@@ -112,15 +116,39 @@ describe('DashboardPage', () => {
     const title = within(heading).getByRole('button', { name: 'Layout' });
     expect(title).toHaveTextContent(/^Layout$/);
     expect(title.querySelector('[data-testid=ExpandMoreIcon]')).not.toBeNull();
-    expect(heading.nextElementSibling).toContainElement(within(header).getByRole('button', { name: 'Edit dashboard' }));
+    const before = heading.previousElementSibling as HTMLElement;
+    expect(before).toBe(header.firstElementChild);
+    expect(within(before).getAllByRole('button')).toEqual([within(header).getByRole('button', { name: 'Edit dashboard' })]);
     const actions = header.querySelector<HTMLElement>('[data-ui=page-actions]')!;
     expect(header.lastElementChild).toBe(actions);
-    expect(within(actions).getAllByRole('button').map((button) => button.getAttribute('aria-label') ?? button.textContent)).toEqual([
+    expect(actionNames(actions)).toEqual(['New dashboard', 'Delete dashboard']);
+    expect(container.querySelector('[data-ui=action-bar]')).toBeNull();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('puts Save and Add Widget ahead of New Dashboard and delete while editing on the wide tier', () => {
+    dashboardState.isEditing = true;
+    const { container } = renderLoadedPage(1440);
+
+    const header = container.querySelector<HTMLElement>('[data-ui=page-header]')!;
+    const before = header.querySelector<HTMLElement>('[data-ui=page-before-title]')!;
+    expect(within(before).getAllByRole('button')).toEqual([within(header).getByRole('button', { name: 'Lock dashboard' })]);
+    expect(actionNames(header.querySelector<HTMLElement>('[data-ui=page-actions]')!)).toEqual([
+      'Save',
+      'Add Widget',
       'New dashboard',
       'Delete dashboard',
     ]);
-    expect(container.querySelector('[data-ui=action-bar]')).toBeNull();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('shows View only with the actions and nothing before the title for a viewer on the wide tier', () => {
+    const { container } = renderLoadedPage(1440, []);
+
+    const header = container.querySelector<HTMLElement>('[data-ui=page-header]')!;
+    expect(header.querySelector('[data-ui=page-before-title]')).toBeNull();
+    expect(header.firstElementChild).toBe(within(header).getByRole('heading', { level: 1 }));
+    expect(within(header.querySelector<HTMLElement>('[data-ui=page-actions]')!).getByText('View only')).toBeInTheDocument();
+    expect(within(header).queryAllByRole('button').map((button) => button.textContent)).toEqual(['Layout']);
   });
 
   it('lists every dashboard with a star on the default from the wide title and switches to the chosen one', () => {

@@ -45,6 +45,20 @@ describe('theme', () => {
     });
   });
 
+  it.each([
+    ['pageTitle', 1.3],
+    ['cardTitle', 1.3],
+    ['sectionTitle', 1.3],
+    ['body', 1.5],
+    ['bodySmall', 1.5],
+    ['caption', 1.66],
+    ['metricSm', 1.5],
+    ['metricMd', 1.5],
+    ['metricLg', 1.5],
+  ] as const)('gives %s a line height of %s whatever element renders it', (variant, lineHeight) => {
+    expect(theme.typography[variant].lineHeight).toBe(lineHeight);
+  });
+
   it.each(['light', 'dark'] as const)('gives every status a strong and a soft colour in %s', (scheme) => {
     const { palette } = (theme as unknown as { colorSchemes: Record<string, { palette: Palette }> }).colorSchemes[scheme];
     expect(Object.keys(palette.status).sort()).toEqual(['bad', 'info', 'ok', 'unknown', 'warn']);

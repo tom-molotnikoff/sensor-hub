@@ -47,13 +47,13 @@ describe('Page', () => {
     expect(screen.queryByText('Dashboards')).not.toBeInTheDocument();
   });
 
-  it('puts title actions directly after the heading and the actions at the end of the wide header', () => {
+  it('puts the before-title group ahead of the heading and the actions at the end of the wide header', () => {
     atWidth(1440);
     const { container } = renderPage(
       <Page
         title="Dashboards"
         titleElement={picker}
-        titleActions={<button type="button">Lock</button>}
+        beforeTitle={<button type="button">Lock</button>}
         actions={<button type="button">New</button>}
       />,
     );
@@ -61,15 +61,16 @@ describe('Page', () => {
     const header = container.querySelector<HTMLElement>('[data-ui=page-header]')!;
     const heading = within(header).getByRole('heading', { level: 1 });
     expect(heading).not.toContainElement(screen.getByRole('button', { name: 'Lock' }));
-    expect(heading.nextElementSibling).toHaveAttribute('data-ui', 'page-title-actions');
-    expect(heading.nextElementSibling).toContainElement(screen.getByRole('button', { name: 'Lock' }));
+    expect(header.firstElementChild).toHaveAttribute('data-ui', 'page-before-title');
+    expect(header.firstElementChild).toContainElement(screen.getByRole('button', { name: 'Lock' }));
+    expect(heading.previousElementSibling).toBe(header.firstElementChild);
     expect(header.lastElementChild).toHaveAttribute('data-ui', 'page-actions');
     expect(header.lastElementChild).toContainElement(screen.getByRole('button', { name: 'New' }));
   });
 
-  it('renders no title actions on the compact tier', () => {
+  it('renders nothing before the title on the compact tier', () => {
     atWidth(390);
-    renderPage(<Page title="Dashboards" titleActions={<button type="button">Lock</button>} />);
+    renderPage(<Page title="Dashboards" beforeTitle={<button type="button">Lock</button>} />);
 
     expect(screen.queryByRole('button', { name: 'Lock' })).not.toBeInTheDocument();
   });
