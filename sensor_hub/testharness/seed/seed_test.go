@@ -36,7 +36,8 @@ func openSeed(t *testing.T, path string) *sql.DB {
 func TestGenerate_WritesTheRequestedShape(t *testing.T) {
 	shape := Shape{Sensors: 8, MeasurementTypes: 9, Days: 90, Readings: 3600}
 	before := time.Now().UTC()
-	db := openSeed(t, generate(t, shape))
+	path := generate(t, shape)
+	db := openSeed(t, path)
 
 	var sensors, types, readings, series int
 	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM sensors").Scan(&sensors))
@@ -53,9 +54,7 @@ func TestGenerate_WritesTheRequestedShape(t *testing.T) {
 	require.NoError(t, db.QueryRow("SELECT julianday(MAX(time)) - julianday(MIN(time)) FROM readings").Scan(&span))
 	assert.InDelta(t, float64(shape.Days), span, 0.01, "readings span the requested window")
 
-	var latest string
-	require.NoError(t, db.QueryRow("SELECT MAX(time) FROM readings").Scan(&latest))
-	newest, err := time.Parse("2006-01-02 15:04:05", latest)
+	newest, err := NewestReading(path)
 	require.NoError(t, err)
 	assert.False(t, newest.Before(before.Truncate(time.Second)),
 		"the window ends at generation time, so the seed always looks like a live database")
@@ -83,6 +82,20 @@ func TestIsCurrent_IsFalseForAMissingFileOrADifferentShape(t *testing.T) {
 	smaller := shape
 	smaller.Readings = 5
 	assert.False(t, IsCurrent(path, smaller), "a seed of a different shape is not current")
+}
+
+func TestIsCurrent_IsFalseForASeedMadeBeforeToday(t *testing.T) {
+	shape := Shape{Sensors: 1, MeasurementTypes: 1, Days: 2, Readings: 10}
+	path := generate(t, shape)
+	require.True(t, IsCurrent(path, shape))
+
+	db, err := sql.Open("sqlite", "file:"+path)
+	require.NoError(t, err)
+	_, err = db.Exec("UPDATE readings SET time = datetime(time, '-2 days')")
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	assert.False(t, IsCurrent(path, shape), "a seed whose readings end before today no longer looks like a live database")
 }
 
 func TestGenerate_RejectsAShapeTheSchemaCannotSupply(t *testing.T) {
