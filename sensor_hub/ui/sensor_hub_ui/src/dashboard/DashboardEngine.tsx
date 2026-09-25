@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo } from 'react';
 import { Alert, Button } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { GridLayout, useContainerWidth, type Layout, type LayoutItem } from 'react-grid-layout';
@@ -12,6 +12,7 @@ import DashboardCanvas from '../ui/DashboardCanvas';
 import DashboardSlot from '../ui/DashboardSlot';
 import Stack from '../ui/Stack';
 import { useTier } from '../ui/tiers';
+import { SidebarContext } from '../providers/SidebarContextType';
 
 interface DashboardEngineProps {
     config: DashboardConfig;
@@ -67,7 +68,12 @@ function WideDashboard({
     onRemoveWidget,
     onConfigureWidget,
 }: DashboardEngineProps) {
-    const { width, containerRef } = useContainerWidth();
+    const { width, containerRef, measureWidth } = useContainerWidth();
+    const { widthTransitioning } = useContext(SidebarContext);
+
+    useLayoutEffect(() => {
+        if (!widthTransitioning) measureWidth();
+    }, [widthTransitioning, measureWidth]);
 
     const layout = useMemo(
         (): LayoutItem[] =>
@@ -117,6 +123,7 @@ function WideDashboard({
                             widget={widget}
                             isEditing={isEditing}
                             draggable
+                            covered={widthTransitioning}
                             onRemove={onRemoveWidget}
                             onConfigure={onConfigureWidget}
                         />

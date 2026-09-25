@@ -1,9 +1,12 @@
 import { isDeepStrictEqual } from 'node:util';
 import { expect, test, type Page } from './test';
+import { railTransition, watchRailTransition } from './checks';
 import {
   copyLayoutDashboard,
   dashboardId,
   gridMargin as margin,
+  pausePolling,
+  recordApiRequests,
   recordDashboardWrites,
   renderedGrid,
   renderedLayouts,
@@ -20,6 +23,50 @@ async function showDashboard(page: Page) {
 async function openDashboard(page: Page) {
   await signIn(page, 'admin');
   await showDashboard(page);
+}
+
+async function widenUptimeByTwoColumns(page: Page) {
+  const handle = page.locator('[data-widget-id=uptime] .react-resizable-handle').first();
+  const box = (await handle.boundingBox())!;
+  const { columnWidth } = await renderedGrid(page);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 2 * (columnWidth + margin), box.y + box.height / 2, { steps: 10 });
+  await page.mouse.up();
+}
+
+type KeptWindow = Window & { keptContent?: WeakSet<Element> };
+
+const widgetContent = '[data-widget-id] [data-ui=frame-content] > *, .recharts-wrapper';
+
+async function markWidgetContent(page: Page) {
+  return page.evaluate((selector) => {
+    const nodes = [...document.querySelectorAll(selector)];
+    (window as KeptWindow).keptContent = new WeakSet(nodes);
+    return nodes.length;
+  }, widgetContent);
+}
+
+async function keptWidgetContent(page: Page) {
+  return page.evaluate(
+    (selector) => [...document.querySelectorAll(selector)].filter((node) => (window as KeptWindow).keptContent?.has(node)).length,
+    widgetContent,
+  );
+}
+
+async function widgetStates(page: Page) {
+  return page
+    .locator('[data-widget-id]')
+    .evaluateAll((items) => items.map((item) => [item.getAttribute('data-widget-id'), item.querySelector('[data-widget-state]')?.getAttribute('data-widget-state')]));
+}
+
+async function chartWidths(page: Page) {
+  return page.locator('.recharts-responsive-container').evaluateAll((charts) =>
+    charts.map((chart) => ({
+      container: Math.round(chart.getBoundingClientRect().width),
+      surface: Math.round(chart.querySelector('.recharts-wrapper > svg.recharts-surface')!.getBoundingClientRect().width),
+    })),
+  );
 }
 
 test.describe('Wide dashboard', () => {
@@ -57,13 +104,7 @@ test.describe('Wide dashboard', () => {
     await showDashboard(page);
     await page.getByRole('button', { name: 'Edit dashboard' }).click();
 
-    const handle = page.locator('[data-widget-id=uptime] .react-resizable-handle').first();
-    const box = (await handle.boundingBox())!;
-    const { columnWidth } = await renderedGrid(page);
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width / 2 + 2 * (columnWidth + margin), box.y + box.height / 2, { steps: 10 });
-    await page.mouse.up();
+    await widenUptimeByTwoColumns(page);
 
     await expect.poll(async () => (await renderedLayouts(page))['uptime'].w).toBe(5);
     await page.getByRole('button', { name: 'Save' }).click();
@@ -142,6 +183,69 @@ test.describe('Wide dashboard', () => {
     await expect(menu).toHaveCount(0);
     await expect(title).toHaveText('Layout');
     await expect(page.locator('[data-widget-id]').first()).toBeVisible();
+    await copy.remove();
+  });
+
+  test('covers every widget with its placeholder while the nav animates, then shows it again at the new width without refetching or saving', async ({ page }) => {
+    await openDashboard(page);
+    await expect(page.locator('.recharts-surface').first()).toBeVisible();
+    const stored = await storedLayouts(page, await dashboardId(page, 'Layout'));
+    const [states, widthsBefore, marked] = [await widgetStates(page), await chartWidths(page), await markWidgetContent(page)];
+    await pausePolling(page);
+    const requests = recordApiRequests(page);
+    await watchRailTransition(page);
+
+    await page.locator('[data-ui=nav-collapse]').click();
+
+    const { durations, samples } = await railTransition(page);
+    expect(durations, 'nav width transition').toEqual([180]);
+    expect(samples[0].moment).toBe('run');
+    expect(samples.at(-1)!.moment).toBe('end');
+    for (const sample of samples) {
+      expect(sample, `widgets at ${sample.moment}`).toMatchObject({ uncovered: ['retired'], editControls: 0 });
+    }
+
+    await expect(page.locator('[data-ui=frame-placeholder]')).toHaveCount(0);
+    await expect.poll(() => renderedLayouts(page), { message: 'layout at the new width' }).toEqual(stored);
+    await expect
+      .poll(async () => (await chartWidths(page)).every(({ container, surface }, i) => surface === container && container > widthsBefore[i].container))
+      .toBe(true);
+    expect(requests, 'requests sent because of the toggle').toEqual([]);
+    expect(await keptWidgetContent(page), 'widget content kept mounted').toBe(marked);
+    expect(await widgetStates(page)).toEqual(states);
+  });
+
+  test('animates the nav while editing, and editing carries on afterwards', async ({ page }) => {
+    const copy = await copyLayoutDashboard(page, (widget) => ['uptime', 'sensor-health-pie'].includes(widget.id));
+    await showDashboard(page);
+    await page.getByRole('button', { name: 'Edit dashboard' }).click();
+    const writes = recordDashboardWrites(page);
+    await watchRailTransition(page);
+
+    await page.locator('[data-ui=nav-collapse]').click();
+
+    const { durations, samples } = await railTransition(page);
+    expect(durations, 'nav width transition').toEqual([180]);
+    for (const sample of samples) {
+      expect(sample, `widgets at ${sample.moment}`).toMatchObject({ uncovered: [], covers: 0 });
+      expect(sample.editControls, `edit controls at ${sample.moment}`).toBeGreaterThan(0);
+    }
+    expect(writes, 'writes during the toggle').toEqual([]);
+
+    await expect(page.locator('[data-widget-id=uptime]').getByRole('button', { name: 'Configure widget' })).toBeVisible();
+    await expect
+      .poll(async () => {
+        const { columnWidth, items } = await renderedGrid(page);
+        const uptime = items.find((item) => item.id === 'uptime')!;
+        return Math.abs(uptime.width - (3 * columnWidth + 2 * margin));
+      }, { message: 'uptime settled at the new width' })
+      .toBeLessThan(1);
+    await widenUptimeByTwoColumns(page);
+    await expect.poll(async () => (await renderedLayouts(page))['uptime'].w).toBe(5);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await page.waitForLoadState('networkidle');
+
+    await expect.poll(async () => (await storedLayouts(page, copy.id))['uptime'].w).toBe(5);
     await copy.remove();
   });
 });

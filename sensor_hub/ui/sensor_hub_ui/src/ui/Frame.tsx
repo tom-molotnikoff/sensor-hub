@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from 'react';
+import { useLayoutEffect, useRef, type ReactNode, type Ref } from 'react';
 import { Box, Skeleton, Typography } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import Bounded from './Bounded';
@@ -10,12 +10,35 @@ interface FrameProps {
   editing?: boolean;
   dragHandle?: boolean;
   state?: string;
+  cover?: ReactNode;
   ref?: Ref<HTMLDivElement>;
   children?: ReactNode;
 }
 
-export default function Frame({ title, actions, editing = false, dragHandle = false, state, ref, children }: FrameProps) {
+const editingPadding = 1;
+
+const fill = { '& > *': { height: '100%', width: '100%' } } as const;
+
+function useHeldSize(held: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!held || !element) return;
+    const { width, height } = element.getBoundingClientRect();
+    element.style.width = `${width}px`;
+    element.style.height = `${height}px`;
+    return () => {
+      element.style.width = '';
+      element.style.height = '';
+    };
+  }, [held]);
+  return ref;
+}
+
+export default function Frame({ title, actions, editing = false, dragHandle = false, state, cover, ref, children }: FrameProps) {
   const grabbable = editing && dragHandle;
+  const covered = Boolean(cover);
+  const contentRef = useHeldSize(covered);
 
   return (
     <Box
@@ -72,11 +95,22 @@ export default function Frame({ title, actions, editing = false, dragHandle = fa
           flex: '1 1 auto',
           minHeight: 0,
           overflow: 'hidden',
-          padding: editing ? 1 : 0,
-          '& > *': { height: '100%', width: '100%' },
+          position: 'relative',
+          padding: editing ? editingPadding : 0,
         }}
       >
-        <Bounded>{children}</Bounded>
+        <Box
+          ref={contentRef}
+          data-ui="frame-content"
+          sx={{ height: '100%', width: '100%', ...fill, ...(covered && { visibility: 'hidden' }) }}
+        >
+          <Bounded>{children}</Bounded>
+        </Box>
+        {covered && (
+          <Box data-ui="frame-cover" sx={{ position: 'absolute', inset: 0, padding: editingPadding, ...fill }}>
+            {cover}
+          </Box>
+        )}
       </Box>
     </Box>
   );

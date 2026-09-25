@@ -35,7 +35,7 @@ export const stripNarrowWidth = 480;
 
 export const navDrawer = { width: 280, pageVisible: 56 } as const;
 
-export const navPermanent = { expanded: 256, rail: 72 } as const;
+export const navPermanent = { expanded: 256, rail: 72, duration: 180 } as const;
 
 export const stripCells = {
   sm: {

@@ -14,7 +14,11 @@ export default function DashboardCanvas({ editing, ref, children }: DashboardCan
     <Box
       ref={ref}
       data-ui="dashboard-canvas"
-      sx={{ minWidth: 0, paddingBottom: editing ? `${editingRoomBelow}px` : 0 }}
+      sx={{
+        minWidth: 0,
+        paddingBottom: editing ? `${editingRoomBelow}px` : 0,
+        ...(!editing && { '& .react-grid-item': { transition: 'none' } }),
+      }}
     >
       {children}
     </Box>

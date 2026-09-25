@@ -5,6 +5,8 @@ type SidebarContextType = {
   setOpen: Dispatch<SetStateAction<boolean>>;
   collapsed: boolean;
   toggleCollapsed: () => void;
+  widthTransitioning: boolean;
+  endWidthTransition: () => void;
 };
 
 export const SidebarContext = createContext<SidebarContextType>({
@@ -12,4 +14,6 @@ export const SidebarContext = createContext<SidebarContextType>({
   setOpen: () => {},
   collapsed: false,
   toggleCollapsed: () => {},
+  widthTransitioning: false,
+  endWidthTransition: () => {},
 });

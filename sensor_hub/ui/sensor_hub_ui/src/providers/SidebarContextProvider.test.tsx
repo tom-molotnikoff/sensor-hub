@@ -3,6 +3,7 @@ import { useContext, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SidebarContextProvider } from './SidebarContextProvider';
 import { SidebarContext } from './SidebarContextType';
+import { navPermanent } from '../ui/theme/tokens';
 
 const key = 'sensor-hub.nav.collapsed';
 
@@ -30,6 +31,7 @@ function renderSidebar() {
 
 describe('SidebarContextProvider', () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
@@ -67,5 +69,30 @@ describe('SidebarContextProvider', () => {
     act(() => result.current.toggleCollapsed());
     expect(result.current.collapsed).toBe(false);
     expect(localStorage.getItem(key)).toBe('false');
+  });
+
+  it('marks a width transition from the toggle until the nav reports its end', () => {
+    atWidth(1440);
+    const { result } = renderSidebar();
+    expect(result.current.widthTransitioning).toBe(false);
+
+    act(() => result.current.toggleCollapsed());
+    expect(result.current.widthTransitioning).toBe(true);
+
+    act(() => result.current.endWidthTransition());
+    expect(result.current.widthTransitioning).toBe(false);
+  });
+
+  it('ends a width transition the nav never reports once twice its duration has passed', () => {
+    vi.useFakeTimers();
+    atWidth(1440);
+    const { result } = renderSidebar();
+
+    act(() => result.current.toggleCollapsed());
+    act(() => vi.advanceTimersByTime(navPermanent.duration * 2 - 1));
+    expect(result.current.widthTransitioning).toBe(true);
+
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current.widthTransitioning).toBe(false);
   });
 });

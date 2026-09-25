@@ -46,7 +46,9 @@ function Location() {
 function Shell() {
   const [open, setOpen] = useState(false);
   return (
-    <SidebarContext.Provider value={{ open, setOpen, collapsed: true, toggleCollapsed: () => {} }}>
+    <SidebarContext.Provider
+      value={{ open, setOpen, collapsed: true, toggleCollapsed: () => {}, widthTransitioning: false, endWidthTransition: () => {} }}
+    >
       <button onClick={() => setOpen(true)}>menu</button>
       <AppNav />
     </SidebarContext.Provider>
@@ -368,24 +370,31 @@ const notifications: NotificationContextValue = {
   updatePreference: async () => {},
 };
 
-function PermanentShell({ rail }: { rail: boolean }) {
+function PermanentShell({ rail, endWidthTransition }: { rail: boolean; endWidthTransition: () => void }) {
   const [collapsed, setCollapsed] = useState(rail);
   return (
     <SidebarContext.Provider
-      value={{ open: false, setOpen: () => {}, collapsed, toggleCollapsed: () => setCollapsed((current) => !current) }}
+      value={{
+        open: false,
+        setOpen: () => {},
+        collapsed,
+        toggleCollapsed: () => setCollapsed((current) => !current),
+        widthTransitioning: false,
+        endWidthTransition,
+      }}
     >
       <AppNav permanent />
     </SidebarContext.Provider>
   );
 }
 
-function renderPermanentNav(as: AuthUser = admin, { rail = false } = {}) {
+function renderPermanentNav(as: AuthUser = admin, { rail = false, endWidthTransition = () => {} } = {}) {
   render(
     <ThemeProvider theme={theme}>
       <AuthContext.Provider value={{ user: as, refresh: async () => {} }}>
         <NotificationContext.Provider value={notifications}>
           <MemoryRouter initialEntries={['/dashboard']}>
-            <PermanentShell rail={rail} />
+            <PermanentShell rail={rail} endWidthTransition={endWidthTransition} />
           </MemoryRouter>
         </NotificationContext.Provider>
       </AuthContext.Provider>
@@ -480,5 +489,18 @@ describe('AppNav permanent', () => {
     expect(tooltip).toHaveTextContent('Expand');
     expect(collapseToggle()).toHaveAccessibleName('Collapse');
     expect(collapseToggle()).toHaveAccessibleDescription('Expand');
+  });
+
+  it('ends the width transition when the nav itself finishes animating its width', () => {
+    const endWidthTransition = vi.fn();
+    renderPermanentNav(admin, { endWidthTransition });
+    const drawer = nav().closest<HTMLElement>('[data-ui=nav-drawer]')!;
+
+    fireEvent.transitionEnd(nav(), { propertyName: 'width' });
+    fireEvent.transitionEnd(drawer, { propertyName: 'opacity' });
+    expect(endWidthTransition).not.toHaveBeenCalled();
+
+    fireEvent.transitionEnd(drawer, { propertyName: 'width' });
+    expect(endWidthTransition).toHaveBeenCalledTimes(1);
   });
 });

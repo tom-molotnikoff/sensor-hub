@@ -79,6 +79,21 @@ export function recordDashboardWrites(page: Page) {
   return writes;
 }
 
+export function recordApiRequests(page: Page) {
+  const requests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/')) requests.push(`${request.method()} ${request.url()}`);
+  });
+  return requests;
+}
+
+export async function pausePolling(page: Page) {
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+}
+
 export async function copyLayoutDashboard(page: Page, pick?: (widget: StoredWidget) => boolean) {
   const csrf = { 'X-CSRF-Token': (await signIn(page, 'admin'))! };
   const widgets = (await storedWidgets(page, await dashboardId(page, 'Layout'))).filter(pick ?? (() => true));
