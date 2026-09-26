@@ -22,6 +22,7 @@ const (
 	shortestSpell     = 15 * time.Minute
 	longestSpell      = 90 * time.Minute
 	readingsPerExec   = 32
+	readingColumns    = 5
 	bulkWriteCacheKiB = 256 * 1024
 )
 
@@ -317,7 +318,7 @@ func stageReadings(ctx context.Context, tx *sql.Tx, history sensorHistory, typeI
 	}
 	defer batch.Close()
 
-	args := make([]any, 0, readingsPerExec*5)
+	args := make([]any, 0, readingsPerExec*readingColumns)
 	for point := range history.span.points {
 		at := utils.FormatStorageTime(history.span.at(point))
 		for i, track := range history.tracks {
@@ -334,7 +335,7 @@ func stageReadings(ctx context.Context, tx *sql.Tx, history sensorHistory, typeI
 	if len(args) == 0 {
 		return nil
 	}
-	if _, err := tx.ExecContext(ctx, stageReadingsStatement(len(args)/5), args...); err != nil {
+	if _, err := tx.ExecContext(ctx, stageReadingsStatement(len(args)/readingColumns), args...); err != nil {
 		return fmt.Errorf("failed to stage readings: %w", err)
 	}
 	return nil
@@ -342,5 +343,5 @@ func stageReadings(ctx context.Context, tx *sql.Tx, history sensorHistory, typeI
 
 func stageReadingsStatement(rows int) string {
 	return "INSERT INTO staged_readings (sensor_id, measurement_type_id, numeric_value, text_state, time) VALUES " +
-		strings.TrimSuffix(strings.Repeat("(?, ?, ?, ?, ?),", rows), ",")
+		strings.TrimSuffix(strings.Repeat("("+strings.TrimSuffix(strings.Repeat("?, ", readingColumns), ", ")+"),", rows), ",")
 }

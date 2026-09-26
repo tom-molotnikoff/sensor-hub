@@ -364,6 +364,26 @@ func TestHistory_LeavesHandAddedAndRediscoveredSensorsAlone(t *testing.T) {
 		livingRoom, time.Now().Add(-time.Hour).UTC().Format(time.DateTime)), "the seeded sensors were still topped up")
 }
 
+func TestHistory_LeavesADisabledSeededSensorAlone(t *testing.T) {
+	db := openTempDatabase(t)
+	runSeed(t, db)
+	ctx := context.Background()
+	sensors := newSensorService(db)
+	require.NoError(t, sensors.ServiceSetEnabledSensorByName(ctx, "bedroom-sensor", false))
+	forgetHistoryAfter(t, db, time.Now().Add(-time.Hour))
+	id, err := sensors.ServiceGetSensorIdByName(ctx, "bedroom-sensor")
+	require.NoError(t, err)
+	since := time.Now().Add(-time.Hour).UTC().Format(time.DateTime)
+
+	runSeed(t, db)
+
+	assert.Zero(t, queryInt(t, db, "SELECT COUNT(*) FROM readings WHERE sensor_id = ? AND time > ?", id, since))
+	assert.Zero(t, queryInt(t, db, "SELECT COUNT(*) FROM sensor_health_history WHERE sensor_id = ? AND recorded_at > ?", id, since))
+	disabled, err := sensors.ServiceGetSensorByName(ctx, "bedroom-sensor")
+	require.NoError(t, err)
+	assert.Equal(t, gen.Unknown, disabled.HealthStatus)
+}
+
 func ptr(value string) *string {
 	return &value
 }

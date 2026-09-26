@@ -17,15 +17,19 @@ type marker struct {
 	adminAPIKey string
 }
 
-func loadMarker(ctx context.Context, db *sql.DB) (marker, error) {
+func createSeedTables(ctx context.Context, db *sql.DB) error {
 	for _, table := range []string{
 		"devseed_metadata (name TEXT PRIMARY KEY, value TEXT NOT NULL)",
 		"devseed_sensors (device TEXT PRIMARY KEY, sensor_id INTEGER NOT NULL)",
 	} {
 		if _, err := db.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS "+table); err != nil {
-			return marker{}, fmt.Errorf("failed to create %s: %w", table, err)
+			return fmt.Errorf("failed to create %s: %w", table, err)
 		}
 	}
+	return nil
+}
+
+func loadMarker(ctx context.Context, db *sql.DB) (marker, error) {
 	rows, err := db.QueryContext(ctx, "SELECT name, value FROM devseed_metadata")
 	if err != nil {
 		return marker{}, fmt.Errorf("failed to read devseed_metadata: %w", err)
@@ -78,7 +82,7 @@ func recordSeededSensor(ctx context.Context, db *sql.DB, device string, sensorID
 
 func seededSensorIDs(ctx context.Context, db *sql.DB) (map[string]int, error) {
 	rows, err := db.QueryContext(ctx,
-		"SELECT d.device, d.sensor_id FROM devseed_sensors d JOIN sensors s ON s.id = d.sensor_id")
+		"SELECT d.device, d.sensor_id FROM devseed_sensors d JOIN sensors s ON s.id = d.sensor_id WHERE s.enabled")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the seeded sensors: %w", err)
 	}

@@ -71,7 +71,7 @@ keeps publishing. The passwords and key are for local development only.
 On every start the seed tops up the seeded sensors' readings, health history
 and alert history from their newest reading, or from 30 days ago if that's
 later, so charts over any range up to 30 days have no gap after downtime. A
-14-day gap takes about 5 seconds.
+14-day gap takes about 5 to 6 seconds.
 
 ## Ports
 

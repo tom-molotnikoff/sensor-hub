@@ -67,6 +67,9 @@ func seed(ctx context.Context, db *database.Handles, logger *slog.Logger, httpMo
 		logger:        logger,
 	}
 
+	if err := createSeedTables(ctx, db.Writer); err != nil {
+		return "", &stepError{step: "create the seed tables", err: err}
+	}
 	marker, err := loadMarker(ctx, db.Writer)
 	if err != nil {
 		return "", &stepError{step: "read the marker", err: err}
