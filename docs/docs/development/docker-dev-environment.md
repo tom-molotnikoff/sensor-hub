@@ -60,9 +60,18 @@ and approved: the Zigbee2MQTT devices in `mocks/mqtt_devices.py` and the two
 HTTP mocks. Live readings land on those sensors from the first start, and
 `office-plug` can be switched on and off from the hub.
 
+The seed also creates range alert rules on `living-room-sensor` temperature and
+`kitchen-sensor` humidity, a status rule on the `front-door` contact, and a few
+notifications, some already read.
+
 The seed only creates these once, so anything you change or delete stays that
 way. A deleted MQTT sensor comes back as a pending sensor while its mock device
 keeps publishing. The passwords and key are for local development only.
+
+On every start the seed tops up the seeded sensors' readings, health history
+and alert history from their newest reading, or from 30 days ago if that's
+later, so charts over any range up to 30 days have no gap after downtime. A
+14-day gap takes about 5 to 6 seconds.
 
 ## Ports
 
