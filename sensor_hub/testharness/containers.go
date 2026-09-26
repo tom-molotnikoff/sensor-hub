@@ -5,6 +5,7 @@ package testharness
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -42,7 +43,9 @@ func StartMockSensorsForMain(ctx context.Context, n int) ([]MockSensor, func(), 
 }
 
 func startMockSensors(ctx context.Context, n int) ([]MockSensor, func(), error) {
-	dockerCtx := dockerContextPath()
+	if err := buildMocksImage(ctx); err != nil {
+		return nil, nil, err
+	}
 
 	sensors := make([]MockSensor, 0, n)
 	var containers []testcontainers.Container
@@ -51,14 +54,13 @@ func startMockSensors(ctx context.Context, n int) ([]MockSensor, func(), error) 
 		for _, c := range containers {
 			_ = c.Terminate(ctx)
 		}
+		_ = exec.CommandContext(ctx, "docker", "image", "rm", mocksImage).Run()
 	}
 
 	for i := 0; i < n; i++ {
 		req := testcontainers.ContainerRequest{
-			FromDockerfile: testcontainers.FromDockerfile{
-				Context:    dockerCtx,
-				Dockerfile: "mock-sensor.dockerfile",
-			},
+			Image:        mocksImage,
+			Cmd:          []string{"python", "http_sensor.py"},
 			ExposedPorts: []string{"5000/tcp"},
 			WaitingFor:   wait.ForHTTP("/temperature").WithPort("5000/tcp").WithStartupTimeout(60 * time.Second),
 		}
@@ -90,9 +92,17 @@ func startMockSensors(ctx context.Context, n int) ([]MockSensor, func(), error) 
 	return sensors, cleanup, nil
 }
 
-// dockerContextPath returns the absolute path to the docker_tests directory,
-// resolved relative to this source file so it works regardless of working directory.
-func dockerContextPath() string {
+const mocksImage = "sensor-hub-mocks:integration"
+
+func buildMocksImage(ctx context.Context) error {
 	_, thisFile, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(thisFile), "..", "docker_tests")
+	devstack := filepath.Join(filepath.Dir(thisFile), "..", "devstack")
+	build := exec.CommandContext(ctx, "docker", "build",
+		"--file", filepath.Join(devstack, "dockerfiles", "mocks.dockerfile"),
+		"--tag", mocksImage,
+		devstack)
+	if output, err := build.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to build mocks image: %w\n%s", err, output)
+	}
+	return nil
 }
