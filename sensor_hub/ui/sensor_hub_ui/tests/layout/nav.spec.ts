@@ -213,6 +213,32 @@ test.describe('nav rail at 1440x900', () => {
     }
   });
 
+  test('keeps every item label on one line while it expands', async ({ page }) => {
+    const nav = await openNav(page, '/sensors-overview');
+    const toggle = nav.locator('[data-ui=nav-collapse]');
+    await toggle.click();
+    await expect.poll(() => navBoxWidth(nav), { message: 'rail width' }).toBe(navWidth.rail);
+
+    await page.evaluate(() => {
+      const wrapped: string[] = [];
+      let frames = 0;
+      const sample = () => {
+        for (const label of document.querySelectorAll('nav[aria-label=Main] .MuiListItemText-primary')) {
+          const lineHeight = parseFloat(getComputedStyle(label).lineHeight);
+          if (label.getBoundingClientRect().height > 1.5 * lineHeight) wrapped.push(label.textContent ?? '');
+        }
+        if (++frames < 40) requestAnimationFrame(sample);
+        else Object.assign(window, { navLabelsWrapped: wrapped });
+      };
+      requestAnimationFrame(sample);
+    });
+    await toggle.click();
+
+    const wrapped = await page.waitForFunction(() => (window as { navLabelsWrapped?: string[] }).navLabelsWrapped);
+    expect(await wrapped.jsonValue(), 'labels that wrapped during the expand').toEqual([]);
+    expect(await navBoxWidth(nav), 'expanded width').toBe(navWidth.expanded);
+  });
+
   test('stays collapsed after a reload', async ({ page }) => {
     const nav = await openNav(page, '/dashboard');
     await nav.locator('[data-ui=nav-collapse]').click();

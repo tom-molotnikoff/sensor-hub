@@ -140,6 +140,8 @@ const footRowSx = {
   '&:hover, &.Mui-focusVisible': { bgcolor: 'nav.hover' },
 } as const;
 
+const singleLineLabel = { primary: { noWrap: true } } as const;
+
 function NavCollapseToggle({ rail, onToggle }: { rail: boolean; onToggle: () => void }) {
   return (
     <Tooltip title={rail ? 'Expand' : ''} placement="right" describeChild>
@@ -151,7 +153,7 @@ function NavCollapseToggle({ rail, onToggle }: { rail: boolean; onToggle: () => 
         sx={{ ...footRowSx, color: 'nav.muted', ...(rail && railRowSx) }}
       >
         <ListItemIcon sx={{ color: 'inherit' }}>{rail ? <KeyboardDoubleArrowRightIcon /> : <KeyboardDoubleArrowLeftIcon />}</ListItemIcon>
-        {!rail && <ListItemText primary="Collapse" />}
+        {!rail && <ListItemText primary="Collapse" slotProps={singleLineLabel} />}
       </ListItemButton>
     </Tooltip>
   );
@@ -196,7 +198,7 @@ export function NavItem({ icon, label, active = false, onClick }: NavItemProps) 
           sx={{ ...itemSx, ...(rail && railRowSx) }}
         >
           <ListItemIcon sx={{ color: 'inherit' }}>{icon}</ListItemIcon>
-          {!rail && <ListItemText primary={label} />}
+          {!rail && <ListItemText primary={label} slotProps={singleLineLabel} />}
         </ListItemButton>
       </RailTooltip>
     </ListItem>
