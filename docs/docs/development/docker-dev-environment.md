@@ -1,21 +1,46 @@
 # Docker Dev Environment
 
-The Docker Compose setup provides a complete development environment with
-hot-reload, remote debugging, mock temperature sensors, and full
-OpenTelemetry observability via Grafana.
+The dev stack in `sensor_hub/devstack` runs the hub, the Vite UI and a set of
+mock sensors with hot reload, and seeds a dataset on first start so there's
+something to look at straight away.
 
-## Start the Environment
+## Start the Stack
 
 ```bash
-cd sensor_hub
-docker compose -f docker_tests/docker-compose.yml up --build
+cd sensor_hub/devstack
+docker compose up --build --watch
 ```
+
+Open [http://localhost:3000](http://localhost:3000). Go and React edits are
+synced into the containers by Compose Watch, so the stack needs `--watch`.
+Without it the containers start fine but never see an edit.
+
+A one-shot `seed` service runs before the hub on every start. A change to
+`go.mod`, `go.sum`, `package.json`, `package-lock.json` or
+`mocks/requirements.txt` rebuilds the affected image on its own.
+
+## Grafana and Delve
+
+Both are off by default. Add either overlay to turn it on:
+
+```bash
+docker compose -f compose.yaml -f compose.grafana.yaml up --build --watch
+docker compose -f compose.yaml -f compose.delve.yaml up --build --watch
+```
+
+To keep them on, copy `.env.example` to `.env` and trim `COMPOSE_FILE` to the
+overlays you want. A plain `docker compose up --build --watch` then picks them
+up. `.env` is git-ignored.
+
+- **Grafana** receives logs, traces and metrics from the hub, and traces from
+  the HTTP mocks. Sign in with admin / admin.
+- **Delve** runs the hub under `dlv debug`. Attach your IDE's debugger (DAP or
+  the Delve API v2) to `localhost:2345` at any time.
 
 ## Seeded Logins and API Key
 
-The new stack in `sensor_hub/devstack` runs a one-shot `seed` service before
-the hub starts. From an empty volume it creates these users, none of which
-has to change their password:
+From an empty volume the seed creates these users, none of which has to change
+their password:
 
 | Username | Password | Role |
 |---|---|---|
@@ -27,75 +52,41 @@ It also creates an admin API key and prints it on every start, for as long as
 the key still works:
 
 ```bash
-cd sensor_hub/devstack
 docker compose logs seed | grep admin_api_key
 ```
 
 The seed only creates these once, so anything you change or delete stays that
-way. `docker compose down -v` gives you a fresh set. The passwords and key are
-for local development only.
+way. The passwords and key are for local development only.
 
-## Grafana — Observability Stack
+## Ports
 
-The `grafana/otel-lgtm` container bundles the full Grafana observability
-stack in a single image.
+| Port | Service |
+|---|---|
+| 3000 | UI (Vite dev server) |
+| 8080 | Hub API |
+| 1883 | Hub's embedded MQTT broker |
+| 5001, 5002 | HTTP mock sensors |
+| 4000 | Grafana (Grafana overlay) |
+| 4317, 4318 | OTLP gRPC and HTTP (Grafana overlay) |
+| 2345 | Delve (Delve overlay) |
 
-The sensor-hub container is pre-configured to export all OpenTelemetry data
-(logs, traces, and metrics) to the Grafana LGTM collector via gRPC on port
-4317. No additional application configuration is needed.
+## Reset
 
-### Accessing Grafana
+```bash
+docker compose down -v
+```
 
-Open [http://localhost:4000](http://localhost:4000) in your browser. The
-default credentials are **admin / admin** (skip the password change prompt
-for local development).
+This deletes the database and the Go caches, so the next start seeds from
+scratch. If you started an overlay with `-f`, pass the same `-f` flags here
+too. The smoke check, `node smoke-check.mjs`, runs `down -v` before it starts,
+so running it wipes your dev data as well.
 
-## Air — Go Hot-Reload
+## Removing the Old Stack
 
-Go source changes trigger an automatic rebuild and restart of the backend. The UI directory is excluded from file watching.
+The old stack that this one replaced left its containers and volumes behind.
+This removes them once:
 
-## Delve — Remote Debugging
-
-Connect your IDE debugger to `localhost:2345` (DAP / Delve API v2). The application starts immediately — attach a debugger at any time without restarting.
-
-## Vite — React HMR
-
-The UI container runs the Vite dev server with hot module replacement. Source changes in `ui/sensor_hub_ui/src/` are reflected immediately in the browser at **localhost:3000**.
-
-## Mock Sensors
-
-The dev stack includes mock sensors for both data collection models.
-
-### HTTP Sensors (Pull Model)
-
-Two Python Flask containers (`mock-sensor-downstairs`, `mock-sensor-upstairs`)
-simulate HTTP temperature sensors. Each returns random temperature readings on
-port 5000 inside the container, exposed as ports 5001 and 5002 on the host.
-Register them in the Sensor Hub UI to test the full pull-based pipeline.
-
-### MQTT Sensor (Push Model)
-
-The `mock-mqtt-sensor` container simulates three Zigbee2MQTT devices that
-publish to the embedded MQTT broker inside sensor-hub every 5 seconds:
-
-Values drift randomly within realistic ranges. The container also publishes a
-retained `zigbee2mqtt/bridge/devices` message so Sensor Hub can discover device
-metadata and controllable capabilities, and the `office-plug` device accepts
-`zigbee2mqtt/office-plug/set` commands for manual control testing.
-
-#### Setting Up MQTT Ingest
-
-The mock sensor starts publishing immediately, but Sensor Hub won't process
-the messages until you create a broker record and subscription. After the
-stack is running:
-
-**1. Log in and create a broker record pointing at the embedded broker:**
-
-**2. Create a subscription that routes zigbee2mqtt topics to the driver:**
-
-**3. Check that devices were auto-discovered as pending sensors:**
-
-You should see some sensors listed as pending. Approve them to start recording readings.
-
-Once the `office-plug` sensor is approved, it can be used with the Sensor Toggle
-dashboard widget or the command API for end-to-end local actuator testing.
+```bash
+docker ps -aq --filter label=com.docker.compose.project=docker_tests | xargs -r docker rm -f
+docker volume ls -q --filter name=^docker_tests_ | xargs -r docker volume rm
+```

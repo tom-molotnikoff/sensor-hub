@@ -70,7 +70,11 @@ npm install
 npm run dev
 ```
 
-The Vite dev server starts on port 5173. See [Docker Dev Environment](docker-dev-environment.md) for the required environment variables.
+The Vite dev server starts on port 5173. To point it at a hub on port 8080, set
+`VITE_API_BASE=http://localhost:8080/api` and
+`VITE_WEBSOCKET_BASE=ws://localhost:8080/api` for Vite, and
+`SENSOR_HUB_ALLOWED_ORIGIN=http://localhost:5173` for the hub. The
+[Docker Dev Environment](docker-dev-environment.md) runs both for you.
 
 ## Building Packages
 
