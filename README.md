@@ -75,11 +75,14 @@ After that you can just ask it to check sensors, build dashboards or set up aler
 
 ## Hacking on it
 
-The whole dev stack, with fake sensors, hot reload and Delve for debugging, runs from one Compose file:
+The dev stack, with fake sensors, seeded logins and hot reload, runs from one folder:
 
 ```bash
-docker compose -f sensor_hub/docker_tests/docker-compose.yml up --build
+cd sensor_hub/devstack
+docker compose up --build --watch
 ```
+
+Grafana and Delve are opt-in overlays. The logins, ports and overlays are in the [dev environment docs](docs/docs/development/docker-dev-environment.md).
 
 A few other handy bits:
 
