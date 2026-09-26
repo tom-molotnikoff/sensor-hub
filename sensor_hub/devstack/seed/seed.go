@@ -37,47 +37,58 @@ func (e *stepError) Unwrap() error {
 }
 
 type seeder struct {
-	db        *database.Handles
-	users     service.UserServiceInterface
-	apiKeys   service.ApiKeyServiceInterface
-	sensors   service.SensorServiceInterface
-	mqtt      service.MQTTServiceInterface
-	httpMocks []httpMock
-	logger    *slog.Logger
+	db            *database.Handles
+	users         service.UserServiceInterface
+	apiKeys       service.ApiKeyServiceInterface
+	sensors       service.SensorServiceInterface
+	mqtt          service.MQTTServiceInterface
+	alerts        service.AlertManagementServiceInterface
+	notifications service.NotificationServiceInterface
+	httpMocks     []httpMock
+	window        time.Duration
+	logger        *slog.Logger
 }
 
-func seed(ctx context.Context, db *database.Handles, logger *slog.Logger, httpMocks []httpMock) (string, error) {
+func seed(ctx context.Context, db *database.Handles, logger *slog.Logger, httpMocks []httpMock, window time.Duration) (string, error) {
 	userRepo := database.NewUserRepository(db, logger)
 	sensorRepo := database.NewSensorRepository(db, logger)
 	measurementTypes := database.NewMeasurementTypeRepository(db, logger)
 	readingsRepo := database.NewReadingsRepository(db, sensorRepo, measurementTypes, logger)
 	s := &seeder{
-		db:        db,
-		users:     service.NewUserService(userRepo, nil, logger),
-		apiKeys:   service.NewApiKeyService(database.NewApiKeyRepository(db, logger), userRepo, database.NewRoleRepository(db, logger), logger),
-		sensors:   service.NewSensorService(sensorRepo, readingsRepo, measurementTypes, nil, nil, nil, logger),
-		mqtt:      service.NewMQTTService(database.NewMQTTBrokerRepository(db, logger), database.NewMQTTSubscriptionRepository(db, logger), logger),
-		httpMocks: httpMocks,
-		logger:    logger,
+		db:            db,
+		users:         service.NewUserService(userRepo, nil, logger),
+		apiKeys:       service.NewApiKeyService(database.NewApiKeyRepository(db, logger), userRepo, database.NewRoleRepository(db, logger), logger),
+		sensors:       service.NewSensorService(sensorRepo, readingsRepo, measurementTypes, nil, nil, nil, logger),
+		mqtt:          service.NewMQTTService(database.NewMQTTBrokerRepository(db, logger), database.NewMQTTSubscriptionRepository(db, logger), logger),
+		alerts:        service.NewAlertManagementService(database.NewAlertRepository(db, logger), nil, logger),
+		notifications: service.NewNotificationService(database.NewNotificationRepository(db, logger), nil, logger),
+		httpMocks:     httpMocks,
+		window:        window,
+		logger:        logger,
 	}
 
 	marker, err := loadMarker(ctx, db.Writer)
 	if err != nil {
 		return "", &stepError{step: "read the marker", err: err}
 	}
+	apiKey := marker.adminAPIKey
 	if marker.seeded {
 		logger.Info("entities were seeded before, leaving them as they are")
-		active, err := s.adminKeyIsActive(ctx, marker.adminAPIKey)
-		if err != nil {
-			return "", &stepError{step: "check the admin API key", err: err}
-		}
-		if !active {
-			logger.Warn("the seeded admin API key was revoked, expired or deleted, run down -v for a fresh one")
-			return "", nil
-		}
-		return marker.adminAPIKey, nil
+	} else if apiKey, err = s.createEntities(ctx); err != nil {
+		return "", err
 	}
-	return s.createEntities(ctx)
+	if err := s.topUpHistory(ctx, time.Now().UTC().Truncate(time.Second)); err != nil {
+		return "", &stepError{step: "top up the history", err: err}
+	}
+	active, err := s.adminKeyIsActive(ctx, apiKey)
+	if err != nil {
+		return "", &stepError{step: "check the admin API key", err: err}
+	}
+	if !active {
+		logger.Warn("the seeded admin API key was revoked, expired or deleted, run down -v for a fresh one")
+		return "", nil
+	}
+	return apiKey, nil
 }
 
 func (s *seeder) adminKeyIsActive(ctx context.Context, apiKey string) (bool, error) {
@@ -115,8 +126,15 @@ func (s *seeder) createEntities(ctx context.Context) (string, error) {
 	if err := s.createMQTTSubscription(ctx); err != nil {
 		return "", &stepError{step: "create the MQTT subscription", err: err}
 	}
-	if err := s.createSensors(ctx); err != nil {
+	sensorIDs, err := s.createSensors(ctx)
+	if err != nil {
 		return "", &stepError{step: "create the sensors", err: err}
+	}
+	if err := s.createAlertRules(ctx, sensorIDs); err != nil {
+		return "", &stepError{step: "create the alert rules", err: err}
+	}
+	if err := s.createNotifications(ctx, userIDs); err != nil {
+		return "", &stepError{step: "create the notifications", err: err}
 	}
 	if err := writeMarker(ctx, s.db.Writer, apiKey); err != nil {
 		return "", &stepError{step: "write the marker", err: err}

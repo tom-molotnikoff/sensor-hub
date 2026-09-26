@@ -25,6 +25,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const testWindow = 2 * time.Hour
+
 func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
@@ -65,7 +67,12 @@ func startTemperatureServer(t *testing.T, unavailableFor int) *httptest.Server {
 
 func runSeed(t *testing.T, db *database.Handles) string {
 	t.Helper()
-	apiKey, err := seed(context.Background(), db, discardLogger(), testHTTPMocks(t))
+	return runSeedOver(t, db, testWindow)
+}
+
+func runSeedOver(t *testing.T, db *database.Handles, window time.Duration) string {
+	t.Helper()
+	apiKey, err := seed(context.Background(), db, discardLogger(), testHTTPMocks(t), window)
 	require.NoError(t, err)
 	return apiKey
 }
@@ -78,7 +85,7 @@ func newSensorService(db *database.Handles) *service.SensorService {
 }
 
 type entityCounts struct {
-	users, apiKeys, sensors, subscriptions, markers int
+	users, apiKeys, sensors, subscriptions, alertRules, notifications, markers int
 }
 
 var fullySeeded = entityCounts{
@@ -86,6 +93,8 @@ var fullySeeded = entityCounts{
 	apiKeys:       1,
 	sensors:       len(mqttDevices) + len(composeHTTPMocks),
 	subscriptions: 1,
+	alertRules:    len(seededRules),
+	notifications: len(seededNotifications),
 	markers:       1,
 }
 
@@ -96,6 +105,8 @@ func countEntities(t *testing.T, db *database.Handles) entityCounts {
 	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM api_keys").Scan(&counts.apiKeys))
 	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM sensors").Scan(&counts.sensors))
 	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM mqtt_subscriptions").Scan(&counts.subscriptions))
+	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM sensor_alert_rules").Scan(&counts.alertRules))
+	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM notifications").Scan(&counts.notifications))
 	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM devseed_metadata WHERE name = ?", markerSeededAt).Scan(&counts.markers))
 	return counts
 }
@@ -174,7 +185,7 @@ func TestSeed_FailedStepIsNamedAndARerunFinishesWithoutDuplicates(t *testing.T) 
 		CREATE TRIGGER fail_marker BEFORE INSERT ON devseed_metadata BEGIN SELECT RAISE(ABORT, 'injected failure'); END;`)
 	require.NoError(t, err)
 
-	_, err = seed(context.Background(), db, discardLogger(), testHTTPMocks(t))
+	_, err = seed(context.Background(), db, discardLogger(), testHTTPMocks(t), testWindow)
 
 	var failed *stepError
 	require.ErrorAs(t, err, &failed)
@@ -220,11 +231,11 @@ func TestSeed_FirstRunApprovesEveryMockSensor(t *testing.T) {
 	db := openTempDatabase(t)
 	mocks := testHTTPMocks(t)
 
-	_, err := seed(context.Background(), db, discardLogger(), mocks)
+	_, err := seed(context.Background(), db, discardLogger(), mocks, testWindow)
 
 	require.NoError(t, err)
 	sensors := newSensorService(db)
-	for _, want := range (&seeder{httpMocks: mocks}).devSensors() {
+	for _, want := range (&seeder{httpMocks: mocks}).devices() {
 		sensor, err := sensors.ServiceGetSensorByName(context.Background(), want.Name)
 		require.NoError(t, err)
 		require.NotNil(t, sensor, want.Name)
@@ -323,7 +334,7 @@ func TestSeed_WaitsForAnHTTPMockThatIsStillStarting(t *testing.T) {
 	mocks := testHTTPMocks(t)
 	mocks[0].url = startTemperatureServer(t, 3).URL
 
-	_, err := seed(context.Background(), db, discardLogger(), mocks)
+	_, err := seed(context.Background(), db, discardLogger(), mocks, testWindow)
 
 	require.NoError(t, err)
 	assert.Equal(t, fullySeeded, countEntities(t, db))
