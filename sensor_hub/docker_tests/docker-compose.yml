@@ -40,9 +40,11 @@ services:
       VITE_WEBSOCKET_BASE: "ws://localhost:8080/api"
       BACKEND_URL: "http://sensor-hub:8080"
   mock-sensor-downstairs:
+    image: docker_tests-mocks
     build:
-      context: .
-      dockerfile: mock-sensor.dockerfile
+      context: ../devstack
+      dockerfile: dockerfiles/mocks.dockerfile
+    command: ["python", "http_sensor.py"]
     ports:
       - "5001:5000"
     depends_on:
@@ -51,9 +53,11 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-lgtm:4317
       OTEL_SERVICE_NAME: mock-sensor-downstairs
   mock-sensor-upstairs:
+    image: docker_tests-mocks
     build:
-      context: .
-      dockerfile: mock-sensor.dockerfile
+      context: ../devstack
+      dockerfile: dockerfiles/mocks.dockerfile
+    command: ["python", "http_sensor.py"]
     ports:
       - "5002:5000"
     depends_on:
@@ -62,9 +66,11 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-lgtm:4317
       OTEL_SERVICE_NAME: mock-sensor-upstairs
   mock-mqtt-sensor:
+    image: docker_tests-mocks
     build:
-      context: .
-      dockerfile: mock-mqtt-sensor.dockerfile
+      context: ../devstack
+      dockerfile: dockerfiles/mocks.dockerfile
+    command: ["python", "mqtt_devices.py"]
     depends_on:
       - sensor-hub
     environment:

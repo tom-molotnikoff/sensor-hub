@@ -3,13 +3,18 @@
 package testharness
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
 
+	"github.com/moby/go-archive"
+	"github.com/moby/moby/api/types/build"
+	"github.com/moby/moby/client"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -42,7 +47,10 @@ func StartMockSensorsForMain(ctx context.Context, n int) ([]MockSensor, func(), 
 }
 
 func startMockSensors(ctx context.Context, n int) ([]MockSensor, func(), error) {
-	dockerCtx := dockerContextPath()
+	buildContext, err := mocksBuildContext()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to archive mocks build context: %w", err)
+	}
 
 	sensors := make([]MockSensor, 0, n)
 	var containers []testcontainers.Container
@@ -54,11 +62,17 @@ func startMockSensors(ctx context.Context, n int) ([]MockSensor, func(), error) 
 	}
 
 	for i := 0; i < n; i++ {
+		contextArchive := bytes.NewReader(buildContext)
 		req := testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
-				Context:    dockerCtx,
-				Dockerfile: "mock-sensor.dockerfile",
+				ContextArchive: contextArchive,
+				Dockerfile:     "dockerfiles/mocks.dockerfile",
+				BuildOptionsModifier: func(opts *client.ImageBuildOptions) {
+					opts.Version = build.BuilderBuildKit
+					contextArchive.Reset(buildContext)
+				},
 			},
+			Cmd:          []string{"python", "http_sensor.py"},
 			ExposedPorts: []string{"5000/tcp"},
 			WaitingFor:   wait.ForHTTP("/temperature").WithPort("5000/tcp").WithStartupTimeout(60 * time.Second),
 		}
@@ -90,9 +104,13 @@ func startMockSensors(ctx context.Context, n int) ([]MockSensor, func(), error) 
 	return sensors, cleanup, nil
 }
 
-// dockerContextPath returns the absolute path to the docker_tests directory,
-// resolved relative to this source file so it works regardless of working directory.
-func dockerContextPath() string {
+func mocksBuildContext() ([]byte, error) {
 	_, thisFile, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(thisFile), "..", "docker_tests")
+	devstack := filepath.Join(filepath.Dir(thisFile), "..", "devstack")
+	tarball, err := archive.TarWithOptions(devstack, &archive.TarOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer tarball.Close()
+	return io.ReadAll(tarball)
 }

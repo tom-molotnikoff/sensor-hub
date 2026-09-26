@@ -9,6 +9,9 @@ require (
 	github.com/gin-contrib/gzip v1.2.7
 	github.com/golang-migrate/migrate/v4 v4.20.1
 	github.com/gorilla/websocket v1.5.3
+	github.com/moby/go-archive v0.2.0
+	github.com/moby/moby/api v1.55.0
+	github.com/moby/moby/client v0.5.0
 	github.com/mochi-mqtt/server/v2 v2.7.9
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/prometheus/client_golang v1.24.1
@@ -69,9 +72,6 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
-	github.com/moby/go-archive v0.2.0 // indirect
-	github.com/moby/moby/api v1.55.0 // indirect
-	github.com/moby/moby/client v0.5.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/sequential v0.7.0 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect
