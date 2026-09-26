@@ -1,0 +1,5 @@
+services:
+  sensor-hub:
+    command: ["air", "-c", "devstack/air.delve.toml"]
+    ports:
+      - "2345:2345"

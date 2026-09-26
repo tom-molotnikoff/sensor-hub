@@ -1,0 +1,8 @@
+root = "/app"
+tmp_dir = "tmp"
+
+[build]
+cmd = "true"
+entrypoint = ["dlv", "debug", "--headless", "--continue", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--output", "./tmp/debug", "--", "serve"]
+delay = 100
+exclude_dir = ["ui", "web/docs", "tmp", "data", "devstack"]
