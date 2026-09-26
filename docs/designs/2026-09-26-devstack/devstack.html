@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="luxury">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev stack tidy-up: design interview</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/themes.css">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :where(.grid, .flex) > * { min-width: 0; }
+  :where(p, h1, h2, h3, h4, li, dd, td, th, .badge, label) { overflow-wrap: anywhere; }
+  :where(img, svg) { max-width: 100%; height: auto; }
+  .mono, code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code { font-size: .88em; background: var(--color-base-300); padding: .05em .35em; border-radius: .3em; }
+  pre code { background: none; padding: 0; }
+  .opt { display: flex; gap: .75rem; align-items: flex-start; padding: .8rem 1rem; border-radius: .75rem; border: 1px solid color-mix(in oklab, var(--color-base-content) 12%, transparent); cursor: pointer; }
+  .opt:has(input:checked) { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
+  .opt input { margin-top: .25rem; }
+  .rec { color: var(--color-success); font-weight: 600; font-size: .8rem; margin-left: .35rem; }
+  svg text { fill: currentColor; font-family: ui-sans-serif, system-ui, sans-serif; }
+</style>
+</head>
+<body class="bg-base-200 text-base-content">
+<main class="mx-auto max-w-5xl p-5 lg:p-10 flex flex-col gap-10">
+
+<header class="flex flex-col gap-3">
+  <div class="flex flex-wrap gap-2">
+    <span class="badge badge-primary badge-soft">Design interview</span>
+    <span class="badge badge-success">Design agreed 2026-09-26</span>
+    <span class="badge badge-ghost">sensor_hub/docker_tests</span>
+  </div>
+  <h1 class="text-3xl lg:text-4xl font-bold leading-tight">Dev stack tidy-up: faster builds, optional extras, seeded from the start</h1>
+  <p class="text-base-content/75 max-w-3xl">
+    What I understood you to want, in its strongest form: <b>one self-contained, well-named folder that owns everything the local
+    Docker stack needs, which builds quickly on repeat runs, starts lean by default (no Grafana, no Delve), and opens on a
+    Sensor Hub that already looks lived-in</b> - sensors reporting, history on the charts, dashboards laid out, alerts that have fired,
+    several users - with the Copilot skill that described the old stack gone.
+  </p>
+  <p class="text-base-content/60 text-sm">Each question has a <b>Queue answer</b> button. Pick, add a note if you like, queue, then press Send to Agent when you've done as many as you want. Settled answers stay on this page, marked as agreed.</p>
+</header>
+
+<!-- DISAGREEMENTS FIRST -->
+<section class="flex flex-col gap-4">
+  <h2 class="text-2xl font-bold">Where I disagree before we start</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div class="card card-border bg-base-100"><div class="card-body gap-2">
+      <span class="badge badge-warning badge-soft">"only used by this"</span>
+      <p class="text-sm">Not quite. <code>mock-sensor.dockerfile</code> is also built by the <b>integration tests</b> (<code>testharness/containers.go:97</code> resolves <code>../docker_tests</code>). Moving it is still right - the test path just has to move with it.</p>
+      <p class="text-sm">And two of the "dotted around" files aren't used by <i>anything</i>: <code>ui/sensor_hub_ui/sensor-hub-ui.dockerfile</code> (nginx production image) plus <code>nginx/default.conf</code> and <code>nginx.conf</code> are leftovers from before the UI was embedded in the Go binary (<code>ccab49f</code>). They should be <b>deleted</b>, not moved.</p>
+    </div></div>
+    <div class="card card-border bg-base-100"><div class="card-body gap-2">
+      <span class="badge badge-warning badge-soft">"no build cache"</span>
+      <p class="text-sm">There <i>is</i> a layer cache - the Dockerfiles defeat it. <code>sensor-hub.dockerfile</code> does <code>COPY . ./</code> <i>before</i> <code>go mod download</code> and before installing air and dlv, so any source change re-downloads modules and recompiles both tools. The UI test image does <code>COPY . .</code> before <code>npm install</code>.</p>
+      <p class="text-sm">The deeper point: source is <b>bind-mounted</b> over <code>/app</code> anyway, so the images shouldn't contain source at all.</p>
+    </div></div>
+    <div class="card card-border bg-base-100"><div class="card-body gap-2">
+      <span class="badge badge-warning badge-soft">the slow part may not be the build</span>
+      <p class="text-sm">There's no <code>.dockerignore</code>, so the Go image's context is <b>744&nbsp;MB</b> - 665&nbsp;MB of it <code>ui/node_modules</code> - shipped to the daemon on every build.</p>
+      <p class="text-sm">But Go's own compile cache lives inside the container and dies with it, so every recreate makes air do a <b>cold debug compile of the whole dependency graph</b>. If that's where your time goes, a persistent <code>GOCACHE</code> volume and Delve-off-by-default will matter more than any Dockerfile change.</p>
+    </div></div>
+  </div>
+</section>
+
+<!-- CURRENT STATE -->
+<section class="flex flex-col gap-4">
+  <h2 class="text-2xl font-bold">What's there today, and what's wrong with it</h2>
+  <div class="overflow-x-auto rounded-box border border-base-content/10 bg-base-100">
+    <table class="table table-sm">
+      <thead><tr><th>Finding</th><th>Evidence</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td>No <code>.dockerignore</code> anywhere</td><td><code>du</code>: sensor_hub = 744 MB, node_modules = 665 MB</td><td>Huge context transfer on every Go image build</td></tr>
+        <tr><td>Source copied before deps and tools</td><td><code>docker_tests/sensor-hub.dockerfile</code>, <code>sensor-hub-ui-test.dockerfile</code></td><td>Any edit invalidates <code>go mod download</code>, air + dlv installs, <code>npm install</code></td></tr>
+        <tr><td>Go build cache not persisted</td><td>No volume for <code>/root/.cache/go-build</code></td><td>Cold compile after every <code>down</code>/recreate</td></tr>
+        <tr><td>Always a debug build</td><td><code>air.toml</code> runs <code>dlv debug</code></td><td>Unoptimised binary; Delve always on</td></tr>
+        <tr><td>Grafana always on</td><td><code>depends_on: grafana-lgtm</code> on three services</td><td>Heavy container you rarely need</td></tr>
+        <tr><td>air writes into the host tree as root</td><td><code>sensor_hub/tmp/main</code>, 61 MB, owned by root</td><td>Root-owned files in your checkout</td></tr>
+        <tr><td>HMR polling vars do nothing</td><td><code>HMR_POLLING</code> isn't read by <code>vite.config.ts</code></td><td>Dead config; explains the skill's "always <code>touch</code> the file" advice?</td></tr>
+        <tr><td>Anonymous <code>node_modules</code> volume</td><td><code>- /app/node_modules</code> in compose</td><td>Goes stale when <code>package-lock.json</code> changes</td></tr>
+        <tr><td>Two near-identical Python images</td><td><code>mock-sensor</code> + <code>mock-mqtt-sensor</code>; <code>paho-mqtt</code> unpinned and invisible to dependabot</td><td>Duplication, unpinned dep</td></tr>
+        <tr><td>MQTT ingest needs manual setup</td><td>Docs walk through creating a subscription and approving sensors by hand</td><td>Stack isn't ready from the get-go</td></tr>
+        <tr><td>Stale names</td><td><code>openapi.yaml.location=./docker_tests/openapi.yaml</code> (file doesn't exist); dependabot path; README; docs page; old <code>docker_tests_mysql-data</code> volume</td><td>Rename touches these</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="text-sm text-base-content/70">Reusable pieces already in the repo: <code>testharness/seed</code> generates a SQLite file with sensors and bulk readings (for perf tests), and <code>testharness/layout.go</code> has in-process fixtures for dashboards, alerts, notifications, users and MQTT (for the Playwright layout tests).</p>
+</section>
+
+<!-- DECISIONS -->
+<section class="flex flex-col gap-6" id="decisions">
+  <h2 class="text-2xl font-bold">Decisions</h2>
+
+  <!-- D1 -->
+  <form class="card card-border bg-base-100" data-lavish-question="D1-folder">
+    <div class="card-body gap-3">
+      <h3 class="card-title">D1 · What is the folder called, and where does it live?<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <div role="alert" class="alert alert-soft alert-success text-sm py-2">Also agreed: delete the nginx production UI image and its configs.</div>
+      <p class="text-sm text-base-content/70">It stays under <code>sensor_hub/</code> either way: the Go build and the UI both sit there, and the integration tests reach into it for the mock sensor image. I'd also pin <code>name:</code> in the compose file so volumes and container names stop depending on the folder name, and rename <code>docker-compose.yml</code> to <code>compose.yaml</code> so <code>docker compose up</code> works from inside the folder without <code>-f</code>.</p>
+      <label class="opt"><input type="radio" name="a" value="sensor_hub/devstack/" checked><span><b class="mono">sensor_hub/devstack/</b><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">Says what it is. Unique enough to search for, and doesn't clash with <code>docs/docs/development/</code>.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="sensor_hub/dev/"><span><b class="mono">sensor_hub/dev/</b><br><span class="text-sm text-base-content/70">Shorter; "dev" is generic and harder to search for.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="sensor_hub/local/"><span><b class="mono">sensor_hub/local/</b><br><span class="text-sm text-base-content/70">Emphasises "runs on your machine"; says less about what's inside.</span></span></label>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note or another name"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- D2 -->
+  <form class="card card-border bg-base-100" data-lavish-question="D2-toggles">
+    <div class="card-body gap-3">
+      <h3 class="card-title">D2 · How do you switch Grafana and Delve on?<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <p class="text-sm text-base-content/70">Compose profiles can switch the Grafana <i>container</i> on and off, but not the OTEL env vars on the other services, and Delve isn't a separate container at all - it changes how air builds. Telemetry export only starts when <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> is set (<code>telemetry/telemetry.go:39</code>), so "Grafana off" has to mean "that var isn't set".</p>
+      <label class="opt"><input type="radio" name="a" value="Overlay files, one per feature, opted into via a git-ignored .env (COMPOSE_FILE=...)" checked><span><b>Overlay files</b> <code>compose.grafana.yaml</code>, <code>compose.delve.yaml</code><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">Each file brings everything its feature needs (the container, the env vars, the port, the air config). Use once with <code>-f</code>, or keep it on by setting <code>COMPOSE_FILE</code> in a git-ignored <code>.env</code>, after which a plain <code>docker compose up</code> includes it. Plain Compose, nothing custom.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="Wrapper script (./devstack up --grafana --delve)"><span><b>Wrapper script</b> <code>./devstack up --grafana --delve</code><br><span class="text-sm text-base-content/70">Easiest to discover, but it's custom tooling to maintain, and people will call <code>docker compose</code> directly anyway.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="Profiles plus env vars"><span><b>Profiles + env vars</b> (<code>COMPOSE_PROFILES=grafana</code> plus <code>OTEL_ENDPOINT=...</code>, <code>DELVE=1</code>)<br><span class="text-sm text-base-content/70">Two or three switches to turn on one feature, and they can disagree with each other.</span></span></label>
+      <div class="divider my-0 text-xs">default when you just run <code>docker compose up</code></div>
+      <label class="opt"><input type="radio" name="d" value="both off by default" checked><span><b>Both off</b><span class="rec">Recommended</span> - lean and fast; opt in when you need them.</span></label>
+      <label class="opt"><input type="radio" name="d" value="Delve on, Grafana off by default"><span>Delve on, Grafana off</span></label>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- D3 -->
+  <form class="card card-border bg-base-100" data-lavish-question="D3-sync">
+    <div class="card-body gap-3">
+      <h3 class="card-title">D3 · How does code get into the containers?<span class="badge badge-success badge-soft ml-2">Agreed: Compose Watch</span></h3>
+      <div role="alert" class="alert alert-soft alert-success text-sm py-2">Your note: <i>"i always see missed reloads of both go and react. is tilt a better solution here?"</i> - answered in R2-1.</div>
+      <p class="text-sm text-base-content/70">This decides several items in the table above. The Copilot skill says to <i>"always <code>touch</code> the file after editing"</i> because HMR sometimes doesn't fire, which suggests file-change events don't reliably get through the bind mount. <b>Only you know whether that still happens.</b></p>
+      <label class="opt"><input type="radio" name="a" value="Keep bind mounts, fix the specific problems"><span><b>Keep bind mounts, fix the specific problems</b><span class="rec">Recommended if HMR is reliable for you</span><br><span class="text-sm text-base-content/70">Images hold only tools and dependencies, no source. Go module and build caches get named volumes. air's <code>tmp</code> moves into a volume (no more root-owned files in your checkout). Either make <code>HMR_POLLING</code> actually work or delete it. <code>node_modules</code> gets reinstalled when the lockfile changes. <code>docker compose up</code> keeps behaving the way it does now.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="Compose Watch (docker compose up --watch)" checked><span><b>Compose Watch</b> (<code>docker compose up --watch</code>)<span class="rec">Recommended if you do hit missed reloads</span><br><span class="text-sm text-base-content/70">Compose copies changed files into the container itself, so the native watchers see them: no polling, no <code>touch</code>, nothing written back to your tree. It rebuilds the image automatically when <code>package-lock.json</code> or <code>go.mod</code> changes. The catch: run <code>up</code> without <code>--watch</code> and you get a container that silently never picks up your edits.</span></span></label>
+      <fieldset class="flex flex-wrap gap-4 text-sm"><legend class="text-sm font-semibold mb-1">Do you still see HMR or air miss edits?</legend>
+        <label class="flex gap-2 items-center"><input type="radio" name="hmr" value="yes, regularly" checked> Yes, regularly</label>
+        <label class="flex gap-2 items-center"><input type="radio" name="hmr" value="occasionally"> Occasionally</label>
+        <label class="flex gap-2 items-center"><input type="radio" name="hmr" value="no, it's reliable"> No, it's reliable</label>
+      </fieldset>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- D4 seed mechanism -->
+  <form class="card card-border bg-base-100" data-lavish-question="D4-seed-mechanism">
+    <div class="card-body gap-3">
+      <h3 class="card-title">D4 · How is the seed data written?<span class="badge badge-success badge-soft ml-2">Agreed</span> <span class="badge badge-success badge-soft ml-1">lifecycle agreed in R2-2</span></h3>
+      <div role="alert" class="alert alert-soft alert-success text-sm py-2">Your note: <i>"if the seed has already run and then the stack is down for a period of time, there will be a big gap in the readings data on the next startup... the seed should make sure that there's data in a trailing window behind the current date/time... and it shouldn't duplicate data if run twice in quick succession."</i> This changes when the seed runs - see R2-2.</div>
+      <p class="text-sm text-base-content/70">A constraint that rules out the obvious approach: the API has <b>no endpoint for writing readings</b> (readings only come in from sensors), so historical readings have to go straight into the database. The question is how everything <i>else</i> gets written.</p>
+      <svg viewBox="0 0 760 170" width="100%" role="img" aria-label="Seed flow">
+        <title>Recommended seed flow</title>
+        <g id="seed-svc"><title>One-shot seed service</title><rect x="10" y="50" width="170" height="70" rx="10" fill="none" stroke="currentColor" stroke-opacity=".5"/><text x="95" y="80" text-anchor="middle" font-weight="600">seed (one-shot)</text><text x="95" y="100" text-anchor="middle" font-size="12" opacity=".7">skips if DB exists</text></g>
+        <g id="volume"><title>Data volume</title><rect x="290" y="50" width="170" height="70" rx="10" fill="none" stroke="currentColor" stroke-opacity=".5"/><text x="375" y="80" text-anchor="middle" font-weight="600">sensor-hub-data</text><text x="375" y="100" text-anchor="middle" font-size="12" opacity=".7">SQLite volume</text></g>
+        <g id="hub"><title>sensor-hub</title><rect x="570" y="50" width="170" height="70" rx="10" fill="none" stroke="currentColor" stroke-opacity=".5"/><text x="655" y="80" text-anchor="middle" font-weight="600">sensor-hub</text><text x="655" y="100" text-anchor="middle" font-size="12" opacity=".7">starts when seed exits 0</text></g>
+        <line x1="180" y1="85" x2="288" y2="85" stroke="currentColor" stroke-opacity=".6" marker-end="url(#ar)"/>
+        <line x1="460" y1="85" x2="568" y2="85" stroke="currentColor" stroke-opacity=".6" marker-end="url(#ar)"/>
+        <text x="234" y="72" text-anchor="middle" font-size="11" opacity=".7">services + bulk SQL</text>
+        <text x="514" y="72" text-anchor="middle" font-size="11" opacity=".7">opens</text>
+        <text x="655" y="150" text-anchor="middle" font-size="11" opacity=".7">mocks keep readings flowing live</text>
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" fill-opacity=".6"/></marker></defs>
+      </svg>
+      <label class="opt"><input type="radio" name="a" value="Go one-shot seed service: service layer in-process for entities, bulk SQL for readings history" checked><span><b>Go one-shot <code>seed</code> service</b><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">Runs the migrations, creates users, sensors, alerts, dashboards and the MQTT subscription through the real <b>service layer</b> in-process (the same way <code>testharness/layout.go</code> does, so validation applies and schema changes break it at compile time), then bulk-inserts readings history the way <code>testharness/seed</code> already does. Compose waits for it to finish (<code>service_completed_successfully</code>). Deterministic and works offline.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="API-driven seeder container after the server is healthy (plus SQL for readings)"><span><b>Seeder that talks to the running server's API</b><br><span class="text-sm text-base-content/70">Goes through the public contract end to end. Still needs direct SQL for readings, so it's two mechanisms, and it has to be sequenced against a live server.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="Checked-in SQLite snapshot"><span><b>Checked-in SQLite snapshot</b><br><span class="text-sm text-base-content/70">Quickest to start, but it goes stale with every migration and its timestamps age. Not recommended.</span></span></label>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- D5 seed shape -->
+  <form class="card card-border bg-base-100" data-lavish-question="D5-seed-shape">
+    <div class="card-body gap-3">
+      <h3 class="card-title">D5 · What should the seeded sensors and readings look like?<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <div role="alert" class="alert alert-soft alert-info text-sm py-2">The "when does it seed" answer was superseded by R2-2: entities are created once, and readings, health history and alert history are topped up on every <code>up</code>.</div>
+      <fieldset class="flex flex-col gap-2"><legend class="font-semibold text-sm mb-1">Which sensors</legend>
+        <label class="opt"><input type="radio" name="sensors" value="Every seeded sensor is live: extend the MQTT mock to ~8 devices, keep 2 HTTP mocks, all pre-approved and backfilled" checked><span><b>Every seeded sensor is live</b><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">Extend the MQTT mock from 3 devices to about 8 (more rooms, a second door, a second plug) - one container, very cheap. Keep the two HTTP mocks. All of them are pre-registered and approved with backfilled history, so the charts run straight from past into live data with no dead sensors.</span></span></label>
+        <label class="opt"><input type="radio" name="sensors" value="Only today's 5 mock devices, pre-approved and backfilled"><span><b>Only today's 5 mock devices</b><br><span class="text-sm text-base-content/70">Smallest change, but the dashboards will look thin.</span></span></label>
+        <label class="opt"><input type="radio" name="sensors" value="Live mocks plus extra history-only sensors"><span><b>Live mocks plus extra history-only sensors</b><br><span class="text-sm text-base-content/70">More volume, but those extras go unhealthy as soon as the stack starts, because nothing feeds them.</span></span></label>
+      </fieldset>
+      <fieldset class="flex flex-wrap gap-4 text-sm"><legend class="font-semibold text-sm mb-1">How much history</legend>
+        <label class="flex gap-2 items-center"><input type="radio" name="days" value="7 days"> 7 days</label>
+        <label class="flex gap-2 items-center"><input type="radio" name="days" value="30 days" checked> 30 days <span class="rec">Recommended</span></label>
+        <label class="flex gap-2 items-center"><input type="radio" name="days" value="90 days"> 90 days</label>
+      </fieldset>
+      <p class="text-xs text-base-content/60">30 days covers every aggregation tier in the dev config up to P30D and should seed in seconds. The perf-test seed (5M readings over 90 days) stays as it is.</p>
+      <fieldset class="flex flex-col gap-2"><legend class="font-semibold text-sm mb-1">When does it seed</legend>
+        <label class="opt"><input type="radio" name="when" value="Once, only when the data volume is empty; reset with docker compose down -v" checked><span><b>Once, when the data volume is empty</b><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">Anything you change survives restarts. <code>docker compose down -v</code> gets you a fresh seed.</span></span></label>
+        <label class="opt"><input type="radio" name="when" value="Every start (wipe and reseed)"><span><b>Every start</b><br><span class="text-sm text-base-content/70">Always a known state, but anything you set up by hand is gone on restart.</span></span></label>
+      </fieldset>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- D6 seed contents -->
+  <form class="card card-border bg-base-100" data-lavish-question="D6-seed-contents">
+    <div class="card-body gap-3">
+      <h3 class="card-title">D6 · What exactly gets seeded? Untick anything you don't want<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="flex flex-col gap-2">
+          <h4 class="font-semibold">Users</h4>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="U1 admin/adminpassword (admin)" checked> <span><code>admin</code> / <code>adminpassword</code> - admin (as today)</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="U2 user/userpassword (user role)" checked> <span><code>user</code> / <code>userpassword</code> - user role</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="U3 viewer/viewerpassword (viewer role)" checked> <span><code>viewer</code> / <code>viewerpassword</code> - viewer role</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="U4 an API key for admin, printed in seed logs" checked> <span>An admin API key, printed in the seed logs (for the CLI and agents)</span></label>
+          <p class="text-xs text-base-content/60">No forced password change. Dev only.</p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <h4 class="font-semibold">Alerts</h4>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="A1 numeric_range rules on temperatures/humidity" checked> <span>Range rules on temperature and humidity</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="A2 status_based rule on a door contact" checked> <span>Status rule on a door contact</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="A3 alert fired history backfilled" checked> <span>Alert history that already fired in the past</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="A4 notifications (mix of read/unread)" checked> <span>Notifications, some read and some unread</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="A5 health history with a few unhealthy spells" checked> <span>Sensor health history with a few bad spells</span></label>
+        </div>
+        <div class="flex flex-col gap-2">
+          <h4 class="font-semibold">Dashboards</h4>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="B1 Home (default): current readings, gauges, alert summary, notifications feed, weather" checked> <span><b>Home</b> (default) - current readings, gauges, alert summary, notifications, weather</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="B2 Climate: readings charts, comparison, heatmap, min/max/avg, stats" checked> <span><b>Climate</b> - charts, comparison, heatmap, min/max/avg</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="B3 Devices: plug toggle, power chart, health timeline, uptime, pies, live table" checked> <span><b>Devices</b> - plug toggle, power, health timeline, uptime, pies, live table</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="B4 Every widget type appears at least once across the three" checked> <span>Every registered widget type appears at least once across them</span></label>
+          <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="B5 One dashboard shared with the viewer user" checked> <span>One of them shared with <code>viewer</code></span></label>
+        </div>
+      </div>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="M1 MQTT subscription for zigbee2mqtt/# created so ingest works with no manual steps" checked> <span><b>MQTT subscription</b> for <code>zigbee2mqtt/#</code>, so the manual setup steps disappear from the docs</span></label>
+      <textarea class="textarea w-full" name="note" placeholder="Anything to add - specific rooms, device names, a scenario you want to be able to reproduce?"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- D7 layout fixtures -->
+  <form class="card card-border bg-base-100" data-lavish-question="D7-fixtures">
+    <div class="card-body gap-3">
+      <h3 class="card-title">D7 · Should the dev seed and the layout-test fixtures be the same data?<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <p class="text-sm text-base-content/70"><code>testharness/layout.go</code> already builds dashboards, alerts, notifications and users for the Playwright layout tests. One dataset would mean what you see in dev is what the tests render. But those tests need <b>pinned, unchanging</b> data, while dev data should be realistic and will grow over time.</p>
+      <label class="opt"><input type="radio" name="a" value="Separate datasets, shared helpers" checked><span><b>Separate datasets, shared helpers</b><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">Pull the "create X through the service layer" helpers into one package that both use. Making the dev data richer never moves a layout baseline.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="One dataset for both"><span><b>One dataset for both</b><br><span class="text-sm text-base-content/70">A single source of truth, but every change to the dev seed risks breaking layout snapshots.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="Fully independent, no sharing"><span><b>Fully independent</b><br><span class="text-sm text-base-content/70">No coupling at all, but duplicated helper code.</span></span></label>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- D8 skill -->
+  <form class="card card-border bg-base-100" data-lavish-question="D8-skill-docs">
+    <div class="card-body gap-3">
+      <h3 class="card-title">D8 · Once the skill is removed, where do its useful facts live?<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <div role="alert" class="alert alert-soft alert-success text-sm py-2">Your note: <i>"keep the docs as a concise place for info, don't overdocument the specifics."</i></div>
+      <p class="text-sm text-base-content/70">Why the fence is there: <code>.copilot/skills/docker-dev-workflow</code> tells agents not to start or stop the stack, which ports go where, the login, how long air takes to rebuild, and to verify with playwright-cli. Most of that will be out of date after this work anyway (it still says Go 1.25). Delete it - but the facts that are still true need one home.</p>
+      <label class="opt"><input type="radio" name="a" value="Docs page is the single home; folder README just links to it" checked><span><b>The published docs page is the single home</b><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">Rewrite <code>docs/docs/development/docker-dev-environment.md</code>: start command, overlays, seeded logins, ports, reset. The folder gets a one-line README pointing to it, and the repo README's quick-start is updated.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="Folder README is the home; docs page links to it"><span><b>The folder README is the home</b><br><span class="text-sm text-base-content/70">Sits right next to the compose file, but isn't on the published docs site.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="Delete the skill and add nothing new"><span><b>Just delete the skill</b><br><span class="text-sm text-base-content/70">Update the existing docs page only as far as the rename requires.</span></span></label>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- D9 tidy batch -->
+  <form class="card card-border bg-base-100" data-lavish-question="D9-tidy">
+    <div class="card-body gap-3">
+      <h3 class="card-title">D9 · Tidy-ups: which ones are in scope?<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <div role="alert" class="alert alert-soft alert-success text-sm py-2">Your note on T8: <i>"i think i removed the file based sensor discovery ages ago anyway"</i> - it's still there, see R2-4.</div>
+      <p class="text-sm text-base-content/70">Ticked means in scope. Everything here came up while looking around.</p>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="T1 Delete dead nginx production UI image (sensor-hub-ui.dockerfile, nginx/default.conf, nginx.conf)" checked> <span><b>T1</b> Delete the dead nginx production UI image and its configs</span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="T2 One Python mocks image with a pinned requirements.txt (paho-mqtt included), current Python" checked> <span><b>T2</b> One Python mocks image instead of two, with <code>paho-mqtt</code> pinned in <code>requirements.txt</code>, on a current Python</span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="T3 .dockerignore / minimal build contexts for every image" checked> <span><b>T3</b> A <code>.dockerignore</code> or minimal build context for every image</span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="T4 BuildKit cache mounts for go install / npm / pip" checked> <span><b>T4</b> BuildKit cache mounts for <code>go install</code>, npm and pip</span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="T5 Healthchecks so dependants wait for readiness, not just container start" checked> <span><b>T5</b> Healthchecks, so services wait until their dependencies are <i>ready</i>, not just started</span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="T6 Update dependabot, README, docs, testharness path, CLAUDE.md-adjacent references" checked> <span><b>T6</b> Update every reference: dependabot, README, docs, <code>testharness/containers.go</code></span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="T7 Document cleanup of orphaned docker_tests_* volumes (incl. old mysql-data)" checked> <span><b>T7</b> Document how to remove the orphaned <code>docker_tests_*</code> volumes (including the old <code>mysql-data</code> one)</span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="T8 openapi.yaml.location default points at a non-existent docker_tests file - file a separate issue, don't touch here"> <span><b>T8</b> <code>openapi.yaml.location</code> points at <code>./docker_tests/openapi.yaml</code>, which doesn't exist. File-based sensor discovery is a separate feature - I'd <b>raise an issue</b> rather than change it here. Tick to deal with it in this work instead.</span></label>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- D10 success -->
+  <form class="card card-border bg-base-100" data-lavish-question="D10-success">
+    <div class="card-body gap-3">
+      <h3 class="card-title">D10 · Which waits are the ones that annoy you?<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <p class="text-sm text-base-content/70">I'll time each of these before and after, and they become the acceptance criteria. Tick the ones that actually annoy you, so I optimise those rather than guess.</p>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="L1 Cold: first docker compose up --build on a clean machine" checked> <span><b>L1</b> Cold start: the very first <code>up --build</code></span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="L2 Warm: up --build again with no dependency changes" checked> <span><b>L2</b> Warm start: <code>up --build</code> again with no dependency changes</span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="L3 down then up: time until API healthy" checked> <span><b>L3</b> <code>down</code> then <code>up</code>: time until the API answers</span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="L4 Go edit: time until API back after air rebuild" checked> <span><b>L4</b> Go edit: time until the API is back after air rebuilds</span></label>
+      <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="L5 Dependency change: go.mod or package-lock change picked up" checked> <span><b>L5</b> Dependency change: <code>go.mod</code> or <code>package-lock.json</code> picked up</span></label>
+      <textarea class="textarea w-full" name="note" placeholder="Rough numbers you see today, if you know them"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <form class="card card-border bg-base-100" data-lavish-question="D11-other">
+    <div class="card-body gap-3">
+      <h3 class="card-title">Anything I've missed?</h3>
+      <textarea class="textarea w-full" name="note" placeholder="Goals, constraints, things you don't want touched..."></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+</section>
+
+<!-- ROUND 2 -->
+<section class="flex flex-col gap-6" id="round2">
+  <div class="flex items-center gap-3"><h2 class="text-2xl font-bold">Round 2</h2><span class="badge badge-success badge-soft">All agreed</span></div>
+
+  <!-- R2-1 -->
+  <form class="card card-border bg-base-100" data-lavish-question="R2-1-sync">
+    <div class="card-body gap-3">
+      <h3 class="card-title">R2-1 · Tilt or Compose Watch?<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <div role="alert" class="alert alert-soft alert-warning text-sm"><span><b>Disagreement first:</b> Tilt wouldn't fix the missed reloads any better than Compose Watch does. They work the same way: watch files <i>on the host</i>, then copy the changed ones <i>into</i> the container, where air and Vite see an ordinary local write. So on the actual problem they're equal. They only differ in what else you get.</span></div>
+      <p class="text-sm text-base-content/70">One fact that makes this more interesting: your Docker context is <code>default</code>, which is <b>native Docker Engine on Fedora 44</b>, not Docker Desktop. The usual cause of missed reloads (file events not crossing Desktop's VM boundary) doesn't apply to you, and I haven't found the real cause. Copying files in avoids the problem whatever the cause turns out to be, which is why I'd switch rather than chase it.</p>
+      <div class="overflow-x-auto rounded-box border border-base-content/10">
+        <table class="table table-sm">
+          <thead><tr><th></th><th>Compose Watch</th><th>Tilt</th></tr></thead>
+          <tbody>
+            <tr><td>Install</td><td>Already there (Compose v5.3.1)</td><td>Another tool to install on every machine</td></tr>
+            <tr><td>Config</td><td>A <code>develop.watch</code> block in <code>compose.yaml</code></td><td>A separate <code>Tiltfile</code> (Starlark) that wraps the compose file</td></tr>
+            <tr><td>Grafana/Delve switches (D2)</td><td>Still just overlay files</td><td>The Tiltfile has to load the same overlays or re-implement them as Tilt args, so there are two ways to switch</td></tr>
+            <tr><td>Start</td><td><code>docker compose up --watch</code></td><td><code>tilt up</code></td></tr>
+            <tr><td>Dashboard</td><td>None; logs in the terminal</td><td><b>Web UI</b>: each service's status and logs, restart buttons, custom buttons (e.g. "Reseed")</td></tr>
+            <tr><td>Dependency change</td><td><code>rebuild</code> action on <code>go.mod</code> / <code>package-lock.json</code></td><td>Same, through build deps</td></tr>
+            <tr><td>Forgetting to watch</td><td><code>up</code> without <code>--watch</code> gives a container that never sees your edits</td><td>Plain <code>docker compose up</code> does the same</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <label class="opt"><input type="radio" name="a" value="Compose Watch" checked><span><b>Compose Watch</b><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">Fixes the reloads with a tool you already have. No bind mounts, so the root-owned <code>tmp</code>, the stale <code>node_modules</code> volume and the dead polling vars all go away too.<br><i>I'd be wrong if</i> you'd actually use a dashboard for seven services' status and logs, plus a "Reseed" button, enough to justify another tool.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="Tilt"><span><b>Tilt</b><br><span class="text-sm text-base-content/70">Same reload fix, plus the dashboard. The cost is another tool and a second config file alongside Compose.</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="Keep bind mounts and find the root cause"><span><b>Keep bind mounts and find the root cause</b><br><span class="text-sm text-base-content/70">The smallest change if the cause turns out to be small, but it's an open-ended investigation and still leaves the root-owned files problem.</span></span></label>
+      <p class="text-xs text-base-content/60">Proposed acceptance test whichever you pick: 20 back-to-back edits to a Go file and to a TSX file - from an editor and from an agent's file write - each reload with no <code>touch</code>.</p>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- R2-2 -->
+  <form class="card card-border bg-base-100" data-lavish-question="R2-2-seed-lifecycle">
+    <div class="card-body gap-3">
+      <h3 class="card-title">R2-2 · How the seed keeps a trailing window full<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <p class="text-sm text-base-content/70">Following your D4 note: the seed step runs on <b>every</b> <code>up</code>, not just the first. It has two jobs that behave differently.</p>
+      <svg viewBox="0 0 760 190" width="100%" role="img" aria-label="Top-up timeline">
+        <title>Readings top-up across downtime</title>
+        <line x1="20" y1="110" x2="740" y2="110" stroke="currentColor" stroke-opacity=".4"/>
+        <g id="seeded"><title>First run: backfill the window</title><rect x="40" y="80" width="180" height="30" rx="4" fill="var(--color-primary)" fill-opacity=".35"/><text x="130" y="72" text-anchor="middle" font-size="12">first run: backfill window</text></g>
+        <g id="live"><title>Live mock data while running</title><rect x="220" y="80" width="130" height="30" rx="4" fill="var(--color-success)" fill-opacity=".35"/><text x="285" y="72" text-anchor="middle" font-size="12">live mocks</text></g>
+        <g id="down"><title>Stack down</title><rect x="350" y="80" width="230" height="30" rx="4" fill="none" stroke="currentColor" stroke-dasharray="4 4" stroke-opacity=".5"/><text x="465" y="100" text-anchor="middle" font-size="12" opacity=".7">stack down</text></g>
+        <g id="topup"><title>Next up: top-up from the newest reading, or from the window start if that's later</title><rect x="450" y="80" width="130" height="30" rx="4" fill="var(--color-primary)" fill-opacity=".35"/><text x="515" y="140" text-anchor="middle" font-size="12">top-up at next up</text></g>
+        <line x1="450" y1="45" x2="450" y2="120" stroke="currentColor" stroke-opacity=".5" stroke-dasharray="2 3"/><text x="450" y="38" text-anchor="middle" font-size="11" opacity=".75">now − window</text>
+        <line x1="580" y1="45" x2="580" y2="120" stroke="currentColor"/><text x="580" y="38" text-anchor="middle" font-size="11">now (next up)</text>
+        <g id="live2"><rect x="580" y="80" width="140" height="30" rx="4" fill="var(--color-success)" fill-opacity=".35"/><text x="650" y="140" text-anchor="middle" font-size="12">live again</text></g>
+        <text x="400" y="175" text-anchor="middle" font-size="11" opacity=".7">the part of the gap older than the window stays empty</text>
+      </svg>
+      <ul class="text-sm list-disc pl-5 flex flex-col gap-1">
+        <li><b>Top-up</b>: for each seeded series, write synthetic readings from <code>max(newest reading, now − window)</code> up to now. Because it always starts from the newest reading, running it again seconds later writes nothing - <b>no duplicates</b> (that becomes an acceptance criterion).</li>
+        <li>Only seeded sensors that still exist get topped up. Sensors you add yourself are never touched.</li>
+      </ul>
+      <fieldset class="flex flex-col gap-2"><legend class="font-semibold text-sm mb-1">Entities (users, sensors, alerts, dashboards, MQTT subscription)</legend>
+        <label class="opt"><input type="radio" name="entities" value="Created once on first run (marker), never recreated" checked><span><b>Created once, never recreated</b><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">A marker records that seeding happened. Anything you edit or delete stays that way. <code>down -v</code> gives you a fresh set.</span></span></label>
+        <label class="opt"><input type="radio" name="entities" value="Reconciled every run: missing seeded entities recreated"><span><b>Reconciled every run</b><br><span class="text-sm text-base-content/70">Seeded things you deleted come back on the next <code>up</code>. Handy if you want a guaranteed baseline, annoying if you deleted something on purpose.</span></span></label>
+      </fieldset>
+      <fieldset class="flex flex-col gap-1"><legend class="font-semibold text-sm mb-1">What else gets topped up to now (readings always are)</legend>
+        <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="health history" checked> <span>Sensor health history <span class="rec">Recommended</span> - otherwise the health timeline has a hole</span></label>
+        <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="alert fired history" checked> <span>Alert history <span class="rec">Recommended</span> - otherwise the alert summary goes empty</span></label>
+        <label class="flex gap-2 text-sm"><input type="checkbox" name="i" value="notifications"> <span>Notifications - I'd leave these out: every restart would add more unread ones</span></label>
+      </fieldset>
+      <fieldset class="flex flex-col gap-2"><legend class="font-semibold text-sm mb-1">If the stack was down for longer than the window</legend>
+        <label class="opt"><input type="radio" name="gap" value="Fill only the trailing window" checked><span><b>Fill only the trailing window</b><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">Every time range the UI offers, up to the window length, is full, and the seed takes the same time however long you were away.</span></span></label>
+        <label class="opt"><input type="radio" name="gap" value="Fill the entire gap"><span><b>Fill the entire gap</b><br><span class="text-sm text-base-content/70">A continuous history, but after months away that's months of synthetic rows, and the start-up time grows with it.</span></span></label>
+      </fieldset>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- R2-3 -->
+  <form class="card card-border bg-base-100" data-lavish-question="R2-3-sensors-window">
+    <div class="card-body gap-3">
+      <h3 class="card-title">R2-3 · Which sensors, and how long is the window? <span class="text-sm font-normal text-base-content/60">(from D5, which didn't come through)</span><span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <fieldset class="flex flex-col gap-2"><legend class="font-semibold text-sm mb-1">Which sensors</legend>
+        <label class="opt"><input type="radio" name="sensors" value="Every seeded sensor is live: extend the MQTT mock to ~8 devices, keep 2 HTTP mocks, all pre-approved" checked><span><b>Every seeded sensor is live</b><span class="rec">Recommended</span><br><span class="text-sm text-base-content/70">MQTT mock goes from 3 to ~8 devices (still one container), plus the 2 HTTP mocks. All pre-approved, so history runs straight into live data.</span></span></label>
+        <label class="opt"><input type="radio" name="sensors" value="Only today's 5 mock devices"><span><b>Only today's 5 mock devices</b> - dashboards look thin</span></label>
+      </fieldset>
+      <fieldset class="flex flex-wrap gap-4 text-sm"><legend class="font-semibold text-sm mb-1">Trailing window</legend>
+        <label class="flex gap-2 items-center"><input type="radio" name="days" value="7 days"> 7 days</label>
+        <label class="flex gap-2 items-center"><input type="radio" name="days" value="30 days" checked> 30 days <span class="rec">Recommended</span></label>
+        <label class="flex gap-2 items-center"><input type="radio" name="days" value="90 days"> 90 days</label>
+      </fieldset>
+      <p class="text-xs text-base-content/60">30 days covers every aggregation tier up to P30D. At one reading per minute per series, that's roughly 43k rows per series on a first run - a few seconds.</p>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+
+  <!-- R2-4 -->
+  <form class="card card-border bg-base-100" data-lavish-question="R2-4-discovery">
+    <div class="card-body gap-3">
+      <h3 class="card-title">R2-4 · File-based sensor discovery is still in the code<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <p class="text-sm text-base-content/70">It hasn't been removed: <code>cmd/serve.go:190</code> still calls <code>ServiceDiscoverSensors</code> (<code>service/sensor_service.go:409</code>), which reads <code>openapi.yaml.location</code>. It just never runs, because <code>sensor.discovery.skip</code> defaults to <code>true</code>. You unticked handling it here, so after the rename the stale <code>./docker_tests/openapi.yaml</code> default stays until it's dealt with.</p>
+      <label class="opt"><input type="radio" name="a" value="Raise a separate issue to delete it" checked><span><b>Raise a separate issue to delete it</b><span class="rec">Recommended</span></span></label>
+      <label class="opt"><input type="radio" name="a" value="Delete it as part of this work after all"><span>Delete it as part of this work after all</span></label>
+      <label class="opt"><input type="radio" name="a" value="Leave it"><span>Leave it</span></label>
+      <textarea class="textarea w-full" name="note" placeholder="Optional note"></textarea>
+      <div class="card-actions justify-end"><button class="btn btn-primary btn-sm" type="submit">Queue answer</button></div>
+    </div>
+  </form>
+</section>
+
+<!-- DESIGN -->
+<section class="flex flex-col gap-6" id="design">
+  <div class="flex items-center gap-3"><h2 class="text-2xl font-bold">The design</h2><span class="badge badge-success badge-soft">Agreed</span></div>
+  <p class="text-sm text-base-content/70 -mt-3">Built from the answers above. Approve each section or say what's wrong with it. Anything marked <span class="badge badge-sm badge-soft badge-info">verify</span> is something I'll check during implementation, not an open decision.</p>
+
+  <form class="card card-border bg-base-100" data-lavish-question="S1-layout">
+    <div class="card-body gap-3">
+      <h3 class="card-title">S1 · Where everything goes<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+<pre class="text-sm bg-base-200 rounded-box p-4 overflow-x-auto"><code>sensor_hub/devstack/
+├── compose.yaml                 # name: sensor-hub-dev · base stack with watch rules
+├── compose.grafana.yaml         # + grafana-lgtm, + OTEL env on hub and mocks
+├── compose.delve.yaml           # air.delve.toml, port 2345
+├── .env.example                 # COMPOSE_FILE=compose.yaml:compose.grafana.yaml ...
+├── README.md                    # one line: see docs/development/docker-dev-environment
+├── dockerfiles/
+│   ├── sensor-hub.dockerfile    (+ sensor-hub.dockerfile.dockerignore)
+│   ├── ui.dockerfile            (+ ui.dockerfile.dockerignore)
+│   └── mocks.dockerfile
+├── air.toml / air.delve.toml
+├── mocks/                       # http_sensor.py, mqtt_devices.py, requirements.txt (all pinned)
+├── grafana/                     # moved as-is
+└── seed/                        # Go: package main - dev seed (see S4)
+
+deleted: sensor_hub/docker_tests/ · ui/sensor_hub_ui/{sensor-hub-ui.dockerfile, sensor-hub-ui-test.dockerfile, nginx/, nginx.conf}
+         .copilot/skills/docker-dev-workflow/ (and .copilot/ once it's empty)</code></pre>
+      <ul class="text-sm list-disc pl-5 flex flex-col gap-1">
+        <li>Each image's ignore file sits next to its Dockerfile (<code>&lt;name&gt;.dockerignore</code>, which BuildKit supports), so everything the stack needs is in this one folder.</li>
+        <li>The seed is Go code inside <code>devstack/</code> because it only exists for this stack. It lives in the <code>sensor_hub</code> module as <code>example/sensorHub/devstack/seed</code>.</li>
+        <li><code>.env</code> is git-ignored. Ignore rules for the air <code>tmp</code> output stop mattering, because nothing gets written back to the host any more.</li>
+      </ul>
+      
+      <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-base-content/10">
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="looks right" checked> Looks right</label>
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="needs changes"> Needs changes</label>
+        <input class="input input-sm flex-1 min-w-48" name="note" placeholder="What should change?">
+        <button class="btn btn-primary btn-sm" type="submit">Queue</button>
+      </div>
+    </div>
+  </form>
+
+  <form class="card card-border bg-base-100" data-lavish-question="S2-images">
+    <div class="card-body gap-3">
+      <h3 class="card-title">S2 · Images and caching<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <div class="overflow-x-auto rounded-box border border-base-content/10">
+        <table class="table table-sm">
+          <thead><tr><th>Image</th><th>Layers, cheapest-to-change last</th><th>Runtime caches</th></tr></thead>
+          <tbody>
+            <tr><td><b>sensor-hub</b><br><span class="text-xs opacity-70">golang:1.26-alpine · context <code>sensor_hub/</code></span></td>
+              <td>1. <code>go install</code> air + dlv (BuildKit cache mounts for modules and builds)<br>2. <code>COPY go.mod go.sum</code> → <code>go mod download</code><br>3. <code>COPY</code> source - the ignore file drops <code>ui/</code>, <code>web/docs/</code>, <code>tmp/</code>, <code>dist/</code>, <code>.git</code></td>
+              <td>Named volumes <code>go-build</code> and <code>go-mod</code>, <b>shared with the seed service</b>. A recreated container compiles incrementally instead of from scratch.</td></tr>
+            <tr><td><b>ui</b><br><span class="text-xs opacity-70">node:25 · context <code>ui/sensor_hub_ui/</code></span></td>
+              <td>1. <code>COPY package.json package-lock.json</code> → <code>npm ci</code> (cache mount on <code>~/.npm</code>)<br>2. <code>COPY</code> source - the ignore file drops <code>node_modules</code>, <code>dist</code>, <code>test-results</code></td>
+              <td><code>node_modules</code> is part of the image, so there's no anonymous volume to go stale.</td></tr>
+            <tr><td><b>mocks</b><br><span class="text-xs opacity-70">python:3.x-alpine (current release <span class="badge badge-xs badge-soft badge-info">verify</span>) · context <code>devstack/</code></span></td>
+              <td>1. <code>COPY mocks/requirements.txt</code> → <code>pip install</code> (cache mount)<br>2. <code>COPY mocks/</code></td>
+              <td>-</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="text-sm list-disc pl-5 flex flex-col gap-1">
+        <li>Base air config: <code>go build</code> then run, with no debugger, which gives faster, optimised builds. <code>air.delve.toml</code> keeps today's <code>dlv debug --headless --continue</code>.</li>
+        <li>With Compose Watch the image has to contain the source, because it's the starting point that gets synced into. A source edit only rebuilds layer 3, which with the ignore file is a few MB instead of 744 MB.</li>
+      </ul>
+      
+      <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-base-content/10">
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="looks right" checked> Looks right</label>
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="needs changes"> Needs changes</label>
+        <input class="input input-sm flex-1 min-w-48" name="note" placeholder="What should change?">
+        <button class="btn btn-primary btn-sm" type="submit">Queue</button>
+      </div>
+    </div>
+  </form>
+
+  <form class="card card-border bg-base-100" data-lavish-question="S3-compose">
+    <div class="card-body gap-3">
+      <h3 class="card-title">S3 · Services, start-up order, watch rules, switches<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <svg viewBox="0 0 780 250" width="100%" role="img" aria-label="Service start order">
+        <title>Service dependency graph</title>
+        <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" fill-opacity=".6"/></marker></defs>
+        <g id="n-seed"><title>seed: one-shot, exits 0</title><rect x="10" y="100" width="130" height="50" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5"/><text x="75" y="122" text-anchor="middle" font-weight="600">seed</text><text x="75" y="140" text-anchor="middle" font-size="11" opacity=".7">one-shot</text></g>
+        <g id="n-hub"><title>sensor-hub: healthcheck /api/health</title><rect x="220" y="100" width="150" height="50" rx="8" fill="none" stroke="var(--color-primary)"/><text x="295" y="122" text-anchor="middle" font-weight="600">sensor-hub</text><text x="295" y="140" text-anchor="middle" font-size="11" opacity=".7">healthy = /api/health</text></g>
+        <g id="n-ui"><title>ui</title><rect x="460" y="20" width="130" height="44" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5"/><text x="525" y="47" text-anchor="middle" font-weight="600">ui</text></g>
+        <g id="n-mqtt"><title>mock-mqtt</title><rect x="460" y="100" width="130" height="50" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5"/><text x="525" y="122" text-anchor="middle" font-weight="600">mock-mqtt</text><text x="525" y="140" text-anchor="middle" font-size="11" opacity=".7">~8 devices</text></g>
+        <g id="n-http"><title>mock-http x2</title><rect x="460" y="186" width="130" height="44" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5"/><text x="525" y="213" text-anchor="middle" font-weight="600">mock-http ×2</text></g>
+        <g id="n-graf"><title>grafana-lgtm, only with the overlay</title><rect x="640" y="100" width="130" height="50" rx="8" fill="none" stroke="currentColor" stroke-dasharray="4 4" stroke-opacity=".5"/><text x="705" y="122" text-anchor="middle" font-weight="600">grafana</text><text x="705" y="140" text-anchor="middle" font-size="11" opacity=".7">overlay only</text></g>
+        <line x1="140" y1="125" x2="218" y2="125" stroke="currentColor" stroke-opacity=".6" marker-end="url(#ar2)"/><text x="179" y="115" text-anchor="middle" font-size="10" opacity=".7">completed</text>
+        <line x1="370" y1="125" x2="458" y2="125" stroke="currentColor" stroke-opacity=".6" marker-end="url(#ar2)"/><text x="414" y="115" text-anchor="middle" font-size="10" opacity=".7">healthy</text>
+        <line x1="370" y1="110" x2="458" y2="50" stroke="currentColor" stroke-opacity=".3" stroke-dasharray="3 3" marker-end="url(#ar2)"/><text x="400" y="70" text-anchor="middle" font-size="10" opacity=".6">started</text>
+        <text x="295" y="200" text-anchor="middle" font-size="11" opacity=".7">mock-http has no dependency:</text><text x="295" y="215" text-anchor="middle" font-size="11" opacity=".7">the hub polls it</text>
+      </svg>
+      <div class="overflow-x-auto rounded-box border border-base-content/10">
+        <table class="table table-sm">
+          <thead><tr><th>Service</th><th>Watch: <code>sync</code> (copy the file in)</th><th>Watch: <code>rebuild</code> (rebuild the image)</th></tr></thead>
+          <tbody>
+            <tr><td>sensor-hub</td><td><code>sensor_hub/</code> → <code>/app</code>, minus the ignored paths; air notices and rebuilds</td><td><code>go.mod</code>, <code>go.sum</code></td></tr>
+            <tr><td>ui</td><td><code>ui/sensor_hub_ui/</code> → <code>/app</code>, minus <code>node_modules</code>; Vite HMR</td><td><code>package.json</code>, <code>package-lock.json</code></td></tr>
+            <tr><td>mock-*</td><td><code>sync+restart</code> on <code>mocks/*.py</code></td><td><code>mocks/requirements.txt</code></td></tr>
+            <tr><td>seed</td><td colspan="2">Not watched: it runs once per <code>up</code>. Changes to seed code are picked up on the next <code>up</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="text-sm list-disc pl-5 flex flex-col gap-1">
+        <li><b>Start command:</b> <code>docker compose up --build --watch</code> from <code>devstack/</code>.</li>
+        <li><code>compose.grafana.yaml</code> adds the <code>grafana-lgtm</code> service (with its own healthcheck) and sets the <code>OTEL_*</code> env on sensor-hub and the HTTP mocks, with <code>depends_on</code> so they wait for it. <code>compose.delve.yaml</code> switches the sensor-hub command to <code>air.delve.toml</code> and publishes port 2345.</li>
+        <li>Nothing mounts from the host except the Grafana provisioning files (read-only, and only in the overlay).</li>
+      </ul>
+      
+      <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-base-content/10">
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="looks right" checked> Looks right</label>
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="needs changes"> Needs changes</label>
+        <input class="input input-sm flex-1 min-w-48" name="note" placeholder="What should change?">
+        <button class="btn btn-primary btn-sm" type="submit">Queue</button>
+      </div>
+    </div>
+  </form>
+
+  <form class="card card-border bg-base-100" data-lavish-question="S4-seed">
+    <div class="card-body gap-3">
+      <h3 class="card-title">S4 · The seed<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <p class="text-sm">A one-shot Go program, <code>devstack/seed</code>, run by the <code>seed</code> service from the sensor-hub image with the shared Go cache volumes, against the <code>sensor-hub-data</code> volume, before the hub starts. Each run goes through these steps:</p>
+      <ol class="text-sm list-decimal pl-5 flex flex-col gap-1">
+        <li><b>Open and migrate</b> the database with the app's own migration runner (<code>database.RunMigrations</code>), so the schema always matches the app.</li>
+        <li><b>Entities, once only.</b> If there's no <code>devseed_metadata</code> marker row, create the users, admin API key, sensors, measurement types, MQTT subscription, alert rules and dashboards, then write the marker. Everything goes through the <b>service layer</b> wherever a service exists (<code>UserService</code>, <code>SensorService</code> including <code>ServiceApproveSensor</code>, the dashboard, alert and MQTT services). The API key is printed to the seed logs.</li>
+        <li><b>Top-up, every run.</b> For every seeded sensor that still exists, write data from <code>max(newest existing, now − 30 d)</code> up to now: readings at 1-minute spacing, plus health history and alert history. These are backdated rows, which no service can write, so they use bulk SQL batches in the style of <code>testharness/seed</code>. Values follow the same ranges and random walk as the live mocks, so history and live data join up without a visible seam.</li>
+        <li><b>Exit 0.</b> Compose then starts the hub.</li>
+      </ol>
+      <ul class="text-sm list-disc pl-5 flex flex-col gap-1">
+        <li><b>Shared helpers (D7):</b> the "create a user / sensor / dashboard" helpers are pulled out of <code>testharness/layout.go</code> into a package with no build tag, taking services as parameters rather than <code>*Env</code>. The layout tests keep their own pinned data, and the dev seed has its own dataset.</li>
+        <li><b>Identity of MQTT sensors:</b> they're created with the name and driver config that auto-discovery would give them, so the mock's messages land on the approved sensor rather than a new pending one. <span class="badge badge-xs badge-soft badge-info">verify</span> against <code>drivers/zigbee2mqtt.go</code>.</li>
+        <li><b>Dashboards</b> are defined in Go as typed widget configs. A unit test checks that every widget type registered in the UI's <code>WidgetRegistry</code> appears in at least one seeded dashboard, so adding a widget without seeding it fails the test.</li>
+        <li><b>Error handling:</b> any failure exits non-zero with the step and cause in the log, and the hub doesn't start - a half-seeded stack is worse than one that doesn't start. Entity creation and its marker are written in one transaction where the services allow it. Otherwise the marker is written last, and a rerun that finds entities already there by name skips them.</li>
+      </ul>
+      
+      <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-base-content/10">
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="looks right" checked> Looks right</label>
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="needs changes"> Needs changes</label>
+        <input class="input input-sm flex-1 min-w-48" name="note" placeholder="What should change?">
+        <button class="btn btn-primary btn-sm" type="submit">Queue</button>
+      </div>
+    </div>
+  </form>
+
+  <form class="card card-border bg-base-100" data-lavish-question="S5-mocks">
+    <div class="card-body gap-3">
+      <h3 class="card-title">S5 · Mocks and the integration tests<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <ul class="text-sm list-disc pl-5 flex flex-col gap-1">
+        <li>One <code>mocks</code> image with two entrypoints: <code>http_sensor.py</code> (Flask, as today) and <code>mqtt_devices.py</code> (grown from 3 to about 8 devices: temperature/humidity sensors in several rooms, two contact sensors, two plugs - one controllable, plus an occupancy sensor).</li>
+        <li><code>requirements.txt</code> pins <code>paho-mqtt</code> alongside Flask and OTEL. Dependabot's pip entry moves to <code>/sensor_hub/devstack/mocks</code>.</li>
+        <li><code>testharness/containers.go</code> builds the same image (context <code>devstack/</code>, Dockerfile <code>dockerfiles/mocks.dockerfile</code>) and overrides the command to the HTTP sensor. The integration tests keep working without any other change.</li>
+      </ul>
+      
+      <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-base-content/10">
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="looks right" checked> Looks right</label>
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="needs changes"> Needs changes</label>
+        <input class="input input-sm flex-1 min-w-48" name="note" placeholder="What should change?">
+        <button class="btn btn-primary btn-sm" type="submit">Queue</button>
+      </div>
+    </div>
+  </form>
+
+  <form class="card card-border bg-base-100" data-lavish-question="S6-docs">
+    <div class="card-body gap-3">
+      <h3 class="card-title">S6 · Docs and removals<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <ul class="text-sm list-disc pl-5 flex flex-col gap-1">
+        <li><code>docs/docs/development/docker-dev-environment.md</code> is rewritten to be short: the start command, the two overlays and <code>.env</code>, the seeded logins, the port table, how to reset (<code>down -v</code>), and a one-off command to remove the old <code>docker_tests_*</code> volumes. The manual MQTT setup steps are dropped.</li>
+        <li>The repo <code>README.md</code> quick-start points at the new command. The folder README is a single link.</li>
+        <li>Deleted: the Copilot skill (and <code>.copilot/</code>), the nginx UI image and its configs, the old UI test Dockerfile, and <code>docker_tests/</code>.</li>
+        <li>A separate GitHub issue is raised to delete file-based sensor discovery (R2-4). <code>openapi.yaml.location</code> is left alone here.</li>
+      </ul>
+      
+      <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-base-content/10">
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="looks right" checked> Looks right</label>
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="needs changes"> Needs changes</label>
+        <input class="input input-sm flex-1 min-w-48" name="note" placeholder="What should change?">
+        <button class="btn btn-primary btn-sm" type="submit">Queue</button>
+      </div>
+    </div>
+  </form>
+
+  <form class="card card-border bg-base-100" data-lavish-question="S7-testing">
+    <div class="card-body gap-3">
+      <h3 class="card-title">S7 · Testing and acceptance<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <div class="overflow-x-auto rounded-box border border-base-content/10">
+        <table class="table table-sm">
+          <thead><tr><th>Check</th><th>How</th></tr></thead>
+          <tbody>
+            <tr><td>L1-L5 timings</td><td>Measured on <code>main</code> <b>before</b> any change, then after, and recorded in the PR. Pass means every loop is no slower and L2, L3 and L4 are clearly faster. The target numbers get set once the baseline exists.</td></tr>
+            <tr><td>Reloads</td><td>20 back-to-back edits each to a <code>.go</code> file and a <code>.tsx</code> file, from an editor and from an agent's file write. Every one reloads, with no <code>touch</code>.</td></tr>
+            <tr><td>Seed idempotency</td><td>Go tests against a temp DB: after a first run the marker exists and the entities exist once. A second run straight after adds 0 entities and no more than one reading per series. A run with the newest reading 40 days ago fills only the last 30 days.</td></tr>
+            <tr><td>Widget coverage</td><td>The unit test from S4.</td></tr>
+            <tr><td>Stack smoke</td><td>From an empty volume: <code>up --build --watch</code>; log in as each seeded user; every dashboard renders with data; an approved MQTT device receives a new live reading; the office plug toggles.</td></tr>
+            <tr><td>Overlays</td><td>Grafana shows sensor-hub traces with <code>compose.grafana.yaml</code>. An IDE attaches on port 2345 with <code>compose.delve.yaml</code>. Without them, nothing listens on 2345 or 4000 and no OTEL export errors appear in the logs.</td></tr>
+            <tr><td>Existing suites</td><td><code>go test -tags integration ./integration/</code> (per CLAUDE.md), the layout Playwright tests, and <code>go test ./...</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-base-content/10">
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="looks right" checked> Looks right</label>
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="needs changes"> Needs changes</label>
+        <input class="input input-sm flex-1 min-w-48" name="note" placeholder="What should change?">
+        <button class="btn btn-primary btn-sm" type="submit">Queue</button>
+      </div>
+    </div>
+  </form>
+
+  <form class="card card-border bg-base-100" data-lavish-question="S8-overall">
+    <div class="card-body gap-3">
+      <h3 class="card-title">Overall<span class="badge badge-success badge-soft ml-2">Agreed</span></h3>
+      <div role="alert" class="alert alert-soft alert-success text-sm py-2">Your note: <i>"it won't be one PR, but that's not your problem to solve here"</i> - slicing is left to the spec and issue breakdown.</div>
+      <p class="text-sm text-base-content/70">One more question: should this be <b>one PR</b>, or split up (for example: 1. rename, move and delete dead files + images and caching + Compose Watch; 2. the seed)? I'd split it - the seed is the riskiest part and reviews best on its own - but the spec step can decide that.</p>
+      
+      <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-base-content/10">
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="looks right" checked> Looks right</label>
+        <label class="flex gap-2 items-center text-sm"><input type="radio" name="a" value="needs changes"> Needs changes</label>
+        <input class="input input-sm flex-1 min-w-48" name="note" placeholder="What should change?">
+        <button class="btn btn-primary btn-sm" type="submit">Queue</button>
+      </div>
+    </div>
+  </form>
+</section>
+
+</main>
+<script>
+  document.querySelectorAll('form[data-lavish-question]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const q = form.dataset.lavishQuestion;
+      const fd = new FormData(form);
+      const answer = {};
+      for (const [k, v] of fd.entries()) {
+        if (k === 'note' || k === 'i') continue;
+        answer[k] = v;
+      }
+      const items = fd.getAll('i');
+      const unticked = [...form.querySelectorAll('input[name=i]:not(:checked)')].map((el) => el.value);
+      const note = (fd.get('note') || '').toString().trim();
+      const parts = [];
+      Object.entries(answer).forEach(([k, v]) => parts.push(k + ': ' + v));
+      if (items.length) parts.push('ticked: ' + items.join('; '));
+      if (unticked.length) parts.push('unticked: ' + unticked.join('; '));
+      if (note) parts.push('note: ' + note);
+      if (!parts.length) return;
+      const text = q + ' - ' + parts.join(' | ');
+      window.lavish?.queuePrompt(text, { tag: 'choice', text, element: form, queueKey: q, data: { question: q, answer, ticked: items, unticked, note } });
+      const btn = form.querySelector('button[type=submit]');
+      btn.textContent = 'Queued - update';
+      btn.classList.add('btn-success');
+    });
+  });
+</script>
+</body>
+</html>
