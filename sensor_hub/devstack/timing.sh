@@ -8,8 +8,13 @@ ui=http://localhost:3000/
 work=$(mktemp -d)
 watch_pid=
 declare -A result
+declare -A backup
+
+keep() { backup[$1]="$work/$(basename "$1")"; cp "$1" "${backup[$1]}"; }
+put_back() { cp "${backup[$1]}" "$1"; unset "backup[$1]"; }
 
 cleanup() {
+  for file in "${!backup[@]}"; do cp "${backup[$file]}" "$file"; done
   [ -n "$watch_pid" ] && kill "$watch_pid" 2>/dev/null || true
   jobs -p | xargs -r kill 2>/dev/null || true
   rm -rf "$work"
@@ -87,7 +92,7 @@ wait_until grep -q 'Watch enabled' "$work/watch.log"
 docker compose logs -f --no-log-prefix --since 1s sensor-hub >"$work/sensor-hub.log" 2>&1 &
 
 health_go="$sensor_hub/api/health_api.go"
-cp "$health_go" "$work/health_api.go"
+keep "$health_go"
 sleep 5
 l4=()
 for run in 1 2 3 4 5; do
@@ -100,13 +105,13 @@ for run in 1 2 3 4 5; do
   l4+=("$took")
   sleep 5
 done
-cp "$work/health_api.go" "$health_go"
+put_back "$health_go"
 result["L4 median"]="$(printf '%s\n' "${l4[@]}" | sort -n | sed -n 3p)"
 sleep 5
 
 rebuild_after_edit() {
   local service=$1 file=$2 url=$3 loop=$4
-  cp "$file" "$work/original"
+  keep "$file"
   local id; id=$(container "$service")
   echo "" >>"$file"
   local start; start=$(now)
@@ -115,7 +120,7 @@ rebuild_after_edit() {
   log "$loop $(basename "$file") change picked up by watch, back=${took}s"
   result["$loop"]="$took"
   id=$(container "$service")
-  cp "$work/original" "$file"
+  put_back "$file"
   wait_until replaced "$service" "$id" "$url"
 }
 
