@@ -37,19 +37,28 @@ func (e *stepError) Unwrap() error {
 }
 
 type seeder struct {
-	db      *database.Handles
-	users   service.UserServiceInterface
-	apiKeys service.ApiKeyServiceInterface
-	logger  *slog.Logger
+	db        *database.Handles
+	users     service.UserServiceInterface
+	apiKeys   service.ApiKeyServiceInterface
+	sensors   service.SensorServiceInterface
+	mqtt      service.MQTTServiceInterface
+	httpMocks []httpMock
+	logger    *slog.Logger
 }
 
-func seed(ctx context.Context, db *database.Handles, logger *slog.Logger) (string, error) {
+func seed(ctx context.Context, db *database.Handles, logger *slog.Logger, httpMocks []httpMock) (string, error) {
 	userRepo := database.NewUserRepository(db, logger)
+	sensorRepo := database.NewSensorRepository(db, logger)
+	measurementTypes := database.NewMeasurementTypeRepository(db, logger)
+	readingsRepo := database.NewReadingsRepository(db, sensorRepo, measurementTypes, logger)
 	s := &seeder{
-		db:      db,
-		users:   service.NewUserService(userRepo, nil, logger),
-		apiKeys: service.NewApiKeyService(database.NewApiKeyRepository(db, logger), userRepo, database.NewRoleRepository(db, logger), logger),
-		logger:  logger,
+		db:        db,
+		users:     service.NewUserService(userRepo, nil, logger),
+		apiKeys:   service.NewApiKeyService(database.NewApiKeyRepository(db, logger), userRepo, database.NewRoleRepository(db, logger), logger),
+		sensors:   service.NewSensorService(sensorRepo, readingsRepo, measurementTypes, nil, nil, nil, logger),
+		mqtt:      service.NewMQTTService(database.NewMQTTBrokerRepository(db, logger), database.NewMQTTSubscriptionRepository(db, logger), logger),
+		httpMocks: httpMocks,
+		logger:    logger,
 	}
 
 	marker, err := loadMarker(ctx, db.Writer)
@@ -102,6 +111,12 @@ func (s *seeder) createEntities(ctx context.Context) (string, error) {
 	apiKey, err := s.createAdminAPIKey(ctx, userIDs[adminUsername])
 	if err != nil {
 		return "", &stepError{step: "create the admin API key", err: err}
+	}
+	if err := s.createMQTTSubscription(ctx); err != nil {
+		return "", &stepError{step: "create the MQTT subscription", err: err}
+	}
+	if err := s.createSensors(ctx); err != nil {
+		return "", &stepError{step: "create the sensors", err: err}
 	}
 	if err := writeMarker(ctx, s.db.Writer, apiKey); err != nil {
 		return "", &stepError{step: "write the marker", err: err}
