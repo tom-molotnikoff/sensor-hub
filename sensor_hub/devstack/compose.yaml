@@ -1,0 +1,100 @@
+name: sensor-hub-dev
+
+x-mock: &mock
+  image: sensor-hub-dev-mocks
+  build:
+    context: .
+    dockerfile: dockerfiles/mocks.dockerfile
+  init: true
+  develop:
+    watch:
+      - action: rebuild
+        path: mocks/requirements.txt
+      - action: sync+restart
+        path: mocks
+        target: /app
+        include:
+          - "*.py"
+
+services:
+  sensor-hub:
+    build:
+      context: ..
+      dockerfile: devstack/dockerfiles/sensor-hub.dockerfile
+    ports:
+      - "8080:8080"
+      - "1883:1883"
+    volumes:
+      - sensor-hub-data:/app/data
+      - go-build:/root/.cache/go-build
+      - go-mod:/go/pkg/mod
+    environment:
+      SENSOR_HUB_INITIAL_ADMIN: admin:adminpassword
+      SENSOR_HUB_ALLOWED_ORIGIN: http://localhost:3000
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 2s
+      start_period: 10m
+      start_interval: 1s
+    develop:
+      watch:
+        - action: rebuild
+          path: ../go.mod
+        - action: rebuild
+          path: ../go.sum
+        - action: sync
+          path: ..
+          target: /app
+
+  ui:
+    build:
+      context: ../ui/sensor_hub_ui
+      dockerfile: ../../devstack/dockerfiles/ui.dockerfile
+    ports:
+      - "3000:5173"
+    init: true
+    environment:
+      VITE_API_BASE: http://localhost:8080/api
+      VITE_WEBSOCKET_BASE: ws://localhost:8080/api
+      BACKEND_URL: http://sensor-hub:8080
+    depends_on:
+      sensor-hub:
+        condition: service_started
+    develop:
+      watch:
+        - action: rebuild
+          path: ../ui/sensor_hub_ui/package.json
+        - action: rebuild
+          path: ../ui/sensor_hub_ui/package-lock.json
+        - action: sync
+          path: ../ui/sensor_hub_ui
+          target: /app
+
+  mock-http-downstairs:
+    <<: *mock
+    command: ["python", "http_sensor.py"]
+    ports:
+      - "5001:5000"
+
+  mock-http-upstairs:
+    <<: *mock
+    command: ["python", "http_sensor.py"]
+    ports:
+      - "5002:5000"
+
+  mock-mqtt:
+    <<: *mock
+    command: ["python", "mqtt_devices.py"]
+    environment:
+      MQTT_BROKER_HOST: sensor-hub
+      MQTT_BROKER_PORT: "1883"
+      PUBLISH_INTERVAL: "5"
+    depends_on:
+      sensor-hub:
+        condition: service_healthy
+
+volumes:
+  sensor-hub-data:
+  go-build:
+  go-mod:
