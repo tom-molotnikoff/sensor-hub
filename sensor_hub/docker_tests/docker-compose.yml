@@ -86,8 +86,8 @@ services:
       - "4318:4318"   # OTLP HTTP
     volumes:
       - grafana-data:/data
-      - ./grafana/provisioning/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ../devstack/grafana/provisioning/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards
+      - ../devstack/grafana/dashboards:/var/lib/grafana/dashboards
     environment:
       GF_PATHS_DATA: /data/grafana
 volumes:

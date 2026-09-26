@@ -1,0 +1,45 @@
+x-waits-for-grafana: &waits-for-grafana
+  depends_on:
+    grafana-lgtm:
+      condition: service_healthy
+
+services:
+  grafana-lgtm:
+    image: grafana/otel-lgtm:0.34.0
+    ports:
+      - "4000:3000"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - grafana-data:/data
+      - ./grafana/provisioning/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      start_period: 5m
+      start_interval: 1s
+
+  sensor-hub:
+    <<: *waits-for-grafana
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-lgtm:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: sensor-hub
+      OTEL_SEMCONV_STABILITY_OPT_IN: database
+
+  mock-http-downstairs:
+    <<: *waits-for-grafana
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-lgtm:4317
+      OTEL_SERVICE_NAME: mock-http-downstairs
+
+  mock-http-upstairs:
+    <<: *waits-for-grafana
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-lgtm:4317
+      OTEL_SERVICE_NAME: mock-http-upstairs
+
+volumes:
+  grafana-data:
