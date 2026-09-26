@@ -3,18 +3,14 @@
 package testharness
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
 
-	"github.com/moby/go-archive"
-	"github.com/moby/moby/api/types/build"
-	"github.com/moby/moby/client"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -47,9 +43,8 @@ func StartMockSensorsForMain(ctx context.Context, n int) ([]MockSensor, func(), 
 }
 
 func startMockSensors(ctx context.Context, n int) ([]MockSensor, func(), error) {
-	buildContext, err := mocksBuildContext()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to archive mocks build context: %w", err)
+	if err := buildMocksImage(ctx); err != nil {
+		return nil, nil, err
 	}
 
 	sensors := make([]MockSensor, 0, n)
@@ -59,19 +54,12 @@ func startMockSensors(ctx context.Context, n int) ([]MockSensor, func(), error) 
 		for _, c := range containers {
 			_ = c.Terminate(ctx)
 		}
+		_ = exec.CommandContext(ctx, "docker", "image", "rm", mocksImage).Run()
 	}
 
 	for i := 0; i < n; i++ {
-		contextArchive := bytes.NewReader(buildContext)
 		req := testcontainers.ContainerRequest{
-			FromDockerfile: testcontainers.FromDockerfile{
-				ContextArchive: contextArchive,
-				Dockerfile:     "dockerfiles/mocks.dockerfile",
-				BuildOptionsModifier: func(opts *client.ImageBuildOptions) {
-					opts.Version = build.BuilderBuildKit
-					contextArchive.Reset(buildContext)
-				},
-			},
+			Image:        mocksImage,
 			Cmd:          []string{"python", "http_sensor.py"},
 			ExposedPorts: []string{"5000/tcp"},
 			WaitingFor:   wait.ForHTTP("/temperature").WithPort("5000/tcp").WithStartupTimeout(60 * time.Second),
@@ -104,13 +92,17 @@ func startMockSensors(ctx context.Context, n int) ([]MockSensor, func(), error) 
 	return sensors, cleanup, nil
 }
 
-func mocksBuildContext() ([]byte, error) {
+const mocksImage = "sensor-hub-mocks:integration"
+
+func buildMocksImage(ctx context.Context) error {
 	_, thisFile, _, _ := runtime.Caller(0)
 	devstack := filepath.Join(filepath.Dir(thisFile), "..", "devstack")
-	tarball, err := archive.TarWithOptions(devstack, &archive.TarOptions{})
-	if err != nil {
-		return nil, err
+	build := exec.CommandContext(ctx, "docker", "build",
+		"--file", filepath.Join(devstack, "dockerfiles", "mocks.dockerfile"),
+		"--tag", mocksImage,
+		devstack)
+	if output, err := build.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to build mocks image: %w\n%s", err, output)
 	}
-	defer tarball.Close()
-	return io.ReadAll(tarball)
+	return nil
 }
