@@ -11,6 +11,29 @@ cd sensor_hub
 docker compose -f docker_tests/docker-compose.yml up --build
 ```
 
+## Seeded Logins and API Key
+
+The new stack in `sensor_hub/devstack` runs a one-shot `seed` service before
+the hub starts. From an empty volume it creates these users, none of which
+has to change their password:
+
+| Username | Password | Role |
+|---|---|---|
+| `admin` | `adminpassword` | admin |
+| `user` | `userpassword` | user |
+| `viewer` | `viewerpassword` | viewer |
+
+It also creates an admin API key and prints it on every start:
+
+```bash
+cd sensor_hub/devstack
+docker compose logs seed | grep admin_api_key
+```
+
+The seed only creates these once, so anything you change or delete stays that
+way. `docker compose down -v` gives you a fresh set. The passwords and key are
+for local development only.
+
 ## Grafana — Observability Stack
 
 The `grafana/otel-lgtm` container bundles the full Grafana observability

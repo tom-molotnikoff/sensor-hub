@@ -15,6 +15,7 @@ import (
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
+	"example/sensorHub/testharness/fixtures"
 	"example/sensorHub/testharness/seed"
 	"example/sensorHub/ws"
 )
@@ -95,15 +96,9 @@ func createLayoutUsers(ctx context.Context, env *Env) error {
 	if err := grantViewerReadAccess(ctx, env); err != nil {
 		return err
 	}
-	viewerID, err := service.NewUserService(users, nil, slog.Default()).CreateUser(ctx,
-		gen.User{Username: layoutViewerUser, Roles: []string{service.RoleViewer}}, layoutViewerPass)
-	if err != nil {
-		return fmt.Errorf("failed to create viewer: %w", err)
-	}
-	if err := users.SetMustChangeFlag(ctx, viewerID, false); err != nil {
-		return fmt.Errorf("failed to clear viewer password change: %w", err)
-	}
-	return nil
+	_, err = fixtures.CreateUser(ctx, service.NewUserService(users, nil, slog.Default()),
+		fixtures.User{Username: layoutViewerUser, Password: layoutViewerPass, Role: service.RoleViewer})
+	return err
 }
 
 func grantViewerReadAccess(ctx context.Context, env *Env) error {
