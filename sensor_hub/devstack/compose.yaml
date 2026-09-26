@@ -16,21 +16,31 @@ x-mock: &mock
         include:
           - "*.py"
 
+x-sensor-hub-image: &sensor-hub-image
+  image: sensor-hub-dev-sensor-hub
+  build:
+    context: ..
+    dockerfile: devstack/dockerfiles/sensor-hub.dockerfile
+  volumes:
+    - sensor-hub-data:/app/data
+    - go-build:/root/.cache/go-build
+    - go-mod:/go/pkg/mod
+
 services:
+  seed:
+    <<: *sensor-hub-image
+    command: ["go", "run", "./devstack/seed"]
+
   sensor-hub:
-    build:
-      context: ..
-      dockerfile: devstack/dockerfiles/sensor-hub.dockerfile
+    <<: *sensor-hub-image
     ports:
       - "8080:8080"
       - "1883:1883"
-    volumes:
-      - sensor-hub-data:/app/data
-      - go-build:/root/.cache/go-build
-      - go-mod:/go/pkg/mod
     environment:
-      SENSOR_HUB_INITIAL_ADMIN: admin:adminpassword
       SENSOR_HUB_ALLOWED_ORIGIN: http://localhost:3000
+    depends_on:
+      seed:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
       interval: 10s
