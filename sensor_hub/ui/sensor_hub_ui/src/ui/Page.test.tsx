@@ -84,6 +84,16 @@ describe('Page', () => {
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
   });
 
+  it('pins the wide page header only when the page opts in', () => {
+    atWidth(1440);
+    const { container, unmount } = renderPage(<Page title="Properties Overview" pinnedHeader />);
+    expect(getComputedStyle(container.querySelector('[data-ui=page-header]')!).position).toBe('sticky');
+    unmount();
+
+    const { container: unpinned } = renderPage(<Page title="Sensors Overview" />);
+    expect(getComputedStyle(unpinned.querySelector('[data-ui=page-header]')!).position).not.toBe('sticky');
+  });
+
   it('renders the text title in the bar and no page header on the compact tier', () => {
     atWidth(390);
     const { container } = renderPage(<Page title="Dashboards" titleElement={picker} />);

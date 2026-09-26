@@ -1,6 +1,6 @@
 import { expect, test } from './test';
 import { checks, contractViewports, saveNav } from './checks';
-import { layoutChecks, routes } from './routes';
+import { defaultChecks, routes } from './routes';
 import { signIn } from './users';
 
 const colorSchemes = ['light', 'dark'] as const;
@@ -19,7 +19,7 @@ for (const route of routes) {
             await page.waitForLoadState('networkidle');
             await expect(page).toHaveURL(new RegExp(`${route.path}$`));
             await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
-            for (const check of route.checks ?? layoutChecks) {
+            for (const check of route.checks ?? defaultChecks) {
               await checks[check](page, viewport.tier, user);
             }
           });

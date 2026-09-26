@@ -110,7 +110,7 @@ export default function PropertyField({ definition, described = true, serverValu
         </Inline>
         {described && (
           <>
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            <Typography variant="code" color="text.secondary">
               {definition.key}
             </Typography>
             <Typography variant="body2" color="text.secondary">{definition.description}</Typography>

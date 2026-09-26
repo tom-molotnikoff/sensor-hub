@@ -45,6 +45,14 @@ describe('theme', () => {
     });
   });
 
+  it('sets code in a monospace caption that breaks anywhere rather than overflowing its column', () => {
+    expect(theme.typography.code).toMatchObject({
+      fontSize: '12px',
+      fontFamily: 'monospace',
+      overflowWrap: 'anywhere',
+    });
+  });
+
   it.each([
     ['pageTitle', 1.3],
     ['cardTitle', 1.3],
@@ -55,6 +63,7 @@ describe('theme', () => {
     ['metricSm', 1.5],
     ['metricMd', 1.5],
     ['metricLg', 1.5],
+    ['code', 1.66],
   ] as const)('gives %s a line height of %s whatever element renders it', (variant, lineHeight) => {
     expect(theme.typography[variant].lineHeight).toBe(lineHeight);
   });

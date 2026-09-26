@@ -1,5 +1,5 @@
-import { expect, test, type Page } from './test';
-import { viewports } from './checks';
+import { expect, test, type Locator, type Page } from './test';
+import { contractViewports, narrowWide, saveNav, viewports, type NavState, type Tier } from './checks';
 import { signIn } from './users';
 
 async function openProperties(page: Page) {
@@ -32,21 +32,115 @@ for (const viewport of viewports) {
   });
 }
 
+function pageTitle(page: Page, tier: Tier) {
+  return page.locator(tier === 'wide' ? '[data-ui=page-header]' : '[data-ui=app-bar]');
+}
+
+async function top(locator: Locator) {
+  return (await locator.boundingBox())!.y;
+}
+
+function innerScrollers(page: Page) {
+  return page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('body *')]
+      .filter((element) => ['auto', 'scroll'].includes(getComputedStyle(element).overflowY))
+      .filter((element) => element.scrollHeight > element.clientHeight)
+      .map((element) => `${element.tagName.toLowerCase()} ${element.getAttribute('data-ui')} ${element.scrollHeight}/${element.clientHeight}`),
+  );
+}
+
+for (const viewport of contractViewports) {
+  test.describe(`Properties Overview scrolling at ${viewport.width}x${viewport.height}`, () => {
+    test.use({ viewport: { width: viewport.width, height: viewport.height } });
+
+    test('scrolls the groups with the document alone, with no inner scroller', async ({ page }) => {
+      await openProperties(page);
+      const scrollable = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+
+      expect(scrollable).toBeGreaterThan(0);
+      expect(await innerScrollers(page)).toEqual([]);
+    });
+
+    test('keeps the page title and the properties bar still while a wheel over the groups scrolls the page', async ({ page }) => {
+      const { rail, sections } = await openProperties(page);
+      const title = pageTitle(page, viewport.tier);
+      const bar = page.locator('[data-ui=sticky-bar]');
+      const before = { title: await top(title), bar: await top(bar), rail: await top(rail), sections: await top(sections) };
+
+      const box = (await sections.boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, Math.min(viewport.height - 1, box.y + box.height / 2));
+      await page.mouse.wheel(0, 200);
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(200);
+
+      expect(await top(title)).toBeCloseTo(before.title, 0);
+      expect(await top(title)).toBeCloseTo(0, 0);
+      expect(await top(bar)).toBeCloseTo(before.bar, 0);
+      expect(await top(sections)).toBeCloseTo(before.sections - 200, 0);
+      if (viewport.tier === 'wide') expect(await top(rail)).toBeCloseTo(before.rail, 0);
+      expect(await innerScrollers(page)).toEqual([]);
+    });
+  });
+}
+
 test.describe('Properties Overview at 1440x900', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('pins the header to the top and keeps the rail the same distance below it when a later group is opened from the rail', async ({ page }) => {
+  test('keeps the header and rail exactly where they start when a later group is opened from the rail', async ({ page }) => {
     const { rail } = await openProperties(page);
     const header = page.locator('[data-ui=sticky-bar]');
-    const headerBox = (await header.boundingBox())!;
-    const railGap = (await rail.boundingBox())!.y - headerBox.y;
+    const headerTop = await top(header);
+    const railTop = await top(rail);
 
     const last = rail.getByRole('link').last();
     await last.click();
     await expect(last).toHaveAttribute('aria-current', 'true');
 
     expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-    expect((await header.boundingBox())!.y).toBeCloseTo(0, 0);
-    expect((await rail.boundingBox())!.y).toBeCloseTo(railGap, 0);
+    expect(await top(header)).toBeCloseTo(headerTop, 0);
+    expect(await top(rail)).toBeCloseTo(railTop, 0);
   });
 });
+
+async function textRight(locator: Locator) {
+  return locator.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    return range.getBoundingClientRect().right;
+  });
+}
+
+function overflowingText(page: Page) {
+  return page.locator('[data-ui=anchor-stack-sections]').evaluate((sections) => {
+    const found: string[] = [];
+    const walker = document.createTreeWalker(sections, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue;
+      const column = node.parentElement!.closest('[data-ui=page-grid-item]');
+      if (!column) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const text = range.getBoundingClientRect();
+      const bounds = column.getBoundingClientRect();
+      if (text.left < bounds.left - 0.5 || text.right > bounds.right + 0.5) {
+        found.push(`"${node.textContent.trim()}" spans ${text.left}-${text.right} in a column ${bounds.left}-${bounds.right}`);
+      }
+    }
+    return found;
+  });
+}
+
+for (const nav of ['rail', 'expanded'] as const satisfies readonly NavState[]) {
+  test.describe(`Properties Overview at ${narrowWide.width}x${narrowWide.height} with the nav ${nav}`, () => {
+    test.use({ viewport: { width: narrowWide.width, height: narrowWide.height } });
+
+    test('keeps every property key inside its column and clear of its input', async ({ page }) => {
+      await saveNav(page, nav);
+      await openProperties(page);
+      const key = page.getByText('auth.login.backoff.window.minutes', { exact: true });
+      const input = page.getByRole('textbox', { name: 'Login backoff window' });
+
+      expect(await textRight(key)).toBeLessThanOrEqual((await input.boundingBox())!.x);
+      expect(await overflowingText(page)).toEqual([]);
+    });
+  });
+}
