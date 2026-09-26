@@ -1,0 +1,11 @@
+.git
+ui/
+web/docs/*
+!web/docs/.gitkeep
+tmp/
+dist/
+data/
+**/__debug_bin*
+sensor-hub
+sensorHub
+*.test
