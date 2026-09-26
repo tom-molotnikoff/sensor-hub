@@ -2,17 +2,23 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"strings"
+	"time"
 
 	database "example/sensorHub/db"
 	"example/sensorHub/service"
 	"example/sensorHub/testharness/fixtures"
 )
 
-const adminAPIKeyName = "devstack seed"
+const (
+	adminUsername   = "admin"
+	adminAPIKeyName = "devstack seed"
+)
 
 var devUsers = []fixtures.User{
-	{Username: "admin", Password: "adminpassword", Role: service.RoleAdmin},
+	{Username: adminUsername, Password: "adminpassword", Role: service.RoleAdmin},
 	{Username: "user", Password: "userpassword", Role: service.RoleUser},
 	{Username: "viewer", Password: "viewerpassword", Role: service.RoleViewer},
 }
@@ -52,9 +58,40 @@ func seed(ctx context.Context, db *database.Handles, logger *slog.Logger) (strin
 	}
 	if marker.seeded {
 		logger.Info("entities were seeded before, leaving them as they are")
+		active, err := s.adminKeyIsActive(ctx, marker.adminAPIKey)
+		if err != nil {
+			return "", &stepError{step: "check the admin API key", err: err}
+		}
+		if !active {
+			logger.Warn("the seeded admin API key was revoked, expired or deleted, run down -v for a fresh one")
+			return "", nil
+		}
 		return marker.adminAPIKey, nil
 	}
 	return s.createEntities(ctx)
+}
+
+func (s *seeder) adminKeyIsActive(ctx context.Context, apiKey string) (bool, error) {
+	users, err := s.users.ListUsers(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, user := range users {
+		if user.Username != adminUsername {
+			continue
+		}
+		keys, err := s.apiKeys.ListApiKeysForUser(ctx, user.Id)
+		if err != nil {
+			return false, err
+		}
+		for _, key := range keys {
+			expired := key.ExpiresAt != nil && key.ExpiresAt.Before(time.Now())
+			if strings.HasPrefix(apiKey, key.KeyPrefix) && !key.Revoked && !expired {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 func (s *seeder) createEntities(ctx context.Context) (string, error) {
@@ -62,7 +99,7 @@ func (s *seeder) createEntities(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", &stepError{step: "create the users", err: err}
 	}
-	apiKey, err := s.createAdminAPIKey(ctx, userIDs["admin"])
+	apiKey, err := s.createAdminAPIKey(ctx, userIDs[adminUsername])
 	if err != nil {
 		return "", &stepError{step: "create the admin API key", err: err}
 	}
@@ -82,8 +119,10 @@ func (s *seeder) createUsers(ctx context.Context) (map[string]int, error) {
 		ids[user.Username] = user.Id
 	}
 	for _, user := range devUsers {
-		if _, ok := ids[user.Username]; ok {
-			s.logger.Info("user exists, skipping", "username", user.Username)
+		if id, ok := ids[user.Username]; ok {
+			if err := s.finishUser(ctx, id, user); err != nil {
+				return nil, err
+			}
 			continue
 		}
 		id, err := fixtures.CreateUser(ctx, s.users, user)
@@ -94,6 +133,17 @@ func (s *seeder) createUsers(ctx context.Context) (map[string]int, error) {
 		s.logger.Info("created user", "username", user.Username, "role", user.Role)
 	}
 	return ids, nil
+}
+
+func (s *seeder) finishUser(ctx context.Context, id int, user fixtures.User) error {
+	if err := s.users.SetUserRoles(ctx, id, []string{user.Role}); err != nil {
+		return fmt.Errorf("failed to set the role of %s: %w", user.Username, err)
+	}
+	if err := s.users.SetMustChangeFlag(ctx, id, false); err != nil {
+		return fmt.Errorf("failed to clear the password change for %s: %w", user.Username, err)
+	}
+	s.logger.Info("user exists, made sure of its role and password state", "username", user.Username, "role", user.Role)
+	return nil
 }
 
 func (s *seeder) createAdminAPIKey(ctx context.Context, adminID int) (string, error) {

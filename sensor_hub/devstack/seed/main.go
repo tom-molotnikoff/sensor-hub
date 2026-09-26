@@ -23,6 +23,10 @@ func main() {
 		logger.Error("seed failed", "step", failed.step, "cause", failed.err)
 		os.Exit(1)
 	}
+	if apiKey == "" {
+		logger.Info("seed complete")
+		return
+	}
 	logger.Info("seed complete", "admin_api_key", apiKey)
 }
 

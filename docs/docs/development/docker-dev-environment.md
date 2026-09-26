@@ -23,7 +23,8 @@ has to change their password:
 | `user` | `userpassword` | user |
 | `viewer` | `viewerpassword` | viewer |
 
-It also creates an admin API key and prints it on every start:
+It also creates an admin API key and prints it on every start, for as long as
+the key still works:
 
 ```bash
 cd sensor_hub/devstack

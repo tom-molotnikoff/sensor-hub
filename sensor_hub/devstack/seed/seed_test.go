@@ -9,6 +9,7 @@ import (
 
 	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
+	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
 
 	"github.com/stretchr/testify/assert"
@@ -140,4 +141,27 @@ func TestSeed_FailedStepIsNamedAndARerunFinishesWithoutDuplicates(t *testing.T) 
 	assert.Equal(t, entityCounts{users: len(devUsers), apiKeys: 1, markers: 1}, countEntities(t, db))
 	assertSeededUsersCanLogIn(t, db)
 	assertAuthenticatesAsAdmin(t, db, apiKey)
+}
+
+func TestSeed_RerunPrintsNoKeyOnceTheSeededKeyIsRevoked(t *testing.T) {
+	db := openTempDatabase(t)
+	runSeed(t, db)
+	_, err := db.Writer.Exec("UPDATE api_keys SET revoked = 1")
+	require.NoError(t, err)
+
+	assert.Empty(t, runSeed(t, db), "a key that no longer authenticates is not printed")
+}
+
+func TestSeed_RerunFinishesAUserAnUnfinishedRunLeftBehind(t *testing.T) {
+	db := openTempDatabase(t)
+	users := database.NewUserRepository(db, discardLogger())
+	hash, err := bcrypt.GenerateFromPassword([]byte("adminpassword"), bcrypt.MinCost)
+	require.NoError(t, err)
+	_, err = users.CreateUser(context.Background(), gen.User{Username: "admin", MustChangePassword: true}, string(hash))
+	require.NoError(t, err)
+
+	runSeed(t, db)
+
+	assert.Equal(t, entityCounts{users: len(devUsers), apiKeys: 1, markers: 1}, countEntities(t, db))
+	assertSeededUsersCanLogIn(t, db)
 }
