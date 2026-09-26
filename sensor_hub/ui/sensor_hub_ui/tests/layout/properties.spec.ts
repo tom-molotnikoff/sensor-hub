@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from './test';
-import { contractViewports, viewports, type Tier } from './checks';
+import { contractViewports, narrowWide, saveNav, viewports, type NavState, type Tier } from './checks';
 import { signIn } from './users';
 
 async function openProperties(page: Page) {
@@ -100,3 +100,47 @@ test.describe('Properties Overview at 1440x900', () => {
     expect(await top(rail)).toBeCloseTo(railTop, 0);
   });
 });
+
+async function textRight(locator: Locator) {
+  return locator.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    return range.getBoundingClientRect().right;
+  });
+}
+
+function overflowingText(page: Page) {
+  return page.locator('[data-ui=anchor-stack-sections]').evaluate((sections) => {
+    const found: string[] = [];
+    const walker = document.createTreeWalker(sections, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue;
+      const column = node.parentElement!.closest('[data-ui=page-grid-item]');
+      if (!column) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const text = range.getBoundingClientRect();
+      const bounds = column.getBoundingClientRect();
+      if (text.left < bounds.left - 0.5 || text.right > bounds.right + 0.5) {
+        found.push(`"${node.textContent.trim()}" spans ${text.left}-${text.right} in a column ${bounds.left}-${bounds.right}`);
+      }
+    }
+    return found;
+  });
+}
+
+for (const nav of ['rail', 'expanded'] as const satisfies readonly NavState[]) {
+  test.describe(`Properties Overview at ${narrowWide.width}x${narrowWide.height} with the nav ${nav}`, () => {
+    test.use({ viewport: { width: narrowWide.width, height: narrowWide.height } });
+
+    test('keeps every property key inside its column and clear of its input', async ({ page }) => {
+      await saveNav(page, nav);
+      await openProperties(page);
+      const key = page.getByText('auth.login.backoff.window.minutes', { exact: true });
+      const input = page.getByRole('textbox', { name: 'Login backoff window' });
+
+      expect(await textRight(key)).toBeLessThanOrEqual((await input.boundingBox())!.x);
+      expect(await overflowingText(page)).toEqual([]);
+    });
+  });
+}

@@ -32,6 +32,7 @@ declare module '@mui/material/styles' {
     metricSm: TypographyStyle;
     metricMd: TypographyStyle;
     metricLg: TypographyStyle;
+    code: TypographyStyle;
   }
   interface TypographyVariantsOptions {
     pageTitle?: TypographyStyle;
@@ -42,6 +43,7 @@ declare module '@mui/material/styles' {
     metricSm?: TypographyStyle;
     metricMd?: TypographyStyle;
     metricLg?: TypographyStyle;
+    code?: TypographyStyle;
   }
 }
 
@@ -55,6 +57,7 @@ declare module '@mui/material/Typography' {
     metricSm: true;
     metricMd: true;
     metricLg: true;
+    code: true;
   }
 }
 
@@ -95,6 +98,7 @@ export const theme = createTheme({
     metricSm: metric(24),
     metricMd: metric(36),
     metricLg: metric(56),
+    code: { ...typeScale(12, 400, lineHeights.caption), fontFamily: 'monospace', overflowWrap: 'anywhere' },
   },
   components: {
     MuiDataGrid: {
@@ -144,6 +148,7 @@ export const theme = createTheme({
           metricSm: 'span',
           metricMd: 'span',
           metricLg: 'span',
+          code: 'code',
         },
       },
     },
