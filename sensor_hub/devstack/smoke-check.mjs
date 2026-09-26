@@ -1,13 +1,21 @@
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 
 const devstack = import.meta.dirname;
 const api = 'http://localhost:8080/api';
+const ui = 'http://localhost:3000';
 const startTimeoutMs = 15 * 60_000;
 const liveReadingTimeoutMs = 60_000;
 const toggleTimeoutMs = 15_000;
 const mqttDriver = 'mqtt-zigbee2mqtt';
 const httpMockPort = 5000;
 const switchablePlug = 'office-plug';
+const widgetSettleTimeoutMs = 60_000;
+const activeDashboardKey = 'sensor-hub-active-dashboard-id';
+const outsideServiceWidgets = new Set(['weather-forecast']);
+
+const { chromium } = createRequire(path.join(devstack, '../ui/sensor_hub_ui/package.json'))('@playwright/test');
 
 const logins = [
   { username: 'admin', password: 'adminpassword', role: 'admin' },
@@ -43,17 +51,22 @@ async function currentUser(headers) {
   return (await response.json()).user;
 }
 
-async function checkLogin({ username, password, role }) {
+async function signIn({ username, password }) {
   const response = await fetch(`${api}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   });
-  if (!response.ok) throw new Error(`login answered ${response.status}`);
-  if ((await response.json()).must_change_password) throw new Error('asked to change the password');
+  if (!response.ok) throw new Error(`login as ${username} answered ${response.status}`);
   const session = response.headers.getSetCookie().map((cookie) => cookie.split(';')[0]).join('; ');
-  const user = await currentUser({ Cookie: session });
-  if (!user.roles.includes(role)) throw new Error(`has roles ${user.roles.join(', ')}, expected ${role}`);
+  return { headers: { Cookie: session }, mustChangePassword: (await response.json()).must_change_password };
+}
+
+async function checkLogin(login) {
+  const { headers, mustChangePassword } = await signIn(login);
+  if (mustChangePassword) throw new Error('asked to change the password');
+  const user = await currentUser(headers);
+  if (!user.roles.includes(login.role)) throw new Error(`has roles ${user.roles.join(', ')}, expected ${login.role}`);
 }
 
 let adminKey = '';
@@ -142,6 +155,87 @@ async function checkPlugToggles() {
   throw new Error(`the hub shows no ${command} state within ${toggleTimeoutMs / 1000} s of the command`);
 }
 
+function widgetProblem(frame) {
+  const state = frame.dataset.widgetState;
+  if (state === 'error') return 'shows an error';
+  if (state !== 'populated' || frame.querySelector('[aria-busy=true]')) return `is still ${state === 'populated' ? 'loading' : state}`;
+  const empty = frame.querySelector('[data-ui=empty-state]');
+  if (empty) return `shows the empty state "${empty.innerText.trim()}"`;
+  const valueless = [...frame.querySelectorAll('[data-ui=metric-value], [data-ui=stat] *')]
+    .some((element) => element.children.length === 0 && element.textContent.trim() === '\u2014');
+  if (valueless) return 'shows no value';
+  if (frame.querySelector('[aria-checked=mixed]')) return 'shows no state';
+  const tiles = [...frame.querySelectorAll('[data-ui=tile]')];
+  if (tiles.length > 0 && !tiles.some((tile) => getComputedStyle(tile).color === 'rgb(255, 255, 255)')) return 'has no tile with data';
+  if (!frame.querySelector('[data-ui=frame-content]')?.innerText.trim()) return 'is blank';
+  return null;
+}
+
+async function widgetProblems(page, dashboard) {
+  await page.addInitScript(([key, id]) => localStorage.setItem(key, id), [activeDashboardKey, String(dashboard.id)]);
+  await page.goto(ui);
+  const widgets = JSON.parse(dashboard.config).widgets.filter((widget) => !outsideServiceWidgets.has(widget.type));
+  let problems = [];
+  const deadline = Date.now() + widgetSettleTimeoutMs;
+  do {
+    problems = [];
+    for (const widget of widgets) {
+      const frame = page.locator(`[data-widget-id="${widget.id}"] [data-ui=frame]`);
+      if (await frame.count() === 0) {
+        problems.push(`${widget.type} is not on the page`);
+        continue;
+      }
+      await frame.scrollIntoViewIfNeeded();
+      const problem = await frame.evaluate(widgetProblem);
+      if (problem) problems.push(`${widget.type} ${problem}`);
+    }
+    if (problems.length > 0) await sleep(1000);
+  } while (problems.length > 0 && Date.now() < deadline);
+  return problems;
+}
+
+async function checkDashboardsRenderWithData() {
+  const browser = await chromium.launch();
+  const problems = [];
+  let rendered = 0;
+  try {
+    for (const { username, password } of logins) {
+      const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+      const login = await context.request.post(`${api}/auth/login`, { data: { username, password } });
+      if (!login.ok()) throw new Error(`${username} could not log in: ${login.status()}`);
+      const dashboards = await (await context.request.get(`${api}/dashboards`)).json();
+      for (const dashboard of dashboards) {
+        const page = await context.newPage();
+        for (const problem of await widgetProblems(page, dashboard)) problems.push(`${username} on ${dashboard.name}: ${problem}`);
+        await page.close();
+        rendered++;
+      }
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+  }
+  if (rendered === 0) throw new Error('no seeded user can see a dashboard');
+  if (problems.length > 0) throw new Error(problems.join('; '));
+}
+
+async function checkSeededDashboards() {
+  const dashboards = await request('/dashboards');
+  const names = dashboards.map((dashboard) => dashboard.name);
+  for (const name of ['Home', 'Climate', 'Devices']) {
+    if (!names.includes(name)) throw new Error(`admin has no ${name} dashboard`);
+  }
+  const home = dashboards.find((dashboard) => dashboard.name === 'Home');
+  if (!home.is_default) throw new Error('Home is not the default dashboard');
+}
+
+async function checkViewerHasASharedDashboard() {
+  const { headers } = await signIn(logins.find((login) => login.role === 'viewer'));
+  const response = await fetch(`${api}/dashboards`, { headers });
+  if (!response.ok) throw new Error(`viewer's /dashboards answered ${response.status}`);
+  if ((await response.json()).length === 0) throw new Error('no dashboard is shared with viewer');
+}
+
 function checkSeedRanFirst() {
   const seed = containerState('seed');
   const hub = containerState('sensor-hub');
@@ -158,6 +252,9 @@ const checks = [
   ['every approved MQTT device gets a new live reading', checkLiveMQTTReadings],
   ['no pending sensors exist', checkNoPendingSensors],
   [`the ${switchablePlug} toggles through the hub`, checkPlugToggles],
+  ['Home, Climate and Devices exist and Home is the default', checkSeededDashboards],
+  ['a dashboard is shared with viewer', checkViewerHasASharedDashboard],
+  ['every widget on every dashboard a seeded user can see renders with data', checkDashboardsRenderWithData],
 ];
 
 console.log('resetting the stack to an empty volume and starting it');

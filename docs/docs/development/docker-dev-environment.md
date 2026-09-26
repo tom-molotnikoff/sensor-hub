@@ -64,6 +64,11 @@ The seed also creates range alert rules on `living-room-sensor` temperature and
 `kitchen-sensor` humidity, a status rule on the `front-door` contact, and a few
 notifications, some already read.
 
+It lays out three dashboards for admin, which between them use every widget
+type: Home, the default, Climate and Devices. Climate is shared with viewer,
+and the seed grants the viewer role `view_sensors` and `view_readings` so that
+its widgets have data to show. The `user` login has no dashboards of its own.
+
 The seed only creates these once, so anything you change or delete stays that
 way. A deleted MQTT sensor comes back as a pending sensor while its mock device
 keeps publishing. The passwords and key are for local development only.
@@ -94,7 +99,9 @@ docker compose down -v
 This deletes the database and the Go caches, so the next start seeds from
 scratch. If you started an overlay with `-f`, pass the same `-f` flags here
 too. The smoke check, `node smoke-check.mjs`, runs `down -v` before it starts,
-so running it wipes your dev data as well.
+so running it wipes your dev data as well. It opens every dashboard in Chromium
+through the UI's Playwright, so it needs `npm ci` and
+`npx playwright install chromium` run in `ui/sensor_hub_ui` first.
 
 ## Removing the Old Stack
 
