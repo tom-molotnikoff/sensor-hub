@@ -230,9 +230,40 @@ async function appBar(page: Page, tier: Tier) {
   expect(await clippedGlyphs(titleLocator(page, tier)), 'page title glyphs clipped').toEqual([]);
 }
 
+async function titleTopsAcrossScroll(page: Page, tier: Tier) {
+  const title = page.locator(tier === 'wide' ? '[data-ui=page-header]' : '[data-ui=app-bar]');
+  const scrollable = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+  const before = (await title.boundingBox())!.y;
+  if (scrollable <= 0) return { before, after: before, scrolled: 0 };
+
+  await page.evaluate((y) => window.scrollTo(0, y), scrollable);
+  const after = (await title.boundingBox())!.y;
+  await page.evaluate(() => window.scrollTo(0, 0));
+  return { before, after, scrolled: scrollable };
+}
+
+async function pinnedTitle(page: Page, tier: Tier) {
+  const { before, after } = await titleTopsAcrossScroll(page, tier);
+  expect(before, 'page title top before scrolling').toBeCloseTo(0, 0);
+  expect(after, 'page title top after scrolling to the end').toBeCloseTo(0, 0);
+}
+
+async function scrollingTitle(page: Page, tier: Tier) {
+  const { before, after, scrolled } = await titleTopsAcrossScroll(page, tier);
+  if (tier === 'compact') {
+    expect(before, 'app bar top before scrolling').toBeCloseTo(0, 0);
+    expect(after, 'app bar top after scrolling to the end').toBeCloseTo(0, 0);
+    return;
+  }
+  expect(before, 'page header top before scrolling').toBeCloseTo(pagePadding.wide, 0);
+  expect(after, 'page header top after scrolling to the end').toBeCloseTo(pagePadding.wide - scrolled, 0);
+}
+
 export const checks: Record<LayoutCheck, (page: Page, tier: Tier, user: LayoutUser) => Promise<void>> = {
   noSidewaysScroll,
   noCollapsedContent,
   shell,
   appBar,
+  pinnedTitle,
+  scrollingTitle,
 };

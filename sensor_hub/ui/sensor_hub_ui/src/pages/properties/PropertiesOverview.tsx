@@ -6,7 +6,7 @@ export default function PropertiesOverview() {
   const { user } = useAuth();
 
   return (
-    <Page title="Properties Overview" loading={user === undefined}>
+    <Page title="Properties Overview" pinnedHeader loading={user === undefined}>
       <PropertiesPage />
     </Page>
   );

@@ -1,9 +1,13 @@
-import { useSyncExternalStore } from 'react';
+import { createContext, useContext, useSyncExternalStore } from 'react';
 import { useTheme, type Theme } from '@mui/material';
 import type { CSSObject } from '@mui/system';
 import { useTier, wideMediaQuery } from './tiers';
 
 const mediaPrefix = '@media ';
+
+export const pageHeaderHeightVar = '--page-header-height';
+
+export const PageHeaderHeightContext = createContext(0);
 
 type ToolbarHeights = { base: number; queries: [string, number][] };
 
@@ -22,7 +26,7 @@ export function stickyTop(theme: Theme, offset: number): CSSObject {
   const { base, queries } = toolbarHeights(theme);
   const rules: CSSObject = { top: base + offset };
   for (const [query, height] of queries) rules[query] = { top: height + offset };
-  return { ...rules, [wideMediaQuery]: { top: offset } };
+  return { ...rules, [wideMediaQuery]: { top: `calc(var(${pageHeaderHeightVar}, 0px) + ${offset}px)` } };
 }
 
 function subscribe(onChange: () => void) {
@@ -33,6 +37,7 @@ function subscribe(onChange: () => void) {
 export function useStickyTop(): number {
   const theme = useTheme();
   const wide = useTier() === 'wide';
+  const headerHeight = useContext(PageHeaderHeightContext);
   const appBarHeight = useSyncExternalStore(subscribe, () => {
     const { base, queries } = toolbarHeights(theme);
     return queries.reduce(
@@ -40,5 +45,5 @@ export function useStickyTop(): number {
       base,
     );
   });
-  return wide ? 0 : appBarHeight;
+  return wide ? headerHeight : appBarHeight;
 }

@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@mui/material';
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useStickyTop } from './stickyTop';
+import { PageHeaderHeightContext, useStickyTop } from './stickyTop';
 import { theme } from './theme';
 
 function atWidth(width: number) {
@@ -18,10 +18,19 @@ function atWidth(width: number) {
   }));
 }
 
-function stickyTopAt(width: number) {
+function stickyTopAt(width: number, headerHeight?: number) {
   atWidth(width);
-  return renderHook(() => useStickyTop(), { wrapper: ({ children }) => <ThemeProvider theme={theme}>{children}</ThemeProvider> })
-    .result.current;
+  return renderHook(() => useStickyTop(), {
+    wrapper: ({ children }) => (
+      <ThemeProvider theme={theme}>
+        {headerHeight === undefined ? (
+          children
+        ) : (
+          <PageHeaderHeightContext.Provider value={headerHeight}>{children}</PageHeaderHeightContext.Provider>
+        )}
+      </ThemeProvider>
+    ),
+  }).result.current;
 }
 
 describe('useStickyTop', () => {
@@ -36,5 +45,14 @@ describe('useStickyTop', () => {
     [1440, 0],
   ])('puts sticky content at a %ipx wide viewport %ipx from the top', (width, top) => {
     expect(stickyTopAt(width)).toBe(top);
+  });
+
+  it.each([
+    [390, 56],
+    [600, 64],
+    [900, 71],
+    [1440, 71],
+  ])('puts sticky content under a 71px page header at a %ipx wide viewport %ipx from the top', (width, top) => {
+    expect(stickyTopAt(width, 71)).toBe(top);
   });
 });
