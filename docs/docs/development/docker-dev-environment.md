@@ -37,7 +37,7 @@ up. `.env` is git-ignored.
 - **Delve** runs the hub under `dlv debug`. Attach your IDE's debugger (DAP or
   the Delve API v2) to `localhost:2345` at any time.
 
-## Seeded Logins and API Key
+## Seeded Logins, API Key and Sensors
 
 From an empty volume the seed creates these users, none of which has to change
 their password:
@@ -55,8 +55,14 @@ the key still works:
 docker compose logs seed | grep admin_api_key
 ```
 
+The hub is subscribed to `zigbee2mqtt/#`, and every mock sensor is registered
+and approved: the Zigbee2MQTT devices in `mocks/mqtt_devices.py` and the two
+HTTP mocks. Live readings land on those sensors from the first start, and
+`office-plug` can be switched on and off from the hub.
+
 The seed only creates these once, so anything you change or delete stays that
-way. The passwords and key are for local development only.
+way. A deleted MQTT sensor comes back as a pending sensor while its mock device
+keeps publishing. The passwords and key are for local development only.
 
 ## Ports
 

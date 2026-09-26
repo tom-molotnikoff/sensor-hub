@@ -30,6 +30,11 @@ services:
   seed:
     <<: *sensor-hub-image
     command: ["go", "run", "./devstack/seed"]
+    depends_on:
+      mock-http-downstairs:
+        condition: service_started
+      mock-http-upstairs:
+        condition: service_started
 
   sensor-hub:
     <<: *sensor-hub-image

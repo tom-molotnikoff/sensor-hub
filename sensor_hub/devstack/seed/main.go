@@ -39,5 +39,5 @@ func run(ctx context.Context, logger *slog.Logger) (string, error) {
 		return "", &stepError{step: "open and migrate the database", err: err}
 	}
 	defer db.Close()
-	return seed(ctx, db, logger)
+	return seed(ctx, db, logger, composeHTTPMocks)
 }

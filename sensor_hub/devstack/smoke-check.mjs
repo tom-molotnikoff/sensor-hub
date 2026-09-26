@@ -3,6 +3,11 @@ import { execFileSync } from 'node:child_process';
 const devstack = import.meta.dirname;
 const api = 'http://localhost:8080/api';
 const startTimeoutMs = 15 * 60_000;
+const liveReadingTimeoutMs = 60_000;
+const toggleTimeoutMs = 15_000;
+const mqttDriver = 'mqtt-zigbee2mqtt';
+const httpMockPort = 5000;
+const switchablePlug = 'office-plug';
 
 const logins = [
   { username: 'admin', password: 'adminpassword', role: 'admin' },
@@ -51,11 +56,90 @@ async function checkLogin({ username, password, role }) {
   if (!user.roles.includes(role)) throw new Error(`has roles ${user.roles.join(', ')}, expected ${role}`);
 }
 
+let adminKey = '';
+
 async function checkApiKey() {
   const key = compose('logs', '--no-log-prefix', 'seed').match(/admin_api_key=(shk_[0-9a-f]+)/)?.[1];
   if (!key) throw new Error('the seed logs print no admin API key');
   const user = await currentUser({ 'X-API-Key': key });
   if (user.username !== 'admin') throw new Error(`the key authenticates as ${user.username}`);
+  adminKey = key;
+}
+
+async function request(path, { method = 'GET', body } = {}) {
+  const response = await fetch(`${api}${path}`, {
+    method,
+    headers: { 'X-API-Key': adminKey, 'Content-Type': 'application/json' },
+    body: body && JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`${method} ${path} answered ${response.status}`);
+  return response.json();
+}
+
+const nextWholeSecond = () => new Date(Math.ceil(Date.now() / 1000) * 1000);
+
+async function readingsSince(since, sensor, type) {
+  const query = new URLSearchParams({ start: since.toISOString(), end: new Date(Date.now() + 60_000).toISOString(), sensor, aggregation: 'raw' });
+  if (type) query.set('type', type);
+  return (await request(`/readings/between?${query}`)).readings;
+}
+
+async function approvedSensors() {
+  return (await request('/sensors')).filter((sensor) => sensor.status === 'active' && sensor.enabled);
+}
+
+async function checkSubscription() {
+  const subscriptions = await request('/mqtt/subscriptions');
+  if (!subscriptions.some((subscription) => subscription.topic_pattern === 'zigbee2mqtt/#' && subscription.enabled)) {
+    throw new Error('no enabled zigbee2mqtt/# subscription');
+  }
+}
+
+async function checkHTTPMocks() {
+  const mocks = compose('config', '--services').split('\n').filter((service) => service.startsWith('mock-http-'));
+  const sensors = await approvedSensors();
+  const since = new Date(Date.now() - 10 * 60_000);
+  for (const mock of mocks) {
+    const sensor = sensors.find((candidate) => candidate.config.url === `http://${mock}:${httpMockPort}`);
+    if (!sensor) throw new Error(`no approved sensor polls ${mock}`);
+    if ((await readingsSince(since, sensor.name)).length === 0) throw new Error(`${sensor.name} has no reading`);
+  }
+}
+
+async function checkLiveMQTTReadings() {
+  const since = nextWholeSecond();
+  let waiting = (await approvedSensors()).filter((sensor) => sensor.sensor_driver === mqttDriver).map((sensor) => sensor.name);
+  if (waiting.length === 0) throw new Error('no approved MQTT sensors');
+  const deadline = Date.now() + liveReadingTimeoutMs;
+  while (waiting.length > 0 && Date.now() < deadline) {
+    await sleep(1000);
+    const stillWaiting = [];
+    for (const name of waiting) {
+      if ((await readingsSince(since, name)).length === 0) stillWaiting.push(name);
+    }
+    waiting = stillWaiting;
+  }
+  if (waiting.length > 0) throw new Error(`no live reading within ${liveReadingTimeoutMs / 1000} s for ${waiting.join(', ')}`);
+}
+
+async function checkNoPendingSensors() {
+  const pending = await request('/sensors/status/pending');
+  if (pending.length > 0) throw new Error(`pending: ${pending.map((sensor) => sensor.name).join(', ')}`);
+}
+
+async function checkPlugToggles() {
+  const plug = await request(`/sensors/${switchablePlug}`);
+  const current = (await readingsSince(new Date(Date.now() - 60_000), switchablePlug, 'state')).at(-1);
+  if (!current) throw new Error(`${switchablePlug} has reported no state in the last minute`);
+  const [command, expected] = current.text_state === 'true' ? ['OFF', 'false'] : ['ON', 'true'];
+  const since = new Date(Math.floor(Date.now() / 1000) * 1000);
+  await request(`/sensors/${plug.id}/command`, { method: 'POST', body: { property: 'state', value: command } });
+  const deadline = Date.now() + toggleTimeoutMs;
+  while (Date.now() < deadline) {
+    if ((await readingsSince(since, switchablePlug, 'state')).some((reading) => reading.text_state === expected)) return;
+    await sleep(500);
+  }
+  throw new Error(`the hub shows no ${command} state within ${toggleTimeoutMs / 1000} s of the command`);
 }
 
 function checkSeedRanFirst() {
@@ -69,6 +153,11 @@ const checks = [
   ['seed completed before sensor-hub started', checkSeedRanFirst],
   ...logins.map((login) => [`${login.username} logs in as ${login.role} without a password change`, () => checkLogin(login)]),
   ['the admin API key in the seed logs authenticates', checkApiKey],
+  ['the zigbee2mqtt/# subscription is enabled', checkSubscription],
+  ['every HTTP mock is polled by an approved sensor with a reading', checkHTTPMocks],
+  ['every approved MQTT device gets a new live reading', checkLiveMQTTReadings],
+  ['no pending sensors exist', checkNoPendingSensors],
+  [`the ${switchablePlug} toggles through the hub`, checkPlugToggles],
 ];
 
 console.log('resetting the stack to an empty volume and starting it');
