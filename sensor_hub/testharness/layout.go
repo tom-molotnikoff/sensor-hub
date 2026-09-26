@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"slices"
 	"time"
 
 	database "example/sensorHub/db"
@@ -93,47 +92,13 @@ func createLayoutUsers(ctx context.Context, env *Env) error {
 		return fmt.Errorf("failed to clear harness admin password change: %w", err)
 	}
 
-	if err := grantViewerReadAccess(ctx, env); err != nil {
+	roles := service.NewRoleService(database.NewRoleRepository(env.DB, slog.Default()), slog.Default())
+	if err := fixtures.GrantPermissions(ctx, roles, service.RoleViewer, layoutViewerGrants); err != nil {
 		return err
 	}
 	_, err = fixtures.CreateUser(ctx, service.NewUserService(users, nil, slog.Default()),
 		fixtures.User{Username: layoutViewerUser, Password: layoutViewerPass, Role: service.RoleViewer})
 	return err
-}
-
-func grantViewerReadAccess(ctx context.Context, env *Env) error {
-	roles := database.NewRoleRepository(env.DB, slog.Default())
-	all, err := roles.GetAllRoles(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list roles: %w", err)
-	}
-	viewerRole := -1
-	for _, role := range all {
-		if role.Name == service.RoleViewer {
-			viewerRole = role.Id
-		}
-	}
-	if viewerRole < 0 {
-		return fmt.Errorf("role %q does not exist", service.RoleViewer)
-	}
-	permissions, err := roles.GetAllPermissions(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list permissions: %w", err)
-	}
-	granted := 0
-	for _, permission := range permissions {
-		if !slices.Contains(layoutViewerGrants, permission.Name) {
-			continue
-		}
-		if err := roles.AssignPermissionToRole(ctx, viewerRole, permission.Id); err != nil {
-			return fmt.Errorf("failed to grant %s to viewer: %w", permission.Name, err)
-		}
-		granted++
-	}
-	if granted != len(layoutViewerGrants) {
-		return fmt.Errorf("granted %d of the viewer permissions %v", granted, layoutViewerGrants)
-	}
-	return nil
 }
 
 func createLayoutDashboard(ctx context.Context, env *Env) error {
@@ -142,7 +107,6 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 		return fmt.Errorf("failed to look up harness admin: %w", err)
 	}
 
-	var config gen.DashboardConfig
 	readings := gen.DashboardWidget{Id: "readings-chart", Type: "readings-chart", Config: map[string]interface{}{"measurementType": "temperature"}}
 	readings.Layout.W, readings.Layout.H = 12, 4
 	uptime := gen.DashboardWidget{Id: "uptime", Type: "uptime", Config: map[string]interface{}{"sensorId": 1}}
@@ -187,20 +151,14 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 	toggle.Layout.X, toggle.Layout.Y, toggle.Layout.W, toggle.Layout.H = 8, 36, 4, 2
 	detail := gen.DashboardWidget{Id: "sensor-detail", Type: "sensor-detail", Config: map[string]interface{}{"sensorId": 1}}
 	detail.Layout.Y, detail.Layout.W, detail.Layout.H = 40, 6, 4
-	config.Widgets = []gen.DashboardWidget{
+	widgets := []gen.DashboardWidget{
 		retired, readings, uptime, healthPie, typePie, stats, timeline, current, group, gauge, minMaxAvg,
 		comparison, live, weather, notifications, alerts, note, heatmap, toggle, detail,
 	}
 
 	dashboards := service.NewDashboardService(database.NewDashboardRepository(env.DB, slog.Default()), slog.Default())
-	id, err := dashboards.ServiceCreateDashboard(ctx, admin.Id, gen.CreateDashboardRequest{Name: "Layout", Config: config})
-	if err != nil {
-		return fmt.Errorf("failed to create dashboard: %w", err)
-	}
-	if err := dashboards.ServiceSetDefaultDashboard(ctx, admin.Id, id); err != nil {
-		return fmt.Errorf("failed to make the layout dashboard the default: %w", err)
-	}
-	return nil
+	_, err = fixtures.CreateDashboard(ctx, dashboards, admin.Id, fixtures.Dashboard{Name: "Layout", Widgets: widgets, Default: true})
+	return err
 }
 
 func publishLayoutCurrentReadings(_ context.Context, _ *Env) error {

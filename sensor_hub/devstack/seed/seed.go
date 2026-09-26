@@ -44,6 +44,8 @@ type seeder struct {
 	mqtt          service.MQTTServiceInterface
 	alerts        service.AlertManagementServiceInterface
 	notifications service.NotificationServiceInterface
+	dashboards    service.DashboardServiceInterface
+	roles         service.RoleServiceInterface
 	httpMocks     []httpMock
 	window        time.Duration
 	logger        *slog.Logger
@@ -62,6 +64,8 @@ func seed(ctx context.Context, db *database.Handles, logger *slog.Logger, httpMo
 		mqtt:          service.NewMQTTService(database.NewMQTTBrokerRepository(db, logger), database.NewMQTTSubscriptionRepository(db, logger), logger),
 		alerts:        service.NewAlertManagementService(database.NewAlertRepository(db, logger), nil, logger),
 		notifications: service.NewNotificationService(database.NewNotificationRepository(db, logger), nil, logger),
+		dashboards:    service.NewDashboardService(database.NewDashboardRepository(db, logger), logger),
+		roles:         service.NewRoleService(database.NewRoleRepository(db, logger), logger),
 		httpMocks:     httpMocks,
 		window:        window,
 		logger:        logger,
@@ -138,6 +142,12 @@ func (s *seeder) createEntities(ctx context.Context) (string, error) {
 	}
 	if err := s.createNotifications(ctx, userIDs); err != nil {
 		return "", &stepError{step: "create the notifications", err: err}
+	}
+	if err := s.createDashboards(ctx, userIDs, sensorIDs); err != nil {
+		return "", &stepError{step: "create the dashboards", err: err}
+	}
+	if err := s.grantViewerReadAccess(ctx); err != nil {
+		return "", &stepError{step: "grant the viewer read access", err: err}
 	}
 	if err := writeMarker(ctx, s.db.Writer, apiKey); err != nil {
 		return "", &stepError{step: "write the marker", err: err}
