@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensor Hub automations - design interview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+<style>
+  :root {
+    --primary: #D4451A; --primary-light: #ED5125; --primary-dark: #B33612; --on-primary: #fff;
+    --bg: #F5F0EB; --paper: #FFFFFF; --text: #1A1A1A; --text-2: #5C5C5C; --divider: #D9D0C7;
+    --hover: rgba(212,69,26,0.06);
+    --ok: #2E7D32; --ok-bg: rgba(46,125,50,0.10);
+    --warn: #B26A00; --warn-bg: rgba(178,106,0,0.12);
+    --bad: #B3261E; --bad-bg: rgba(179,38,30,0.10);
+    --info: #1B5E9E; --info-bg: rgba(27,94,158,0.10);
+    --code-bg: #F0E9E2;
+    --side: #211E1B; --side-text: #D9D3CC; --side-muted: #8F867D; --side-active: rgba(237,81,37,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --primary: #ED5125; --primary-light: #F47A56; --primary-dark: #C43D18;
+      --bg: #1A1A1A; --paper: #242424; --text: #E8E8E8; --text-2: #A0A0A0; --divider: #333333;
+      --hover: rgba(237,81,37,0.08);
+      --ok: #7BC67E; --ok-bg: rgba(123,198,126,0.14);
+      --warn: #F0B24A; --warn-bg: rgba(240,178,74,0.16);
+      --bad: #F28B82; --bad-bg: rgba(242,139,130,0.14);
+      --info: #7FB3E8; --info-bg: rgba(127,179,232,0.14);
+      --code-bg: #1F1F1F;
+      --side: #121212;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: Roboto, "Open Sans", Arial, sans-serif; font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  main { max-width: 1160px; margin: 0 auto; padding: 28px 20px 110px; display: flex; flex-direction: column; gap: 48px; }
+  :where(.grid, .flex, .row, .opts, .options) > * { min-width: 0; }
+  :where(p, h1, h2, h3, h4, li, td, th, dd, .chip, figcaption) { overflow-wrap: anywhere; }
+  :where(img, svg) { max-width: 100%; height: auto; }
+  h1 { font-size: 31px; line-height: 1.15; margin: 8px 0 6px; }
+  h2 { font-size: 22px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 0 0 4px; }
+  p { margin: 6px 0; }
+  code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; background: var(--code-bg); border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: 0; line-height: 1.45; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .muted { color: var(--text-2); }
+  .small { font-size: 13px; }
+  .card { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; padding: 18px 20px; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .02em; padding: 2px 9px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
+  .chip.primary { background: var(--primary); color: var(--on-primary); }
+  .chip.outline { border-color: var(--divider); color: var(--text-2); }
+  .chip.ok { background: var(--ok-bg); color: var(--ok); }
+  .chip.warn { background: var(--warn-bg); color: var(--warn); }
+  .chip.bad { background: var(--bad-bg); color: var(--bad); }
+  .chip.info { background: var(--info-bg); color: var(--info); }
+  .grid { display: grid; gap: 14px; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .lede { font-size: 17px; max-width: 800px; }
+  .callout { border-left: 4px solid var(--primary); background: var(--paper); border-radius: 0 12px 12px 0; padding: 14px 18px; }
+  .callout.disagree { border-left-color: var(--warn); }
+  .callout h3 { display: flex; gap: 8px; align-items: center; }
+  .toc { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+  .toc a { color: var(--primary); text-decoration: none; border: 1px solid var(--divider); border-radius: 999px; padding: 3px 10px; background: var(--paper); }
+  .ptable { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .ptable th, .ptable td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--divider); }
+  .ptable th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); }
+  .ptable td.c { text-align: center; font-variant-numeric: tabular-nums; }
+  .ptable .x { color: var(--bad); font-weight: 700; }
+  .ptable .y { color: var(--ok); font-weight: 700; }
+  .tablewrap { overflow-x: auto; background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; }
+  .diagram { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; padding: 14px; }
+  .diagram svg { width: 100%; height: auto; display: block; color: var(--text); }
+  .diagram svg text { font-family: Roboto, Arial, sans-serif; fill: currentColor; }
+  .issues { margin: 0; padding-left: 20px; }
+  .issues li { margin: 4px 0; }
+
+  /* decisions */
+  .decision { background: var(--paper); border: 1px solid var(--divider); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .decision.agreed { border-color: var(--ok); }
+  .decision > header { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .decision > header .id { font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+  .decision > header h3 { margin: 0; }
+  .options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .opt { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--divider); border-radius: 10px; padding: 12px; cursor: pointer; background: var(--bg); }
+  .opt:has(input:checked) { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; background: var(--hover); }
+  .opt input { margin-top: 4px; accent-color: var(--primary); }
+  .opt .t { font-weight: 600; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .opt .d { font-size: 13px; color: var(--text-2); margin-top: 3px; }
+  .opt .cost { font-size: 12.5px; margin-top: 6px; }
+  .opt .cost b { color: var(--bad); font-weight: 600; }
+  .opt .gain b { color: var(--ok); font-weight: 600; }
+  .rec { font-size: 14px; background: var(--info-bg); border-radius: 10px; padding: 10px 12px; }
+  .rec b { color: var(--info); }
+  .wrong { font-size: 13px; color: var(--text-2); border-top: 1px dashed var(--divider); padding-top: 8px; }
+  .wrong b { color: var(--warn); }
+  .answer-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .answer-row textarea { flex: 1 1 280px; min-height: 42px; resize: vertical; font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--divider); background: var(--bg); color: var(--text); }
+  button.q { font: inherit; font-weight: 600; font-size: 14px; letter-spacing: .02em; text-transform: uppercase; padding: 9px 16px; border-radius: 6px; border: none; background: var(--primary); color: var(--on-primary); cursor: pointer; }
+  button.q:hover { background: var(--primary-dark); }
+  .queued { font-size: 12.5px; color: var(--ok); font-weight: 600; display: none; }
+  .queued.show { display: inline; }
+  .group-title { display: flex; gap: 10px; align-items: baseline; margin: 10px 0 -4px; }
+  .group-title h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-2); margin: 0; }
+
+  /* ---------- prototypes: app look ---------- */
+  .mi { font-family: 'Material Icons'; font-size: 20px; line-height: 1; font-style: normal; font-weight: normal; letter-spacing: normal; text-transform: none; white-space: nowrap; direction: ltr; -webkit-font-smoothing: antialiased; display: inline-block; vertical-align: middle; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tabs button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--divider); background: var(--paper); color: var(--text); cursor: pointer; }
+  .tabs button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .hidden { display: none !important; }
+
+  .deskwrap { overflow-x: auto; border-radius: 12px; }
+  .desk { min-width: 1000px; display: flex; border-radius: 12px; overflow: hidden; border: 1px solid var(--divider); box-shadow: 0 14px 40px rgba(60,30,10,.14); background: var(--bg); min-height: 620px; font-size: 13.5px; }
+  .desk .side { width: 210px; flex: 0 0 auto; background: var(--side); color: var(--side-text); display: flex; flex-direction: column; padding-bottom: 10px; }
+  .desk .brand { display: flex; align-items: center; gap: 9px; padding: 14px 14px; }
+  .desk .logo { width: 28px; height: 28px; border-radius: 50%; background: #ED5125; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 11px; }
+  .desk .brand b { font-size: 15px; font-weight: 600; flex: 1; }
+  .desk .nav { padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; }
+  .desk .item { display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; white-space: nowrap; position: relative; font-size: 13.5px; }
+  .desk .item .mi { font-size: 19px; opacity: .9; }
+  .desk .item.active { background: var(--side-active); color: #fff; }
+  .desk .item.active::before { content: ""; position: absolute; left: -8px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 3px 3px 0; background: #ED5125; }
+  .desk .item .new { font-size: 9.5px; font-weight: 700; padding: 0 5px; border-radius: 6px; background: #ED5125; color: #fff; margin-left: auto; }
+  .desk .content { flex: 1; min-width: 0; padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+  .pagehead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .pagehead h4 { font-size: 22px; margin: 0; font-weight: 700; flex: 1; min-width: 0; }
+  .btn { font: inherit; font-size: 12.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; border-radius: 5px; padding: 6px 12px; border: 1px solid var(--primary); color: var(--primary); background: transparent; cursor: pointer; white-space: nowrap; }
+  .btn.solid { background: var(--primary); color: #fff; }
+  .btn.text { border-color: transparent; }
+  .btn.sm { font-size: 11px; padding: 4px 9px; }
+  .pc { background: var(--paper); border: 1px solid var(--divider); border-radius: 10px; min-width: 0; }
+  .pc > .ph { font-size: 12.5px; padding: 8px 14px; border-bottom: 1px solid var(--divider); display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .pc > .pb { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .dt { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .dt th { text-align: left; font-weight: 600; padding: 9px 10px; border-bottom: 1px solid var(--divider); white-space: nowrap; }
+  .dt td { padding: 9px 10px; border-bottom: 1px solid var(--divider); vertical-align: top; }
+  .dt tr:hover td { background: var(--hover); }
+  .dt.quiet td { padding: 12px 10px; vertical-align: middle; }
+  .dt.quiet th { color: var(--text-2); font-weight: 500; font-size: 12px; }
+  .dt .sub { color: var(--text-2); font-size: 12px; }
+  .sw { width: 34px; height: 18px; border-radius: 9px; background: var(--divider); position: relative; display: inline-block; vertical-align: middle; cursor: pointer; flex: 0 0 auto; }
+  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .15s; }
+  .sw.on { background: var(--primary); }
+  .sw.on::after { left: 18px; }
+  .st { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .st.ok { background: var(--ok-bg); color: var(--ok); }
+  .st.bad { background: var(--bad-bg); color: var(--bad); }
+  .st.run { background: var(--info-bg); color: var(--info); }
+  .st.idle { background: var(--code-bg); color: var(--text-2); }
+
+  /* editor A */
+  .edgrid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+  .lane-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
+  .lane-title .hint { font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .step { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: start; border: 1px solid var(--divider); border-radius: 8px; padding: 10px; background: var(--paper); }
+  .step .ico { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--hover); color: var(--primary); }
+  .step.wait .ico { background: var(--info-bg); color: var(--info); }
+  .step .fields { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .step .fields .lbl { font-size: 12px; color: var(--text-2); }
+  .step .kebab { color: var(--text-2); cursor: grab; display: flex; gap: 2px; }
+  .f { font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var(--divider); border-radius: 5px; background: var(--paper); color: var(--text); min-width: 0; max-width: 100%; }
+  .days { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+  .days span { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; border: 1px solid var(--divider); cursor: pointer; user-select: none; }
+  .days span.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .or { align-self: center; font-size: 11px; font-weight: 700; color: var(--text-2); letter-spacing: .08em; }
+  .add { border: 1px dashed var(--primary); color: var(--primary); border-radius: 8px; padding: 7px; text-align: center; font-weight: 600; font-size: 12px; cursor: pointer; background: transparent; font-family: inherit; }
+  .then-line { display: flex; flex-direction: column; gap: 6px; position: relative; }
+  .seqnum { font-size: 11px; font-weight: 700; color: var(--text-2); }
+  .valctl { display: inline-flex; align-items: center; gap: 6px; }
+  .valctl input[type=range] { width: 110px; accent-color: var(--primary); }
+  .seg { display: inline-flex; border: 1px solid var(--divider); border-radius: 5px; overflow: hidden; }
+  .seg span { padding: 4px 10px; font-size: 12px; cursor: pointer; border-right: 1px solid var(--divider); }
+  .seg span:last-child { border-right: 0; }
+  .seg span.on { background: var(--primary); color: #fff; }
+  .summary { font-size: 13px; line-height: 1.55; }
+  .pc > .pb.summary { display: block; }
+  .desk.short { min-height: 0; }
+  .summary b { font-weight: 600; }
+  .runs { display: flex; flex-direction: column; }
+  .runs .r { display: flex; gap: 8px; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--divider); font-size: 12.5px; }
+  .runs .r:last-child { border-bottom: 0; }
+  .runs .r .w { min-width: 0; }
+  .runs .r .w div:last-child { color: var(--text-2); font-size: 11.5px; }
+  .future { opacity: .55; }
+  .tag463 { font-size: 10px; font-weight: 700; background: var(--warn-bg); color: var(--warn); border-radius: 5px; padding: 0 5px; }
+
+  /* editor B: graph */
+  .canvas { background-color: var(--bg); background-image: radial-gradient(var(--divider) 1px, transparent 1px); background-size: 16px 16px; border: 1px solid var(--divider); border-radius: 10px; }
+  .canvas svg text { font-family: Roboto, Arial, sans-serif; fill: currentColor; }
+
+  /* editor C: sentence */
+  .sentence { font-size: 17px; line-height: 2.3; }
+  .tok { display: inline-block; border-bottom: 2px solid var(--primary); color: var(--primary); font-weight: 600; padding: 0 3px; line-height: 1.4; cursor: pointer; }
+  .tok.k { border-bottom-style: dashed; }
+
+  /* phone */
+  .phones { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .phone-wrap { flex: 0 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .phone-wrap .cap { font-size: 13px; font-weight: 600; }
+  .phone-wrap .cap span { font-weight: 400; color: var(--text-2); }
+  .phone { width: 100%; max-width: 300px; border: 8px solid #2b2b2b; border-radius: 26px; overflow: hidden; background: var(--bg); font-size: 12px; }
+  .phone .scr { height: 560px; overflow-y: auto; overflow-x: hidden; }
+  .appbar { background: var(--side); color: #fff; display: flex; align-items: center; gap: 8px; padding: 10px 10px; position: sticky; top: 0; z-index: 2; }
+  .appbar .ttl { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: end; }
+  .ppg { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .phone .step { grid-template-columns: 26px minmax(0,1fr); padding: 8px; gap: 8px; }
+  .phone .step .kebab { display: none; }
+  .phone .step .ico { width: 26px; height: 26px; }
+  .phone .f { font-size: 11.5px; padding: 4px 6px; }
+  .phone .days span { width: 20px; height: 20px; font-size: 9.5px; }
+  .clist .it { display: flex; justify-content: space-between; gap: 8px; padding: 9px 4px; border-bottom: 1px solid var(--divider); align-items: center; }
+  .clist .it .a { min-width: 0; }
+  .clist .it .a div:first-child { font-weight: 600; font-size: 13px; }
+  .clist .it .a div:last-child { color: var(--text-2); font-size: 11px; }
+  .sticky-save { position: sticky; bottom: 0; background: var(--paper); border-top: 1px solid var(--divider); padding: 8px 10px; display: flex; gap: 8px; justify-content: flex-end; }
+
+  @media (max-width: 900px) {
+    .edgrid { grid-template-columns: minmax(0,1fr); }
+  }
+</style>
+<script type="application/json" data-lavish-revisions>
+[{ "id": "r1", "label": "Round 1 answers", "timestamp": "2026-10-05T18:46:00Z", "summary": "Automation agreed as the name; durable runs agreed, with storage and cleanup added" },
+ { "id": "r2", "label": "Round 2", "timestamp": "2026-10-05T19:30:00Z", "summary": "13 decisions agreed; noise evidence from the live hub; simpler list; round 2 questions" },
+ { "id": "r3", "label": "Round 3", "timestamp": "2026-10-05T20:00:00Z", "summary": "D11, D15, D16 agreed; status model and run-lifecycle questions; list and editor use new statuses" },
+ { "id": "r4", "label": "Agreed", "timestamp": "2026-10-05T20:30:00Z", "summary": "D17-D20 agreed; design complete" }]
+</script>
+</head>
+<body>
+<main>
+
+<!-- ============ HEADER ============ -->
+<header>
+  <div class="section-head"><span class="chip primary">Design interview</span><span class="chip ok">Design agreed 2026-10-05</span><span class="chip outline">3 rounds, 21 decisions</span><span class="chip outline">#462 + #463 as one</span></div>
+  <h1>Letting Sensor Hub act on its own</h1>
+  <p class="lede muted">This is the record of the design interview. Every decision is shown with the option that was agreed, and round-by-round notes sit beside the decisions they changed. The original framing follows. You want users to define rules that drive actuators without a person pressing the switch. Time comes first (#462, a lights timer). Sensor readings follow (#463, a TRV that heats below 16 °C). Along the way you want to untangle the reading path so it reads as the pipeline it really is. This page shows what I found in the code, where I disagree with the plan, the decisions I need from you, and three prototypes of the editor. Annotate anything. Each decision has its own Queue button.</p>
+  <nav class="toc"><a href="#round3">Round 3</a><a href="#round2">Round 2</a><a href="#ask">The ask</a><a href="#today">The reading path today</a><a href="#shape">Proposed shape</a><a href="#model">Model sketch</a><a href="#decisions">Decisions</a><a href="#ui">UI prototypes</a></nav>
+</header>
+
+<!-- ============ THE ASK ============ -->
+<section id="ask">
+  <div class="section-head"><h2>The ask, and where I push back</h2></div>
+  <div class="grid g2">
+    <div class="callout">
+      <h3><span class="mi">verified</span> Steelman</h3>
+      <p>Today the actuators are remote controls. A command only goes out when a person or an agent sends one. Sensor Hub already knows the time and the latest value of every sensor, and it can already address every writable property of every device. The missing piece is a <b>user-defined rule</b>: "when X, do these things". It needs to be general enough to cover a timer, a delayed off and a thermostat loop, and it should be built once. Feeding sensor triggers needs a single, explicit reading pipeline. That pipeline also fixes the duplication that has grown in the ingest code.</p>
+      <p class="small muted"><b>What would make this wrong:</b> devices that are better automated at the edge, such as Zigbee bindings or a Home Assistant install. That does not fit Sensor Hub's mix, though: HTTP temperature sensors next to Zigbee actuators. Rules that span protocols can only live in the hub.</p>
+    </div>
+    <div class="callout disagree">
+      <h3><span class="mi">report</span> Where I disagree, or the code disagrees</h3>
+      <ol class="issues small">
+        <li><b>There are three ingest paths, not two.</b> The periodic collector calls <code>ServiceCollectAndStoreAllSensorReadings</code>, not <code>ServiceCollectFromSensorByName</code>. All three do the same job in a different order (table below).</li>
+        <li data-lavish-revision="r1"><span class="chip ok">Agreed: Automation</span> <b>"Pipeline" is about to mean two things.</b> If the reading path becomes an explicit pipeline, user rules called pipelines collide with it. I suggest <b>automation</b> for the user-facing concept (D2).</li>
+        <li><b>The alert engine is the wrong model to copy for sensor triggers.</b> Alerts are level-triggered: they re-fire on every reading once the rate limit lapses. Actuation has to fire on the <i>crossing</i>, or it sends a command on every reading and runs into the existing one-command-in-flight 429.</li>
+        <li><b>A lights timer needs a wall clock, and the hub has none.</b> Everything runs in UTC and there is no timezone setting. "19:00" would be 20:00 local for half the year (D6).</li>
+        <li data-lavish-revision="r1"><span class="chip ok">Agreed: durable runs</span> <b>A delay makes a run long-lived.</b> "On, wait 4 h, off" plus a restart mid-wait leaves the lights on for good, unless runs survive restarts (D8).</li>
+        <li><b>Commands need a person.</b> <code>CommandService.Send</code> rejects a nil actor (<code>command_service.go:113</code>). Automations need a system actor, and a guard so <code>manage_automations</code> cannot be used to sidestep <code>control_sensors</code> (D12).</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TODAY ============ -->
+<section id="today">
+  <div class="section-head"><h2>The reading path today: one job, three orders</h2><span class="muted small">sensor_hub/service/sensor_service.go</span></div>
+  <p class="muted small">The numbers are the order in which each path performs a step. A <span class="x">✗</span> means the path skips the step. The alert loop is copy-pasted at lines 290, 371 and 621.</p>
+  <div class="tablewrap">
+  <table class="ptable">
+    <thead><tr><th>Step</th><th>Collect all (periodic + <code>POST /sensors/collect</code>) <span class="muted">:224</span></th><th>Collect by name (API, sensor enabled) <span class="muted">:308</span></th><th>MQTT push (<code>ServiceProcessPushReadings</code>) <span class="muted">:599</span></th></tr></thead>
+    <tbody>
+      <tr><td>Ingest (store + mark health Good)</td><td class="c">1</td><td class="c">1</td><td class="c">1</td></tr>
+      <tr><td>Health Bad when storage fails</td><td class="c"><span class="x">✗</span> logs only</td><td class="c"><span class="y">✓</span></td><td class="c"><span class="y">✓</span></td></tr>
+      <tr><td>Announce health (re-reads <i>all</i> sensors)</td><td class="c">2</td><td class="c">2</td><td class="c">2</td></tr>
+      <tr><td>Alert rules</td><td class="c">3</td><td class="c">4</td><td class="c">3</td></tr>
+      <tr><td>Command acknowledgement (readings observer)</td><td class="c"><span class="x">✗</span></td><td class="c"><span class="x">✗</span></td><td class="c">4</td></tr>
+      <tr><td>WebSocket publish</td><td class="c">4 (batched)</td><td class="c">3</td><td class="c">5</td></tr>
+      <tr><td>Unknown measurement types</td><td colspan="3">Ingest drops them with a warning, but alerts and the WebSocket still receive them.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="small muted">The MQTT side does a lot of work before the push call: bridge/devices handling, identification, auto-discovery, active/enabled gating and parsing (<code>mqtt/connection_manager.go:267-364</code>). That part is device intake rather than reading processing, and it stays where it is <span class="chip ok" data-lavish-revision="r2">Agreed</span>.</p>
+</section>
+
+<!-- ============ PROPOSED SHAPE ============ -->
+<section id="shape">
+  <div class="section-head"><h2>Proposed shape</h2><span class="chip warn">depends on D10, D11, D7</span></div>
+  <p class="muted">One reading pipeline that every ingest path hands its batch to. It stores the batch, then fans out to an ordered list of consumers. Automations become one more consumer, plus a scheduler for time. Both feed a single engine, which starts runs. A run executes its steps through the existing command service as a system actor.</p>
+  <div class="diagram">
+  <svg viewBox="0 0 1000 560" role="img" aria-labelledby="archT">
+    <title id="archT">Proposed architecture: reading pipeline, consumers, automation engine</title>
+    <defs>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+    </defs>
+    <!-- sources -->
+    <g id="src-pull-all"><title>Periodic pull of all sensors</title><rect x="10" y="40" width="170" height="46" rx="8" fill="none" stroke="currentColor" opacity=".5"/><text x="95" y="60" text-anchor="middle" font-size="13">Periodic pull (all)</text><text x="95" y="76" text-anchor="middle" font-size="11" opacity=".7">periodic.RunTask</text></g>
+    <g id="src-pull-one"><title>Pull one sensor by name</title><rect x="10" y="100" width="170" height="46" rx="8" fill="none" stroke="currentColor" opacity=".5"/><text x="95" y="120" text-anchor="middle" font-size="13">Pull by name</text><text x="95" y="136" text-anchor="middle" font-size="11" opacity=".7">API, on enable</text></g>
+    <g id="src-push"><title>MQTT push</title><rect x="10" y="160" width="170" height="46" rx="8" fill="none" stroke="currentColor" opacity=".5"/><text x="95" y="180" text-anchor="middle" font-size="13">MQTT push</text><text x="95" y="196" text-anchor="middle" font-size="11" opacity=".7">after intake + parse</text></g>
+    <path d="M180 63 L240 110" stroke="currentColor" fill="none" marker-end="url(#ar)" opacity=".6"/>
+    <path d="M180 123 L240 123" stroke="currentColor" fill="none" marker-end="url(#ar)" opacity=".6"/>
+    <path d="M180 183 L240 136" stroke="currentColor" fill="none" marker-end="url(#ar)" opacity=".6"/>
+    <!-- pipeline -->
+    <g id="pipeline"><title>Reading pipeline - single entry point</title>
+      <rect x="242" y="30" width="250" height="190" rx="12" fill="var(--hover)" stroke="var(--primary)" stroke-width="2"/>
+      <text x="367" y="56" text-anchor="middle" font-size="15" font-weight="700" style="fill:var(--primary)">Reading pipeline</text>
+      <text x="367" y="74" text-anchor="middle" font-size="11" opacity=".7">Process(ctx, sensor, batch)</text>
+      <rect x="262" y="88" width="210" height="34" rx="6" fill="var(--paper)" stroke="currentColor" opacity=".9"/><text x="367" y="110" text-anchor="middle" font-size="12.5">1 Ingest + health (fail → Bad)</text>
+      <rect x="262" y="130" width="210" height="34" rx="6" fill="var(--paper)" stroke="currentColor" opacity=".9"/><text x="367" y="152" text-anchor="middle" font-size="12.5">2 Keep only stored readings</text>
+      <rect x="262" y="172" width="210" height="34" rx="6" fill="var(--paper)" stroke="currentColor" opacity=".9"/><text x="367" y="194" text-anchor="middle" font-size="12.5">3 Fan out to consumers, in order</text>
+    </g>
+    <!-- consumers -->
+    <path d="M492 189 L560 60" stroke="currentColor" fill="none" marker-end="url(#ar)" opacity=".6"/>
+    <path d="M492 189 L560 112" stroke="currentColor" fill="none" marker-end="url(#ar)" opacity=".6"/>
+    <path d="M492 189 L560 164" stroke="currentColor" fill="none" marker-end="url(#ar)" opacity=".6"/>
+    <path d="M492 189 L560 216" stroke="currentColor" fill="none" marker-end="url(#ar)" opacity=".6"/>
+    <g id="c-ack"><title>Command acknowledgement</title><rect x="562" y="40" width="200" height="40" rx="8" fill="var(--paper)" stroke="currentColor" opacity=".8"/><text x="662" y="58" text-anchor="middle" font-size="12.5">Command ack</text><text x="662" y="72" text-anchor="middle" font-size="10.5" opacity=".7">actuation.CommandTracker</text></g>
+    <g id="c-alerts"><title>Alert rules</title><rect x="562" y="92" width="200" height="40" rx="8" fill="var(--paper)" stroke="currentColor" opacity=".8"/><text x="662" y="110" text-anchor="middle" font-size="12.5">Alerts</text><text x="662" y="124" text-anchor="middle" font-size="10.5" opacity=".7">alerting.ThresholdProcessor</text></g>
+    <g id="c-ws"><title>Live view</title><rect x="562" y="144" width="200" height="40" rx="8" fill="var(--paper)" stroke="currentColor" opacity=".8"/><text x="662" y="162" text-anchor="middle" font-size="12.5">Live view</text><text x="662" y="176" text-anchor="middle" font-size="10.5" opacity=".7">ws.PublishReadings + health</text></g>
+    <g id="c-auto"><title>Automations sensor-trigger consumer (#463)</title><rect x="562" y="196" width="200" height="40" rx="8" fill="var(--paper)" stroke="var(--warn)" stroke-dasharray="5 4" stroke-width="1.5"/><text x="662" y="214" text-anchor="middle" font-size="12.5">Sensor triggers  (#463)</text><text x="662" y="228" text-anchor="middle" font-size="10.5" opacity=".7">non-blocking enqueue</text></g>
+    <!-- engine -->
+    <path d="M662 236 L662 300" stroke="var(--warn)" stroke-dasharray="5 4" fill="none" marker-end="url(#ar)"/>
+    <text x="672" y="272" font-size="11" opacity=".75">reading events</text>
+    <g id="scheduler"><title>Scheduler - next-fire timer</title><rect x="300" y="302" width="210" height="58" rx="10" fill="var(--paper)" stroke="currentColor"/><text x="405" y="326" text-anchor="middle" font-size="13.5" font-weight="600">Scheduler (#462)</text><text x="405" y="344" text-anchor="middle" font-size="11" opacity=".7">one timer, earliest next fire</text></g>
+    <path d="M510 331 L568 331" stroke="currentColor" fill="none" marker-end="url(#ar)"/>
+    <g id="engine"><title>Automation engine</title><rect x="570" y="302" width="230" height="58" rx="10" fill="var(--hover)" stroke="var(--primary)" stroke-width="2"/><text x="685" y="326" text-anchor="middle" font-size="14" font-weight="700" style="fill:var(--primary)">Automation engine</text><text x="685" y="344" text-anchor="middle" font-size="11" opacity=".7">match trigger → start run</text></g>
+    <path d="M685 360 L685 410" stroke="currentColor" fill="none" marker-end="url(#ar)"/>
+    <g id="runner"><title>Run executor</title><rect x="570" y="412" width="230" height="58" rx="10" fill="var(--paper)" stroke="currentColor"/><text x="685" y="436" text-anchor="middle" font-size="13.5" font-weight="600">Run executor</text><text x="685" y="454" text-anchor="middle" font-size="11" opacity=".7">steps in order, durable waits</text></g>
+    <path d="M800 441 L850 441" stroke="currentColor" fill="none" marker-end="url(#ar)"/>
+    <g id="cmd"><title>CommandService with system actor</title><rect x="852" y="402" width="140" height="78" rx="10" fill="var(--paper)" stroke="currentColor"/><text x="922" y="428" text-anchor="middle" font-size="12.5" font-weight="600">CommandService</text><text x="922" y="446" text-anchor="middle" font-size="11" opacity=".7">system actor</text><text x="922" y="462" text-anchor="middle" font-size="11" opacity=".7">→ MQTT publish</text></g>
+    <!-- store -->
+    <g id="store"><title>SQLite tables</title><rect x="270" y="412" width="270" height="110" rx="10" fill="none" stroke="currentColor" stroke-dasharray="3 3" opacity=".7"/><text x="405" y="436" text-anchor="middle" font-size="13" font-weight="600">SQLite</text><text x="405" y="456" text-anchor="middle" font-size="11.5">automations</text><text x="405" y="472" text-anchor="middle" font-size="11.5">automation_triggers / _steps</text><text x="405" y="488" text-anchor="middle" font-size="11.5">automation_runs</text><text x="405" y="504" text-anchor="middle" font-size="11">command_history.automation_run_id</text></g>
+    <path d="M570 455 L542 462" stroke="currentColor" fill="none" opacity=".5" marker-end="url(#ar)"/>
+    <path d="M405 360 L405 410" stroke="currentColor" fill="none" opacity=".5" marker-start="url(#ar)"/>
+    <text x="414" y="390" font-size="11" opacity=".7">load schedules, reload on edit</text>
+    <!-- feedback loop -->
+    <path d="M922 402 C 922 300, 860 260, 764 60" stroke="currentColor" fill="none" stroke-dasharray="2 4" opacity=".55" marker-end="url(#ar)"/>
+    <text x="870" y="230" font-size="11" opacity=".75">device echoes state</text>
+    <text x="870" y="244" font-size="11" opacity=".75">→ ack via pipeline</text>
+  </svg>
+  </div>
+  <div class="grid g3" style="margin-top:12px">
+    <div class="card small"><h3>Packages</h3><p><code>readings/</code> (new): the pipeline and its consumer interface. <code>automation/</code> (new): model, validation, scheduler, engine and executor. <code>actuation/</code> stays as command lifecycle and gains <code>Send</code> for the system actor. <span class="chip ok" data-lavish-revision="r2">Agreed</span> You asked for new triggers to live in the actuation module. I would keep <i>when</i> (automation) apart from <i>how a command travels</i> (actuation), so each stays small.</p></div>
+    <div class="card small"><h3>The hot path stays hot</h3><p>Consumers run synchronously except automations. The automation consumer only does a non-blocking send onto a buffered channel, and a single worker goroutine drains it. One worker keeps readings in order per sensor, which edge detection needs. A goroutine per reading would let a 15.9 arrive after a 16.1.</p></div>
+    <div class="card small"><h3>Loops</h3><p>An automation's own command echoes back as a reading, which can trigger another automation, and so on. Each run records its cause chain, and the engine refuses a run whose cause chain is already 5 or more runs long <span class="chip warn">[assumption]</span>.</p></div>
+  </div>
+</section>
+
+<!-- ============ MODEL ============ -->
+<section id="model">
+  <div class="section-head"><h2>Model sketch</h2><span class="chip warn">depends on D3, D4, D5</span></div>
+  <p class="muted">This is what an automation is under my recommendations, shown as the API body. The device names are illustrative: the devstack only has binary plugs.</p>
+  <div class="grid g2">
+<pre><code>// #462 - a lights timer, two triggers, four steps
+{
+  "name": "Evening lights",
+  "enabled": true,
+  "triggers": [                       // any one fires the automation
+    { "type": "schedule", "at": "19:00",
+      "days": ["mon","tue","wed","thu","fri"] },
+    { "type": "schedule", "at": "18:00",
+      "days": ["sat","sun"] }
+  ],
+  "steps": [                          // run in order
+    { "type": "set", "sensor_id": 14,
+      "property": "state", "value": "ON" },
+    { "type": "set", "sensor_id": 14,
+      "property": "brightness", "value": "150" },
+    { "type": "wait", "seconds": 14400 },
+    { "type": "set", "sensor_id": 14,
+      "property": "state", "value": "OFF" }
+  ]
+}</code></pre>
+<pre><code>// #463 - a heating loop is two automations
+{
+  "name": "Lounge heat on",
+  "triggers": [
+    { "type": "reading", "sensor_id": 3,
+      "measurement_type": "temperature",
+      "crosses": "below", "threshold": 16 }
+  ],
+  "steps": [
+    { "type": "set", "sensor_id": 21,
+      "property": "heat_request", "value": "ON" }
+  ]
+}
+{
+  "name": "Lounge heat off",
+  "triggers": [
+    { "type": "reading", "sensor_id": 3,
+      "measurement_type": "temperature",
+      "crosses": "above", "threshold": 20 }
+  ],
+  "steps": [ { "type": "set", "sensor_id": 21,
+      "property": "heat_request", "value": "OFF" } ]
+}</code></pre>
+  </div>
+  <p class="small muted" style="margin-top:8px"><code>value</code> stays a string, as it does on <code>POST /sensors/{id}/command</code>. It is checked against the capability (binary, numeric min/max, or enum values) when the automation is saved and again when the step runs. That means actuation covers every writable capability the driver exposes, not just on/off.</p>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <div class="section-head"><h2>Decisions - round 1</h2><span class="muted small">Pick an option, add a note if you like, and queue each one. Send them all together when you are done.</span></div>
+  <div style="display:flex; flex-direction:column; gap:16px">
+
+  <div class="group-title"><h3>Scope and language</h3></div>
+
+  <form class="decision agreed" data-lavish-question="D1" data-lavish-revision="r2">
+    <header><span class="id">D1</span><h3>What this design covers</h3><span class="chip ok">Agreed - B, one design</span></header>
+    <div class="rec"><b>Recommend A.</b> The reading-pipeline refactor fixes real inconsistencies regardless of what comes next, and #463 depends on it. Designing sensor triggers now, but building them second, stops #462 from baking in a time-only model. It also keeps the first deliverable small.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D1" value="A: design both, build pipeline refactor + engine + schedule triggers + UI first, sensor triggers as the next slice"><div><div class="t">A. Design both, build #462 first <span class="chip ok">recommended</span></div><div class="d">Slices: reading pipeline refactor → engine, schedule triggers, set/wait steps, UI → sensor triggers.</div></div></label>
+      <label class="opt"><input type="radio" name="D1" value="B: design and build both #462 and #463 together" checked><div><div class="t">B. Build both together</div><div class="d">One larger delivery.</div><div class="cost"><b>Cost:</b> longer before anything ships; edge semantics get decided under schedule pressure.</div></div></label>
+      <label class="opt"><input type="radio" name="D1" value="C: #462 only, no reading pipeline refactor yet"><div><div class="t">C. #462 only</div><div class="d">Schedule triggers only. Refactor later.</div><div class="cost"><b>Cost:</b> the refactor you want waits, and #463 gets designed twice.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> if sensor triggers are what you actually want first, and the timer is just the easier entry point.</div>
+    <div class="rec" style="background:var(--ok-bg)"><b style="color:var(--ok)">Your note, answered.</b> You said there is no schedule pressure, #463 can be closed into #462, and one larger task is fine. This design therefore covers sensor triggers in full, and the spec can still slice the build. <b>Closing #463</b> is a tracker action, so I will do it when the design issue is created, with your go-ahead at that point.</div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D2" data-lavish-revision="r1">
+    <header><span class="id">D2</span><h3>What we call the user-facing thing</h3><span class="chip ok">Agreed - Automation</span></header>
+    <div class="rec"><b>Agreed: "Automation".</b> The user-facing concept is an <i>automation</i>, made of <i>triggers</i> and <i>steps</i>. Each execution is a <i>run</i>. "Pipeline" is reserved for the internal reading pipeline. Original reasoning: Home Assistant and most smart-home tools already use it for "when X, do Y", so users will recognise it. It also leaves "pipeline" free for the reading pipeline, which is the internal concept you want to make explicit.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D2" value="Automation" checked><div><div class="t">Automation <span class="chip ok">recommended</span></div><div class="d">Page "Automations". Triggers + steps. Runs.</div></div></label>
+      <label class="opt"><input type="radio" name="D2" value="Pipeline"><div><div class="t">Pipeline</div><div class="d">Your working term.</div><div class="cost"><b>Cost:</b> collides with the reading pipeline in code and docs.</div></div></label>
+      <label class="opt"><input type="radio" name="D2" value="Rule"><div><div class="t">Rule</div><div class="d">Short.</div><div class="cost"><b>Cost:</b> "alert rule" already exists and works differently (level-triggered).</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <div class="group-title"><h3>Triggers and steps</h3></div>
+
+  <form class="decision agreed" data-lavish-question="D3" data-lavish-revision="r2">
+    <header><span class="id">D3</span><h3>How multiple triggers and multiple actuations link together</h3><span class="chip ok">Agreed - A</span></header>
+    <div class="rec"><b>Recommend A.</b> It is the simplest model that covers both issues. Any trigger fires the automation, and the steps run top to bottom. A thermostat loop becomes two small automations ("heat on below 16", "heat off above 20"), and each one is easy to read and debug on its own. Conditions ("only between 18:00 and 23:00") are left out for now, but the model leaves room for them.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D3" value="A: any trigger fires; steps run in order" checked><div><div class="t">A. Any trigger → ordered steps <span class="chip ok">recommended</span></div><div class="d">Triggers are OR. Steps are a sequence (set, wait).</div><div class="gain"><b>Gain:</b> one mental model; maps straight to the form editor.</div></div></label>
+      <label class="opt"><input type="radio" name="D3" value="B: wired graph - each trigger wired to a chosen subset of actions"><div><div class="t">B. Wired graph</div><div class="d">Each trigger is wired to specific actions (prototype B).</div><div class="cost"><b>Cost:</b> a canvas editor and a graph model; poor on phones.</div></div></label>
+      <label class="opt"><input type="radio" name="D3" value="C: enter/exit pairs - steps when the condition starts, other steps when it ends"><div><div class="t">C. Enter / exit pairs</div><div class="d">"While 19:00-23:00: on / off." "While below 16 until above 20: heat / no heat."</div><div class="cost"><b>Cost:</b> elegant for timers and bands, awkward for one-shot events.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> if most of what you want is paired on/off behaviour ("lights 19:00 to 23:00") and having two automations per pair feels like clutter. C would then be the better primitive.</div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D4" data-lavish-revision="r2">
+    <header><span class="id">D4</span><h3>What "an arbitrary delay between actuations" means</h3><span class="chip ok">Agreed - C, both</span></header>
+    <p class="small muted" style="margin:0">I read it two ways, and they are different mechanisms.</p>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D4" value="A: a Wait step inside the steps (on, wait 4h, off)"><div><div class="t">A. Wait step</div><div class="d">"Turn on, wait 4 h, turn off." It lives in the step list.</div></div></label>
+      <label class="opt"><input type="radio" name="D4" value="B: an interval trigger (every N minutes)"><div><div class="t">B. Interval trigger</div><div class="d">"Every 30 minutes, run the pump for 2 minutes."</div></div></label>
+      <label class="opt"><input type="radio" name="D4" value="C: both wait step and interval trigger" checked><div><div class="t">C. Both <span class="chip ok">recommended</span></div><div class="d">Both are cheap once the scheduler and durable runs exist, and they solve different problems.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note - which did you have in mind?"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D5" data-lavish-revision="r2">
+    <header><span class="id">D5</span><h3>How a time trigger is expressed</h3><span class="chip ok">Agreed - A</span></header>
+    <div class="rec"><b>Recommend A.</b> A time of day plus weekdays covers a lights timer and maps directly to a friendly control. Cron is more powerful, but nobody wants to type <code>0 19 * * 1-5</code> on a phone. Sunrise and sunset would need location, and <code>weather.latitude</code>/<code>longitude</code> already exist, so they can be added later.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D5" value="A: structured time of day + weekdays" checked><div><div class="t">A. Time of day + weekdays <span class="chip ok">recommended</span></div><div class="d">Stored as fields; the UI is a time picker + day chips.</div></div></label>
+      <label class="opt"><input type="radio" name="D5" value="B: cron expression"><div><div class="t">B. Cron expression</div><div class="d">Maximally general.</div><div class="cost"><b>Cost:</b> hostile UI, parser dependency.</div></div></label>
+      <label class="opt"><input type="radio" name="D5" value="C: structured, plus cron as an advanced mode"><div><div class="t">C. Both</div><div class="d">Friendly by default, cron for power users and agents.</div><div class="cost"><b>Cost:</b> two code paths to test and explain.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D6" data-lavish-revision="r2">
+    <header><span class="id">D6</span><h3>Whose clock "19:00" is</h3><span class="chip ok">Agreed - A</span></header>
+    <p class="small muted" style="margin:0">Today there is no hub timezone. Storage, drivers and the command tracker are all UTC, and the UI renders in the browser's zone. A daily trigger has to be computed in a real zone, or it moves by an hour across BST.</p>
+    <div class="rec"><b>Recommend A.</b> Add a hub-wide <code>hub.timezone</code> property (an IANA name such as <code>Europe/London</code>), editable on the Properties page. Next-fire times are computed in that zone and stored in UTC. DST rule: a skipped local time (01:30 on the spring-forward night) fires at the next valid minute. A repeated local time (01:30 on the fall-back night) fires once.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D6" value="A: hub-wide timezone property" checked><div><div class="t">A. Hub timezone property <span class="chip ok">recommended</span></div><div class="d">One place, defaults to the server's local zone.</div><div class="cost"><b>Cost:</b> a container whose TZ is UTC defaults to UTC until someone sets the property.</div></div></label>
+      <label class="opt"><input type="radio" name="D6" value="B: timezone per automation (from the browser at save time)"><div><div class="t">B. Per automation</div><div class="d">Each automation stores its own zone.</div><div class="cost"><b>Cost:</b> rarely needed in a home; hidden state.</div></div></label>
+      <label class="opt"><input type="radio" name="D6" value="C: UTC only"><div><div class="t">C. UTC only</div><div class="cost"><b>Cost:</b> wrong for half the year in the UK.</div></div></label>
+    </div>
+    <div class="rec" style="background:var(--ok-bg)"><b style="color:var(--ok)">Your note, answered.</b> You asked whether BST is handled automatically. <b>Yes.</b> You set <code>hub.timezone = Europe/London</code> once. Go's timezone database knows the UK rules, so 19:00 stays 19:00 local through every clock change with nothing to maintain. Two safeguards: the binary embeds <code>time/tzdata</code>, so a container without <code>/usr/share/zoneinfo</code> still has the rules. And if the hub zone is UTC while your browser is in a different zone, the Automations page shows a one-click "Use Europe/London" banner. <span class="chip warn">[assumption]</span> on the banner.</div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <div class="group-title"><h3>Execution</h3></div>
+
+  <form class="decision agreed" data-lavish-question="D7" data-lavish-revision="r2">
+    <header><span class="id">D7</span><h3>How time triggers get evaluated - you asked "periodic again, or something better?"</h3><span class="chip ok">Agreed - A</span></header>
+    <div class="rec"><b>Recommend A, a next-fire scheduler.</b> Keep each automation's next fire time in a min-heap and sleep on a single <code>time.Timer</code> until the earliest one. When it fires, start the run, compute that automation's next fire and re-arm. Editing an automation, or changing the timezone, wakes the loop to recompute. Durable waits use the same heap, since a waiting run is just one more "wake me at T". The loop runs under the same supervision as <code>periodic.RunTask</code> (panic recovery, backoff). No dependency is needed: computing next fire for time-of-day + weekdays is about 30 lines with <code>time.Date</code>.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D7" value="A: next-fire scheduler (heap + single timer)" checked><div><div class="t">A. Next-fire scheduler <span class="chip ok">recommended</span></div><div class="gain"><b>Gain:</b> fires on the second, idle when nothing is due, one mechanism for triggers and waits.</div></div></label>
+      <label class="opt"><input type="radio" name="D7" value="B: periodic tick every minute, fire anything due"><div><div class="t">B. Periodic minute tick</div><div class="d">Reuse <code>periodic.RunTask</code>; check what is due.</div><div class="cost"><b>Cost:</b> up to 60 s late, fixed-delay drift, minute resolution caps wait steps.</div></div></label>
+      <label class="opt"><input type="radio" name="D7" value="C: cron library (robfig/cron)"><div><div class="t">C. Cron library</div><div class="cost"><b>Cost:</b> a dependency that pushes us toward cron syntax, and it does not know about our durable waits.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D8" data-lavish-revision="r1">
+    <header><span class="id">D8</span><h3>What happens across a restart</h3><span class="chip ok">Durable runs agreed</span><span class="chip ok">Agreed - durable + grace window</span></header>
+    <div class="rec" style="background:var(--ok-bg)"><b style="color:var(--ok)">Agreed: runs are stored in the database.</b> Every run is a row, and so is every step outcome. A waiting run stores <code>resume_at</code>, and on startup the scheduler reloads every <code>running</code> or <code>waiting</code> run and carries on from its current step. A restart mid-wait no longer strands a device.</div>
+    <p class="small" style="margin:0"><b>Agreed:</b> a trigger that came due while the hub was down fires on startup only if it is inside the grace window.</p>
+    <div class="rec"><b>Recommend A.</b> A missed schedule fires once on startup if it is less than a grace window late (default 10 min, a property). Anything older is recorded as a <i>missed</i> run and not fired, because turning the lights on at 07:00 for a 19:00 trigger is worse than skipping it.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D8" value="A: missed triggers fire within a grace window, older ones recorded as missed" checked><div><div class="t">A. Grace window <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D8" value="B: missed triggers always skipped (recorded as missed)"><div><div class="t">B. Never catch up</div><div class="cost"><b>Cost:</b> a restart at 18:59 for an update means no lights tonight.</div></div></label>
+      <label class="opt"><input type="radio" name="D8" value="C: missed triggers always fire on startup"><div><div class="t">C. Always catch up</div><div class="cost"><b>Cost:</b> a hub that was down overnight runs yesterday evening's lights at breakfast.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <section class="decision agreed" data-lavish-revision="r1" id="storage">
+    <header><span class="id">D8a</span><h3>Storage for automation events, and keeping it bounded</h3><span class="chip ok">Agreed</span><span class="chip warn">default values are [assumption]</span></header>
+    <p class="small muted" style="margin:0">From your note: runs need database storage, and the cleanup cycle has to keep it from growing without limit. An "every 30 minutes" automation writes about 1,400 runs and 2,900 commands a month.</p>
+    <div class="tablewrap">
+    <table class="ptable">
+      <thead><tr><th>Table</th><th>Holds</th><th>Pruned by</th></tr></thead>
+      <tbody>
+        <tr><td><code>automation_runs</code></td><td>automation_id, trigger that fired, cause run (for loop guarding), status (<i>running, waiting, succeeded, failed, cancelled, missed, skipped</i>, see D17), the steps copied when the run started (D19), current step, <code>resume_at</code>, started/finished, error</td><td>Cleanup: <b>finished</b> runs older than <code>automation.history.retention.days</code> (default 30). Running and waiting runs are never pruned.</td></tr>
+        <tr><td><code>automation_run_steps</code></td><td>run_id, position, kind, outcome, command_id (for set steps), started/finished</td><td><code>ON DELETE CASCADE</code> from the run.</td></tr>
+        <tr><td><code>sensor_command_history</code> <span class="chip warn">existing gap</span> <span class="chip ok" data-lavish-revision="r2">Included</span></td><td>Existing table, plus a nullable <code>automation_run_id</code> (<code>ON DELETE SET NULL</code>)</td><td><b>Nothing prunes it by age today.</b> The cleanup service never deletes from it (only user or sensor deletion does). Add <code>command.history.retention.days</code> (default 90) to the same cycle.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <ul class="issues small">
+      <li>Both properties join the existing <b>retention</b> group, so they show up on the Properties and Data Retention pages next to <code>alert.history.retention.days</code>. They take effect on the next cycle, as the others do.</li>
+      <li>The hook is one more block in <code>cleanupService.performCleanup</code> (<code>service/cleanup_service.go:89</code>), next to alert history, driven by the existing <code>data.cleanup.interval.hours</code> task. It does not need its own timer.</li>
+      <li>Automation definitions themselves (<code>automations</code>, <code>automation_triggers</code>, <code>automation_steps</code>) are configuration and are never pruned.</li>
+      <li>One related oddity: deleting a <i>user</i> today deletes their command history (<code>db/user_repository.go:229</code>). Out of scope here, but flagged.</li>
+    </ul>
+  </section>
+
+  <form class="decision agreed" data-lavish-question="D9" data-lavish-revision="r2">
+    <header><span class="id">D9</span><h3>When a sensor trigger fires (#463, decided now so #462 does not paint it into a corner)</h3><span class="chip ok">Agreed - A, with noise handling (D15)</span></header>
+    <div class="rec"><b>Recommend A, which is edge-triggered.</b> The trigger fires when the condition goes from false to true: 16.2 → 15.8 fires, and 15.8 → 15.6 does not. The engine keeps the last truth value per trigger in memory. After a restart or an edit, the first reading counts as a crossing if the condition already holds. That way the house converges, and the heating comes on after a restart in a cold room.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D9" value="A: edge-triggered on crossing; first reading after start counts" checked><div><div class="t">A. On crossing <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D9" value="B: level-triggered with a cooldown (like alerts)"><div><div class="t">B. Level + cooldown</div><div class="cost"><b>Cost:</b> re-sends commands while the condition holds; noisy history; 429s.</div></div></label>
+      <label class="opt"><input type="radio" name="D9" value="C: periodic poll of latest values"><div><div class="t">C. Periodic poll of current values</div><div class="d">Your decoupled alternative.</div><div class="cost"><b>Cost:</b> delay, and it can miss a short crossing between polls. Decoupling already comes from the consumer interface plus the async queue.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> a sensor that chatters across the threshold, such as a door contact or a noisy temperature at exactly 16.0. A hysteresis band, or "must hold for N seconds", would then become a must-have rather than a later addition.</div>
+    <div class="rec" style="background:var(--ok-bg)"><b style="color:var(--ok)">Your note, answered.</b> You asked me to check real noise before trusting crossings. I did, and a bare crossing is not enough: see <a href="#noise">the noise evidence</a> and D15.</div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <div class="group-title"><h3>The reading-path refactor</h3></div>
+
+  <form class="decision agreed" data-lavish-question="D10" data-lavish-revision="r2">
+    <header><span class="id">D10</span><h3>Shape of the reading pipeline</h3><span class="chip ok">Agreed - A</span></header>
+    <div class="rec"><b>Recommend A.</b> A <code>readings.Pipeline</code> has one <code>Process(ctx, sensor, readings)</code> entry point. It ingests, sets health on failure, drops unknown types, then calls an <b>ordered list</b> of <code>Consumer</code> interfaces registered in <code>cmd/serve.go</code>. All three ingest paths call it. The order is explicit and the same everywhere, and adding automations is one line of wiring. <code>SetReadingsObserver</code> and the three copies of the alert loop go away.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D10" value="A: Pipeline with an ordered list of Consumer interfaces" checked><div><div class="t">A. Pipeline + ordered consumers <span class="chip ok">recommended</span></div><div class="gain"><b>Gain:</b> one place to read the whole flow; each consumer is testable alone.</div></div></label>
+      <label class="opt"><input type="radio" name="D10" value="B: pub/sub event bus (topics, subscribers)"><div><div class="t">B. Event bus</div><div class="cost"><b>Cost:</b> the order becomes implicit, and tracing the flow means hunting down subscribers.</div></div></label>
+      <label class="opt"><input type="radio" name="D10" value="C: extract a shared helper, keep the three methods"><div><div class="t">C. Shared helper only</div><div class="cost"><b>Cost:</b> removes copy-paste, but does not make the pipeline visible, which was your actual gripe.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D11" data-lavish-revision="r3" id="d11">
+    <header><span class="id">D11</span><h3>How readings reach the automation engine</h3><span class="chip ok">Agreed - A</span></header>
+    <div class="rec"><b>Recommend A,</b> which is what you leaned towards: an immediate, in-process handoff, with a goroutine keeping it off the MQTT path. The detail that matters is a <b>single worker</b> draining a buffered channel, which preserves order. If the buffer fills, the newest reading replaces the oldest for that series and a dropped-readings counter goes up. Edge detection only needs the latest value per series.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D11" value="A: buffered channel + single worker, coalesce per series when full" checked><div><div class="t">A. Queue + single worker <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D11" value="B: synchronous in the pipeline"><div><div class="t">B. Synchronous</div><div class="cost"><b>Cost:</b> a slow command publish stalls MQTT intake.</div></div></label>
+      <label class="opt"><input type="radio" name="D11" value="C: goroutine per batch"><div><div class="t">C. Goroutine per batch</div><div class="cost"><b>Cost:</b> out-of-order evaluation breaks crossings.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <div class="group-title"><h3>Safety and visibility</h3></div>
+
+  <form class="decision agreed" data-lavish-question="D12" data-lavish-revision="r2">
+    <header><span class="id">D12</span><h3>Who an automation acts as</h3><span class="chip ok">Agreed - A</span></header>
+    <div class="rec"><b>Recommend A.</b> A new <code>manage_automations</code> permission (admin, user) and <code>view_automations</code> (admin, user, viewer). Saving an automation also requires <code>control_sensors</code>, so it cannot be used to get around that permission. At run time, commands go out as the system: <code>user_id</code> is null, which the OpenAPI already anticipates, and a new <code>automation_run_id</code> column links each command to its run. Command history then answers "why did my heating turn on?".</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D12" value="A: system actor at run time; saving requires manage_automations + control_sensors" checked><div><div class="t">A. System actor, guarded save <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D12" value="B: runs as the user who last saved it"><div><div class="t">B. Run as the author</div><div class="cost"><b>Cost:</b> breaks when that user is deleted or loses permissions; confusing history.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D13" data-lavish-revision="r2">
+    <header><span class="id">D13</span><h3>Run history, and what happens when a step fails</h3><span class="chip ok">Agreed - A, plus email</span></header>
+    <div class="rec"><b>Recommend A.</b> Every run is recorded: its trigger, status (see D17 for the final set) and each step's outcome. The step outcome reuses the existing command lifecycle (sent → acknowledged / timed out / failed). A failed step <b>stops the run</b> and sends an in-app notification to <code>manage_automations</code> holders. A user command already in flight (the existing 429) counts as a failure, not a retry, because the human acted more recently. Retention is covered in D8a.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D13" value="A: run history; failed step stops the run and notifies" checked><div><div class="t">A. Record, stop, notify <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D13" value="B: run history; failed step is logged and the run continues"><div><div class="t">B. Record, carry on</div><div class="cost"><b>Cost:</b> "off" can run after "on" failed; the device ends up in an unexpected state.</div></div></label>
+      <label class="opt"><input type="radio" name="D13" value="C: no run history, logs only"><div><div class="t">C. Logs only</div><div class="cost"><b>Cost:</b> nobody can answer "why" from the UI.</div></div></label>
+    </div>
+    <div class="rec" style="background:var(--ok-bg)"><b style="color:var(--ok)">Your note, answered.</b> Failure notifications go through the existing notifications module, as a new category <code>automation_failure</code> with the same per-user in-app and email preferences that <code>threshold_alert</code> has. Recipients are holders of <code>manage_automations</code>.</div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D14" data-lavish-revision="r2">
+    <header><span class="id">D14</span><h3>The editor - see the prototypes below</h3><span class="chip ok">Agreed - A</span></header>
+    <div class="rec"><b>Recommend A, the When / Then form.</b> It is built from the existing primitives (<code>Page</code>, <code>PageGrid</code>, <code>Card</code>, <code>Stack</code>), so it holds up at both layout tiers without new layout code. It is also the only option that works on a phone. It lives on its own <b>Automations</b> nav entry at <code>/automations</code> and <code>/automations/:id</code>. A full page rather than a dialog, because the editor is too big for a dialog.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D14" value="A: When / Then form (cards)" checked><div><div class="t">A. When / Then form <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D14" value="B: node graph canvas"><div><div class="t">B. Node graph</div><div class="cost"><b>Cost:</b> a canvas library (e.g. React Flow); desktop-only in practice.</div></div></label>
+      <label class="opt"><input type="radio" name="D14" value="C: sentence builder"><div><div class="t">C. Sentence builder</div><div class="cost"><b>Cost:</b> lovely for one trigger and one step, falls apart at four steps.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  </div>
+</section>
+
+
+<!-- ============ ROUND 2 ============ -->
+<section id="round2" data-lavish-revision="r2">
+  <div class="section-head"><h2>Round 2</h2><span class="chip ok">all agreed</span></div>
+
+  <div id="noise" class="card" style="display:flex; flex-direction:column; gap:10px">
+    <h3>What your sensors' noise actually looks like</h3>
+    <p class="small muted" style="margin:0">Raw readings from <code>home.sensor-hub</code>, 28 Sep - 5 Oct 2026, read-only. For every threshold across each sensor's range (0.5 °C or 1 %RH apart), I replayed the week and counted crossings. A crossing that reverses within 15 minutes is chatter, and each one would be a wasted command.</p>
+    <div class="tablewrap">
+    <table class="ptable">
+      <thead><tr><th>Series</th><th>Cadence / step</th><th>Bare crossing: undone in 15 min</th><th>Worst crossings in 1 h</th><th>Re-arm margin needed</th><th>Hold 5 min instead</th></tr></thead>
+      <tbody>
+        <tr><td>LR_Temp_Hum temperature <span class="muted">(15.6-20.6 °C, TRV territory)</span></td><td>~72 s / 0.1 °C</td><td class="c"><span class="x">35%</span></td><td class="c">7</td><td class="c"><span class="y">0.2 °C → 0%</span></td><td class="c">0%, but 5 min late</td></tr>
+        <tr><td>Kitchen_Temp_Hum temperature</td><td>~58 s / 0.1 °C</td><td class="c"><span class="x">20%</span></td><td class="c">7</td><td class="c"><span class="y">0.2 °C → 0%</span></td><td class="c">6%</td></tr>
+        <tr><td>Attic / Office temperature</td><td>~60 s / 0.1 °C</td><td class="c"><span class="x">12-18%</span></td><td class="c">4-5</td><td class="c"><span class="y">0.2 °C → 0%</span></td><td class="c">0-2%</td></tr>
+        <tr><td>Humidity (all four)</td><td>~60 s / 0.1-0.4 %RH</td><td class="c"><span class="x">38-70%</span></td><td class="c">10-36</td><td class="c"><span class="y">2 %RH → 0-1%</span></td><td class="c">6-12%</td></tr>
+        <tr><td>front/back-door-contact</td><td>event + hourly heartbeat</td><td colspan="4">About 73% of readings repeat the previous value (the hourly heartbeat). 15-20% of open or closed states last <b>under 5 s</b>: front door minimum 0 s, back door 3 s. They could be bounces or real quick opens.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="small" style="margin:0"><b>What this says:</b> a bare crossing would toggle the Living Room TRV up to 7 times in an hour. A small re-arm margin fixes temperature completely at no cost in latency. A hold time on its own is both slower and leakier. For binary sensors, what matters is ignoring repeated values; a crossing-based engine does that for free, where a level-based one would fire on every heartbeat.</p>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:16px; margin-top:16px">
+  <form class="decision agreed" data-lavish-question="D15" data-lavish-revision="r3">
+    <header><span class="id">D15</span><h3>How sensor triggers handle noise</h3><span class="chip ok">Agreed - per trigger</span></header>
+    <div class="rec"><b>Recommend A.</b> Every numeric trigger has a <b>re-arm margin</b>. "Falls below 16 °C" fires at 15.9 and cannot fire again until the value has reached 16.0 + margin. The margin is prefilled from the measurement type (temperature 0.3 °C, humidity 2 %RH, from the data above with some headroom) and can be edited per trigger. Any trigger can also set an optional <b>"for at least"</b> hold time, which defaults to 0. It is useful on door contacts if those sub-5 s states turn out to be bounces. <s>The defaults live as a new column on <code>measurement_types</code>, seeded by migration.</s> <i>(Dropped, see your note below.)</i></div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D15" value="A: re-arm margin on every numeric trigger (type defaults) + optional hold time" checked><div><div class="t">A. Margin by default, hold optional <span class="chip ok">recommended</span></div><div class="gain"><b>Gain:</b> 0% chatter on your data, no added latency; hold is there when a sensor needs it.</div></div></label>
+      <label class="opt"><input type="radio" name="D15" value="B: hold time only (for at least N minutes)"><div><div class="t">B. Hold time only</div><div class="cost"><b>Cost:</b> 2-12% chatter left at 5 min, and every action is 5 min late.</div></div></label>
+      <label class="opt"><input type="radio" name="D15" value="C: margin only, no hold option"><div><div class="t">C. Margin only</div><div class="cost"><b>Cost:</b> nothing for bouncy binary sensors.</div></div></label>
+    </div>
+    <div class="wrong"><b>What would make A wrong:</b> a measurement type whose noise is nothing like these, such as power on the office plug, which jumps by watts. A type default would then mislead more than help, and the margin should be required with no default for those types.</div>
+    <div class="rec" style="background:var(--ok-bg)"><b style="color:var(--ok)">Your note, answered.</b> You want this defined per automation and not baked around today's sensors. Agreed: <b>margin</b> (numeric triggers) and <b>"for at least" hold</b> (any trigger) are fields on each trigger. There are no type defaults and no new <code>measurement_types</code> column. How the form fills the margin field is D20.</div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <div class="decision agreed" style="border-style:dashed">
+    <header><span class="id">D11</span><h3>From round 1: how readings reach the automation engine</h3><span class="chip ok">Agreed - A</span></header>
+    <p class="small" style="margin:0">This was the only round-1 question without an answer. <a href="#d11">Jump to D11</a>. My recommendation is a buffered queue with a single worker, so the MQTT path never waits on a command publish and readings are still evaluated in order.</p>
+  </div>
+
+  <form class="decision agreed" data-lavish-question="D16" data-lavish-revision="r3">
+    <header><span class="id">D16</span><h3>The quieter Automations list</h3><span class="chip ok">Agreed - A</span></header>
+    <p class="small muted" style="margin:0">You found the list table too noisy. The <a href="#ui">revised list prototype</a> has three columns instead of six. Each row has a name with a one-line plain-words summary, a status chip and the next run. The on/off switch sits at the start of the row. Step detail and the last-run reason move to the editor's "Recent runs" card.</p>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D16" value="A: revised list (switch, name + summary, status, next)" checked><div><div class="t">A. Revised list <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D16" value="B: even sparser (switch, name, status only)"><div><div class="t">B. Sparser still</div><div class="d">Name + status. Summary only on hover/open.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+  </div>
+</section>
+
+
+<!-- ============ ROUND 3 ============ -->
+<section id="round3" data-lavish-revision="r3">
+  <div class="section-head"><h2>Round 3 - statuses, and what they exposed</h2><span class="chip ok">all agreed</span></div>
+  <p class="muted">You asked what makes an automation "completed", since it is always waiting for its next run. The prototype was mixing two different things: the <b>automation</b>, which is long-lived and usually just armed, and a <b>run</b>, which has a beginning and an end. Separating them raises three questions that had been hiding behind the mix-up.</p>
+
+  <div class="grid g2">
+    <div class="diagram">
+      <svg viewBox="0 0 520 300" role="img" aria-labelledby="stA">
+        <title id="stA">Automation states</title>
+        <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <text x="10" y="20" font-size="13" font-weight="700">The automation (long-lived)</text>
+        <g id="s-off"><title>Off</title><rect x="20" y="50" width="110" height="44" rx="22" fill="var(--code-bg)" stroke="currentColor" opacity=".9"/><text x="75" y="77" text-anchor="middle" font-size="13">Off</text></g>
+        <g id="s-armed"><title>Armed</title><rect x="200" y="50" width="120" height="44" rx="22" fill="var(--ok-bg)" stroke="var(--ok)"/><text x="260" y="77" text-anchor="middle" font-size="13" font-weight="600">Armed</text></g>
+        <g id="s-running"><title>Running</title><rect x="380" y="50" width="120" height="44" rx="22" fill="var(--info-bg)" stroke="var(--info)"/><text x="440" y="77" text-anchor="middle" font-size="13" font-weight="600">Running</text></g>
+        <g id="s-broken"><title>Broken</title><rect x="200" y="200" width="120" height="44" rx="22" fill="var(--bad-bg)" stroke="var(--bad)"/><text x="260" y="227" text-anchor="middle" font-size="13" font-weight="600">Broken</text></g>
+        <path d="M130 66 L198 66" stroke="currentColor" fill="none" marker-end="url(#ar3)"/><text x="140" y="58" font-size="10.5" opacity=".75">enable</text>
+        <path d="M198 80 L132 80" stroke="currentColor" fill="none" marker-end="url(#ar3)"/><text x="140" y="96" font-size="10.5" opacity=".75">disable</text>
+        <path d="M320 66 L378 66" stroke="currentColor" fill="none" marker-end="url(#ar3)"/><text x="326" y="58" font-size="10.5" opacity=".75">trigger</text>
+        <path d="M378 80 L322 80" stroke="currentColor" fill="none" marker-end="url(#ar3)"/><text x="326" y="96" font-size="10.5" opacity=".75">run ends</text>
+        <path d="M250 94 L250 198" stroke="var(--bad)" fill="none" marker-end="url(#ar3)"/><text x="160" y="150" font-size="10.5" opacity=".85">sensor deleted,</text><text x="160" y="164" font-size="10.5" opacity=".85">capability gone</text>
+        <path d="M270 198 L270 96" stroke="currentColor" fill="none" marker-end="url(#ar3)"/><text x="278" y="150" font-size="10.5" opacity=".75">fixed + saved</text>
+        <text x="10" y="285" font-size="11" opacity=".8">A failed last run is a <tspan font-weight="700">flag</tspan> on an armed automation, not a state.</text>
+      </svg>
+    </div>
+    <div class="diagram">
+      <svg viewBox="0 0 520 300" role="img" aria-labelledby="stR">
+        <title id="stR">Run statuses</title>
+        <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <text x="10" y="20" font-size="13" font-weight="700">A run (one firing)</text>
+        <g id="r-running"><title>running</title><rect x="20" y="60" width="110" height="40" rx="8" fill="var(--info-bg)" stroke="var(--info)"/><text x="75" y="85" text-anchor="middle" font-size="12.5">running</text></g>
+        <g id="r-waiting"><title>waiting</title><rect x="20" y="150" width="110" height="40" rx="8" fill="var(--info-bg)" stroke="var(--info)"/><text x="75" y="175" text-anchor="middle" font-size="12.5">waiting</text></g>
+        <path d="M60 100 L60 148" stroke="currentColor" fill="none" marker-end="url(#ar4)"/><text x="8" y="128" font-size="10" opacity=".75">wait step</text>
+        <path d="M90 148 L90 102" stroke="currentColor" fill="none" marker-end="url(#ar4)"/><text x="96" y="128" font-size="10" opacity=".75">resume_at</text>
+        <g id="r-succeeded"><title>succeeded</title><rect x="250" y="40" width="120" height="34" rx="8" fill="var(--ok-bg)" stroke="var(--ok)"/><text x="310" y="62" text-anchor="middle" font-size="12.5">succeeded</text></g>
+        <g id="r-failed"><title>failed</title><rect x="250" y="84" width="120" height="34" rx="8" fill="var(--bad-bg)" stroke="var(--bad)"/><text x="310" y="106" text-anchor="middle" font-size="12.5">failed</text></g>
+        <g id="r-cancelled"><title>cancelled</title><rect x="250" y="128" width="120" height="34" rx="8" fill="var(--code-bg)" stroke="currentColor" opacity=".8"/><text x="310" y="150" text-anchor="middle" font-size="12.5">cancelled</text></g>
+        <path d="M130 80 L248 57" stroke="currentColor" fill="none" marker-end="url(#ar4)"/>
+        <path d="M130 80 L248 101" stroke="currentColor" fill="none" marker-end="url(#ar4)"/>
+        <path d="M130 170 L248 145" stroke="currentColor" fill="none" marker-end="url(#ar4)"/><text x="150" y="190" font-size="10" opacity=".75">user, D18 or D19</text>
+        <g id="r-missed"><title>missed</title><rect x="250" y="200" width="120" height="34" rx="8" fill="var(--code-bg)" stroke="currentColor" stroke-dasharray="4 3"/><text x="310" y="222" text-anchor="middle" font-size="12.5">missed</text></g>
+        <g id="r-skipped"><title>skipped</title><rect x="380" y="200" width="120" height="34" rx="8" fill="var(--code-bg)" stroke="currentColor" stroke-dasharray="4 3"/><text x="440" y="222" text-anchor="middle" font-size="12.5">skipped</text></g>
+        <text x="250" y="256" font-size="10.5" opacity=".8">Born finished, never ran:</text>
+        <text x="250" y="270" font-size="10.5" opacity=".8">missed = hub down past grace (D8)</text>
+        <text x="250" y="284" font-size="10.5" opacity=".8">skipped = already running (D18)</text>
+      </svg>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:16px; margin-top:16px">
+
+  <form class="decision agreed" data-lavish-question="D17" data-lavish-revision="r4">
+    <header><span class="id">D17</span><h3>The status model</h3><span class="chip ok">Agreed - A</span></header>
+    <div class="rec"><b>Recommend A, as drawn above.</b> An automation is <b>Off</b>, <b>Armed</b> (enabled and waiting for a trigger, which is its normal state), <b>Running</b> (it has a run that is running or waiting), or <b>Broken</b> (it references a sensor or capability that no longer exists, so it cannot fire). A failed last run shows as a red flag next to Armed until a run succeeds. It is not a state of its own, because the automation is still armed. Each run ends as <i>succeeded</i>, <i>failed</i> or <i>cancelled</i>. It is recorded as <i>missed</i> or <i>skipped</i> if it never started. "Completed" is gone. The <a href="#ui">list prototype</a> now uses this model.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D17" value="A: automation Off/Armed/Running/Broken + last-run flag; runs succeeded/failed/cancelled/missed/skipped" checked><div><div class="t">A. Two models, as drawn <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D17" value="B: list shows only enabled switch + last run outcome"><div><div class="t">B. Switch + last run only</div><div class="cost"><b>Cost:</b> nothing tells you a lamp is mid-run, or that an automation can no longer fire.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D18" data-lavish-revision="r4">
+    <header><span class="id">D18</span><h3>A trigger fires while a run is still going</h3><span class="chip ok">Agreed - A</span></header>
+    <p class="small muted" style="margin:0">"Evening lights" is 2 hours into its 4-hour wait and another trigger fires. A motion trigger would make this routine. The engine has to do something definite.</p>
+    <div class="rec"><b>Recommend A, a per-automation mode with two values.</b> <b>Single</b> is the default: while a run is active, new triggers are recorded as <i>skipped</i>. <b>Restart</b> cancels the active run and starts a new one, which is the "motion extends the light timer" behaviour. Home Assistant also has queued and parallel modes; I would leave them out until something needs them.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D18" value="A: per-automation mode: single (default) or restart" checked><div><div class="t">A. Single or restart, per automation <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D18" value="B: always single"><div><div class="t">B. Always single</div><div class="cost"><b>Cost:</b> no "extend the timer" behaviour, ever.</div></div></label>
+      <label class="opt"><input type="radio" name="D18" value="C: single, restart, queued, parallel"><div><div class="t">C. All four modes</div><div class="cost"><b>Cost:</b> parallel runs fighting over one device; more to explain.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D19" data-lavish-revision="r4">
+    <header><span class="id">D19</span><h3>Editing or disabling an automation mid-run</h3><span class="chip ok">Agreed - A</span></header>
+    <p class="small muted" style="margin:0">This is the stranded-device problem again. If saving or switching off "Evening lights" during its wait cancelled the run, the lamp would stay on.</p>
+    <div class="rec"><b>Recommend A.</b> A run copies its steps when it starts, so an edit applies from the next run and the current one finishes as it was defined. Switching an automation off stops new triggers but lets an active run finish. The editor shows an explicit <b>Cancel run</b> button beside an active run, for when you really do want it stopped.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D19" value="A: runs snapshot steps; disable stops new triggers; explicit Cancel run" checked><div><div class="t">A. Finish as started, cancel explicitly <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D19" value="B: edit or disable cancels the active run"><div><div class="t">B. Edit/disable cancels</div><div class="cost"><b>Cost:</b> strands devices mid-sequence.</div></div></label>
+    </div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+
+  <form class="decision agreed" data-lavish-question="D20" data-lavish-revision="r4">
+    <header><span class="id">D20</span><h3>The margin field, now that it is per automation</h3><span class="chip ok">Agreed - A</span></header>
+    <p class="small muted" style="margin:0">Agreed in D15: margin and hold are set on each trigger, and nothing is baked in from today's sensors. Your goal is a general system that just works. The risk is a user who leaves the margin at 0 and gets a TRV toggling 7 times an hour. That does not just work either.</p>
+    <div class="rec"><b>Recommend A.</b> The margin is required, and the form <b>suggests</b> a value worked out from the chosen series' own recent behaviour: the 95th percentile of reading-to-reading change over the last 24 h, rounded up to the sensor's step. The suggestion uses the same rule for any sensor and any measurement type, including ones that do not exist yet, and nothing is hard-coded. You can accept it or type your own, and the stored value is always the one on the trigger.</div>
+    <div class="options">
+      <label class="opt"><input type="radio" name="D20" value="A: required margin, form suggests a value from the series' recent jitter" checked><div><div class="t">A. Required, data-driven suggestion <span class="chip ok">recommended</span></div></div></label>
+      <label class="opt"><input type="radio" name="D20" value="B: required margin, no suggestion"><div><div class="t">B. Required, blank</div><div class="d">Helper text explains it.</div><div class="cost"><b>Cost:</b> users guess.</div></div></label>
+      <label class="opt"><input type="radio" name="D20" value="C: optional margin defaulting to 0"><div><div class="t">C. Optional, default 0</div><div class="cost"><b>Cost:</b> the chatter case is the default.</div></div></label>
+    </div>
+    <div class="rec" style="background:var(--ok-bg)"><b style="color:var(--ok)">Your note.</b> "Use the sensor data to be smarter." The suggestion is computed server-side from the chosen series' recent readings, so the CLI and agents can use it as well as the form. The exact endpoint shape is left to the spec <span class="chip warn">[assumption]</span>.</div>
+    <div class="answer-row"><textarea name="note" placeholder="Note (optional)"></textarea><button class="q" type="submit">Queue answer</button><span class="queued">Queued ✓</span></div>
+  </form>
+  </div>
+</section>
+
+<!-- ============ UI ============ -->
+<section id="ui">
+  <div class="section-head"><h2>UI prototypes</h2><span class="muted small">Styled like the current app shell. The controls in prototype A are live: change a trigger type, or pick a different property to see its value control change.</span></div>
+
+  <h3 style="margin:8px 0">1. The Automations list</h3>
+  <div class="deskwrap"><div class="desk short">
+    <div class="side">
+      <div class="brand"><div class="logo">SH</div><b>Sensor Hub</b><span class="mi">notifications</span></div>
+      <div class="nav">
+        <div class="item"><span class="mi">dashboard</span>Dashboards</div>
+        <div class="item"><span class="mi">sensors</span>Sensors</div>
+        <div class="item active"><span class="mi">auto_mode</span>Automations<span class="new">NEW</span></div>
+        <div class="item"><span class="mi">storage</span>Data Retention</div>
+        <div class="item"><span class="mi">settings</span>Properties</div>
+        <div class="item"><span class="mi">cell_tower</span>MQTT</div>
+        <div class="item"><span class="mi">notifications_active</span>Alerts &amp; Notifications</div>
+        <div class="item"><span class="mi">people</span>User Management</div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="pagehead"><h4>Automations</h4><button class="btn solid">New automation</button></div>
+      <div class="pc" data-lavish-revision="r2">
+        <table class="dt quiet">
+          <thead><tr><th style="width:52px"></th><th>Automation</th><th style="width:190px">Status</th><th style="width:110px">Next</th></tr></thead>
+          <tbody>
+            <tr><td><span class="sw on"></span></td><td><b>Evening lights</b><div class="sub">19:00 weekdays, 18:00 weekends → hallway-lamp on, off after 4 h</div></td><td><span class="st run">Running</span><div class="sub">off at 23:00</div></td><td>Tue 19:00</td></tr>
+            <tr><td><span class="sw on"></span></td><td><b>Office plug off at night</b><div class="sub">23:30 daily → office-plug off</div></td><td><span class="st ok">Armed</span></td><td>23:30</td></tr>
+            <tr><td><span class="sw on"></span></td><td><b>Pond pump cycle</b><div class="sub">Every 30 min → pond-pump on for 2 min</div></td><td><span class="st ok">Armed</span> <span class="mi" style="color:var(--bad); font-size:17px" title="Last run failed 20:30 - pond-pump busy">error</span><div class="sub" style="color:var(--bad)">last run failed</div></td><td>21:00</td></tr>
+            <tr><td><span class="sw on"></span></td><td><b>Lounge heat on</b><div class="sub">Living Room below 16 °C (margin 0.3) → lounge-trv heat on</div></td><td><span class="st ok">Armed</span></td><td class="sub">on reading</td></tr>
+            <tr><td><span class="sw on"></span></td><td><b>Garage light with door</b><div class="sub">garage-door opens → garage-bulb on</div></td><td><span class="st bad">Broken</span><div class="sub">garage-door was deleted</div></td><td class="sub">-</td></tr>
+            <tr><td><span class="sw"></span></td><td><b>Christmas lights</b><div class="sub">16:30 daily → tree-plug on, off after 6 h</div></td><td><span class="st idle">Off</span></td><td class="sub">-</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="small muted" style="margin:0"><span data-lavish-revision="r3">Statuses follow D17.</span> Revised after round 1 for less noise. Times are in the hub timezone, which is shown once in the page's info tooltip rather than on every row. On phones each row becomes a <code>CompactList</code> item: the name as title, the summary as meta and the chip as status.</p>
+
+    </div>
+  </div>
+
+  </div>
+  <h3 style="margin:26px 0 8px">2. The editor - three ways to link triggers and actions</h3>
+  <div class="tabs" role="tablist" id="edtabs">
+    <button type="button" role="tab" class="on" data-t="A">A. When / Then form (recommended)</button>
+    <button type="button" role="tab" data-t="B">B. Node graph</button>
+    <button type="button" role="tab" data-t="C">C. Sentence builder</button>
+  </div>
+
+  <!-- ===== A ===== -->
+  <div id="ed-A" style="margin-top:12px">
+  <div class="deskwrap"><div class="desk">
+    <div class="side">
+      <div class="brand"><div class="logo">SH</div><b>Sensor Hub</b><span class="mi">notifications</span></div>
+      <div class="nav">
+        <div class="item"><span class="mi">dashboard</span>Dashboards</div>
+        <div class="item"><span class="mi">sensors</span>Sensors</div>
+        <div class="item active"><span class="mi">auto_mode</span>Automations</div>
+        <div class="item"><span class="mi">storage</span>Data Retention</div>
+        <div class="item"><span class="mi">settings</span>Properties</div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="pagehead"><span class="mi" style="color:var(--text-2)">arrow_back</span><h4>Evening lights</h4><span class="sw on"></span><span class="small muted">Enabled</span><button class="btn text">Run now</button><button class="btn solid">Save</button></div>
+      <div class="edgrid">
+        <div style="display:flex; flex-direction:column; gap:10px">
+          <div class="lane-title"><span class="mi" style="font-size:16px">bolt</span>When <span class="hint">any of these happens</span></div>
+          <div class="step trig">
+            <div class="ico"><span class="mi">schedule</span></div>
+            <div class="fields">
+              <select class="f ttype"><option value="schedule" selected>At a time</option><option value="interval">Every…</option><option value="reading">Sensor reading (#463)</option></select>
+              <span class="tf tf-schedule fields"><input class="f" type="time" value="19:00"><span class="days"><span class="on">M</span><span class="on">T</span><span class="on">W</span><span class="on">T</span><span class="on">F</span><span>S</span><span>S</span></span></span>
+              <span class="tf tf-interval fields hidden"><span class="lbl">every</span><input class="f" type="number" value="30" style="width:64px"><select class="f"><option>minutes</option><option>hours</option></select></span>
+              <span class="tf tf-reading fields hidden"><select class="f"><option>Living Room</option><option>garage-temp</option></select><select class="f"><option>temperature</option><option>humidity</option></select><select class="f"><option>falls below</option><option>rises above</option><option>becomes</option></select><input class="f" type="number" value="16" style="width:64px"><span class="lbl">°C</span><span class="lbl">re-arm margin</span><input class="f" type="number" value="0.3" step="0.1" style="width:60px" title="Suggested 0.3 from this sensor's last 24 h"><span class="lbl">for at least</span><input class="f" type="number" value="0" style="width:50px"><span class="lbl">s</span></span>
+            </div>
+            <div class="kebab"><span class="mi">more_vert</span></div>
+          </div>
+          <div class="or">OR</div>
+          <div class="step trig">
+            <div class="ico"><span class="mi">schedule</span></div>
+            <div class="fields">
+              <select class="f ttype"><option value="schedule" selected>At a time</option><option value="interval">Every…</option><option value="reading">Sensor reading (#463)</option></select>
+              <span class="tf tf-schedule fields"><input class="f" type="time" value="18:00"><span class="days"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span class="on">S</span><span class="on">S</span></span></span>
+              <span class="tf tf-interval fields hidden"><span class="lbl">every</span><input class="f" type="number" value="30" style="width:64px"><select class="f"><option>minutes</option><option>hours</option></select></span>
+              <span class="tf tf-reading fields hidden"><select class="f"><option>Living Room</option></select><select class="f"><option>temperature</option></select><select class="f"><option>falls below</option><option>rises above</option></select><input class="f" type="number" value="16" style="width:64px"><span class="lbl">°C</span></span>
+            </div>
+            <div class="kebab"><span class="mi">more_vert</span></div>
+          </div>
+          <button type="button" class="add">+ Add trigger</button>
+          <div class="fields small" data-lavish-revision="r3" style="display:flex; gap:8px; align-items:center"><span class="muted">If a trigger fires while already running:</span><select class="f"><option selected>Ignore it (single)</option><option>Start over (restart)</option></select></div>
+
+          <div class="lane-title" style="margin-top:8px"><span class="mi" style="font-size:16px">play_arrow</span>Then <span class="hint">in this order</span></div>
+          <div class="then-line">
+            <div class="step act">
+              <div class="ico"><span class="mi">tune</span></div>
+              <div class="fields">
+                <span class="seqnum">1</span><span class="lbl">Set</span>
+                <select class="f"><option>hallway-lamp</option><option>office-plug</option></select>
+                <select class="f prop"><option value="binary" selected>state</option><option value="numeric">brightness</option><option value="enum">color_temp_preset</option></select>
+                <span class="lbl">to</span>
+                <span class="vc vc-binary valctl"><span class="seg"><span class="on">ON</span><span>OFF</span></span></span>
+                <span class="vc vc-numeric valctl hidden"><input type="range" min="0" max="254" value="150"><span class="small">150</span><span class="lbl">0-254</span></span>
+                <span class="vc vc-enum valctl hidden"><select class="f"><option>warm</option><option>neutral</option><option>cool</option></select></span>
+              </div>
+              <div class="kebab"><span class="mi">drag_indicator</span><span class="mi">more_vert</span></div>
+            </div>
+            <div class="step act">
+              <div class="ico"><span class="mi">tune</span></div>
+              <div class="fields">
+                <span class="seqnum">2</span><span class="lbl">Set</span>
+                <select class="f"><option>hallway-lamp</option></select>
+                <select class="f prop"><option value="binary">state</option><option value="numeric" selected>brightness</option><option value="enum">color_temp_preset</option></select>
+                <span class="lbl">to</span>
+                <span class="vc vc-binary valctl hidden"><span class="seg"><span class="on">ON</span><span>OFF</span></span></span>
+                <span class="vc vc-numeric valctl"><input type="range" min="0" max="254" value="150"><span class="small">150</span><span class="lbl">0-254</span></span>
+                <span class="vc vc-enum valctl hidden"><select class="f"><option>warm</option><option>neutral</option><option>cool</option></select></span>
+              </div>
+              <div class="kebab"><span class="mi">drag_indicator</span><span class="mi">more_vert</span></div>
+            </div>
+            <div class="step wait">
+              <div class="ico"><span class="mi">hourglass_top</span></div>
+              <div class="fields"><span class="seqnum">3</span><span class="lbl">Wait</span><input class="f" type="number" value="4" style="width:60px"><select class="f"><option>seconds</option><option>minutes</option><option selected>hours</option></select></div>
+              <div class="kebab"><span class="mi">drag_indicator</span><span class="mi">more_vert</span></div>
+            </div>
+            <div class="step act">
+              <div class="ico"><span class="mi">tune</span></div>
+              <div class="fields">
+                <span class="seqnum">4</span><span class="lbl">Set</span>
+                <select class="f"><option>hallway-lamp</option></select>
+                <select class="f prop"><option value="binary" selected>state</option><option value="numeric">brightness</option><option value="enum">color_temp_preset</option></select>
+                <span class="lbl">to</span>
+                <span class="vc vc-binary valctl"><span class="seg"><span>ON</span><span class="on">OFF</span></span></span>
+                <span class="vc vc-numeric valctl hidden"><input type="range" min="0" max="254" value="0"><span class="small">0</span><span class="lbl">0-254</span></span>
+                <span class="vc vc-enum valctl hidden"><select class="f"><option>warm</option></select></span>
+              </div>
+              <div class="kebab"><span class="mi">drag_indicator</span><span class="mi">more_vert</span></div>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px"><button type="button" class="add" style="flex:1">+ Set a device</button><button type="button" class="add" style="flex:1">+ Wait</button></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="pc"><div class="ph"><span>In plain words</span></div><div class="pb summary">At <b>19:00 on weekdays</b> or <b>18:00 at weekends</b>, turn <b>hallway-lamp</b> on at brightness <b>150</b>, then turn it off <b>4 hours</b> later.<div class="small muted" style="margin-top:6px">Next: Tue 6 Oct, 19:00 (Europe/London)</div></div></div>
+          <div class="pc"><div class="ph"><span>Recent runs</span><span class="muted">last 30 days</span></div><div class="pb runs" style="gap:0">
+            <div class="r" data-lavish-revision="r3"><div class="w"><div>Today 19:00</div><div>waiting · step 3 of 4 · resumes 23:00</div></div><span style="display:flex; gap:6px; align-items:center"><button class="btn sm text">Cancel run</button><span class="st run">waiting</span></span></div>
+            <div class="r"><div class="w"><div>Sun 18:00</div><div>4 steps · 4 acknowledged</div></div><span class="st ok">succeeded</span></div>
+            <div class="r"><div class="w"><div>Sat 18:00</div><div>step 1 timed out after 10 s</div></div><span class="st bad">failed</span></div>
+            <div class="r"><div class="w"><div>Fri 19:00</div><div>hub was down - 2 h past the grace window</div></div><span class="st idle">missed</span></div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+  <h3 style="margin:22px 0 8px">The same editor on a phone</h3>
+  <div class="phones">
+    <div class="phone-wrap"><div class="cap">List <span>· compact DataTable</span></div>
+      <div class="phone"><div class="scr">
+        <div class="appbar"><span class="mi">menu</span><span class="ttl">Automations</span><span class="mi">notifications</span></div>
+        <div class="ppg">
+          <button class="btn solid" style="align-self:flex-end">New automation</button>
+          <div class="pc"><div class="pb clist" style="gap:0; padding:4px 10px">
+            <div class="it"><div class="a"><div>Evening lights</div><div>19:00 weekdays → hallway-lamp</div></div><span class="st run">Running</span></div>
+            <div class="it"><div class="a"><div>Office plug off at night</div><div>23:30 daily → office-plug off</div></div><span class="st ok">Armed</span></div>
+            <div class="it"><div class="a"><div>Pond pump cycle</div><div>every 30 min → pond-pump · last run failed</div></div><span class="st ok">Armed</span></div>
+            <div class="it"><div class="a"><div>Lounge heat on</div><div>Living Room &lt; 16 °C → lounge-trv</div></div><span class="st ok">Armed</span></div>
+          </div></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="phone-wrap"><div class="cap">Editor <span>· stacked, sticky save</span></div>
+      <div class="phone"><div class="scr" style="display:flex; flex-direction:column">
+        <div class="appbar"><span class="mi">arrow_back</span><span class="ttl">Evening lights</span><span class="sw on"></span></div>
+        <div class="ppg" style="flex:1">
+          <div class="pc"><div class="pb summary" style="font-size:11.5px">At <b>19:00 weekdays</b> or <b>18:00 weekends</b>, turn <b>hallway-lamp</b> on at <b>150</b>, off <b>4 h</b> later.</div></div>
+          <div class="lane-title" style="font-size:10.5px">When <span class="hint">any of</span></div>
+          <div class="step"><div class="ico"><span class="mi" style="font-size:16px">schedule</span></div><div class="fields"><select class="f"><option>At a time</option></select><input class="f" type="time" value="19:00"><span class="days"><span class="on">M</span><span class="on">T</span><span class="on">W</span><span class="on">T</span><span class="on">F</span><span>S</span><span>S</span></span></div></div>
+          <div class="step"><div class="ico"><span class="mi" style="font-size:16px">schedule</span></div><div class="fields"><select class="f"><option>At a time</option></select><input class="f" type="time" value="18:00"><span class="days"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span class="on">S</span><span class="on">S</span></span></div></div>
+          <button type="button" class="add">+ Add trigger</button>
+          <div class="lane-title" style="font-size:10.5px">Then <span class="hint">in order</span></div>
+          <div class="step"><div class="ico"><span class="mi" style="font-size:16px">tune</span></div><div class="fields"><span class="seqnum">1</span><select class="f"><option>hallway-lamp</option></select><select class="f"><option>state</option></select><span class="seg"><span class="on">ON</span><span>OFF</span></span></div></div>
+          <div class="step"><div class="ico"><span class="mi" style="font-size:16px">tune</span></div><div class="fields"><span class="seqnum">2</span><select class="f"><option>hallway-lamp</option></select><select class="f"><option>brightness</option></select><input type="range" min="0" max="254" value="150" style="width:90px; accent-color:var(--primary)"></div></div>
+          <div class="step wait"><div class="ico"><span class="mi" style="font-size:16px">hourglass_top</span></div><div class="fields"><span class="seqnum">3</span><span class="lbl">Wait</span><input class="f" type="number" value="4" style="width:44px"><select class="f"><option>hours</option></select></div></div>
+          <div class="step"><div class="ico"><span class="mi" style="font-size:16px">tune</span></div><div class="fields"><span class="seqnum">4</span><select class="f"><option>hallway-lamp</option></select><select class="f"><option>state</option></select><span class="seg"><span>ON</span><span class="on">OFF</span></span></div></div>
+          <div style="display:flex; gap:6px"><button type="button" class="add" style="flex:1">+ Set</button><button type="button" class="add" style="flex:1">+ Wait</button></div>
+        </div>
+        <div class="sticky-save"><button class="btn text sm">Run now</button><button class="btn solid sm">Save</button></div>
+      </div></div>
+    </div>
+  </div>
+  </div>
+
+  <!-- ===== B ===== -->
+  <div id="ed-B" class="hidden" style="margin-top:12px">
+    <div class="pc"><div class="ph"><span>Evening lights - graph editor (desktop only)</span><span><button class="btn sm">Fit</button> <button class="btn solid sm">Save</button></span></div>
+    <div class="pb">
+      <div class="canvas">
+      <svg viewBox="0 0 980 360" role="img" aria-labelledby="gT" style="width:100%; height:auto; display:block; color:var(--text)">
+        <title id="gT">Node graph editor prototype</title>
+        <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--primary)"/></marker></defs>
+        <g id="n-t1"><title>Trigger: 19:00 weekdays</title><rect x="20" y="60" width="190" height="62" rx="10" fill="var(--paper)" stroke="var(--primary)"/><text x="36" y="84" font-size="11" opacity=".7">TRIGGER · time</text><text x="36" y="106" font-size="14" font-weight="600">19:00 Mon-Fri</text><circle cx="210" cy="91" r="6" fill="var(--primary)"/></g>
+        <g id="n-t2"><title>Trigger: 18:00 weekends</title><rect x="20" y="170" width="190" height="62" rx="10" fill="var(--paper)" stroke="var(--primary)"/><text x="36" y="194" font-size="11" opacity=".7">TRIGGER · time</text><text x="36" y="216" font-size="14" font-weight="600">18:00 Sat, Sun</text><circle cx="210" cy="201" r="6" fill="var(--primary)"/></g>
+        <g id="n-t3"><title>Trigger: motion (wired differently)</title><rect x="20" y="270" width="190" height="62" rx="10" fill="var(--paper)" stroke="var(--warn)" stroke-dasharray="4 3"/><text x="36" y="294" font-size="11" opacity=".7">TRIGGER · reading #463</text><text x="36" y="316" font-size="14" font-weight="600">hall-motion = ON</text><circle cx="210" cy="301" r="6" fill="var(--warn)"/></g>
+        <g id="n-a1"><title>Set state ON</title><rect x="300" y="110" width="170" height="62" rx="10" fill="var(--paper)" stroke="currentColor" opacity=".9"/><text x="316" y="134" font-size="11" opacity=".7">SET · hallway-lamp</text><text x="316" y="156" font-size="14" font-weight="600">state = ON</text></g>
+        <g id="n-a2"><title>Set brightness 150</title><rect x="520" y="110" width="170" height="62" rx="10" fill="var(--paper)" stroke="currentColor" opacity=".9"/><text x="536" y="134" font-size="11" opacity=".7">SET · hallway-lamp</text><text x="536" y="156" font-size="14" font-weight="600">brightness = 150</text></g>
+        <g id="n-w"><title>Wait 4 hours</title><rect x="740" y="110" width="110" height="62" rx="10" fill="var(--info-bg)" stroke="var(--info)"/><text x="756" y="134" font-size="11" opacity=".7">WAIT</text><text x="756" y="156" font-size="14" font-weight="600">4 h</text></g>
+        <g id="n-a3"><title>Set state OFF</title><rect x="740" y="230" width="170" height="62" rx="10" fill="var(--paper)" stroke="currentColor" opacity=".9"/><text x="756" y="254" font-size="11" opacity=".7">SET · hallway-lamp</text><text x="756" y="276" font-size="14" font-weight="600">state = OFF</text></g>
+        <g id="n-w2"><title>Wait 2 minutes (motion branch)</title><rect x="300" y="270" width="110" height="62" rx="10" fill="var(--info-bg)" stroke="var(--info)"/><text x="316" y="294" font-size="11" opacity=".7">WAIT</text><text x="316" y="316" font-size="14" font-weight="600">2 min</text></g>
+        <path d="M216 91 C 260 91, 260 141, 298 141" stroke="var(--primary)" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+        <path d="M216 201 C 260 201, 260 141, 298 141" stroke="var(--primary)" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+        <path d="M470 141 L518 141" stroke="var(--primary)" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+        <path d="M690 141 L738 141" stroke="var(--primary)" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+        <path d="M795 172 L795 228" stroke="var(--primary)" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+        <path d="M216 301 L298 301" stroke="var(--warn)" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+        <path d="M410 301 C 600 301, 600 261, 738 261" stroke="var(--warn)" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+        <text x="430" y="40" font-size="12" opacity=".75">Each trigger can be wired into any point in the chain - powerful, and harder to read at a glance.</text>
+      </svg>
+      </div>
+      <p class="small muted" style="margin:0">Shown with a third, wired trigger so the difference from A is visible: motion skips straight to "wait 2 min, off". Cost: a canvas library, a graph model with cycle checks, and the phone tier would need a separate read-only view.</p>
+    </div></div>
+  </div>
+
+  <!-- ===== C ===== -->
+  <div id="ed-C" class="hidden" style="margin-top:12px">
+    <div class="pc"><div class="ph"><span>Evening lights - sentence builder</span><button class="btn solid sm">Save</button></div>
+    <div class="pb">
+      <div class="sentence">
+        <span class="tok k">At</span> <span class="tok">19:00</span> on <span class="tok">weekdays</span> <span class="muted">or</span> <span class="tok">18:00</span> on <span class="tok">weekends</span> <span class="tok k" title="add trigger">+</span>,<br>
+        set <span class="tok">hallway-lamp</span> <span class="tok">state</span> to <span class="tok">ON</span>,<br>
+        set <span class="tok">hallway-lamp</span> <span class="tok">brightness</span> to <span class="tok">150</span>,<br>
+        then after <span class="tok">4 hours</span> set <span class="tok">hallway-lamp</span> <span class="tok">state</span> to <span class="tok">OFF</span> <span class="tok k" title="add step">+</span>.
+      </div>
+      <p class="small muted" style="margin:0">Each underlined token opens a popover picker. It reads beautifully at this size. Past about three steps it turns into a paragraph that is hard to edit, and reordering steps has no obvious affordance. I would use this style as the <b>read-only summary</b> in A (the "In plain words" card) rather than as the editor.</p>
+    </div></div>
+  </div>
+</section>
+
+</main>
+
+<script>
+  // queue answers
+  document.querySelectorAll('form.decision').forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = form.getAttribute('data-lavish-question');
+      const title = form.querySelector('h3').textContent.trim();
+      const checked = form.querySelector('input[type=radio]:checked');
+      const note = (form.querySelector('textarea[name=note]')?.value || '').trim();
+      if (!checked && !note) return;
+      const answer = checked ? checked.value : '(no option)';
+      const text = q + ' - ' + title + ': ' + answer + (note ? ' | note: ' + note : '');
+      if (window.lavish && window.lavish.queuePrompt) {
+        window.lavish.queuePrompt(text, { tag: 'choice', text: q + ': ' + answer, element: form, queueKey: q, data: { question: q, answer, note } });
+      }
+      const flag = form.querySelector('.queued'); flag.classList.add('show');
+    });
+    form.addEventListener('change', () => form.querySelector('.queued').classList.remove('show'));
+  });
+
+  // editor tabs
+  document.querySelectorAll('#edtabs button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#edtabs button').forEach((x) => x.classList.toggle('on', x === b));
+    ['A','B','C'].forEach((k) => document.getElementById('ed-' + k).classList.toggle('hidden', k !== b.dataset.t));
+  }));
+
+  // trigger type switch
+  document.querySelectorAll('.step.trig').forEach((step) => {
+    const sel = step.querySelector('.ttype');
+    const icons = { schedule: 'schedule', interval: 'update', reading: 'sensors' };
+    sel.addEventListener('change', () => {
+      step.querySelectorAll('.tf').forEach((f) => f.classList.toggle('hidden', !f.classList.contains('tf-' + sel.value)));
+      step.querySelector('.ico .mi').textContent = icons[sel.value];
+    });
+  });
+
+  // capability type switch
+  document.querySelectorAll('.step.act').forEach((step) => {
+    const sel = step.querySelector('.prop');
+    sel.addEventListener('change', () => {
+      step.querySelectorAll('.vc').forEach((v) => v.classList.toggle('hidden', !v.classList.contains('vc-' + sel.value)));
+    });
+    const range = step.querySelector('input[type=range]');
+    range.addEventListener('input', () => { range.nextElementSibling.textContent = range.value; });
+  });
+
+  // segmented + day chips + switches
+  document.querySelectorAll('.seg').forEach((seg) => seg.addEventListener('click', (e) => {
+    if (e.target.parentElement !== seg) return;
+    seg.querySelectorAll('span').forEach((s) => s.classList.toggle('on', s === e.target));
+  }));
+  document.querySelectorAll('.days span').forEach((d) => d.addEventListener('click', () => d.classList.toggle('on')));
+  document.querySelectorAll('.sw').forEach((s) => s.addEventListener('click', () => s.classList.toggle('on')));
+</script>
+</body>
+</html>
