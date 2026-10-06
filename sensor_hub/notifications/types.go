@@ -9,9 +9,10 @@ import (
 type NotificationCategory string
 
 const (
-	CategoryThresholdAlert NotificationCategory = "threshold_alert"
-	CategoryUserManagement NotificationCategory = "user_management"
-	CategoryConfigChange   NotificationCategory = "config_change"
+	CategoryThresholdAlert    NotificationCategory = "threshold_alert"
+	CategoryUserManagement    NotificationCategory = "user_management"
+	CategoryConfigChange      NotificationCategory = "config_change"
+	CategoryAutomationFailure NotificationCategory = "automation_failure"
 )
 
 type NotificationSeverity string
@@ -51,9 +52,10 @@ type ChannelPreference struct {
 }
 
 var validCategories = map[NotificationCategory]bool{
-	CategoryThresholdAlert: true,
-	CategoryUserManagement: true,
-	CategoryConfigChange:   true,
+	CategoryThresholdAlert:    true,
+	CategoryUserManagement:    true,
+	CategoryConfigChange:      true,
+	CategoryAutomationFailure: true,
 }
 
 var validSeverities = map[NotificationSeverity]bool{

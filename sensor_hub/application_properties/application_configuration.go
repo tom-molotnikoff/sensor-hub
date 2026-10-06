@@ -3,6 +3,7 @@ package appProps
 import (
 	"log/slog"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 
 	"example/sensorHub/telemetry"
@@ -43,6 +44,8 @@ type ApplicationConfiguration struct {
 
 	MQTTBrokerEnabled bool `prop:"mqtt.broker.enabled" default:"true" file:"application" label:"Broker enabled" desc:"Whether the embedded MQTT broker is started." group:"mqtt" apply:"action:service-restart"`
 	MQTTBrokerPort    int  `prop:"mqtt.broker.port" default:"1883" file:"application" validate:"positive" label:"Broker port" desc:"TCP port the embedded MQTT broker listens on." group:"mqtt" apply:"action:service-restart"`
+
+	HubTimezone string `prop:"hub.timezone" default:"" file:"application" validate:"timezone" label:"Hub timezone" desc:"IANA zone name, such as Europe/London, that automation schedules run in. Defaults to the server's zone." group:"automations"`
 
 	ActuatorCommandTimeoutSeconds int `prop:"actuator.command.timeout_seconds" default:"10" file:"application" validate:"positive" label:"Actuator command timeout" desc:"How long to wait for a device to acknowledge a command." group:"advanced" unit:"seconds"`
 
@@ -119,7 +122,38 @@ func ReloadConfig(appProps, smtpProps, dbProps map[string]string) error {
 
 	LogConfig(cfg)
 
+	reloadListenersMu.Lock()
+	listeners := make([]func(*ApplicationConfiguration), 0, len(reloadListeners))
+	for _, listener := range reloadListeners {
+		listeners = append(listeners, listener)
+	}
+	reloadListenersMu.Unlock()
+	for _, listener := range listeners {
+		listener(cfg)
+	}
+
 	return nil
+}
+
+var (
+	reloadListenersMu  sync.Mutex
+	reloadListeners    = make(map[int]func(*ApplicationConfiguration))
+	nextReloadListener int
+)
+
+// OnReload listeners run after every successful reload, from a PATCH or from
+// an edit to the files on disk.
+func OnReload(listener func(cfg *ApplicationConfiguration)) (remove func()) {
+	reloadListenersMu.Lock()
+	defer reloadListenersMu.Unlock()
+	id := nextReloadListener
+	nextReloadListener++
+	reloadListeners[id] = listener
+	return func() {
+		reloadListenersMu.Lock()
+		defer reloadListenersMu.Unlock()
+		delete(reloadListeners, id)
+	}
 }
 
 // ResolvedOAuthCredentialsPath returns the OAuth credentials file path

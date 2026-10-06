@@ -49,6 +49,7 @@ function getCategoryLabel(category: NotificationCategory): string {
     case 'threshold_alert': return 'Alert';
     case 'user_management': return 'User';
     case 'config_change': return 'Config';
+    case 'automation_failure': return 'Automation';
     default: return category;
   }
 }

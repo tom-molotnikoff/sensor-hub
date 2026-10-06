@@ -77,7 +77,7 @@ func TestBuildRegistry_Labels(t *testing.T) {
 // truthful apply state.
 func TestRegistry_MetadataComplete(t *testing.T) {
 	defs := Definitions()
-	assert.Len(t, defs, 30)
+	assert.Len(t, defs, 31)
 
 	knownGroups := make(map[string]bool)
 	for _, g := range PropertyGroups() {
@@ -108,8 +108,8 @@ func TestRegistry_MetadataComplete(t *testing.T) {
 		groupCounts[def.Group]++
 	}
 
-	assert.Equal(t, map[string]int{"live": 19, "next-cycle": 2, "action": 8, "readonly": 1}, applyCounts)
-	assert.Equal(t, map[string]int{"sensors": 2, "retention": 5, "security": 7, "mqtt": 2, "email": 4, "weather": 3, "advanced": 7}, groupCounts)
+	assert.Equal(t, map[string]int{"live": 20, "next-cycle": 2, "action": 8, "readonly": 1}, applyCounts)
+	assert.Equal(t, map[string]int{"sensors": 2, "automations": 1, "retention": 5, "security": 7, "mqtt": 2, "email": 4, "weather": 3, "advanced": 7}, groupCounts)
 }
 
 func TestRegistry_SpecAssignments(t *testing.T) {
@@ -131,7 +131,7 @@ func TestRegistry_SpecAssignments(t *testing.T) {
 
 func TestPropertyGroups_Ordered(t *testing.T) {
 	groups := PropertyGroups()
-	assert.Len(t, groups, 7)
+	assert.Len(t, groups, 8)
 	for i, g := range groups {
 		assert.Equal(t, i+1, g.Order, "group %q out of order", g.ID)
 	}

@@ -7,6 +7,7 @@ import (
 	"example/sensorHub/api"
 	"example/sensorHub/api/middleware"
 	appProps "example/sensorHub/application_properties"
+	"example/sensorHub/automation"
 	database "example/sensorHub/db"
 	_ "example/sensorHub/drivers" // register sensor drivers
 	mqttBrokerPkg "example/sensorHub/mqtt"
@@ -170,6 +171,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if err := commandTracker.RecoverPending(ctx); err != nil {
 		return fmt.Errorf("failed to recover pending commands: %w", err)
 	}
+	automationService := automation.NewService(database.NewAutomationRepository(db, logger), sensorService, commandService, notificationService, logger)
 
 	middleware.InitAuthMiddleware(authService)
 	middleware.InitApiKeyMiddleware(apiKeyService)
@@ -226,11 +228,16 @@ func runServe(cmd *cobra.Command, args []string) error {
 		mqttService,
 		oauthAdapter,
 		connManager,
+		automationService,
 	)
 
 	sensorService.ServiceStartPeriodicSensorCollection(ctx)
 
 	cleanupService.StartPeriodicCleanup(ctx)
+
+	if err := automationService.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start automations: %w", err)
+	}
 
 	return api.InitialiseAndListen(ctx, logger, tel.PrometheusHandler, server)
 }

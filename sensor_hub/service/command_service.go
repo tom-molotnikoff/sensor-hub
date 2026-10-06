@@ -31,7 +31,7 @@ type CommandSubscriptionRepository interface {
 
 type CommandHistoryRepository interface {
 	HasPendingCommand(ctx context.Context, sensorID int, property string) (bool, error)
-	AddSentCommand(ctx context.Context, sensorID int, userID *int, property string, value string, mqttTopic string, mqttPayload string, timeoutSeconds int, sentAt time.Time) (int, error)
+	AddSentCommand(ctx context.Context, command database.NewCommand) (int, error)
 	ListBySensorID(ctx context.Context, sensorID int, limit int) ([]gen.CommandHistoryEntry, error)
 }
 
@@ -102,68 +102,93 @@ func (s *CommandService) GetHistory(ctx context.Context, sensorID int) ([]gen.Co
 }
 
 func (s *CommandService) Send(ctx context.Context, sensorID int, actor *gen.User, property string, value string) (SentCommandResult, error) {
-	sensor, err := s.sensorRepo.GetSensorById(ctx, sensorID)
-	if err != nil || sensor == nil {
-		if err != nil {
-			return SentCommandResult{}, newCommandError(http.StatusNotFound, fmt.Sprintf("sensor %d not found", sensorID))
-		}
-		return SentCommandResult{}, newCommandError(http.StatusNotFound, fmt.Sprintf("sensor %d not found", sensorID))
+	sensor, err := s.commandableSensor(ctx, sensorID)
+	if err != nil {
+		return SentCommandResult{}, err
 	}
 
 	if actor == nil || !hasPermission(actor.Permissions, "control_sensors") {
 		return SentCommandResult{}, newCommandError(http.StatusForbidden, "missing control_sensors permission")
 	}
 
+	userID := actor.Id
+	result, _, err := s.send(ctx, sensor, database.NewCommand{UserID: &userID, Property: property, Value: value})
+	return result, err
+}
+
+// There is no permission check: whoever saved or enabled the automation was
+// checked for control_sensors then.
+func (s *CommandService) SendAsSystem(ctx context.Context, sensorID int, property string, value string, automationRunID int) (int, <-chan string, error) {
+	sensor, err := s.commandableSensor(ctx, sensorID)
+	if err != nil {
+		return 0, nil, err
+	}
+	result, outcome, err := s.send(ctx, sensor, database.NewCommand{AutomationRunID: &automationRunID, Property: property, Value: value})
+	return result.ID, outcome, err
+}
+
+func (s *CommandService) commandableSensor(ctx context.Context, sensorID int) (*gen.Sensor, error) {
+	sensor, err := s.sensorRepo.GetSensorById(ctx, sensorID)
+	if err != nil || sensor == nil {
+		return nil, newCommandError(http.StatusNotFound, fmt.Sprintf("sensor %d not found", sensorID))
+	}
+	return sensor, nil
+}
+
+func (s *CommandService) send(ctx context.Context, sensor *gen.Sensor, command database.NewCommand) (SentCommandResult, <-chan string, error) {
 	commandDriver, ok := drivers.GetCommandDriver(sensor.SensorDriver)
 	if !ok {
-		return SentCommandResult{}, newCommandError(http.StatusBadRequest, fmt.Sprintf("sensor %d is not controllable", sensorID))
+		return SentCommandResult{}, nil, newCommandError(http.StatusBadRequest, fmt.Sprintf("sensor %d is not controllable", sensor.Id))
 	}
 
 	if !sensor.Enabled || sensor.Status != gen.SensorStatusActive {
-		return SentCommandResult{}, newCommandError(http.StatusConflict, fmt.Sprintf("sensor %d is not in a controllable state", sensorID))
+		return SentCommandResult{}, nil, newCommandError(http.StatusConflict, fmt.Sprintf("sensor %d is not in a controllable state", sensor.Id))
 	}
 
-	topic, payload, err := commandDriver.BuildCommand(*sensor, property, value)
+	topic, payload, err := commandDriver.BuildCommand(*sensor, command.Property, command.Value)
 	if err != nil {
-		return SentCommandResult{}, newCommandError(http.StatusBadRequest, err.Error())
+		return SentCommandResult{}, nil, newCommandError(http.StatusBadRequest, err.Error())
 	}
 
-	hasPending, err := s.historyRepo.HasPendingCommand(ctx, sensor.Id, property)
+	hasPending, err := s.historyRepo.HasPendingCommand(ctx, sensor.Id, command.Property)
 	if err != nil {
-		return SentCommandResult{}, fmt.Errorf("check pending command: %w", err)
+		return SentCommandResult{}, nil, fmt.Errorf("check pending command: %w", err)
 	}
 	if hasPending {
-		return SentCommandResult{}, newCommandError(http.StatusTooManyRequests, fmt.Sprintf("sensor %d already has a pending command for property %q", sensorID, property))
+		return SentCommandResult{}, nil, newCommandError(http.StatusTooManyRequests, fmt.Sprintf("sensor %d already has a pending command for property %q", sensor.Id, command.Property))
 	}
 
 	subscriptions, err := s.subRepo.ListEnabledByDriverType(ctx, sensor.SensorDriver)
 	if err != nil {
-		return SentCommandResult{}, fmt.Errorf("lookup MQTT subscriptions: %w", err)
+		return SentCommandResult{}, nil, fmt.Errorf("lookup MQTT subscriptions: %w", err)
 	}
 	if len(subscriptions) == 0 {
-		return SentCommandResult{}, newCommandError(http.StatusServiceUnavailable, fmt.Sprintf("no enabled MQTT subscription for driver %q", sensor.SensorDriver))
+		return SentCommandResult{}, nil, newCommandError(http.StatusServiceUnavailable, fmt.Sprintf("no enabled MQTT subscription for driver %q", sensor.SensorDriver))
 	}
 
-	timeoutSeconds := resolveCommandTimeoutSeconds()
-	sentAt := time.Now().UTC()
-	userID := actor.Id
-	commandID, err := s.historyRepo.AddSentCommand(ctx, sensor.Id, &userID, property, value, topic, string(payload), timeoutSeconds, sentAt)
+	command.SensorID = sensor.Id
+	command.MQTTTopic = topic
+	command.MQTTPayload = string(payload)
+	command.TimeoutSeconds = resolveCommandTimeoutSeconds()
+	command.SentAt = time.Now().UTC()
+	commandID, err := s.historyRepo.AddSentCommand(ctx, command)
 	if err != nil {
-		return SentCommandResult{}, fmt.Errorf("persist sent command: %w", err)
+		return SentCommandResult{}, nil, fmt.Errorf("persist sent command: %w", err)
 	}
 
 	commandRecord := database.PendingCommandRecord{
 		ID:             commandID,
 		SensorID:       sensor.Id,
-		Property:       property,
-		Value:          value,
+		Property:       command.Property,
+		Value:          command.Value,
 		Status:         actuation.CommandStatusSent,
-		TimeoutSeconds: timeoutSeconds,
-		SentAt:         sentAt,
+		TimeoutSeconds: command.TimeoutSeconds,
+		SentAt:         command.SentAt,
 	}
 	backgroundCtx := context.Background()
+	var outcome <-chan string
 	if s.lifecycle != nil {
-		s.lifecycle.Track(backgroundCtx, commandRecord)
+		outcome = s.lifecycle.Track(backgroundCtx, commandRecord)
 	}
 
 	var lastDisconnectedErr error
@@ -176,7 +201,7 @@ func (s *CommandService) Send(ctx context.Context, sensorID int, actor *gen.User
 			if s.lifecycle != nil {
 				s.lifecycle.MarkFailed(backgroundCtx, commandRecord)
 			}
-			return SentCommandResult{}, fmt.Errorf("publish command: %w", err)
+			return SentCommandResult{ID: commandID}, nil, fmt.Errorf("publish command: %w", err)
 		}
 		lastDisconnectedErr = nil
 		break
@@ -185,15 +210,15 @@ func (s *CommandService) Send(ctx context.Context, sensorID int, actor *gen.User
 		if s.lifecycle != nil {
 			s.lifecycle.MarkFailed(backgroundCtx, commandRecord)
 		}
-		return SentCommandResult{}, newCommandError(http.StatusServiceUnavailable, lastDisconnectedErr.Error())
+		return SentCommandResult{ID: commandID}, nil, newCommandError(http.StatusServiceUnavailable, lastDisconnectedErr.Error())
 	}
 
 	return SentCommandResult{
 		ID:       commandID,
 		Status:   actuation.CommandStatusSent,
-		Property: property,
-		Value:    value,
-	}, nil
+		Property: command.Property,
+		Value:    command.Value,
+	}, outcome, nil
 }
 
 func hasPermission(permissions []string, required string) bool {

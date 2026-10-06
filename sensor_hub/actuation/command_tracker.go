@@ -41,7 +41,8 @@ type CommandStatusBroadcaster interface {
 }
 
 type LifecycleManager interface {
-	Track(ctx context.Context, command database.PendingCommandRecord)
+	// The returned channel receives the command's final status once.
+	Track(ctx context.Context, command database.PendingCommandRecord) <-chan string
 	MarkFailed(ctx context.Context, command database.PendingCommandRecord)
 	RecoverPending(ctx context.Context) error
 }
@@ -56,6 +57,7 @@ type CommandTracker struct {
 	mu       sync.Mutex
 	commands map[int]database.PendingCommandRecord
 	cancels  map[int]func()
+	outcomes map[int]chan string
 }
 
 func NewCommandTracker(repo CommandRepository, broadcaster CommandStatusBroadcaster, logger *slog.Logger) *CommandTracker {
@@ -72,10 +74,12 @@ func NewCommandTracker(repo CommandRepository, broadcaster CommandStatusBroadcas
 		schedule: defaultSchedule,
 		commands: make(map[int]database.PendingCommandRecord),
 		cancels:  make(map[int]func()),
+		outcomes: make(map[int]chan string),
 	}
 }
 
-func (t *CommandTracker) Track(ctx context.Context, command database.PendingCommandRecord) {
+func (t *CommandTracker) Track(ctx context.Context, command database.PendingCommandRecord) <-chan string {
+	outcome := make(chan string, 1)
 	delay := t.remaining(command)
 	if delay <= 0 {
 		t.mu.Lock()
@@ -84,10 +88,11 @@ func (t *CommandTracker) Track(ctx context.Context, command database.PendingComm
 			delete(t.cancels, command.ID)
 		}
 		t.commands[command.ID] = command
+		t.outcomes[command.ID] = outcome
 		t.mu.Unlock()
 		t.logger.Debug("command already expired during tracking", "command_id", command.ID)
 		t.handleTimeout(ctx, command.ID)
-		return
+		return outcome
 	}
 
 	started := make(chan struct{})
@@ -103,9 +108,11 @@ func (t *CommandTracker) Track(ctx context.Context, command database.PendingComm
 	}
 	t.commands[command.ID] = command
 	t.cancels[command.ID] = cancel
+	t.outcomes[command.ID] = outcome
 	t.mu.Unlock()
 	close(started)
 	t.logger.Debug("tracking command", "command_id", command.ID, "sensor_id", command.SensorID, "property", command.Property, "timeout_seconds", command.TimeoutSeconds, "delay_ms", delay.Milliseconds())
+	return outcome
 }
 
 func (t *CommandTracker) Consume(ctx context.Context, sensor gen.Sensor, readings []gen.Reading) {
@@ -137,7 +144,7 @@ func (t *CommandTracker) Consume(ctx context.Context, sensor gen.Sensor, reading
 		command.Status = CommandStatusAcknowledged
 		command.AcknowledgedAt = &acknowledgedAt
 		command.AcknowledgedValue = &value
-		t.remove(command.ID)
+		t.settle(command)
 		t.logger.Info("command acknowledged", "command_id", command.ID, "sensor_id", command.SensorID, "property", command.Property, "acknowledged_value", value)
 		t.broadcast(command)
 	}
@@ -154,7 +161,7 @@ func (t *CommandTracker) MarkFailed(ctx context.Context, command database.Pendin
 	}
 
 	command.Status = CommandStatusFailed
-	t.remove(command.ID)
+	t.settle(command)
 	t.logger.Info("command failed", "command_id", command.ID, "sensor_id", command.SensorID, "property", command.Property)
 	t.broadcast(command)
 }
@@ -180,6 +187,7 @@ func (t *CommandTracker) Close() {
 	}
 	t.commands = make(map[int]database.PendingCommandRecord)
 	t.cancels = make(map[int]func())
+	t.outcomes = make(map[int]chan string)
 }
 
 func (t *CommandTracker) matchingCommand(sensorID int, property string) (database.PendingCommandRecord, bool) {
@@ -201,14 +209,18 @@ func (t *CommandTracker) matchingCommand(sensorID int, property string) (databas
 	return matched, found
 }
 
-func (t *CommandTracker) remove(id int) {
+func (t *CommandTracker) settle(command database.PendingCommandRecord) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if cancel, ok := t.cancels[id]; ok {
+	if cancel, ok := t.cancels[command.ID]; ok {
 		cancel()
-		delete(t.cancels, id)
+		delete(t.cancels, command.ID)
 	}
-	delete(t.commands, id)
+	delete(t.commands, command.ID)
+	if outcome, ok := t.outcomes[command.ID]; ok {
+		outcome <- command.Status
+		delete(t.outcomes, command.ID)
+	}
 }
 
 func (t *CommandTracker) broadcast(command database.PendingCommandRecord) {
@@ -258,7 +270,7 @@ func (t *CommandTracker) handleTimeout(ctx context.Context, id int) {
 	}
 
 	command.Status = CommandStatusTimedOut
-	t.remove(id)
+	t.settle(command)
 	t.logger.Info("command timed out", "command_id", id, "sensor_id", command.SensorID, "property", command.Property)
 	t.broadcast(command)
 }

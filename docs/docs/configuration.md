@@ -57,6 +57,12 @@ The Properties page in the web UI is the reference for every property: it shows 
 
 If the page cannot load the property definitions, it still lists and saves every property, but shows raw keys and plain text fields with a banner explaining that descriptions and typed controls are unavailable.
 
+### Hub timezone
+
+`hub.timezone` is the zone [automation](automations) schedules run in, as an IANA zone name such as `Europe/London`. A change applies straight away. Its default is the server's own zone, or `UTC` when the server's zone has no IANA name, as in many Docker images. A value that is not a zone name Sensor Hub can load is rejected.
+
+### Readings aggregation
+
 Readings aggregation is controlled by the `readings.aggregation.*` properties. Tier values use ISO 8601 durations in `THRESHOLD:INTERVAL` format. The special interval `raw` means no aggregation. Tiers are evaluated in ascending order - the first tier whose threshold is >= the query span is used. Queries exceeding all thresholds fall back to `P1D` buckets. See the [auto-aggregation developer docs](development/auto-aggregation.md) for details.
 
 ## Environment variables

@@ -320,6 +320,30 @@ func (c *Client) SendSensorCommand(sensorID int, property, value string) (gen.Se
 	return result, status
 }
 
+// --- Automations ---
+
+func (c *Client) CreateAutomation(input gen.AutomationInput) (json.RawMessage, int) {
+	return c.consume(c.gen.CreateAutomation(c.ctx(), input))
+}
+
+func (c *Client) ListAutomations() ([]gen.Automation, int) {
+	var result []gen.Automation
+	resp, err := c.gen.ListAutomations(c.ctx())
+	status := c.decodeInto(resp, err, &result)
+	return result, status
+}
+
+func (c *Client) ListAutomationRuns(id int) ([]gen.AutomationRun, int) {
+	var result []gen.AutomationRun
+	resp, err := c.gen.ListAutomationRuns(c.ctx(), id)
+	status := c.decodeInto(resp, err, &result)
+	return result, status
+}
+
+func (c *Client) DeleteAutomation(id int) int {
+	return c.statusOnly(c.gen.DeleteAutomation(c.ctx(), id))
+}
+
 // --- Alerts ---
 
 func (c *Client) CreateAlertRule(rule gen.AlertRule) (json.RawMessage, int) {

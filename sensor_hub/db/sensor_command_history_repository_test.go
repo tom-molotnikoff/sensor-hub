@@ -20,10 +20,13 @@ func TestSensorCommandHistoryRepository_AddSentCommand_Success(t *testing.T) {
 	sentAt := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
 
 	mock.ExpectExec("INSERT INTO sensor_command_history").
-		WithArgs(7, &userID, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, sentAt).
+		WithArgs(7, &userID, nil, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, sentAt).
 		WillReturnResult(sqlmock.NewResult(42, 1))
 
-	id, err := repo.AddSentCommand(context.Background(), 7, &userID, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, sentAt)
+	id, err := repo.AddSentCommand(context.Background(), NewCommand{
+		SensorID: 7, UserID: &userID, Property: "state", Value: "ON",
+		MQTTTopic: "zigbee2mqtt/office-plug/set", MQTTPayload: `{"state":"ON"}`, TimeoutSeconds: 10, SentAt: sentAt,
+	})
 	assert.NoError(t, err)
 	assert.Equal(t, 42, id)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -47,11 +50,15 @@ func TestSensorCommandHistoryRepository_AddSentCommand_DBError(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSensorCommandHistoryRepository(handles(db), slog.Default())
 
+	runID := 5
 	mock.ExpectExec("INSERT INTO sensor_command_history").
-		WithArgs(7, nil, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, sqlmock.AnyArg()).
+		WithArgs(7, nil, &runID, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, sqlmock.AnyArg()).
 		WillReturnError(errors.New("write failed"))
 
-	_, err := repo.AddSentCommand(context.Background(), 7, nil, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, time.Now().UTC())
+	_, err := repo.AddSentCommand(context.Background(), NewCommand{
+		SensorID: 7, AutomationRunID: &runID, Property: "state", Value: "ON",
+		MQTTTopic: "zigbee2mqtt/office-plug/set", MQTTPayload: `{"state":"ON"}`, TimeoutSeconds: 10, SentAt: time.Now().UTC(),
+	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error inserting sensor command history")
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -95,7 +102,7 @@ func TestSensorCommandHistoryRepository_ListPendingCommands_ReturnsRows(t *testi
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestSensorCommandHistoryRepository_ListBySensorID_ReturnsNewestEntriesWithUserMetadata(t *testing.T) {
+func TestSensorCommandHistoryRepository_ListBySensorID_ReturnsNewestEntriesWithActor(t *testing.T) {
 	db, mock := newMockDB(t)
 	repo := NewSensorCommandHistoryRepository(handles(db), slog.Default())
 
@@ -103,13 +110,13 @@ func TestSensorCommandHistoryRepository_ListBySensorID_ReturnsNewestEntriesWithU
 	acknowledgedAt := sentAt.Add(2 * time.Second)
 	ackValue := "true"
 
-	mock.ExpectQuery("SELECT h.id, h.property, h.value, h.status, h.sent_at, h.acknowledged_at, h.acknowledged_value, h.timeout_seconds, h.mqtt_topic, h.mqtt_payload, u.id, u.username").
+	mock.ExpectQuery("SELECT h.id, h.property, h.value, h.status, h.sent_at, h.acknowledged_at, h.acknowledged_value, h.timeout_seconds, h.mqtt_topic, h.mqtt_payload, u.id, u.username, h.automation_run_id, a.id, a.name").
 		WithArgs(7, 50).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "property", "value", "status", "sent_at", "acknowledged_at", "acknowledged_value", "timeout_seconds", "mqtt_topic", "mqtt_payload", "user_id", "username",
+			"id", "property", "value", "status", "sent_at", "acknowledged_at", "acknowledged_value", "timeout_seconds", "mqtt_topic", "mqtt_payload", "user_id", "username", "automation_run_id", "automation_id", "automation_name",
 		}).
-			AddRow(42, "state", "ON", "acknowledged", sentAt, acknowledgedAt, ackValue, 10, "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 99, "admin").
-			AddRow(41, "state", "OFF", "timed_out", sentAt.Add(-time.Minute), nil, nil, 10, "zigbee2mqtt/office-plug/set", `{"state":"OFF"}`, nil, nil))
+			AddRow(42, "state", "ON", "acknowledged", sentAt, acknowledgedAt, ackValue, 10, "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 99, "admin", nil, nil, nil).
+			AddRow(41, "state", "OFF", "timed_out", sentAt.Add(-time.Minute), nil, nil, 10, "zigbee2mqtt/office-plug/set", `{"state":"OFF"}`, nil, nil, 8, 3, "Evening lights"))
 
 	history, err := repo.ListBySensorID(context.Background(), 7, 50)
 	assert.NoError(t, err)
@@ -131,14 +138,16 @@ func TestSensorCommandHistoryRepository_ListBySensorID_ReturnsNewestEntriesWithU
 			},
 		},
 		{
-			Id:             41,
-			Property:       "state",
-			Value:          "OFF",
-			Status:         gen.CommandHistoryEntryStatusTimedOut,
-			SentAt:         sentAt.Add(-time.Minute),
-			TimeoutSeconds: 10,
-			MqttTopic:      "zigbee2mqtt/office-plug/set",
-			MqttPayload:    `{"state":"OFF"}`,
+			Id:              41,
+			Property:        "state",
+			Value:           "OFF",
+			Status:          gen.CommandHistoryEntryStatusTimedOut,
+			SentAt:          sentAt.Add(-time.Minute),
+			TimeoutSeconds:  10,
+			MqttTopic:       "zigbee2mqtt/office-plug/set",
+			MqttPayload:     `{"state":"OFF"}`,
+			AutomationRunId: func() *int { id := 8; return &id }(),
+			Automation:      &gen.CommandHistoryAutomation{Id: 3, Name: "Evening lights"},
 		},
 	}, history)
 	assert.NoError(t, mock.ExpectationsWereMet())

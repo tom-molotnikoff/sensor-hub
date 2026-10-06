@@ -64,6 +64,27 @@ type ServerInterface interface {
 	// Revoke a session
 	// (DELETE /auth/sessions/{id})
 	RevokeSession(c *gin.Context, id int64)
+	// List automations
+	// (GET /automations)
+	ListAutomations(c *gin.Context)
+	// Create an automation
+	// (POST /automations)
+	CreateAutomation(c *gin.Context)
+	// Delete an automation
+	// (DELETE /automations/{id})
+	DeleteAutomation(c *gin.Context, id int)
+	// Get an automation
+	// (GET /automations/{id})
+	GetAutomation(c *gin.Context, id int)
+	// Update an automation
+	// (PUT /automations/{id})
+	UpdateAutomation(c *gin.Context, id int)
+	// Switch an automation on or off
+	// (PUT /automations/{id}/enabled)
+	SetAutomationEnabled(c *gin.Context, id int)
+	// List an automation's runs
+	// (GET /automations/{id}/runs)
+	ListAutomationRuns(c *gin.Context, id int)
 	// List all dashboards
 	// (GET /dashboards)
 	ListDashboards(c *gin.Context)
@@ -722,6 +743,194 @@ func (siw *ServerInterfaceWrapper) RevokeSession(c *gin.Context) {
 	}
 
 	siw.Handler.RevokeSession(c, id)
+}
+
+// ListAutomations operation middleware
+func (siw *ServerInterfaceWrapper) ListAutomations(c *gin.Context) {
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListAutomations(c)
+}
+
+// CreateAutomation operation middleware
+func (siw *ServerInterfaceWrapper) CreateAutomation(c *gin.Context) {
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateAutomation(c)
+}
+
+// DeleteAutomation operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAutomation(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteAutomation(c, id)
+}
+
+// GetAutomation operation middleware
+func (siw *ServerInterfaceWrapper) GetAutomation(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetAutomation(c, id)
+}
+
+// UpdateAutomation operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAutomation(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateAutomation(c, id)
+}
+
+// SetAutomationEnabled operation middleware
+func (siw *ServerInterfaceWrapper) SetAutomationEnabled(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetAutomationEnabled(c, id)
+}
+
+// ListAutomationRuns operation middleware
+func (siw *ServerInterfaceWrapper) ListAutomationRuns(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListAutomationRuns(c, id)
 }
 
 // ListDashboards operation middleware
@@ -2696,6 +2905,13 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/auth/me", wrapper.GetCurrentUser)
 	router.GET(options.BaseURL+"/auth/sessions", wrapper.ListSessions)
 	router.DELETE(options.BaseURL+"/auth/sessions/:id", wrapper.RevokeSession)
+	router.GET(options.BaseURL+"/automations", wrapper.ListAutomations)
+	router.POST(options.BaseURL+"/automations", wrapper.CreateAutomation)
+	router.DELETE(options.BaseURL+"/automations/:id", wrapper.DeleteAutomation)
+	router.GET(options.BaseURL+"/automations/:id", wrapper.GetAutomation)
+	router.PUT(options.BaseURL+"/automations/:id", wrapper.UpdateAutomation)
+	router.PUT(options.BaseURL+"/automations/:id/enabled", wrapper.SetAutomationEnabled)
+	router.GET(options.BaseURL+"/automations/:id/runs", wrapper.ListAutomationRuns)
 	router.GET(options.BaseURL+"/dashboards", wrapper.ListDashboards)
 	router.POST(options.BaseURL+"/dashboards", wrapper.CreateDashboard)
 	router.DELETE(options.BaseURL+"/dashboards/:id", wrapper.DeleteDashboard)

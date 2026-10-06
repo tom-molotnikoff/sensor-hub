@@ -3268,6 +3268,308 @@ paths:
         '503':
           description: MQTT stats not available (connection manager not initialised)
 
+  /automations:
+    get:
+      tags:
+        - automations
+      summary: List automations
+      description: >-
+        Returns every automation with its status and next fire time. Requires
+        view_automations permission.
+      operationId: listAutomations
+      x-required-permission: view_automations
+      responses:
+        '200':
+          description: List of automations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Automation'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - automations
+      summary: Create an automation
+      description: >-
+        Creates an automation from its triggers and steps. Set steps are
+        checked against the target sensor's writable capabilities. Requires
+        both manage_automations and control_sensors permissions.
+      operationId: createAutomation
+      x-required-permission:
+        - manage_automations
+        - control_sensors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationInput'
+      responses:
+        '201':
+          description: Automation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+        '400':
+          description: Invalid automation. The message names the field that failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /automations/{id}:
+    get:
+      tags:
+        - automations
+      summary: Get an automation
+      description: Returns one automation with its status and next fire time. Requires view_automations permission.
+      operationId: getAutomation
+      x-required-permission: view_automations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Automation ID
+      responses:
+        '200':
+          description: Automation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - automations
+      summary: Update an automation
+      description: >-
+        Replaces an automation's name, triggers and steps. Its schedule is
+        recomputed straight away. Requires both manage_automations and
+        control_sensors permissions.
+      operationId: updateAutomation
+      x-required-permission:
+        - manage_automations
+        - control_sensors
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Automation ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationInput'
+      responses:
+        '200':
+          description: Automation updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+        '400':
+          description: Invalid automation. The message names the field that failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - automations
+      summary: Delete an automation
+      description: >-
+        Deletes an automation with its triggers, steps and runs. Commands its
+        runs sent stay in command history, no longer linked to a run. Requires
+        manage_automations permission.
+      operationId: deleteAutomation
+      x-required-permission: manage_automations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Automation ID
+      responses:
+        '200':
+          description: Automation deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /automations/{id}/enabled:
+    put:
+      tags:
+        - automations
+      summary: Switch an automation on or off
+      description: >-
+        An automation that is off starts no runs. Requires both
+        manage_automations and control_sensors permissions.
+      operationId: setAutomationEnabled
+      x-required-permission:
+        - manage_automations
+        - control_sensors
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Automation ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetAutomationEnabledRequest'
+      responses:
+        '200':
+          description: Automation after the change
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /automations/{id}/runs:
+    get:
+      tags:
+        - automations
+      summary: List an automation's runs
+      description: >-
+        Returns the automation's runs newest first, each with the outcome of
+        every step it reached. Requires view_automations permission.
+      operationId: listAutomationRuns
+      x-required-permission: view_automations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Automation ID
+      responses:
+        '200':
+          description: Runs, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AutomationRun'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     MQTTBroker:
@@ -3765,6 +4067,15 @@ components:
             - $ref: '#/components/schemas/CommandHistoryUser'
           nullable: true
           description: Acting user that sent the command, or null for system-issued commands.
+        automation_run_id:
+          type: integer
+          nullable: true
+          description: The automation run that sent the command, or null when a user sent it or the run has since been deleted.
+        automation:
+          allOf:
+            - $ref: '#/components/schemas/CommandHistoryAutomation'
+          nullable: true
+          description: The automation whose run sent the command, or null when a user sent it.
       required:
         - id
         - property
@@ -4184,7 +4495,9 @@ components:
             ("action:service-restart" or "action:oauth-reload").
         validate:
           type: string
-          description: Client-side validation rule ("positive", "non_negative" or "non_empty").
+          description: >-
+            Validation rule: "positive", "non_negative" or "non_empty", checked
+            client-side, or "timezone" (an IANA zone name), checked on save.
         readOnly:
           type: boolean
           description: True when the property is not editable at runtime.
@@ -4503,7 +4816,7 @@ components:
           type: integer
         category:
           type: string
-          enum: [threshold_alert, user_management, config_change]
+          enum: [threshold_alert, user_management, config_change, automation_failure]
         severity:
           type: string
           enum: [info, warning, error]
@@ -4557,7 +4870,7 @@ components:
           type: integer
         category:
           type: string
-          enum: [threshold_alert, user_management, config_change]
+          enum: [threshold_alert, user_management, config_change, automation_failure]
         email_enabled:
           type: boolean
         inapp_enabled:
@@ -4739,6 +5052,270 @@ components:
       required:
         - sampled_at
         - counts
+
+    # =========================================================================
+    # Automation Schemas
+    # =========================================================================
+    AutomationTrigger:
+      type: object
+      description: >-
+        What starts a run. A "schedule" trigger fires at a time of day on the
+        chosen weekdays, in the hub's timezone (the hub.timezone property).
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        type:
+          type: string
+          enum: [schedule]
+          x-enum-varnames: [AutomationTriggerTypeSchedule]
+        at:
+          type: string
+          description: Time of day as HH:MM, 00:00 to 23:59. Schedule triggers only.
+          example: "19:00"
+        days:
+          type: array
+          description: Weekdays the trigger fires on, at least one. Schedule triggers only.
+          items:
+            type: string
+            enum: [mon, tue, wed, thu, fri, sat, sun]
+            x-enum-varnames: [AutomationDayMon, AutomationDayTue, AutomationDayWed, AutomationDayThu, AutomationDayFri, AutomationDaySat, AutomationDaySun]
+          example: [mon, tue, wed, thu, fri]
+      required:
+        - type
+
+    AutomationStep:
+      type: object
+      description: >-
+        One step of a run. A "set" step sends a command to a writable
+        capability of a sensor and waits for the device to acknowledge it.
+      properties:
+        type:
+          type: string
+          enum: [set]
+          x-enum-varnames: [AutomationStepTypeSet]
+        sensor_id:
+          type: integer
+          description: Sensor to command. Set steps only.
+        property:
+          type: string
+          description: Writable capability property, as on POST /sensors/{id}/command. Set steps only.
+        value:
+          type: string
+          description: >-
+            Value to send, as on POST /sensors/{id}/command. Checked against the
+            capability (binary value_on/value_off, numeric min/max, enum values)
+            when saved and again when the step runs. Set steps only.
+      required:
+        - type
+
+    AutomationInput:
+      type: object
+      description: An automation as sent on create and update. Any trigger starts a run, and the steps run in order.
+      properties:
+        name:
+          type: string
+        enabled:
+          type: boolean
+          description: >-
+            Whether the automation's triggers start runs. Defaults to true on
+            create, and to the automation's current setting on update.
+        triggers:
+          type: array
+          description: At least one trigger. Any of them starts a run.
+          items:
+            $ref: '#/components/schemas/AutomationTrigger'
+        steps:
+          type: array
+          description: At least one step, run top to bottom.
+          items:
+            $ref: '#/components/schemas/AutomationStep'
+      required:
+        - name
+        - triggers
+        - steps
+      example:
+        name: "Evening lights"
+        enabled: true
+        triggers:
+          - type: schedule
+            at: "19:00"
+            days: [mon, tue, wed, thu, fri]
+        steps:
+          - type: set
+            sensor_id: 14
+            property: state
+            value: "ON"
+          - type: set
+            sensor_id: 14
+            property: brightness
+            value: "150"
+
+    Automation:
+      type: object
+      description: A saved automation with its current status.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        enabled:
+          type: boolean
+        triggers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationTrigger'
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationStep'
+        status:
+          type: string
+          enum: [off, armed, running]
+          x-enum-varnames: [AutomationStatusOff, AutomationStatusArmed, AutomationStatusRunning]
+          description: >-
+            "off" when switched off, "running" while a run is in progress,
+            otherwise "armed".
+        status_reason:
+          type: string
+          nullable: true
+          description: One line explaining the status, when it needs one.
+        last_run_failed:
+          type: boolean
+          description: True from a failed run until the next run that succeeds.
+        next_fire_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            When the earliest trigger next comes due, in UTC. Null when the
+            automation is off.
+        hub_timezone:
+          type: string
+          description: The hub's IANA zone that schedule times are in, for showing next_fire_at locally.
+          example: "Europe/London"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - enabled
+        - triggers
+        - steps
+        - status
+        - last_run_failed
+        - hub_timezone
+        - created_at
+        - updated_at
+
+    SetAutomationEnabledRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+      required:
+        - enabled
+
+    AutomationRun:
+      type: object
+      description: One firing of an automation.
+      properties:
+        id:
+          type: integer
+        automation_id:
+          type: integer
+        trigger_id:
+          type: integer
+          nullable: true
+          description: The trigger that fired, or null when it has since been deleted by an edit.
+        trigger_kind:
+          type: string
+          enum: [schedule]
+          x-enum-varnames: [AutomationRunTriggerKindSchedule]
+        status:
+          type: string
+          enum: [running, succeeded, failed]
+          x-enum-varnames: [AutomationRunStatusRunning, AutomationRunStatusSucceeded, AutomationRunStatusFailed]
+        current_step:
+          type: integer
+          description: Position of the step the run is on, or ended on, counting from 1. 0 before the first step starts.
+        steps:
+          type: array
+          description: The automation's steps as they were when the run started.
+          items:
+            $ref: '#/components/schemas/AutomationStep'
+        step_outcomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationRunStep'
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: string
+          nullable: true
+          description: Why the run failed, naming the step.
+      required:
+        - id
+        - automation_id
+        - trigger_kind
+        - status
+        - current_step
+        - steps
+        - step_outcomes
+        - started_at
+
+    AutomationRunStep:
+      type: object
+      description: The outcome of one step of a run.
+      properties:
+        position:
+          type: integer
+          description: Position of the step, counting from 1.
+        kind:
+          type: string
+          enum: [set]
+          x-enum-varnames: [AutomationRunStepKindSet]
+        outcome:
+          type: string
+          enum: [running, succeeded, failed]
+          x-enum-varnames: [AutomationRunStepOutcomeRunning, AutomationRunStepOutcomeSucceeded, AutomationRunStepOutcomeFailed]
+        command_id:
+          type: integer
+          nullable: true
+          description: The command a set step sent, in the sensor's command history.
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - position
+        - kind
+        - outcome
+        - started_at
+
+    CommandHistoryAutomation:
+      type: object
+      description: The automation whose run sent a command.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+      required:
+        - id
+        - name
 
     # =========================================================================
     # Generic Schemas

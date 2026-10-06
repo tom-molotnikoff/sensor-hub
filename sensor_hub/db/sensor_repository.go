@@ -380,7 +380,7 @@ func (s *SensorRepository) GetSensorById(ctx context.Context, id int) (*gen.Sens
 	sensor, err := scanSensorRow(s.db.Reader.QueryRowContext(ctx, query, id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("no sensor found with id %d", id)
+			return nil, fmt.Errorf("no sensor found with id %d: %w", id, err)
 		}
 		return nil, fmt.Errorf("error querying sensor by id: %w", err)
 	}

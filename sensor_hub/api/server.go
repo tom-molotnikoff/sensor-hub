@@ -25,6 +25,7 @@ type Server struct {
 	mqttService         service.MQTTServiceInterface
 	oauthService        OAuthAPIServiceInterface
 	mqttStatsProvider   MQTTStatsProvider
+	automationService   AutomationServiceInterface
 }
 
 // NewServer constructs a Server with all service dependencies.
@@ -43,6 +44,7 @@ func NewServer(
 	mqttService service.MQTTServiceInterface,
 	oauthService OAuthAPIServiceInterface,
 	mqttStatsProvider MQTTStatsProvider,
+	automationService AutomationServiceInterface,
 ) *Server {
 	return &Server{
 		sensorService:       sensorService,
@@ -59,5 +61,6 @@ func NewServer(
 		mqttService:         mqttService,
 		oauthService:        oauthService,
 		mqttStatsProvider:   mqttStatsProvider,
+		automationService:   automationService,
 	}
 }
