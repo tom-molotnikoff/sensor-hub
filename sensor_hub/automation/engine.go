@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -97,12 +98,12 @@ func (e *engine) load(runCtx context.Context, zone *time.Location, automations [
 // lastDueBefore returns the latest time before now that the trigger came due
 // while the hub was down.
 func (e *engine) lastDueBefore(automation Automation, trigger Trigger, now time.Time) (time.Time, bool) {
-	if !automation.Enabled || trigger.Schedule == nil || trigger.NextDueAt == nil || trigger.NextDueAt.After(now) {
+	if !automation.Enabled || trigger.NextDueAt == nil || trigger.NextDueAt.After(now) {
 		return time.Time{}, false
 	}
 	due := *trigger.NextDueAt
 	for {
-		next := trigger.Schedule.NextAfter(due, e.zone)
+		next := e.nextDue(trigger, due, due)
 		if next.After(now) {
 			return due, true
 		}
@@ -113,6 +114,14 @@ func (e *engine) lastDueBefore(automation Automation, trigger Trigger, now time.
 func (e *engine) put(automation Automation) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if !e.automations[automation.ID].Enabled {
+		// Switching an automation on starts its interval triggers counting
+		// from now, not from when they were due before it was switched off.
+		automation.Triggers = slices.Clone(automation.Triggers)
+		for i := range automation.Triggers {
+			automation.Triggers[i].NextDueAt = nil
+		}
+	}
 	e.dropLocked(automation.ID)
 	e.putLocked(automation)
 }
@@ -131,8 +140,16 @@ func (e *engine) setZone(zone *time.Location) {
 	}
 	e.logger.Info("hub timezone changed; recomputing automation schedules", "from", e.zone.String(), "to", zone.String())
 	e.zone = zone
+	now := e.now()
 	for _, automation := range e.automations {
-		e.armLocked(automation)
+		if !automation.Enabled {
+			continue
+		}
+		for _, trigger := range automation.Triggers {
+			if trigger.Kind == TriggerSchedule {
+				e.armTriggerLocked(trigger, now, now)
+			}
+		}
 	}
 }
 
@@ -172,15 +189,16 @@ func (e *engine) armLocked(automation Automation) {
 	}
 	now := e.now()
 	for _, trigger := range automation.Triggers {
-		e.armTriggerLocked(trigger, now)
+		from := now
+		if trigger.NextDueAt != nil {
+			from = *trigger.NextDueAt
+		}
+		e.armTriggerLocked(trigger, from, now)
 	}
 }
 
-func (e *engine) armTriggerLocked(trigger Trigger, after time.Time) {
-	if trigger.Schedule == nil {
-		return
-	}
-	due := trigger.Schedule.NextAfter(after, e.zone)
+func (e *engine) armTriggerLocked(trigger Trigger, from, after time.Time) {
+	due := e.nextDue(trigger, from, after)
 	e.scheduler.set(triggerKey(trigger.ID), due)
 	if err := e.store.SetTriggerDue(e.runCtx, trigger.ID, due); err != nil {
 		e.logger.Error("could not save when an automation trigger is next due", "trigger_id", trigger.ID, "error", err)
@@ -229,7 +247,7 @@ func (e *engine) fireTrigger(triggerID int, due time.Time) {
 	}
 	// A scheduler that fell behind, such as on a host that slept, arms the
 	// next time after now, so the times it missed do not all fire at once.
-	e.armTriggerLocked(trigger, later(due, e.now()))
+	e.armTriggerLocked(trigger, due, later(due, e.now()))
 	duplicate := e.lastDue[automation.ID].Equal(due)
 	e.lastDue[automation.ID] = due
 	runCtx := e.runCtx
@@ -240,6 +258,18 @@ func (e *engine) fireTrigger(triggerID int, due time.Time) {
 	}
 	e.lateness.Record(runCtx, float64(e.now().Sub(due).Milliseconds()))
 	e.startRun(runCtx, automation, trigger, due)
+}
+
+// An interval trigger keeps the phase of from, a time it came due or the
+// moment it started counting.
+func (e *engine) nextDue(trigger Trigger, from, after time.Time) time.Time {
+	if trigger.Kind == TriggerInterval {
+		if from.After(after) {
+			return from
+		}
+		return from.Add((after.Sub(from)/trigger.Interval + 1) * trigger.Interval)
+	}
+	return trigger.Schedule.NextAfter(after, e.zone)
 }
 
 func later(a, b time.Time) time.Time {

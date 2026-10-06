@@ -35,6 +35,19 @@ Clock changes are handled like this:
 
 Changing `hub.timezone` moves every schedule to the new zone straight away, without a restart.
 
+## Interval triggers
+
+An interval trigger fires every so many seconds, for example to cycle a pump or a fan:
+
+```json
+{ "type": "interval", "seconds": 1800 }
+```
+
+- `seconds` is a whole number of seconds, at least `60`. In the editor, an interval is entered in minutes or hours.
+- The interval counts from the moment the automation was last saved or switched on. Every 30 minutes, saved at 10:07, fires at 10:37, 11:07 and so on. Switched off and on again at 14:00, it next fires at 14:30.
+- The hub stores when the trigger is next due, so a restart does not move it. Times the hub was down for are handled by the [grace window](#restarts-and-the-grace-window).
+- An interval is a length of time, so a clock change or a change to `hub.timezone` does not move it.
+
 ## Set steps
 
 A set step sends a command to a writable capability of a controllable sensor, the same command you can send from a Sensor Toggle widget or `POST /api/sensors/{id}/command`:
@@ -86,8 +99,8 @@ When the hub starts, before any trigger can fire:
 
 - A waiting run carries on at its `resume_at`. If that time passed while the hub was down, the run carries on straight away, however late it is.
 - A run that was in the middle of a set step finishes that step from command history. If the step's command was recorded, the step takes that command's outcome, waiting for the acknowledgement if the command is still in flight, and the command is not sent again. If no command was recorded, the step is sent.
-- A schedule trigger that came due while the hub was down is caught up if the hub started within `automation.missed.grace.minutes` of the due time (10 minutes by default, see [Configuration](configuration#missed-trigger-grace-window)). The run starts on startup.
-- A trigger that came due longer ago than that does not run. It is recorded once as a `missed` run, with `due_at` and `past_grace_seconds` saying when it came due and how long after the end of the grace window the hub started. A trigger missed on several days of one outage records one `missed` run, for its latest due time.
+- A schedule or interval trigger that came due while the hub was down is caught up if the hub started within `automation.missed.grace.minutes` of the due time (10 minutes by default, see [Configuration](configuration#missed-trigger-grace-window)). The run starts on startup.
+- A trigger that came due longer ago than that does not run. It is recorded once as a `missed` run, with `due_at` and `past_grace_seconds` saying when it came due and how long after the end of the grace window the hub started. A trigger missed several times in one outage, such as a schedule on several days or an interval many times over, records one `missed` run, for its latest due time. At most one run starts for it on startup.
 
 Catching up only once, and only shortly after the due time, keeps a hub that was down overnight from switching yesterday evening's lights on at breakfast.
 
@@ -113,7 +126,7 @@ Each automation reports a status:
 
 A separate `last_run_failed` flag is true from a failed run until the next run that succeeds.
 
-`next_fire_at` is when the earliest trigger next comes due, in UTC, with `hub_timezone` alongside for showing it in local time. It is empty when the automation is off.
+`next_fire_at` is when the earliest schedule or interval trigger next comes due, in UTC, with `hub_timezone` alongside for showing it in local time. It is empty when the automation is off.
 
 Switch an automation on or off with `PUT /api/automations/{id}/enabled`. Deleting an automation deletes its triggers, steps and run history. The commands its runs sent stay in command history, without the link to the run.
 
@@ -163,4 +176,24 @@ Turn the hallway lamp on at 19:00 on weekdays and 18:00 at weekends, at a dimmed
 }
 ```
 
-Send it with `POST /api/automations`. A new automation is switched on unless the body sets `"enabled": false`. A save the hub refuses comes back as `400` with a message naming the field, such as `triggers[0].days must hold at least one weekday`.
+## Example: pump cycle
+
+Run the pond pump for 2 minutes every 30 minutes:
+
+```json
+{
+  "name": "Pond pump cycle",
+  "triggers": [
+    { "type": "interval", "seconds": 1800 }
+  ],
+  "steps": [
+    { "type": "set", "sensor_id": 22, "property": "state", "value": "ON" },
+    { "type": "wait", "seconds": 120 },
+    { "type": "set", "sensor_id": 22, "property": "state", "value": "OFF" }
+  ]
+}
+```
+
+## Saving an automation
+
+Send an automation with `POST /api/automations`. A new automation is switched on unless the body sets `"enabled": false`. A save the hub refuses comes back as `400` with a message naming the field, such as `triggers[0].days must hold at least one weekday`.

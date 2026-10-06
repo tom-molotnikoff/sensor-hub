@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -71,10 +72,17 @@ func fromInput(ctx context.Context, sensors SensorLookup, input gen.AutomationIn
 }
 
 func triggerFromInput(i int, trigger gen.AutomationTrigger) (Trigger, error) {
-	if trigger.Type != gen.AutomationTriggerTypeSchedule {
-		return Trigger{}, invalid("triggers[%d].type must be %q, got %q", i, gen.AutomationTriggerTypeSchedule, trigger.Type)
+	switch trigger.Type {
+	case gen.AutomationTriggerTypeSchedule:
+		return scheduleTriggerFromInput(i, trigger)
+	case gen.AutomationTriggerTypeInterval:
+		return intervalTriggerFromInput(i, trigger)
+	default:
+		return Trigger{}, invalid("triggers[%d].type must be %q or %q, got %q", i, gen.AutomationTriggerTypeSchedule, gen.AutomationTriggerTypeInterval, trigger.Type)
 	}
+}
 
+func scheduleTriggerFromInput(i int, trigger gen.AutomationTrigger) (Trigger, error) {
 	at := ""
 	if trigger.At != nil {
 		at = *trigger.At
@@ -99,6 +107,19 @@ func triggerFromInput(i int, trigger gen.AutomationTrigger) (Trigger, error) {
 	}
 
 	return Trigger{Kind: TriggerSchedule, Schedule: &Schedule{MinuteOfDay: hour*60 + minute, Days: days}}, nil
+}
+
+// Longer intervals do not fit in a time.Duration.
+const maxIntervalSeconds = math.MaxInt64 / int64(time.Second)
+
+func intervalTriggerFromInput(i int, trigger gen.AutomationTrigger) (Trigger, error) {
+	if trigger.Seconds == nil || *trigger.Seconds < 60 {
+		return Trigger{}, invalid("triggers[%d].seconds must be a whole number of seconds, at least 60", i)
+	}
+	if int64(*trigger.Seconds) > maxIntervalSeconds {
+		return Trigger{}, invalid("triggers[%d].seconds must be at most %d", i, maxIntervalSeconds)
+	}
+	return Trigger{Kind: TriggerInterval, Interval: time.Duration(*trigger.Seconds) * time.Second}, nil
 }
 
 func stepFromInput(ctx context.Context, sensors SensorLookup, i int, step gen.AutomationStep) (Step, error) {

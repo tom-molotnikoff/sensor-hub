@@ -4,8 +4,14 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import Card from '../../ui/Card';
 import Inline from '../../ui/Inline';
 import Stack from '../../ui/Stack';
-import { newTrigger, type DraftTrigger } from './automationDraft';
+import DurationField from './DurationField';
+import { newTrigger, retyped, type DraftTrigger } from './automationDraft';
 import { weekdays, type Weekday } from './automationText';
+
+const intervalUnits = [
+  { name: 'minutes', seconds: 60 },
+  { name: 'hours', seconds: 3_600 },
+] as const;
 
 interface TriggerCardProps {
   trigger: DraftTrigger;
@@ -21,33 +27,53 @@ function TriggerCard({ trigger, position, readOnly, onChange, onRemove }: Trigge
   return (
     <Card variant="inset">
       <Inline>
-        <TextField select size="small" label="Trigger" value={trigger.type} disabled={readOnly}>
-          <MenuItem value="schedule">At a time</MenuItem>
-        </TextField>
         <TextField
-          type="time"
+          select
           size="small"
-          label="Time"
-          value={trigger.at ?? ''}
+          label="Trigger"
+          value={trigger.type}
           disabled={readOnly}
-          onChange={(event) => onChange({ ...trigger, at: event.target.value })}
-        />
-        <ToggleButtonGroup
-          size="small"
-          color="primary"
-          aria-label="Weekdays"
-          value={days}
-          disabled={readOnly}
-          onChange={(_, chosen: Weekday[]) =>
-            onChange({ ...trigger, days: weekdays.map(({ day }) => day).filter((day) => chosen.includes(day)) })
-          }
+          onChange={(event) => onChange(retyped(trigger, event.target.value as DraftTrigger['type']))}
         >
-          {weekdays.map(({ day, letter, name }) => (
-            <ToggleButton key={day} value={day} aria-label={name}>
-              {letter}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+          <MenuItem value="schedule">At a time</MenuItem>
+          <MenuItem value="interval">Every…</MenuItem>
+        </TextField>
+        {trigger.type === 'interval' ? (
+          <DurationField
+            label="Interval"
+            seconds={trigger.seconds}
+            units={intervalUnits}
+            readOnly={readOnly}
+            onChange={(seconds) => onChange({ ...trigger, seconds })}
+          />
+        ) : (
+          <>
+            <TextField
+              type="time"
+              size="small"
+              label="Time"
+              value={trigger.at ?? ''}
+              disabled={readOnly}
+              onChange={(event) => onChange({ ...trigger, at: event.target.value })}
+            />
+            <ToggleButtonGroup
+              size="small"
+              color="primary"
+              aria-label="Weekdays"
+              value={days}
+              disabled={readOnly}
+              onChange={(_, chosen: Weekday[]) =>
+                onChange({ ...trigger, days: weekdays.map(({ day }) => day).filter((day) => chosen.includes(day)) })
+              }
+            >
+              {weekdays.map(({ day, letter, name }) => (
+                <ToggleButton key={day} value={day} aria-label={name}>
+                  {letter}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </>
+        )}
         {!readOnly && (
           <IconButton size="small" aria-label={`Remove trigger ${position}`} onClick={onRemove}>
             <DeleteOutlineIcon fontSize="small" />

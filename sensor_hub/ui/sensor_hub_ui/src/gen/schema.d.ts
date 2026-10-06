@@ -1547,7 +1547,7 @@ export interface paths {
         get: operations["getAutomation"];
         /**
          * Update an automation
-         * @description Replaces an automation's name, triggers and steps. Its schedule is recomputed straight away. Requires both manage_automations and control_sensors permissions.
+         * @description Replaces an automation's name, triggers and steps. Its schedule is recomputed straight away, and its interval triggers count from the save. Requires both manage_automations and control_sensors permissions.
          */
         put: operations["updateAutomation"];
         post?: never;
@@ -1571,7 +1571,7 @@ export interface paths {
         get?: never;
         /**
          * Switch an automation on or off
-         * @description An automation that is off starts no runs. Requires both manage_automations and control_sensors permissions.
+         * @description An automation that is off starts no runs. Switching one on starts its interval triggers counting from then. Requires both manage_automations and control_sensors permissions.
          */
         put: operations["setAutomationEnabled"];
         post?: never;
@@ -2525,11 +2525,11 @@ export interface components {
                 [key: string]: number;
             };
         };
-        /** @description What starts a run. A "schedule" trigger fires at a time of day on the chosen weekdays, in the hub's timezone (the hub.timezone property). */
+        /** @description What starts a run. A "schedule" trigger fires at a time of day on the chosen weekdays, in the hub's timezone (the hub.timezone property). An "interval" trigger fires every so many seconds, counted from when the automation was last saved or switched on. */
         AutomationTrigger: {
             readonly id?: number;
             /** @enum {string} */
-            type: "schedule";
+            type: "schedule" | "interval";
             /**
              * @description Time of day as HH:MM, 00:00 to 23:59. Schedule triggers only.
              * @example 19:00
@@ -2546,6 +2546,11 @@ export interface components {
              *     ]
              */
             days?: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[];
+            /**
+             * @description How often the trigger fires, at least 60. Interval triggers only.
+             * @example 1800
+             */
+            seconds?: number;
         };
         /** @description One step of a run. A "set" step sends a command to a writable capability of a sensor and waits for the device to acknowledge it. A "wait" step pauses the run, and the pause survives a hub restart. */
         AutomationStep: {
@@ -2657,7 +2662,7 @@ export interface components {
             /** @description The trigger that fired, or null when it has since been deleted by an edit. */
             trigger_id?: number | null;
             /** @enum {string} */
-            trigger_kind: "schedule";
+            trigger_kind: "schedule" | "interval";
             /**
              * @description "running" or "waiting" while active, then "succeeded" or "failed". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started.
              * @enum {string}

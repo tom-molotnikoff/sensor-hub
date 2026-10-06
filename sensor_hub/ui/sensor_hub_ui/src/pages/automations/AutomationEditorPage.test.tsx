@@ -145,6 +145,23 @@ describe('AutomationEditorPage', () => {
     expect(screen.getByRole('combobox', { name: 'Unit' })).toHaveTextContent('hours');
   });
 
+  it('turns a trigger into an interval, describes it in plain words and saves it in seconds', async () => {
+    serve(automation());
+    api.PUT.mockResolvedValue({ data: automation(), response: new Response() });
+    await renderEditor('/automations/3');
+
+    fireEvent.mouseDown(await screen.findByRole('combobox', { name: 'Trigger' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Every…' }));
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Interval' }), { target: { value: '2' } });
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Unit' }));
+    fireEvent.click(screen.getByRole('option', { name: 'hours' }));
+
+    expect(screen.getByText(/^Every 2 h, set hallway-lamp state to ON/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.PUT).toHaveBeenCalled());
+    expect(savedBody(api.PUT).triggers).toEqual([{ type: 'interval', seconds: 7_200 }]);
+  });
+
   it('creates a new automation and opens it', async () => {
     api.POST.mockResolvedValue({ data: automation({ id: 9 }), response: new Response() });
     serve(automation({ id: 9 }));

@@ -3383,8 +3383,9 @@ paths:
       summary: Update an automation
       description: >-
         Replaces an automation's name, triggers and steps. Its schedule is
-        recomputed straight away. Requires both manage_automations and
-        control_sensors permissions.
+        recomputed straight away, and its interval triggers count from the
+        save. Requires both manage_automations and control_sensors
+        permissions.
       operationId: updateAutomation
       x-required-permission:
         - manage_automations
@@ -3478,8 +3479,9 @@ paths:
         - automations
       summary: Switch an automation on or off
       description: >-
-        An automation that is off starts no runs. Requires both
-        manage_automations and control_sensors permissions.
+        An automation that is off starts no runs. Switching one on starts its
+        interval triggers counting from then. Requires both manage_automations
+        and control_sensors permissions.
       operationId: setAutomationEnabled
       x-required-permission:
         - manage_automations
@@ -5060,15 +5062,17 @@ components:
       type: object
       description: >-
         What starts a run. A "schedule" trigger fires at a time of day on the
-        chosen weekdays, in the hub's timezone (the hub.timezone property).
+        chosen weekdays, in the hub's timezone (the hub.timezone property). An
+        "interval" trigger fires every so many seconds, counted from when the
+        automation was last saved or switched on.
       properties:
         id:
           type: integer
           readOnly: true
         type:
           type: string
-          enum: [schedule]
-          x-enum-varnames: [AutomationTriggerTypeSchedule]
+          enum: [schedule, interval]
+          x-enum-varnames: [AutomationTriggerTypeSchedule, AutomationTriggerTypeInterval]
         at:
           type: string
           description: Time of day as HH:MM, 00:00 to 23:59. Schedule triggers only.
@@ -5081,6 +5085,11 @@ components:
             enum: [mon, tue, wed, thu, fri, sat, sun]
             x-enum-varnames: [AutomationDayMon, AutomationDayTue, AutomationDayWed, AutomationDayThu, AutomationDayFri, AutomationDaySat, AutomationDaySun]
           example: [mon, tue, wed, thu, fri]
+        seconds:
+          type: integer
+          minimum: 60
+          description: How often the trigger fires, at least 60. Interval triggers only.
+          example: 1800
       required:
         - type
 
@@ -5246,8 +5255,8 @@ components:
           description: The trigger that fired, or null when it has since been deleted by an edit.
         trigger_kind:
           type: string
-          enum: [schedule]
-          x-enum-varnames: [AutomationRunTriggerKindSchedule]
+          enum: [schedule, interval]
+          x-enum-varnames: [AutomationRunTriggerKindSchedule, AutomationRunTriggerKindInterval]
         status:
           type: string
           enum: [running, waiting, succeeded, failed, missed]

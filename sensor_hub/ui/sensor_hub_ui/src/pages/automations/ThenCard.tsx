@@ -8,6 +8,7 @@ import ActionBar from '../../ui/ActionBar';
 import Card from '../../ui/Card';
 import Inline from '../../ui/Inline';
 import Stack from '../../ui/Stack';
+import DurationField from './DurationField';
 import { defaultValue, moved, newSetStep, newWaitStep, writableCapabilities, type DraftStep } from './automationDraft';
 import { useSensorName } from './useSensorName';
 
@@ -218,52 +219,20 @@ const waitUnits = [
   { name: 'hours', seconds: 3_600 },
 ] as const;
 
-const largestWholeUnit = (seconds: number | undefined) =>
-  [...waitUnits].reverse().find((unit) => seconds !== undefined && seconds % unit.seconds === 0)?.seconds ?? 1;
-
 function WaitStepCard({ step, onChange, ...shell }: StepCardProps) {
-  const [unit, setUnit] = useState<number>(() => largestWholeUnit(step.seconds));
-  // Kept as typed, so that a partial number such as "1." is not rewritten from the seconds it gives.
-  const [amount, setAmount] = useState(() => (step.seconds === undefined ? '' : String(step.seconds / unit)));
-  const setSeconds = (typed: string, inUnit: number) =>
-    onChange({ ...step, seconds: typed === '' ? undefined : Math.round(Number(typed) * inUnit) });
-
   return (
     <StepShell
       {...shell}
       fields={
         <>
           <Typography variant="body">Wait</Typography>
-          <TextField
-            type="number"
-            size="small"
+          <DurationField
             label="Duration"
-            value={amount}
-            disabled={shell.readOnly}
-            slotProps={{ htmlInput: { min: 1 } }}
-            onChange={(event) => {
-              setAmount(event.target.value);
-              setSeconds(event.target.value, unit);
-            }}
+            seconds={step.seconds}
+            units={waitUnits}
+            readOnly={shell.readOnly}
+            onChange={(seconds) => onChange({ ...step, seconds })}
           />
-          <TextField
-            select
-            size="small"
-            label="Unit"
-            value={unit}
-            disabled={shell.readOnly}
-            onChange={(event) => {
-              const chosen = Number(event.target.value);
-              setUnit(chosen);
-              setSeconds(amount, chosen);
-            }}
-          >
-            {waitUnits.map((each) => (
-              <MenuItem key={each.name} value={each.seconds}>
-                {each.name}
-              </MenuItem>
-            ))}
-          </TextField>
         </>
       }
     />

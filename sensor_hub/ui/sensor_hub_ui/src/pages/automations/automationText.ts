@@ -26,7 +26,8 @@ function describeDays(days: readonly Weekday[]): string {
 }
 
 function describeTrigger(trigger: AutomationTrigger): string {
-  return `${trigger.at ?? '--:--'} ${describeDays(trigger.days ?? [])}`;
+  if (trigger.type === 'interval') return trigger.seconds === undefined ? 'every so often' : `every ${formatDuration(trigger.seconds)}`;
+  return `at ${trigger.at ?? '--:--'} ${describeDays(trigger.days ?? [])}`;
 }
 
 const durationUnits: readonly [number, string][] = [
@@ -58,9 +59,9 @@ export function describeAutomation(
   { triggers, steps }: { triggers: readonly AutomationTrigger[]; steps: readonly AutomationStep[] },
   sensorName: (id: number) => string,
 ): string {
-  const when = triggers.length > 0 ? `At ${triggers.map(describeTrigger).join(' or ')}` : 'With no trigger';
+  const when = triggers.length > 0 ? triggers.map(describeTrigger).join(' or ') : 'with no trigger';
   const then = steps.length > 0 ? steps.map((step) => describeStep(step, sensorName)).join(', then ') : 'do nothing';
-  return `${when}, ${then}.`;
+  return `${when.charAt(0).toUpperCase()}${when.slice(1)}, ${then}.`;
 }
 
 export function formatHubTime(iso: string, zone: string): string {
@@ -100,13 +101,16 @@ export const runStatus: Record<AutomationRun['status'], StatusKey> = {
   missed: 'unknown',
 };
 
-const savedLists: Record<string, string> = { triggers: 'Trigger', steps: 'Step' };
-const savedFields: Record<string, string> = { at: 'time', days: 'weekdays', sensor_id: 'device', seconds: 'wait' };
+const savedLists: Record<string, { name: string; fields: Record<string, string> }> = {
+  triggers: { name: 'Trigger', fields: { at: 'time', days: 'weekdays', seconds: 'interval' } },
+  steps: { name: 'Step', fields: { sensor_id: 'device', seconds: 'wait' } },
+};
 
 // The API names the field as a 0-based JSON path, such as "steps[1].value"; the editor numbers cards from 1.
 export function readableSaveError(message: string): string {
   const match = /^(triggers|steps)\[(\d+)\]\.(\w+)/.exec(message);
   if (!match) return message.charAt(0).toUpperCase() + message.slice(1);
   const [path, list, index, field] = match;
-  return `${savedLists[list]} ${Number(index) + 1} ${savedFields[field] ?? field}${message.slice(path.length)}`;
+  const { name, fields } = savedLists[list];
+  return `${name} ${Number(index) + 1} ${fields[field] ?? field}${message.slice(path.length)}`;
 }

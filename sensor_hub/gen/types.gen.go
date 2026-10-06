@@ -147,12 +147,15 @@ func (e AutomationRunStatus) Valid() bool {
 
 // Defines values for AutomationRunTriggerKind.
 const (
+	AutomationRunTriggerKindInterval AutomationRunTriggerKind = "interval"
 	AutomationRunTriggerKindSchedule AutomationRunTriggerKind = "schedule"
 )
 
 // Valid indicates whether the value is a known member of the AutomationRunTriggerKind enum.
 func (e AutomationRunTriggerKind) Valid() bool {
 	switch e {
+	case AutomationRunTriggerKindInterval:
+		return true
 	case AutomationRunTriggerKindSchedule:
 		return true
 	default:
@@ -252,12 +255,15 @@ func (e AutomationTriggerDays) Valid() bool {
 
 // Defines values for AutomationTriggerType.
 const (
+	AutomationTriggerTypeInterval AutomationTriggerType = "interval"
 	AutomationTriggerTypeSchedule AutomationTriggerType = "schedule"
 )
 
 // Valid indicates whether the value is a known member of the AutomationTriggerType enum.
 func (e AutomationTriggerType) Valid() bool {
 	switch e {
+	case AutomationTriggerTypeInterval:
+		return true
 	case AutomationTriggerTypeSchedule:
 		return true
 	default:
@@ -791,7 +797,7 @@ type AutomationStep struct {
 // AutomationStepType defines model for AutomationStep.Type.
 type AutomationStepType string
 
-// AutomationTrigger What starts a run. A "schedule" trigger fires at a time of day on the chosen weekdays, in the hub's timezone (the hub.timezone property).
+// AutomationTrigger What starts a run. A "schedule" trigger fires at a time of day on the chosen weekdays, in the hub's timezone (the hub.timezone property). An "interval" trigger fires every so many seconds, counted from when the automation was last saved or switched on.
 type AutomationTrigger struct {
 	// At Time of day as HH:MM, 00:00 to 23:59. Schedule triggers only.
 	At *string `json:"at,omitempty"`
@@ -799,7 +805,10 @@ type AutomationTrigger struct {
 	// Days Weekdays the trigger fires on, at least one. Schedule triggers only.
 	Days *[]AutomationTriggerDays `json:"days,omitempty"`
 	Id   *int                     `json:"id,omitempty"`
-	Type AutomationTriggerType    `json:"type"`
+
+	// Seconds How often the trigger fires, at least 60. Interval triggers only.
+	Seconds *int                  `json:"seconds,omitempty"`
+	Type    AutomationTriggerType `json:"type"`
 }
 
 // AutomationTriggerDays defines model for AutomationTrigger.Days.

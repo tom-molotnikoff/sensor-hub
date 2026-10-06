@@ -160,3 +160,47 @@ func TestMigration26_DownRemovesWhatThePreviousSchemaCannotHold(t *testing.T) {
 	require.NoError(t, rows.Close())
 	assert.Equal(t, []string{"failed"}, statuses)
 }
+
+func TestMigration27_AnIntervalIsAtLeastAMinute(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(27))
+	_, err := db.Exec("INSERT INTO automations (name) VALUES ('Pond pump')")
+	require.NoError(t, err)
+
+	_, err = db.Exec("INSERT INTO automation_triggers (automation_id, position, kind, interval_seconds) VALUES (1, 1, 'interval', 59)")
+	assert.Error(t, err, "an interval under a minute is refused")
+	_, err = db.Exec("INSERT INTO automation_triggers (automation_id, position, kind) VALUES (1, 1, 'interval')")
+	assert.Error(t, err, "an interval with no length is refused")
+	_, err = db.Exec("INSERT INTO automation_triggers (automation_id, position, kind, interval_seconds) VALUES (1, 1, 'interval', 1800)")
+	assert.NoError(t, err)
+}
+
+func TestMigration27_DownRemovesAutomationsWithIntervalTriggers(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(27))
+	_, err := db.Exec(`INSERT INTO automations (id, name) VALUES (1, 'Pond pump'), (2, 'Lights off')`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO automation_triggers (automation_id, position, kind, at_minute_of_day, weekdays, interval_seconds) VALUES
+		(1, 1, 'interval', NULL, NULL, 1800),
+		(2, 1, 'schedule', 1410, 127, NULL)`)
+	require.NoError(t, err)
+
+	require.NoError(t, m.Migrate(26))
+
+	var names []string
+	rows, err := db.Query("SELECT name FROM automations")
+	require.NoError(t, err)
+	for rows.Next() {
+		var name string
+		require.NoError(t, rows.Scan(&name))
+		names = append(names, name)
+	}
+	require.NoError(t, rows.Close())
+	assert.Equal(t, []string{"Lights off"}, names)
+
+	var columns int
+	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('automation_triggers') WHERE name = 'interval_seconds'").Scan(&columns))
+	assert.Zero(t, columns)
+}

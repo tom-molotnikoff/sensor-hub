@@ -63,6 +63,10 @@ func triggerView(trigger Trigger) gen.AutomationTrigger {
 		view.At = &at
 		view.Days = &days
 	}
+	if trigger.Kind == TriggerInterval {
+		seconds := int(trigger.Interval / time.Second)
+		view.Seconds = &seconds
+	}
 	return view
 }
 
