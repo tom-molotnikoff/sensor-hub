@@ -371,11 +371,13 @@ func setupCommandFixture(t *testing.T, sensorName string) commandFixture {
 		return env.ConnectionManager.IsConnected(brokerID)
 	}, 5*time.Second, 100*time.Millisecond)
 
+	// The repositories are looked up again because a test may restart the hub,
+	// which replaces env.DB.
 	stop := func() {
 		env.ConnectionManager.DisconnectBroker(brokerID)
-		_ = sensorRepo.DeleteSensorByName(ctx, sensorName)
-		_ = subRepo.Delete(ctx, subID)
-		_ = brokerRepo.Delete(ctx, brokerID)
+		_ = database.NewSensorRepository(env.DB, logger).DeleteSensorByName(ctx, sensorName)
+		_ = database.NewMQTTSubscriptionRepository(env.DB, logger).Delete(ctx, subID)
+		_ = database.NewMQTTBrokerRepository(env.DB, logger).Delete(ctx, brokerID)
 		require.NoError(t, embeddedBroker.Stop())
 	}
 

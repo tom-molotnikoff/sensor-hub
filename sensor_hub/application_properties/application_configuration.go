@@ -45,7 +45,8 @@ type ApplicationConfiguration struct {
 	MQTTBrokerEnabled bool `prop:"mqtt.broker.enabled" default:"true" file:"application" label:"Broker enabled" desc:"Whether the embedded MQTT broker is started." group:"mqtt" apply:"action:service-restart"`
 	MQTTBrokerPort    int  `prop:"mqtt.broker.port" default:"1883" file:"application" validate:"positive" label:"Broker port" desc:"TCP port the embedded MQTT broker listens on." group:"mqtt" apply:"action:service-restart"`
 
-	HubTimezone string `prop:"hub.timezone" default:"" file:"application" validate:"timezone" label:"Hub timezone" desc:"IANA zone name, such as Europe/London, that automation schedules run in. Defaults to the server's zone." group:"automations"`
+	HubTimezone                  string `prop:"hub.timezone" default:"" file:"application" validate:"timezone" label:"Hub timezone" desc:"IANA zone name, such as Europe/London, that automation schedules run in. Defaults to the server's zone." group:"automations"`
+	AutomationMissedGraceMinutes int    `prop:"automation.missed.grace.minutes" default:"10" file:"application" validate:"non_negative" label:"Missed trigger grace window" desc:"How late a trigger that came due while the hub was down can be and still run on startup. Later ones are recorded as missed." group:"automations" unit:"minutes" apply:"action:service-restart"`
 
 	ActuatorCommandTimeoutSeconds int `prop:"actuator.command.timeout_seconds" default:"10" file:"application" validate:"positive" label:"Actuator command timeout" desc:"How long to wait for a device to acknowledge a command." group:"advanced" unit:"seconds"`
 

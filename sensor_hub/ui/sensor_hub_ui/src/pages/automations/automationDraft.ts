@@ -17,10 +17,12 @@ const keyed = <T extends object>(item: T): Keyed<T> => ({ ...item, key: nextKey+
 
 export const newTrigger = (): DraftTrigger => keyed({ type: 'schedule', at: '19:00', days: ['mon', 'tue', 'wed', 'thu', 'fri'] });
 
-export const newStep = (): DraftStep => keyed({ type: 'set' });
+export const newSetStep = (): DraftStep => keyed({ type: 'set' });
+
+export const newWaitStep = (): DraftStep => keyed({ type: 'wait', seconds: 60 });
 
 export function draftOf(automation: Automation | undefined): Draft {
-  if (!automation) return { name: '', enabled: true, triggers: [newTrigger()], steps: [newStep()] };
+  if (!automation) return { name: '', enabled: true, triggers: [newTrigger()], steps: [newSetStep()] };
   return {
     name: automation.name,
     enabled: automation.enabled,
@@ -34,7 +36,7 @@ export function inputOf({ name, enabled, triggers, steps }: Draft): AutomationIn
     name,
     enabled,
     triggers: triggers.map(({ type, at, days }) => ({ type, at, days })),
-    steps: steps.map(({ type, sensor_id, property, value }) => ({ type, sensor_id, property, value })),
+    steps: steps.map(({ type, sensor_id, property, value, seconds }) => ({ type, sensor_id, property, value, seconds })),
   };
 }
 

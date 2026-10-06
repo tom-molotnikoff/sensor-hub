@@ -150,6 +150,30 @@ func TestRecoverPending_TimesOutExpiredCommandsAndTracksRemainingOnes(t *testing
 	assert.Equal(t, CommandStatusAcknowledged, broadcaster.messages[1].Status)
 }
 
+func TestAwait_GivesTheOutcomeOfACommandRecoveredAfterARestart(t *testing.T) {
+	now := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
+	repo := newFakeCommandTrackerRepository(database.PendingCommandRecord{
+		ID:             47,
+		SensorID:       7,
+		Property:       "state",
+		Value:          "ON",
+		TimeoutSeconds: 10,
+		SentAt:         now,
+	})
+	tracker := NewCommandTracker(repo, &fakeCommandStatusBroadcaster{}, slog.Default())
+	tracker.now = func() time.Time { return now }
+	defer tracker.Close()
+	require.NoError(t, tracker.RecoverPending(context.Background()))
+
+	outcome, ok := tracker.Await(47)
+	require.True(t, ok)
+	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, []gen.Reading{{MeasurementType: "state", TextState: ptrString("ON")}})
+
+	assert.Equal(t, CommandStatusAcknowledged, <-outcome)
+	_, ok = tracker.Await(47)
+	assert.False(t, ok, "a settled command is no longer tracked")
+}
+
 type fakeCommandTrackerRepository struct {
 	mu       sync.Mutex
 	commands map[int]database.PendingCommandRecord

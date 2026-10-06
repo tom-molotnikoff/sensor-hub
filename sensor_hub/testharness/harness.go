@@ -44,6 +44,10 @@ type Env struct {
 	ConnectionManager *mqttpkg.ConnectionManager
 	WSCapture         *RecordingWSNotifier
 	EmailCapture      *RecordingEmailNotifier
+
+	ui         fs.FS
+	listenAddr string
+	stop       func()
 }
 
 const (
@@ -111,17 +115,38 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 	writeFileOrErr(filepath.Join(configDir, "database.properties"), fmt.Sprintf("database.path=%s\n", dbPath))
 	writeFileOrErr(filepath.Join(configDir, "smtp.properties"), "smtp.user=\n")
 
-	if err := appProps.InitialiseConfig(configDir); err != nil {
+	env := &Env{AdminUser: DefaultAdminUser, AdminPass: DefaultAdminPass, ConfigDir: configDir, ui: opts.ui}
+	listenAddr := opts.listenAddr
+	if listenAddr == "" {
+		listenAddr = "127.0.0.1:0"
+	}
+	if err := env.boot(listenAddr); err != nil {
 		cleanupDir()
-		return nil, func() {}, fmt.Errorf("failed to initialise config: %w", err)
+		return nil, func() {}, err
+	}
+	return env, func() {
+		env.stop()
+		cleanupDir()
+	}, nil
+}
+
+// Restart stops the hub and starts it again on the same database and address,
+// as a hub restarted for an update would be. Logins survive it.
+func (e *Env) Restart() error {
+	e.stop()
+	return e.boot(e.listenAddr)
+}
+
+func (e *Env) boot(listenAddr string) error {
+	if err := appProps.InitialiseConfig(e.ConfigDir); err != nil {
+		return fmt.Errorf("failed to initialise config: %w", err)
 	}
 
 	logger := slog.Default()
 
 	db, err := database.Open(appProps.AppConfig(), logger)
 	if err != nil {
-		cleanupDir()
-		return nil, func() {}, fmt.Errorf("failed to initialise database: %w", err)
+		return fmt.Errorf("failed to initialise database: %w", err)
 	}
 
 	// Build the full service graph, mirroring cmd/serve.go
@@ -147,8 +172,7 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 	readingsSampler := service.NewReadingsSampler(readingsRepo, logger)
 	if err := readingsSampler.Sample(context.Background()); err != nil {
 		db.Close()
-		cleanupDir()
-		return nil, func() {}, fmt.Errorf("failed to sample readings row counts: %w", err)
+		return fmt.Errorf("failed to sample readings row counts: %w", err)
 	}
 	commandHistoryRepo := database.NewSensorCommandHistoryRepository(db, logger)
 	commandTracker := actuation.NewCommandTracker(commandHistoryRepo, ws.NewCommandStatusBroadcaster(logger), logger)
@@ -187,8 +211,7 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 	commandService := service.NewCommandService(sensorRepo, mqttSubRepo, commandHistoryRepo, connManager, commandTracker, logger)
 	if err := commandTracker.RecoverPending(context.Background()); err != nil {
 		db.Close()
-		cleanupDir()
-		return nil, func() {}, fmt.Errorf("failed to recover pending commands: %w", err)
+		return fmt.Errorf("failed to recover pending commands: %w", err)
 	}
 	automationService := automation.NewService(database.NewAutomationRepository(db, logger), sensorService, commandService, notificationService, logger)
 
@@ -214,19 +237,14 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 	router := api.NewEngine()
 	api.RegisterAPIRoutes(router, server)
 
-	if opts.ui != nil {
-		web.RegisterSPAHandlerFS(router, opts.ui)
+	if e.ui != nil {
+		web.RegisterSPAHandlerFS(router, e.ui)
 	}
 
-	listenAddr := opts.listenAddr
-	if listenAddr == "" {
-		listenAddr = "127.0.0.1:0"
-	}
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		db.Close()
-		cleanupDir()
-		return nil, func() {}, fmt.Errorf("failed to listen: %w", err)
+		return fmt.Errorf("failed to listen: %w", err)
 	}
 	serverURL := fmt.Sprintf("http://%s", listener.Addr().String())
 
@@ -241,15 +259,7 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 	})
 
 	automationCtx, stopAutomations := context.WithCancel(context.Background())
-	if err := automationService.Start(automationCtx); err != nil {
-		stopAutomations()
-		stopWatcher()
-		db.Close()
-		cleanupDir()
-		return nil, func() {}, fmt.Errorf("failed to start automations: %w", err)
-	}
-
-	cleanup := func() {
+	e.stop = func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		stopAutomations()
@@ -257,30 +267,31 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		connManager.Stop()
 		srv.Shutdown(ctx)
 		db.Close()
-		cleanupDir()
 	}
+	e.listenAddr = listener.Addr().String()
+	e.ServerURL = serverURL
+	e.DB = db
+	e.ConnectionManager = connManager
+	e.WSCapture = wsCapture
+	e.EmailCapture = emailCapture
 
-	// Create admin user
 	if err := authService.CreateInitialAdminIfNone(context.Background(), DefaultAdminUser, DefaultAdminPass); err != nil {
-		cleanup()
-		return nil, func() {}, fmt.Errorf("failed to create admin user: %w", err)
+		e.stop()
+		return fmt.Errorf("failed to create admin user: %w", err)
 	}
 
 	if err := connManager.Start(context.Background()); err != nil {
-		cleanup()
-		return nil, func() {}, fmt.Errorf("failed to start mqtt connection manager: %w", err)
+		e.stop()
+		return fmt.Errorf("failed to start mqtt connection manager: %w", err)
 	}
 
-	return &Env{
-		ServerURL:         serverURL,
-		AdminUser:         DefaultAdminUser,
-		AdminPass:         DefaultAdminPass,
-		ConfigDir:         configDir,
-		DB:                db,
-		ConnectionManager: connManager,
-		WSCapture:         wsCapture,
-		EmailCapture:      emailCapture,
-	}, cleanup, nil
+	// As in cmd/serve.go, automations start once MQTT is connected, so a run
+	// resumed on startup can send its commands.
+	if err := automationService.Start(automationCtx); err != nil {
+		e.stop()
+		return fmt.Errorf("failed to start automations: %w", err)
+	}
+	return nil
 }
 
 func copyFile(src, dst string) error {

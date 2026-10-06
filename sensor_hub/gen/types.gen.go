@@ -121,8 +121,10 @@ func (e AutomationStatus) Valid() bool {
 // Defines values for AutomationRunStatus.
 const (
 	AutomationRunStatusFailed    AutomationRunStatus = "failed"
+	AutomationRunStatusMissed    AutomationRunStatus = "missed"
 	AutomationRunStatusRunning   AutomationRunStatus = "running"
 	AutomationRunStatusSucceeded AutomationRunStatus = "succeeded"
+	AutomationRunStatusWaiting   AutomationRunStatus = "waiting"
 )
 
 // Valid indicates whether the value is a known member of the AutomationRunStatus enum.
@@ -130,9 +132,13 @@ func (e AutomationRunStatus) Valid() bool {
 	switch e {
 	case AutomationRunStatusFailed:
 		return true
+	case AutomationRunStatusMissed:
+		return true
 	case AutomationRunStatusRunning:
 		return true
 	case AutomationRunStatusSucceeded:
+		return true
+	case AutomationRunStatusWaiting:
 		return true
 	default:
 		return false
@@ -156,13 +162,16 @@ func (e AutomationRunTriggerKind) Valid() bool {
 
 // Defines values for AutomationRunStepKind.
 const (
-	AutomationRunStepKindSet AutomationRunStepKind = "set"
+	AutomationRunStepKindSet  AutomationRunStepKind = "set"
+	AutomationRunStepKindWait AutomationRunStepKind = "wait"
 )
 
 // Valid indicates whether the value is a known member of the AutomationRunStepKind enum.
 func (e AutomationRunStepKind) Valid() bool {
 	switch e {
 	case AutomationRunStepKindSet:
+		return true
+	case AutomationRunStepKindWait:
 		return true
 	default:
 		return false
@@ -192,13 +201,16 @@ func (e AutomationRunStepOutcome) Valid() bool {
 
 // Defines values for AutomationStepType.
 const (
-	AutomationStepTypeSet AutomationStepType = "set"
+	AutomationStepTypeSet  AutomationStepType = "set"
+	AutomationStepTypeWait AutomationStepType = "wait"
 )
 
 // Valid indicates whether the value is a known member of the AutomationStepType enum.
 func (e AutomationStepType) Valid() bool {
 	switch e {
 	case AutomationStepTypeSet:
+		return true
+	case AutomationStepTypeWait:
 		return true
 	default:
 		return false
@@ -675,7 +687,7 @@ type Automation struct {
 	// NextFireAt When the earliest trigger next comes due, in UTC. Null when the automation is off.
 	NextFireAt *time.Time `json:"next_fire_at,omitempty"`
 
-	// Status "off" when switched off, "running" while a run is in progress, otherwise "armed".
+	// Status "off" when switched off, "running" while a run is running or waiting, otherwise "armed".
 	Status AutomationStatus `json:"status"`
 
 	// StatusReason One line explaining the status, when it needs one.
@@ -685,7 +697,7 @@ type Automation struct {
 	UpdatedAt    time.Time           `json:"updated_at"`
 }
 
-// AutomationStatus "off" when switched off, "running" while a run is in progress, otherwise "armed".
+// AutomationStatus "off" when switched off, "running" while a run is running or waiting, otherwise "armed".
 type AutomationStatus string
 
 // AutomationInput An automation as sent on create and update. Any trigger starts a run, and the steps run in order.
@@ -708,11 +720,22 @@ type AutomationRun struct {
 	// CurrentStep Position of the step the run is on, or ended on, counting from 1. 0 before the first step starts.
 	CurrentStep int `json:"current_step"`
 
+	// DueAt When the trigger of a missed run came due.
+	DueAt *time.Time `json:"due_at,omitempty"`
+
 	// Error Why the run failed, naming the step.
-	Error        *string             `json:"error,omitempty"`
-	FinishedAt   *time.Time          `json:"finished_at,omitempty"`
-	Id           int                 `json:"id"`
-	StartedAt    time.Time           `json:"started_at"`
+	Error      *string    `json:"error,omitempty"`
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	Id         int        `json:"id"`
+
+	// PastGraceSeconds How long after the end of the grace window the hub started, for a missed run.
+	PastGraceSeconds *int `json:"past_grace_seconds,omitempty"`
+
+	// ResumeAt When a waiting run carries on with its next step.
+	ResumeAt  *time.Time `json:"resume_at,omitempty"`
+	StartedAt time.Time  `json:"started_at"`
+
+	// Status "running" or "waiting" while active, then "succeeded" or "failed". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started.
 	Status       AutomationRunStatus `json:"status"`
 	StepOutcomes []AutomationRunStep `json:"step_outcomes"`
 
@@ -724,7 +747,7 @@ type AutomationRun struct {
 	TriggerKind AutomationRunTriggerKind `json:"trigger_kind"`
 }
 
-// AutomationRunStatus defines model for AutomationRun.Status.
+// AutomationRunStatus "running" or "waiting" while active, then "succeeded" or "failed". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started.
 type AutomationRunStatus string
 
 // AutomationRunTriggerKind defines model for AutomationRun.TriggerKind.
@@ -749,10 +772,13 @@ type AutomationRunStepKind string
 // AutomationRunStepOutcome defines model for AutomationRunStep.Outcome.
 type AutomationRunStepOutcome string
 
-// AutomationStep One step of a run. A "set" step sends a command to a writable capability of a sensor and waits for the device to acknowledge it.
+// AutomationStep One step of a run. A "set" step sends a command to a writable capability of a sensor and waits for the device to acknowledge it. A "wait" step pauses the run, and the pause survives a hub restart.
 type AutomationStep struct {
 	// Property Writable capability property, as on POST /sensors/{id}/command. Set steps only.
 	Property *string `json:"property,omitempty"`
+
+	// Seconds How long to wait, at least 1. There is no maximum. Wait steps only.
+	Seconds *int `json:"seconds,omitempty"`
 
 	// SensorId Sensor to command. Set steps only.
 	SensorId *int               `json:"sensor_id,omitempty"`

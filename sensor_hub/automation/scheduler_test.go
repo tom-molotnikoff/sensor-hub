@@ -10,7 +10,7 @@ import (
 )
 
 type firing struct {
-	key int
+	key dueKey
 	due time.Time
 	at  time.Time
 }
@@ -18,7 +18,7 @@ type firing struct {
 func startScheduler(t *testing.T) (*scheduler, chan firing) {
 	t.Helper()
 	fired := make(chan firing, 10)
-	s := newScheduler(func(key int, due time.Time) {
+	s := newScheduler(func(key dueKey, due time.Time) {
 		fired <- firing{key: key, due: due, at: time.Now()}
 	}, time.Now)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -31,11 +31,11 @@ func TestScheduler_FiresWithinASecondOfTheDueTime(t *testing.T) {
 	s, fired := startScheduler(t)
 
 	due := time.Now().Add(150 * time.Millisecond)
-	s.set(1, due)
+	s.set(triggerKey(1), due)
 
 	select {
 	case f := <-fired:
-		assert.Equal(t, 1, f.key)
+		assert.Equal(t, triggerKey(1), f.key)
 		assert.True(t, due.Equal(f.due))
 		assert.Less(t, f.at.Sub(due), time.Second)
 		assert.False(t, f.at.Before(due), "fired before it was due")
@@ -47,21 +47,21 @@ func TestScheduler_FiresWithinASecondOfTheDueTime(t *testing.T) {
 func TestScheduler_RearmsWhenAnEarlierEntryArrivesAndSkipsRemovedOnes(t *testing.T) {
 	s, fired := startScheduler(t)
 
-	s.set(1, time.Now().Add(time.Hour))
-	s.set(2, time.Now().Add(100*time.Millisecond))
-	s.set(3, time.Now().Add(50*time.Millisecond))
-	s.remove(3)
+	s.set(triggerKey(1), time.Now().Add(time.Hour))
+	s.set(resumeKey(1), time.Now().Add(100*time.Millisecond))
+	s.set(triggerKey(3), time.Now().Add(50*time.Millisecond))
+	s.remove(triggerKey(3))
 
 	select {
 	case f := <-fired:
-		assert.Equal(t, 2, f.key)
+		assert.Equal(t, resumeKey(1), f.key)
 	case <-time.After(2 * time.Second):
 		t.Fatal("the earlier entry never fired")
 	}
 
-	due, ok := s.due(1)
+	due, ok := s.due(triggerKey(1))
 	require.True(t, ok)
 	assert.True(t, due.After(time.Now().Add(50*time.Minute)))
-	_, ok = s.due(2)
+	_, ok = s.due(resumeKey(1))
 	assert.False(t, ok, "a fired entry leaves the heap until it is set again")
 }

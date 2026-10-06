@@ -104,3 +104,59 @@ func TestMigration25_DownRemovesAutomations(t *testing.T) {
 
 	assert.Empty(t, rolesWithPermission(t, db, "view_automations"))
 }
+
+func TestMigration26_AWaitStepWaitsAtLeastASecond(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(26))
+	_, err := db.Exec("INSERT INTO automations (name) VALUES ('Evening lights')")
+	require.NoError(t, err)
+
+	_, err = db.Exec("INSERT INTO automation_steps (automation_id, position, kind, wait_seconds) VALUES (1, 1, 'wait', 0)")
+	assert.Error(t, err, "a wait under a second is refused")
+	_, err = db.Exec("INSERT INTO automation_steps (automation_id, position, kind) VALUES (1, 1, 'wait')")
+	assert.Error(t, err, "a wait with no duration is refused")
+	_, err = db.Exec("INSERT INTO automation_steps (automation_id, position, kind, wait_seconds) VALUES (1, 1, 'wait', 14400)")
+	assert.NoError(t, err)
+}
+
+func TestMigration26_DownRemovesWhatThePreviousSchemaCannotHold(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(26))
+	sensorID := insertCommandHistorySensor(t, db)
+	_, err := db.Exec(`INSERT INTO automations (id, name) VALUES (1, 'Lamp timer'), (2, 'Lights off')`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO automation_steps (automation_id, position, kind, sensor_id, property, value, wait_seconds) VALUES
+		(1, 1, 'wait', NULL, NULL, NULL, 60),
+		(2, 1, 'set', ?, 'state', 'OFF', NULL)`, sensorID)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO automation_runs (automation_id, trigger_kind, status, steps_snapshot, started_at) VALUES
+		(2, 'schedule', 'missed', '[]', CURRENT_TIMESTAMP),
+		(2, 'schedule', 'waiting', '[]', CURRENT_TIMESTAMP)`)
+	require.NoError(t, err)
+
+	require.NoError(t, m.Migrate(25))
+
+	var names []string
+	rows, err := db.Query("SELECT name FROM automations")
+	require.NoError(t, err)
+	for rows.Next() {
+		var name string
+		require.NoError(t, rows.Scan(&name))
+		names = append(names, name)
+	}
+	require.NoError(t, rows.Close())
+	assert.Equal(t, []string{"Lights off"}, names)
+
+	var statuses []string
+	rows, err = db.Query("SELECT status FROM automation_runs")
+	require.NoError(t, err)
+	for rows.Next() {
+		var status string
+		require.NoError(t, rows.Scan(&status))
+		statuses = append(statuses, status)
+	}
+	require.NoError(t, rows.Close())
+	assert.Equal(t, []string{"failed"}, statuses)
+}

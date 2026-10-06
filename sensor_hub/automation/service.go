@@ -18,6 +18,8 @@ import (
 
 var ErrNotFound = errors.New("automation not found")
 
+const defaultMissedGrace = 10 * time.Minute
+
 // A Store must not hold a transaction across a command round trip.
 type Store interface {
 	ListAutomations(ctx context.Context) ([]Automation, error)
@@ -30,13 +32,26 @@ type Store interface {
 	DeleteAutomation(ctx context.Context, id int) error
 	RunStates(ctx context.Context) (map[int]RunState, error)
 
+	SetTriggerDue(ctx context.Context, triggerID int, due time.Time) error
+
 	CreateRun(ctx context.Context, run Run) (int, error)
-	// StartRunStep returns ErrRunGone when the run has been deleted.
+	// StartRunStep, WaitRun and ResumeRun return ErrRunGone when the run has
+	// been deleted.
 	StartRunStep(ctx context.Context, runID int, position int, kind StepKind, at time.Time) (int, error)
 	FinishRunStep(ctx context.Context, stepID int, outcome StepOutcome, commandID *int, at time.Time) error
+	// WaitRun records a wait step as started and the run as waiting until
+	// resumeAt, in one transaction.
+	WaitRun(ctx context.Context, runID int, position int, at time.Time, resumeAt time.Time) error
+	// ResumeRun finishes the wait step a run is on and sets it running again,
+	// in one transaction.
+	ResumeRun(ctx context.Context, runID int, at time.Time) (Run, error)
 	FinishRun(ctx context.Context, runID int, status RunStatus, message *string, at time.Time) error
 	ListRuns(ctx context.Context, automationID int) ([]Run, error)
-	FailRunningRuns(ctx context.Context, message string, at time.Time) (int, error)
+	// ActiveRuns returns the running and waiting runs with their step outcomes.
+	ActiveRuns(ctx context.Context) ([]Run, error)
+	// LatestRunCommand returns the ID of the newest command the run sent for
+	// the step's sensor and property since a time, and false when there is none.
+	LatestRunCommand(ctx context.Context, runID int, step Step, since time.Time) (int, bool, error)
 }
 
 // SensorLookup returns a sensor with its writable capabilities filled in, or
@@ -49,6 +64,8 @@ type SensorLookup interface {
 // error. The channel receives the command's final status once.
 type CommandSender interface {
 	SendAsSystem(ctx context.Context, sensorID int, property string, value string, automationRunID int) (int, <-chan string, error)
+	// AwaitOutcome is the outcome channel of a command sent before a restart.
+	AwaitOutcome(ctx context.Context, commandID int) (<-chan string, error)
 }
 
 type Notifier interface {
@@ -89,19 +106,15 @@ func NewService(store Store, sensors SensorLookup, commands CommandSender, notif
 }
 
 func (s *Service) Start(ctx context.Context) error {
-	interrupted, err := s.store.FailRunningRuns(ctx, "the hub stopped during the run", s.now())
-	if err != nil {
-		return fmt.Errorf("end interrupted automation runs: %w", err)
-	}
-	if interrupted > 0 {
-		s.logger.Warn("ended automation runs interrupted by a restart", "count", interrupted)
-	}
-
 	automations, err := s.store.ListAutomations(ctx)
 	if err != nil {
 		return fmt.Errorf("load automations: %w", err)
 	}
-	s.engine.load(ctx, hubZone(), automations)
+	active, err := s.store.ActiveRuns(ctx)
+	if err != nil {
+		return fmt.Errorf("load active automation runs: %w", err)
+	}
+	s.engine.load(ctx, hubZone(), automations, active, missedGrace())
 
 	stopListening := appProps.OnReload(func(cfg *appProps.ApplicationConfiguration) {
 		s.engine.setZone(cfg.HubLocation())
@@ -112,7 +125,7 @@ func (s *Service) Start(ctx context.Context) error {
 	}()
 
 	periodic.Supervise(ctx, "automation-scheduler", s.logger, s.engine.scheduler.run)
-	s.logger.Info("automation scheduler started", "automations", len(automations), "hub_timezone", s.engine.zoneName())
+	s.logger.Info("automation scheduler started", "automations", len(automations), "resumed_runs", len(active), "hub_timezone", s.engine.zoneName())
 	return nil
 }
 
@@ -220,6 +233,13 @@ func (s *Service) viewWithState(ctx context.Context, automation Automation) (gen
 
 func (s *Service) view(automation Automation, state RunState) gen.Automation {
 	return automationView(automation, state, s.engine.nextFireAt(automation.ID), s.engine.zoneName())
+}
+
+func missedGrace() time.Duration {
+	if cfg := appProps.AppConfig(); cfg != nil {
+		return time.Duration(cfg.AutomationMissedGraceMinutes) * time.Minute
+	}
+	return defaultMissedGrace
 }
 
 func hubZone() *time.Location {

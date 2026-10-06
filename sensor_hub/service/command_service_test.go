@@ -43,6 +43,11 @@ func (m *mockCommandHistoryRepository) HasPendingCommand(ctx context.Context, se
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *mockCommandHistoryRepository) CommandStatus(ctx context.Context, id int) (string, error) {
+	args := m.Called(ctx, id)
+	return args.String(0), args.Error(1)
+}
+
 func (m *mockCommandHistoryRepository) AddSentCommand(ctx context.Context, command database.NewCommand) (int, error) {
 	args := m.Called(ctx, command)
 	return args.Int(0), args.Error(1)
@@ -146,6 +151,10 @@ func (f *fakeCommandLifecycle) RecoverPending(context.Context) error {
 	return nil
 }
 
+func (f *fakeCommandLifecycle) Await(int) (<-chan string, bool) {
+	return nil, false
+}
+
 func controllableOfficePlug() *gen.Sensor {
 	return &gen.Sensor{
 		Id:           7,
@@ -226,6 +235,17 @@ func TestCommandService_SendAsSystem_RecordsTheRunAndNoUser(t *testing.T) {
 	require.Len(t, lifecycle.tracked, 1)
 	assert.Equal(t, actuation.CommandStatusAcknowledged, <-outcome)
 	historyRepo.AssertExpectations(t)
+}
+
+func TestCommandService_AwaitOutcome_GivesACommandThatAlreadySettledItsStatus(t *testing.T) {
+	historyRepo := &mockCommandHistoryRepository{}
+	historyRepo.On("CommandStatus", mock.Anything, 12).Return(actuation.CommandStatusTimedOut, nil)
+	service, _ := newCommandServiceForTest(&mockCommandSensorRepository{}, &mockCommandSubscriptionRepository{}, historyRepo, &mockCommandPublisher{}, nil)
+
+	outcome, err := service.AwaitOutcome(context.Background(), 12)
+
+	require.NoError(t, err)
+	assert.Equal(t, actuation.CommandStatusTimedOut, <-outcome)
 }
 
 func TestCommandService_GetHistory_ReturnsLatestEntriesFromRepository(t *testing.T) {

@@ -122,6 +122,29 @@ describe('AutomationEditorPage', () => {
     expect(savedBody(api.PUT).steps.map((step: { property: string }) => step.property)).toEqual(['brightness', 'state']);
   });
 
+  it('adds a wait step and saves its duration in seconds', async () => {
+    serve(automation());
+    api.PUT.mockResolvedValue({ data: automation(), response: new Response() });
+    await renderEditor('/automations/3');
+
+    fireEvent.click(await screen.findByRole('button', { name: '+ Wait' }));
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Duration' }), { target: { value: '4' } });
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Unit' }));
+    fireEvent.click(screen.getByRole('option', { name: 'hours' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.PUT).toHaveBeenCalled());
+    expect(savedBody(api.PUT).steps[2]).toEqual({ type: 'wait', seconds: 14_400 });
+  });
+
+  it('shows a saved wait in its largest whole unit', async () => {
+    serve(automation({ steps: [{ type: 'wait', seconds: 7_200 }] }));
+    await renderEditor('/automations/3');
+
+    expect(await screen.findByRole('spinbutton', { name: 'Duration' })).toHaveValue(2);
+    expect(screen.getByRole('combobox', { name: 'Unit' })).toHaveTextContent('hours');
+  });
+
   it('creates a new automation and opens it', async () => {
     api.POST.mockResolvedValue({ data: automation({ id: 9 }), response: new Response() });
     serve(automation({ id: 9 }));
@@ -187,6 +210,33 @@ describe('AutomationEditorPage', () => {
     expect(succeeded.lastElementChild).toHaveTextContent(/\b2\b/);
     expect(failed.querySelector('[data-ui=status-pill]')).toHaveTextContent(/^failed$/);
     expect(failed.lastElementChild).toHaveTextContent(failure);
+  });
+
+  it('shows where a waiting run is and how late a missed one was', async () => {
+    const run = (id: number, overrides: Partial<AutomationRun>): AutomationRun => ({
+      id,
+      automation_id: 3,
+      trigger_kind: 'schedule',
+      status: 'succeeded',
+      current_step: 0,
+      steps: [...automation().steps, { type: 'wait', seconds: 14_400 }, { type: 'set', sensor_id: lamp.id, property: 'state', value: 'OFF' }],
+      step_outcomes: [],
+      started_at: new Date(Date.now() - 60_000).toISOString(),
+      ...overrides,
+    });
+    serve(automation(), [
+      run(2, { status: 'waiting', current_step: 3, resume_at: '2026-10-06T22:00:00Z' }),
+      run(1, { status: 'missed', due_at: '2026-10-02T18:00:00Z', past_grace_seconds: 7_200 }),
+    ]);
+    await renderEditor('/automations/3');
+
+    await waitFor(() => expect(document.querySelectorAll('[data-ui=automation-run]')).toHaveLength(2));
+    const [waiting, missed] = document.querySelectorAll<HTMLElement>('[data-ui=automation-run]');
+    expect(waiting.querySelector('[data-ui=status-pill]')).toHaveTextContent(/^waiting$/);
+    expect(waiting.lastElementChild).toHaveTextContent('waiting · step 3 of 4 · resumes Tue 6 Oct, 23:00');
+    expect(missed.querySelector('[data-ui=status-pill]')).toHaveTextContent(/^missed$/);
+    expect(missed).toHaveTextContent('Fri 2 Oct, 19:00');
+    expect(missed.lastElementChild).toHaveTextContent('hub was down - 2 h past the grace window');
   });
 
   it('stacks the summary, When, Then and Recent runs on phones with Save in the bottom bar', async () => {

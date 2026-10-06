@@ -101,7 +101,7 @@ func (r *AutomationRepository) DeleteAutomation(ctx context.Context, id int) err
 
 func (r *AutomationRepository) RunStates(ctx context.Context) (map[int]automation.RunState, error) {
 	rows, err := r.db.Reader.QueryContext(ctx, `SELECT a.id,
-			EXISTS (SELECT 1 FROM automation_runs r WHERE r.automation_id = a.id AND r.status = 'running'),
+			EXISTS (SELECT 1 FROM automation_runs r WHERE r.automation_id = a.id AND r.status IN ('running', 'waiting')),
 			COALESCE((SELECT r.status = 'failed' FROM automation_runs r
 				WHERE r.automation_id = a.id AND r.status IN ('succeeded', 'failed')
 				ORDER BY r.started_at DESC, r.id DESC LIMIT 1), 0)
@@ -128,10 +128,15 @@ func (r *AutomationRepository) CreateRun(ctx context.Context, run automation.Run
 	if err != nil {
 		return 0, fmt.Errorf("encode run steps: %w", err)
 	}
+	var pastGrace *int64
+	if run.PastGrace != nil {
+		seconds := int64(run.PastGrace.Seconds())
+		pastGrace = &seconds
+	}
 	result, err := r.db.Writer.ExecContext(ctx, `INSERT INTO automation_runs
-		(automation_id, trigger_id, trigger_kind, status, current_step, steps_snapshot, started_at)
-		VALUES (?, ?, ?, ?, 0, ?, ?)`,
-		run.AutomationID, run.TriggerID, run.TriggerKind, run.Status, string(snapshot), run.StartedAt)
+		(automation_id, trigger_id, trigger_kind, status, current_step, steps_snapshot, started_at, finished_at, due_at, past_grace_seconds)
+		VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
+		run.AutomationID, run.TriggerID, run.TriggerKind, run.Status, string(snapshot), run.StartedAt, run.FinishedAt, run.DueAt, pastGrace)
 	if err != nil {
 		return 0, fmt.Errorf("insert automation run: %w", err)
 	}
@@ -174,6 +179,80 @@ func (r *AutomationRepository) FinishRunStep(ctx context.Context, stepID int, ou
 	return nil
 }
 
+func (r *AutomationRepository) SetTriggerDue(ctx context.Context, triggerID int, due time.Time) error {
+	if _, err := r.db.Writer.ExecContext(ctx, "UPDATE automation_triggers SET next_due_at = ? WHERE id = ?", due, triggerID); err != nil {
+		return fmt.Errorf("save automation trigger due time: %w", err)
+	}
+	return nil
+}
+
+func (r *AutomationRepository) WaitRun(ctx context.Context, runID int, position int, at time.Time, resumeAt time.Time) error {
+	_, err := r.inTx(ctx, func(tx *sql.Tx) (int, error) {
+		result, err := tx.ExecContext(ctx, "UPDATE automation_runs SET status = ?, current_step = ?, resume_at = ? WHERE id = ?",
+			automation.RunWaiting, position, resumeAt, runID)
+		if err := requireRow(result, err, "set automation run waiting"); err != nil {
+			if errors.Is(err, automation.ErrNotFound) {
+				return 0, automation.ErrRunGone
+			}
+			return 0, err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO automation_run_steps (run_id, position, kind, outcome, started_at)
+			VALUES (?, ?, ?, ?, ?)`, runID, position, automation.StepWait, automation.StepRunning, at); err != nil {
+			return 0, fmt.Errorf("insert automation wait step: %w", err)
+		}
+		return 0, nil
+	})
+	return err
+}
+
+func (r *AutomationRepository) ResumeRun(ctx context.Context, runID int, at time.Time) (automation.Run, error) {
+	_, err := r.inTx(ctx, func(tx *sql.Tx) (int, error) {
+		result, err := tx.ExecContext(ctx, "UPDATE automation_runs SET status = ?, resume_at = NULL WHERE id = ? AND status = ?",
+			automation.RunRunning, runID, automation.RunWaiting)
+		if err := requireRow(result, err, "resume automation run"); err != nil {
+			if errors.Is(err, automation.ErrNotFound) {
+				return 0, automation.ErrRunGone
+			}
+			return 0, err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE automation_run_steps SET outcome = ?, finished_at = ?
+			WHERE run_id = ? AND position = (SELECT current_step FROM automation_runs WHERE id = ?)`,
+			automation.StepSucceeded, at, runID, runID); err != nil {
+			return 0, fmt.Errorf("finish automation wait step: %w", err)
+		}
+		return 0, nil
+	})
+	if err != nil {
+		return automation.Run{}, err
+	}
+	runs, err := r.queryRuns(ctx, "WHERE id = ?", runID)
+	if err != nil {
+		return automation.Run{}, err
+	}
+	if len(runs) == 0 {
+		return automation.Run{}, automation.ErrRunGone
+	}
+	return runs[0], nil
+}
+
+func (r *AutomationRepository) ActiveRuns(ctx context.Context) ([]automation.Run, error) {
+	return r.queryRuns(ctx, "WHERE status IN (?, ?)", automation.RunRunning, automation.RunWaiting)
+}
+
+func (r *AutomationRepository) LatestRunCommand(ctx context.Context, runID int, step automation.Step, since time.Time) (int, bool, error) {
+	var id int
+	err := r.db.Reader.QueryRowContext(ctx, `SELECT id FROM sensor_command_history
+		WHERE automation_run_id = ? AND sensor_id = ? AND property = ? AND sent_at >= ?
+		ORDER BY sent_at DESC, id DESC LIMIT 1`, runID, step.SensorID, step.Property, since).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("query command of automation run %d: %w", runID, err)
+	}
+	return id, true, nil
+}
+
 func (r *AutomationRepository) FinishRun(ctx context.Context, runID int, status automation.RunStatus, message *string, at time.Time) error {
 	_, err := r.db.Writer.ExecContext(ctx,
 		"UPDATE automation_runs SET status = ?, error = ?, finished_at = ? WHERE id = ?",
@@ -184,22 +263,15 @@ func (r *AutomationRepository) FinishRun(ctx context.Context, runID int, status 
 	return nil
 }
 
-func (r *AutomationRepository) FailRunningRuns(ctx context.Context, message string, at time.Time) (int, error) {
-	result, err := r.db.Writer.ExecContext(ctx,
-		"UPDATE automation_runs SET status = ?, error = ?, finished_at = ? WHERE status = ?",
-		automation.RunFailed, message, at, automation.RunRunning)
-	if err != nil {
-		return 0, fmt.Errorf("fail running automation runs: %w", err)
-	}
-	count, err := result.RowsAffected()
-	return int(count), err
+func (r *AutomationRepository) ListRuns(ctx context.Context, automationID int) ([]automation.Run, error) {
+	return r.queryRuns(ctx, "WHERE automation_id = ?", automationID)
 }
 
-func (r *AutomationRepository) ListRuns(ctx context.Context, automationID int) ([]automation.Run, error) {
+func (r *AutomationRepository) queryRuns(ctx context.Context, where string, args ...any) ([]automation.Run, error) {
 	rows, err := r.db.Reader.QueryContext(ctx, `SELECT id, automation_id, trigger_id, trigger_kind, status,
-			current_step, steps_snapshot, started_at, finished_at, error
-		FROM automation_runs WHERE automation_id = ?
-		ORDER BY started_at DESC, id DESC`, automationID)
+			current_step, steps_snapshot, started_at, finished_at, resume_at, due_at, past_grace_seconds, error
+		FROM automation_runs `+where+`
+		ORDER BY started_at DESC, id DESC`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query automation runs: %w", err)
 	}
@@ -212,10 +284,11 @@ func (r *AutomationRepository) ListRuns(ctx context.Context, automationID int) (
 		var triggerID sql.NullInt64
 		var snapshot string
 		var startedAt SQLiteTime
-		var finishedAt NullSQLiteTime
+		var finishedAt, resumeAt, dueAt NullSQLiteTime
+		var pastGrace sql.NullInt64
 		var message sql.NullString
 		if err := rows.Scan(&run.ID, &run.AutomationID, &triggerID, &run.TriggerKind, &run.Status,
-			&run.CurrentStep, &snapshot, &startedAt, &finishedAt, &message); err != nil {
+			&run.CurrentStep, &snapshot, &startedAt, &finishedAt, &resumeAt, &dueAt, &pastGrace, &message); err != nil {
 			return nil, fmt.Errorf("scan automation run: %w", err)
 		}
 		if err := json.Unmarshal([]byte(snapshot), &run.Steps); err != nil {
@@ -224,6 +297,12 @@ func (r *AutomationRepository) ListRuns(ctx context.Context, automationID int) (
 		run.TriggerID = nullableInt(triggerID)
 		run.StartedAt = startedAt.Time
 		run.FinishedAt = nullableTime(finishedAt)
+		run.ResumeAt = nullableTime(resumeAt)
+		run.DueAt = nullableTime(dueAt)
+		if pastGrace.Valid {
+			duration := time.Duration(pastGrace.Int64) * time.Second
+			run.PastGrace = &duration
+		}
 		if message.Valid {
 			run.Error = &message.String
 		}
@@ -238,9 +317,8 @@ func (r *AutomationRepository) ListRuns(ctx context.Context, automationID int) (
 	stepRows, err := r.db.Reader.QueryContext(ctx, `SELECT s.run_id, s.id, s.position, s.kind, s.outcome,
 			s.command_id, s.started_at, s.finished_at
 		FROM automation_run_steps s
-		JOIN automation_runs r ON r.id = s.run_id
-		WHERE r.automation_id = ?
-		ORDER BY s.run_id, s.position`, automationID)
+		WHERE s.run_id IN (SELECT id FROM automation_runs `+where+`)
+		ORDER BY s.run_id, s.position`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query automation run steps: %w", err)
 	}
@@ -278,9 +356,16 @@ func insertDefinition(ctx context.Context, tx *sql.Tx, automationID int, a autom
 		}
 	}
 	for i, step := range a.Steps {
+		var sensorID, property, value, waitSeconds any
+		switch step.Kind {
+		case automation.StepSet:
+			sensorID, property, value = step.SensorID, step.Property, step.Value
+		case automation.StepWait:
+			waitSeconds = step.Seconds
+		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO automation_steps
-			(automation_id, position, kind, sensor_id, property, value) VALUES (?, ?, ?, ?, ?, ?)`,
-			automationID, i+1, step.Kind, step.SensorID, step.Property, step.Value); err != nil {
+			(automation_id, position, kind, sensor_id, property, value, wait_seconds) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			automationID, i+1, step.Kind, sensorID, property, value, waitSeconds); err != nil {
 			return fmt.Errorf("insert automation step: %w", err)
 		}
 	}
@@ -315,7 +400,7 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 	}
 
 	ofMatching := "WHERE automation_id IN (SELECT id FROM automations " + where + ")"
-	triggerRows, err := r.db.Reader.QueryContext(ctx, `SELECT automation_id, id, kind, at_minute_of_day, weekdays
+	triggerRows, err := r.db.Reader.QueryContext(ctx, `SELECT automation_id, id, kind, at_minute_of_day, weekdays, next_due_at
 		FROM automation_triggers `+ofMatching+` ORDER BY automation_id, position`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query automation triggers: %w", err)
@@ -325,12 +410,14 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 		var automationID int
 		var trigger automation.Trigger
 		var minuteOfDay, weekdays sql.NullInt64
-		if err := triggerRows.Scan(&automationID, &trigger.ID, &trigger.Kind, &minuteOfDay, &weekdays); err != nil {
+		var nextDueAt NullSQLiteTime
+		if err := triggerRows.Scan(&automationID, &trigger.ID, &trigger.Kind, &minuteOfDay, &weekdays, &nextDueAt); err != nil {
 			return nil, fmt.Errorf("scan automation trigger: %w", err)
 		}
 		if trigger.Kind == automation.TriggerSchedule {
 			trigger.Schedule = &automation.Schedule{MinuteOfDay: int(minuteOfDay.Int64), Days: automation.Weekdays(weekdays.Int64)}
 		}
+		trigger.NextDueAt = nullableTime(nextDueAt)
 		if i, ok := index[automationID]; ok {
 			automations[i].Triggers = append(automations[i].Triggers, trigger)
 		}
@@ -339,7 +426,7 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 		return nil, err
 	}
 
-	stepRows, err := r.db.Reader.QueryContext(ctx, `SELECT automation_id, kind, sensor_id, property, value
+	stepRows, err := r.db.Reader.QueryContext(ctx, `SELECT automation_id, kind, sensor_id, property, value, wait_seconds
 		FROM automation_steps `+ofMatching+` ORDER BY automation_id, position`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query automation steps: %w", err)
@@ -348,12 +435,13 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 	for stepRows.Next() {
 		var automationID int
 		var step automation.Step
-		var sensorID sql.NullInt64
+		var sensorID, waitSeconds sql.NullInt64
 		var property, value sql.NullString
-		if err := stepRows.Scan(&automationID, &step.Kind, &sensorID, &property, &value); err != nil {
+		if err := stepRows.Scan(&automationID, &step.Kind, &sensorID, &property, &value, &waitSeconds); err != nil {
 			return nil, fmt.Errorf("scan automation step: %w", err)
 		}
 		step.SensorID, step.Property, step.Value = int(sensorID.Int64), property.String, value.String
+		step.Seconds = int(waitSeconds.Int64)
 		if i, ok := index[automationID]; ok {
 			automations[i].Steps = append(automations[i].Steps, step)
 		}

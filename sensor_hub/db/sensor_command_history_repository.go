@@ -70,6 +70,14 @@ func (r *SensorCommandHistoryRepository) HasPendingCommand(ctx context.Context, 
 	return count > 0, nil
 }
 
+func (r *SensorCommandHistoryRepository) CommandStatus(ctx context.Context, id int) (string, error) {
+	var status string
+	if err := r.db.Reader.QueryRowContext(ctx, `SELECT status FROM sensor_command_history WHERE id = ?`, id).Scan(&status); err != nil {
+		return "", fmt.Errorf("error querying sensor command status: %w", err)
+	}
+	return status, nil
+}
+
 func (r *SensorCommandHistoryRepository) MarkAcknowledged(ctx context.Context, id int, acknowledgedValue string, acknowledgedAt time.Time) (bool, error) {
 	query := `UPDATE sensor_command_history
 		SET status = 'acknowledged', acknowledged_at = ?, acknowledged_value = ?

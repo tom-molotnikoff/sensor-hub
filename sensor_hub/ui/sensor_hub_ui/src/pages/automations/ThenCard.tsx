@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type KeyboardEvent } from 'react';
+import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { Button, IconButton, MenuItem, Slider, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
@@ -8,7 +8,7 @@ import ActionBar from '../../ui/ActionBar';
 import Card from '../../ui/Card';
 import Inline from '../../ui/Inline';
 import Stack from '../../ui/Stack';
-import { defaultValue, moved, newStep, writableCapabilities, type DraftStep } from './automationDraft';
+import { defaultValue, moved, newSetStep, newWaitStep, writableCapabilities, type DraftStep } from './automationDraft';
 import { useSensorName } from './useSensorName';
 
 interface ValueControlProps {
@@ -88,32 +88,21 @@ const choosePrompt = (prompt: string, display: (value: string) => string = (valu
   select: { displayEmpty: true, renderValue: (value: unknown) => (value === '' ? prompt : display(String(value))) },
 });
 
-interface StepCardProps {
-  step: DraftStep;
+interface StepShellProps {
   position: number;
   count: number;
   readOnly: boolean;
-  onChange: (step: DraftStep) => void;
   onRemove: () => void;
   onMove: (to: number) => void;
   onDragStart: () => void;
 }
 
-function StepCard({ step, position, count, readOnly, onChange, onRemove, onMove, onDragStart }: StepCardProps) {
-  const { sensors } = useSensorContext();
-  const sensorName = useSensorName();
-  const controllable = sensors.filter((sensor) => writableCapabilities(sensor).length > 0);
-  const sensor = sensors.find((each) => each.id === step.sensor_id);
-  const capabilities = writableCapabilities(sensor);
-  const capability = capabilities.find((each) => each.property === step.property);
+interface StepCardProps extends StepShellProps {
+  step: DraftStep;
+  onChange: (step: DraftStep) => void;
+}
 
-  const chooseSensor = (id: number) => {
-    const first = writableCapabilities(sensors.find((each) => each.id === id))[0];
-    onChange({ ...step, sensor_id: id, property: first?.property, value: defaultValue(first) });
-  };
-  const chooseProperty = (property: string) =>
-    onChange({ ...step, property, value: defaultValue(capabilities.find((each) => each.property === property)) });
-
+function StepShell({ position, count, readOnly, onRemove, onMove, onDragStart, fields, detail }: StepShellProps & { fields: ReactNode; detail?: ReactNode }) {
   const moveWithKeys = (event: KeyboardEvent) => {
     const to = { ArrowUp: position - 2, ArrowDown: position }[event.key];
     if (to === undefined || to < 0 || to >= count) return;
@@ -143,6 +132,39 @@ function StepCard({ step, position, count, readOnly, onChange, onRemove, onMove,
             </IconButton>
           )}
           <Typography variant="sectionTitle">{position}</Typography>
+          {fields}
+          {!readOnly && (
+            <IconButton size="small" aria-label={`Remove step ${position}`} onClick={onRemove}>
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          )}
+        </Inline>
+        {detail}
+      </Stack>
+    </Card>
+  );
+}
+
+function SetStepCard({ step, onChange, ...shell }: StepCardProps) {
+  const { sensors } = useSensorContext();
+  const sensorName = useSensorName();
+  const controllable = sensors.filter((sensor) => writableCapabilities(sensor).length > 0);
+  const sensor = sensors.find((each) => each.id === step.sensor_id);
+  const capabilities = writableCapabilities(sensor);
+  const capability = capabilities.find((each) => each.property === step.property);
+
+  const chooseSensor = (id: number) => {
+    const first = writableCapabilities(sensors.find((each) => each.id === id))[0];
+    onChange({ ...step, sensor_id: id, property: first?.property, value: defaultValue(first) });
+  };
+  const chooseProperty = (property: string) =>
+    onChange({ ...step, property, value: defaultValue(capabilities.find((each) => each.property === property)) });
+
+  return (
+    <StepShell
+      {...shell}
+      fields={
+        <>
           <Typography variant="body">Set</Typography>
           <TextField
             select
@@ -150,7 +172,7 @@ function StepCard({ step, position, count, readOnly, onChange, onRemove, onMove,
             label="Device"
             value={step.sensor_id ?? ''}
             slotProps={choosePrompt('Choose a device', (id) => sensorName(Number(id)))}
-            disabled={readOnly}
+            disabled={shell.readOnly}
             onChange={(event) => chooseSensor(Number(event.target.value))}
           >
             {step.sensor_id !== undefined && !controllable.some((each) => each.id === step.sensor_id) && (
@@ -168,7 +190,7 @@ function StepCard({ step, position, count, readOnly, onChange, onRemove, onMove,
             label="Property"
             value={step.property ?? ''}
             slotProps={choosePrompt('Choose a property')}
-            disabled={readOnly || step.sensor_id === undefined}
+            disabled={shell.readOnly || step.sensor_id === undefined}
             onChange={(event) => chooseProperty(event.target.value)}
           >
             {step.property !== undefined && !capability && <MenuItem value={step.property}>{step.property}</MenuItem>}
@@ -179,22 +201,68 @@ function StepCard({ step, position, count, readOnly, onChange, onRemove, onMove,
             ))}
           </TextField>
           {!capability && step.value !== undefined && <Typography variant="body">to {step.value}</Typography>}
-          {!readOnly && (
-            <IconButton size="small" aria-label={`Remove step ${position}`} onClick={onRemove}>
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
-          )}
-        </Inline>
-        {capability && (
-          <ValueControl
-            capability={capability}
-            value={step.value}
-            readOnly={readOnly}
-            onChange={(value) => onChange({ ...step, value })}
+        </>
+      }
+      detail={
+        capability && (
+          <ValueControl capability={capability} value={step.value} readOnly={shell.readOnly} onChange={(value) => onChange({ ...step, value })} />
+        )
+      }
+    />
+  );
+}
+
+const waitUnits = [
+  { name: 'seconds', seconds: 1 },
+  { name: 'minutes', seconds: 60 },
+  { name: 'hours', seconds: 3_600 },
+] as const;
+
+const largestWholeUnit = (seconds: number | undefined) =>
+  [...waitUnits].reverse().find((unit) => seconds !== undefined && seconds % unit.seconds === 0)?.seconds ?? 1;
+
+function WaitStepCard({ step, onChange, ...shell }: StepCardProps) {
+  const [unit, setUnit] = useState(() => largestWholeUnit(step.seconds));
+  const amount = step.seconds === undefined ? '' : String(step.seconds / unit);
+  const setSeconds = (typed: string, inUnit: number) =>
+    onChange({ ...step, seconds: typed === '' ? undefined : Math.round(Number(typed) * inUnit) });
+
+  return (
+    <StepShell
+      {...shell}
+      fields={
+        <>
+          <Typography variant="body">Wait</Typography>
+          <TextField
+            type="number"
+            size="small"
+            label="Duration"
+            value={amount}
+            disabled={shell.readOnly}
+            slotProps={{ htmlInput: { min: 1 } }}
+            onChange={(event) => setSeconds(event.target.value, unit)}
           />
-        )}
-      </Stack>
-    </Card>
+          <TextField
+            select
+            size="small"
+            label="Unit"
+            value={unit}
+            disabled={shell.readOnly}
+            onChange={(event) => {
+              const chosen = Number(event.target.value);
+              setUnit(chosen);
+              setSeconds(amount, chosen);
+            }}
+          >
+            {waitUnits.map((each) => (
+              <MenuItem key={each.name} value={each.seconds}>
+                {each.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </>
+      }
+    />
   );
 }
 
@@ -219,24 +287,32 @@ export default function ThenCard({ steps, readOnly, onChange }: ThenCardProps) {
   return (
     <Card title="Then in this order">
       <Stack>
-        {steps.map((step, index) => (
-          <div key={step.key} onDragOver={dropOn(index)} onDrop={dropOn(index)} onDragEnd={() => setDragged(null)}>
-            <StepCard
-              step={step}
-              position={index + 1}
-              count={steps.length}
-              readOnly={readOnly}
-              onChange={(changed) => onChange(steps.map((each) => (each.key === changed.key ? changed : each)))}
-              onRemove={() => onChange(steps.filter((each) => each.key !== step.key))}
-              onMove={(to) => onChange(moved(steps, index, to))}
-              onDragStart={() => setDragged(index)}
-            />
-          </div>
-        ))}
+        {steps.map((step, index) => {
+          const StepCard = step.type === 'wait' ? WaitStepCard : SetStepCard;
+          return (
+            <div key={step.key} onDragOver={dropOn(index)} onDrop={dropOn(index)} onDragEnd={() => setDragged(null)}>
+              <StepCard
+                step={step}
+                position={index + 1}
+                count={steps.length}
+                readOnly={readOnly}
+                onChange={(changed) => onChange(steps.map((each) => (each.key === changed.key ? changed : each)))}
+                onRemove={() => onChange(steps.filter((each) => each.key !== step.key))}
+                onMove={(to) => onChange(moved(steps, index, to))}
+                onDragStart={() => setDragged(index)}
+              />
+            </div>
+          );
+        })}
         {!readOnly && (
-          <Button variant="outlined" onClick={() => onChange([...steps, newStep()])}>
-            + Set a device
-          </Button>
+          <Inline>
+            <Button variant="outlined" onClick={() => onChange([...steps, newSetStep()])}>
+              + Set a device
+            </Button>
+            <Button variant="outlined" onClick={() => onChange([...steps, newWaitStep()])}>
+              + Wait
+            </Button>
+          </Inline>
         )}
       </Stack>
     </Card>

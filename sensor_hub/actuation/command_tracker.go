@@ -45,6 +45,10 @@ type LifecycleManager interface {
 	Track(ctx context.Context, command database.PendingCommandRecord) <-chan string
 	MarkFailed(ctx context.Context, command database.PendingCommandRecord)
 	RecoverPending(ctx context.Context) error
+	// Await returns false when the command is not being tracked. Its channel
+	// replaces the one Track returned, so it is only for a command whose
+	// sender has gone, such as one sent before a restart.
+	Await(commandID int) (<-chan string, bool)
 }
 
 type CommandTracker struct {
@@ -177,6 +181,17 @@ func (t *CommandTracker) RecoverPending(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (t *CommandTracker) Await(commandID int) (<-chan string, bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if _, ok := t.commands[commandID]; !ok {
+		return nil, false
+	}
+	outcome := make(chan string, 1)
+	t.outcomes[commandID] = outcome
+	return outcome, true
 }
 
 func (t *CommandTracker) Close() {

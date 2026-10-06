@@ -102,9 +102,20 @@ func triggerFromInput(i int, trigger gen.AutomationTrigger) (Trigger, error) {
 }
 
 func stepFromInput(ctx context.Context, sensors SensorLookup, i int, step gen.AutomationStep) (Step, error) {
-	if step.Type != gen.AutomationStepTypeSet {
-		return Step{}, invalid("steps[%d].type must be %q, got %q", i, gen.AutomationStepTypeSet, step.Type)
+	switch step.Type {
+	case gen.AutomationStepTypeSet:
+		return setStepFromInput(ctx, sensors, i, step)
+	case gen.AutomationStepTypeWait:
+		if step.Seconds == nil || *step.Seconds < 1 {
+			return Step{}, invalid("steps[%d].seconds must be a whole number of seconds, at least 1", i)
+		}
+		return Step{Kind: StepWait, Seconds: *step.Seconds}, nil
+	default:
+		return Step{}, invalid("steps[%d].type must be %q or %q, got %q", i, gen.AutomationStepTypeSet, gen.AutomationStepTypeWait, step.Type)
 	}
+}
+
+func setStepFromInput(ctx context.Context, sensors SensorLookup, i int, step gen.AutomationStep) (Step, error) {
 	if step.SensorId == nil {
 		return Step{}, invalid("steps[%d].sensor_id is required", i)
 	}
