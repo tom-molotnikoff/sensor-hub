@@ -27,7 +27,7 @@ import Stack from '../../ui/Stack';
 import { StickyFooter } from '../../ui/Sticky';
 import { useTier } from '../../ui/tiers';
 import { draftOf, inputOf, type Draft } from './automationDraft';
-import { automationStatus, describeAutomation, formatHubTime } from './automationText';
+import { automationStatus, describeAutomation, formatHubTime, readableSaveError } from './automationText';
 import RecentRunsCard from './RecentRunsCard';
 import ThenCard from './ThenCard';
 import { useSensorName } from './useSensorName';
@@ -154,7 +154,7 @@ function AutomationEditor({ saved, canEdit, canDelete }: AutomationEditorProps) 
           {enabledSwitch}
         </Inline>
       )}
-      {save.error && <Alert severity="error">{save.error.message}</Alert>}
+      {save.error && <Alert severity="error">{readableSaveError(save.error.message)}</Alert>}
       {wide ? (
         <PageGrid>
           <PageGrid.Item span={{ wide: 8 }}>

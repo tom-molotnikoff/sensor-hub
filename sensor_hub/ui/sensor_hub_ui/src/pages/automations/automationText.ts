@@ -61,6 +61,8 @@ export function describeRun(run: AutomationRun): string {
   }
 }
 
+export const showsFailedFlag = (automation: Automation) => automation.last_run_failed && automation.status === 'armed';
+
 export const automationStatus: Record<Automation['status'], { label: string; key: StatusKey }> = {
   off: { label: 'Off', key: 'unknown' },
   armed: { label: 'Armed', key: 'ok' },
@@ -72,3 +74,14 @@ export const runStatus: Record<AutomationRun['status'], StatusKey> = {
   succeeded: 'ok',
   failed: 'bad',
 };
+
+const savedLists: Record<string, string> = { triggers: 'Trigger', steps: 'Step' };
+const savedFields: Record<string, string> = { at: 'time', days: 'weekdays', sensor_id: 'device' };
+
+// The API names the field as a 0-based JSON path, such as "steps[1].value"; the editor numbers cards from 1.
+export function readableSaveError(message: string): string {
+  const match = /^(triggers|steps)\[(\d+)\]\.(\w+)/.exec(message);
+  if (!match) return message.charAt(0).toUpperCase() + message.slice(1);
+  const [path, list, index, field] = match;
+  return `${savedLists[list]} ${Number(index) + 1} ${savedFields[field] ?? field}${message.slice(path.length)}`;
+}

@@ -100,14 +100,14 @@ describe('AutomationEditorPage', () => {
     expect(screen.getAllByRole('combobox', { name: 'Value' })[0]).toHaveTextContent('cool');
   });
 
-  it("shows the API's message when it rejects a save", async () => {
+  it("shows the API's message when it rejects a save, naming the trigger or step as the editor numbers it", async () => {
     serve(automation());
-    api.PUT.mockResolvedValue({ error: { message: 'triggers[0].days: choose at least one weekday' }, response: new Response(null, { status: 400 }) });
+    api.PUT.mockResolvedValue({ error: { message: 'steps[1].value: 300 is above the maximum of 254' }, response: new Response(null, { status: 400 }) });
     await renderEditor('/automations/3');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('triggers[0].days: choose at least one weekday');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Step 2 value: 300 is above the maximum of 254');
   });
 
   it('saves the steps in the order the drag handles put them in', async () => {
