@@ -690,7 +690,7 @@ type AutomationStatus string
 
 // AutomationInput An automation as sent on create and update. Any trigger starts a run, and the steps run in order.
 type AutomationInput struct {
-	// Enabled Whether the automation's triggers start runs. Defaults to true.
+	// Enabled Whether the automation's triggers start runs. Defaults to true on create, and to the automation's current setting on update.
 	Enabled *bool  `json:"enabled,omitempty"`
 	Name    string `json:"name"`
 

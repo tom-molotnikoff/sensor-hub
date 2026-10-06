@@ -2594,7 +2594,7 @@ export interface components {
          */
         AutomationInput: {
             name: string;
-            /** @description Whether the automation's triggers start runs. Defaults to true. */
+            /** @description Whether the automation's triggers start runs. Defaults to true on create, and to the automation's current setting on update. */
             enabled?: boolean;
             /** @description At least one trigger. Any of them starts a run. */
             triggers: components["schemas"]["AutomationTrigger"][];

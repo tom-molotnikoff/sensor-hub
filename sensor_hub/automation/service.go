@@ -50,7 +50,8 @@ type SensorLookup interface {
 }
 
 // CommandSender sends a command as the system actor for an automation run.
-// The channel receives the command's final status once.
+// The ID is non-zero whenever the command was recorded, even alongside an
+// error. The channel receives the command's final status once.
 type CommandSender interface {
 	SendAsSystem(ctx context.Context, sensorID int, property string, value string, automationRunID int) (int, <-chan string, error)
 }
@@ -164,7 +165,8 @@ func (s *Service) Create(ctx context.Context, input gen.AutomationInput) (gen.Au
 }
 
 func (s *Service) Update(ctx context.Context, id int, input gen.AutomationInput) (gen.Automation, error) {
-	if _, err := s.store.GetAutomation(ctx, id); err != nil {
+	current, err := s.store.GetAutomation(ctx, id)
+	if err != nil {
 		return gen.Automation{}, err
 	}
 	automation, err := fromInput(ctx, s.sensors, input)
@@ -172,6 +174,9 @@ func (s *Service) Update(ctx context.Context, id int, input gen.AutomationInput)
 		return gen.Automation{}, err
 	}
 	automation.ID = id
+	if input.Enabled == nil {
+		automation.Enabled = current.Enabled
+	}
 	saved, err := s.store.UpdateAutomation(ctx, automation)
 	if err != nil {
 		return gen.Automation{}, err

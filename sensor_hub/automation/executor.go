@@ -133,10 +133,12 @@ func (e *executor) set(ctx context.Context, logger *slog.Logger, run Run, step S
 	}
 
 	id, outcome, err := e.commands.SendAsSystem(ctx, step.SensorID, step.Property, step.Value, run.ID)
-	if err != nil {
-		return nil, err.Error(), false
+	if id != 0 {
+		commandID = &id
 	}
-	commandID = &id
+	if err != nil {
+		return commandID, err.Error(), false
+	}
 	logger.Info("automation command sent", "command_id", id, "sensor", sensor.Name, "property", step.Property, "value", step.Value)
 
 	timeout := commandTimeout()

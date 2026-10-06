@@ -161,7 +161,10 @@ func (e *engine) fire(triggerID int, due time.Time) {
 		}
 	}
 	if trigger.Schedule != nil {
-		e.scheduler.set(triggerID, trigger.Schedule.NextAfter(due, e.zone))
+		// A scheduler that fell behind, such as on a host that slept, arms
+		// the next time after now, so the times it missed do not all fire
+		// at once.
+		e.scheduler.set(triggerID, trigger.Schedule.NextAfter(later(due, e.now()), e.zone))
 	}
 	duplicate := e.lastDue[automation.ID].Equal(due)
 	e.lastDue[automation.ID] = due
@@ -173,6 +176,13 @@ func (e *engine) fire(triggerID int, due time.Time) {
 	}
 	e.lateness.Record(runCtx, float64(e.now().Sub(due).Milliseconds()))
 	e.start(runCtx, automation, trigger)
+}
+
+func later(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
 }
 
 func (e *engine) start(ctx context.Context, automation Automation, trigger Trigger) {
