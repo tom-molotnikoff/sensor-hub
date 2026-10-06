@@ -31,6 +31,7 @@ type CommandSubscriptionRepository interface {
 
 type CommandHistoryRepository interface {
 	HasPendingCommand(ctx context.Context, sensorID int, property string) (bool, error)
+	CommandStatus(ctx context.Context, id int) (string, error)
 	AddSentCommand(ctx context.Context, command database.NewCommand) (int, error)
 	ListBySensorID(ctx context.Context, sensorID int, limit int) ([]gen.CommandHistoryEntry, error)
 }
@@ -125,6 +126,26 @@ func (s *CommandService) SendAsSystem(ctx context.Context, sensorID int, propert
 	}
 	result, outcome, err := s.send(ctx, sensor, database.NewCommand{AutomationRunID: &automationRunID, Property: property, Value: value})
 	return result.ID, outcome, err
+}
+
+// AwaitOutcome gives a command sent before a restart the outcome channel that
+// SendAsSystem would have returned.
+func (s *CommandService) AwaitOutcome(ctx context.Context, commandID int) (<-chan string, error) {
+	if s.lifecycle != nil {
+		if outcome, ok := s.lifecycle.Await(commandID); ok {
+			return outcome, nil
+		}
+	}
+	status, err := s.historyRepo.CommandStatus(ctx, commandID)
+	if err != nil {
+		return nil, fmt.Errorf("read command %d status: %w", commandID, err)
+	}
+	if status == actuation.CommandStatusSent {
+		return nil, fmt.Errorf("command %d is pending but not tracked", commandID)
+	}
+	outcome := make(chan string, 1)
+	outcome <- status
+	return outcome, nil
 }
 
 func (s *CommandService) commandableSensor(ctx context.Context, sensorID int) (*gen.Sensor, error) {

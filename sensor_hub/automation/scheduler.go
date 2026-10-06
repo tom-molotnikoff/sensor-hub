@@ -9,26 +9,43 @@ import (
 
 const maxSleep = time.Minute
 
+// Trigger IDs and run IDs overlap, so each kind of entry has its own key space.
+type dueKey struct {
+	kind dueKind
+	id   int
+}
+
+type dueKind int
+
+const (
+	dueTrigger dueKind = iota
+	dueResume
+)
+
+func triggerKey(triggerID int) dueKey { return dueKey{kind: dueTrigger, id: triggerID} }
+
+func resumeKey(runID int) dueKey { return dueKey{kind: dueResume, id: runID} }
+
 type scheduler struct {
-	fire func(key int, due time.Time)
+	fire func(key dueKey, due time.Time)
 	now  func() time.Time
 
 	mu      sync.Mutex
-	entries map[int]*dueEntry
+	entries map[dueKey]*dueEntry
 	queue   dueQueue
 	wake    chan struct{}
 }
 
-func newScheduler(fire func(key int, due time.Time), now func() time.Time) *scheduler {
+func newScheduler(fire func(key dueKey, due time.Time), now func() time.Time) *scheduler {
 	return &scheduler{
 		fire:    fire,
 		now:     now,
-		entries: make(map[int]*dueEntry),
+		entries: make(map[dueKey]*dueEntry),
 		wake:    make(chan struct{}, 1),
 	}
 }
 
-func (s *scheduler) set(key int, due time.Time) {
+func (s *scheduler) set(key dueKey, due time.Time) {
 	s.mu.Lock()
 	if entry, ok := s.entries[key]; ok {
 		entry.due = due
@@ -42,7 +59,7 @@ func (s *scheduler) set(key int, due time.Time) {
 	s.rearm()
 }
 
-func (s *scheduler) remove(key int) {
+func (s *scheduler) remove(key dueKey) {
 	s.mu.Lock()
 	if entry, ok := s.entries[key]; ok {
 		heap.Remove(&s.queue, entry.index)
@@ -52,7 +69,7 @@ func (s *scheduler) remove(key int) {
 	s.rearm()
 }
 
-func (s *scheduler) due(key int) (time.Time, bool) {
+func (s *scheduler) due(key dueKey) (time.Time, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, ok := s.entries[key]
@@ -122,7 +139,7 @@ func (s *scheduler) popDue(now time.Time) []*dueEntry {
 }
 
 type dueEntry struct {
-	key   int
+	key   dueKey
 	due   time.Time
 	index int
 }

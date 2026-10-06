@@ -5088,12 +5088,13 @@ components:
       type: object
       description: >-
         One step of a run. A "set" step sends a command to a writable
-        capability of a sensor and waits for the device to acknowledge it.
+        capability of a sensor and waits for the device to acknowledge it. A
+        "wait" step pauses the run, and the pause survives a hub restart.
       properties:
         type:
           type: string
-          enum: [set]
-          x-enum-varnames: [AutomationStepTypeSet]
+          enum: [set, wait]
+          x-enum-varnames: [AutomationStepTypeSet, AutomationStepTypeWait]
         sensor_id:
           type: integer
           description: Sensor to command. Set steps only.
@@ -5106,6 +5107,11 @@ components:
             Value to send, as on POST /sensors/{id}/command. Checked against the
             capability (binary value_on/value_off, numeric min/max, enum values)
             when saved and again when the step runs. Set steps only.
+        seconds:
+          type: integer
+          minimum: 1
+          description: How long to wait, at least 1. There is no maximum. Wait steps only.
+          example: 14400
       required:
         - type
 
@@ -5150,6 +5156,12 @@ components:
             sensor_id: 14
             property: brightness
             value: "150"
+          - type: wait
+            seconds: 14400
+          - type: set
+            sensor_id: 14
+            property: state
+            value: "OFF"
 
     Automation:
       type: object
@@ -5174,8 +5186,8 @@ components:
           enum: [off, armed, running]
           x-enum-varnames: [AutomationStatusOff, AutomationStatusArmed, AutomationStatusRunning]
           description: >-
-            "off" when switched off, "running" while a run is in progress,
-            otherwise "armed".
+            "off" when switched off, "running" while a run is running or
+            waiting, otherwise "armed".
         status_reason:
           type: string
           nullable: true
@@ -5238,8 +5250,13 @@ components:
           x-enum-varnames: [AutomationRunTriggerKindSchedule]
         status:
           type: string
-          enum: [running, succeeded, failed]
-          x-enum-varnames: [AutomationRunStatusRunning, AutomationRunStatusSucceeded, AutomationRunStatusFailed]
+          enum: [running, waiting, succeeded, failed, missed]
+          x-enum-varnames: [AutomationRunStatusRunning, AutomationRunStatusWaiting, AutomationRunStatusSucceeded, AutomationRunStatusFailed, AutomationRunStatusMissed]
+          description: >-
+            "running" or "waiting" while active, then "succeeded" or "failed".
+            "missed" records a trigger that came due while the hub was down,
+            longer ago than the automation.missed.grace.minutes property, so no
+            run started.
         current_step:
           type: integer
           description: Position of the step the run is on, or ended on, counting from 1. 0 before the first step starts.
@@ -5259,6 +5276,20 @@ components:
           type: string
           format: date-time
           nullable: true
+        resume_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a waiting run carries on with its next step.
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the trigger of a missed run came due.
+        past_grace_seconds:
+          type: integer
+          nullable: true
+          description: How long after the end of the grace window the hub started, for a missed run.
         error:
           type: string
           nullable: true
@@ -5282,8 +5313,8 @@ components:
           description: Position of the step, counting from 1.
         kind:
           type: string
-          enum: [set]
-          x-enum-varnames: [AutomationRunStepKindSet]
+          enum: [set, wait]
+          x-enum-varnames: [AutomationRunStepKindSet, AutomationRunStepKindWait]
         outcome:
           type: string
           enum: [running, succeeded, failed]

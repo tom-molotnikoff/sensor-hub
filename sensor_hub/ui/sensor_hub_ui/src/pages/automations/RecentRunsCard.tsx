@@ -32,11 +32,11 @@ export default function RecentRunsCard({ automationId, zone }: RecentRunsCardPro
           {recent.map((run) => (
             <div key={run.id} data-ui="automation-run">
               <Inline>
-                <Typography variant="body">{formatHubTime(run.started_at, zone)}</Typography>
+                <Typography variant="body">{formatHubTime(run.due_at ?? run.started_at, zone)}</Typography>
                 <StatusPill status={runStatus[run.status]} label={run.status} />
               </Inline>
               <Typography variant="bodySmall" color="text.secondary">
-                {describeRun(run)}
+                {describeRun(run, zone)}
               </Typography>
             </div>
           ))}

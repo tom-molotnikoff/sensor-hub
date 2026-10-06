@@ -24,10 +24,13 @@ import (
 
 type fixture struct {
 	service  *automation.Service
+	stop     context.CancelFunc
+	store    *database.AutomationRepository
 	db       *database.Handles
 	sensors  *fakeSensors
 	commands *fakeCommands
 	notifier *fakeNotifier
+	logger   *slog.Logger
 	lampID   int
 }
 
@@ -47,18 +50,31 @@ func newFixture(t *testing.T) *fixture {
 	require.NoError(t, err)
 
 	f := &fixture{
+		store:    database.NewAutomationRepository(handles, logger),
 		db:       handles,
 		sensors:  &fakeSensors{sensors: map[int]gen.Sensor{int(lampID): lamp(int(lampID))}},
-		commands: &fakeCommands{history: database.NewSensorCommandHistoryRepository(handles, logger)},
+		commands: &fakeCommands{history: database.NewSensorCommandHistoryRepository(handles, logger), awaited: make(map[int]chan string)},
 		notifier: &fakeNotifier{},
+		logger:   logger,
 		lampID:   int(lampID),
 	}
-	f.service = automation.NewService(database.NewAutomationRepository(handles, logger), f.sensors, f.commands, f.notifier, logger)
+	f.start(t)
+	return f
+}
 
+func (f *fixture) start(t *testing.T) {
+	t.Helper()
+	f.service = automation.NewService(f.store, f.sensors, f.commands, f.notifier, f.logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
+	f.stop = cancel
 	require.NoError(t, f.service.Start(ctx))
-	return f
+}
+
+func (f *fixture) restart(t *testing.T) {
+	t.Helper()
+	f.stop()
+	f.start(t)
 }
 
 func lamp(id int) gen.Sensor {
@@ -97,6 +113,10 @@ func setStep(sensorID int, property, value string) gen.AutomationStep {
 	return gen.AutomationStep{Type: gen.AutomationStepTypeSet, SensorId: &sensorID, Property: &property, Value: &value}
 }
 
+func waitStep(seconds int) gen.AutomationStep {
+	return gen.AutomationStep{Type: gen.AutomationStepTypeWait, Seconds: &seconds}
+}
+
 func (f *fixture) create(t *testing.T, triggers []gen.AutomationTrigger, steps ...gen.AutomationStep) gen.Automation {
 	t.Helper()
 	created, err := f.service.Create(context.Background(), gen.AutomationInput{Name: "Evening lights", Triggers: triggers, Steps: steps})
@@ -130,6 +150,18 @@ func (f *fixture) commandsInHistory(t *testing.T) int {
 	return count
 }
 
+// Not assert.Never, which checks on a goroutine that can still be reading the
+// database after the test has closed it.
+func (f *fixture) neverMoreCommandsThan(t *testing.T, limit int, message string) {
+	t.Helper()
+	for deadline := time.Now().Add(200 * time.Millisecond); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if f.commandsInHistory(t) > limit {
+			assert.Fail(t, message)
+			return
+		}
+	}
+}
+
 type fakeSensors struct {
 	mu      sync.Mutex
 	sensors map[int]gen.Sensor
@@ -159,6 +191,7 @@ type sentCommand struct {
 	property string
 	value    string
 	runID    int
+	at       time.Time
 	outcome  chan string
 }
 
@@ -168,6 +201,7 @@ type fakeCommands struct {
 	history *database.SensorCommandHistoryRepository
 	mu      sync.Mutex
 	sent    []sentCommand
+	awaited map[int]chan string
 	refuse  error
 }
 
@@ -184,9 +218,31 @@ func (f *fakeCommands) SendAsSystem(ctx context.Context, sensorID int, property,
 	if err != nil {
 		return 0, nil, err
 	}
-	command := sentCommand{id: id, sensorID: sensorID, property: property, value: value, runID: runID, outcome: make(chan string, 1)}
+	command := sentCommand{id: id, sensorID: sensorID, property: property, value: value, runID: runID, at: time.Now(), outcome: make(chan string, 1)}
 	f.sent = append(f.sent, command)
 	return id, command.outcome, nil
+}
+
+// A command sent before a restart gets a fresh channel, so that the stopped
+// run cannot take its outcome.
+func (f *fakeCommands) AwaitOutcome(_ context.Context, commandID int) (<-chan string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	outcome := make(chan string, 1)
+	f.awaited[commandID] = outcome
+	return outcome, nil
+}
+
+func (f *fakeCommands) awaitedOutcome(t *testing.T, commandID int) chan string {
+	t.Helper()
+	var outcome chan string
+	require.Eventually(t, func() bool {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		outcome = f.awaited[commandID]
+		return outcome != nil
+	}, 5*time.Second, 10*time.Millisecond, "command %d was never awaited", commandID)
+	return outcome
 }
 
 func (f *fakeCommands) count() int {
@@ -238,8 +294,7 @@ func TestRun_SendsEachSetStepOnlyAfterThePreviousIsAcknowledged(t *testing.T) {
 	first := f.commands.await(t, 0)
 	assert.Equal(t, "state", first.property)
 	assert.Equal(t, "ON", first.value)
-	assert.Never(t, func() bool { return f.commandsInHistory(t) > 1 }, 200*time.Millisecond, 10*time.Millisecond,
-		"the second step went out before the first was acknowledged")
+	f.neverMoreCommandsThan(t, 1, "the second step went out before the first was acknowledged")
 
 	first.outcome <- "acknowledged"
 	second := f.commands.await(t, 1)
@@ -401,6 +456,8 @@ func TestSave_RejectsAnInvalidAutomationNamingTheField(t *testing.T) {
 		{"a binary value that is neither on nor off", nil, func(id int) []gen.AutomationStep { return []gen.AutomationStep{setStep(id, "state", "MAYBE")} }, "steps[0].value"},
 		{"a numeric value above the maximum", nil, func(id int) []gen.AutomationStep { return []gen.AutomationStep{setStep(id, "brightness", "300")} }, "steps[0].value"},
 		{"an enum value outside the list", nil, func(id int) []gen.AutomationStep { return []gen.AutomationStep{setStep(id, "effect", "spin")} }, "steps[0].value"},
+		{"a wait under a second", nil, func(int) []gen.AutomationStep { return []gen.AutomationStep{waitStep(0)} }, "steps[0].seconds"},
+		{"a wait with no duration", nil, func(int) []gen.AutomationStep { return []gen.AutomationStep{{Type: gen.AutomationStepTypeWait}} }, "steps[0].seconds"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -463,8 +520,7 @@ func TestStatus_FollowsTheEnabledSwitchAndTheRuns(t *testing.T) {
 	assert.Nil(t, off.NextFireAt)
 
 	f.fire(created)
-	assert.Never(t, func() bool { return f.commandsInHistory(t) > 2 }, 200*time.Millisecond, 10*time.Millisecond,
-		"an automation that is off started a run")
+	f.neverMoreCommandsThan(t, 2, "an automation that is off started a run")
 }
 
 func TestTriggers_EitherStartsARunAndTwoDueTogetherStartOne(t *testing.T) {

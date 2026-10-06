@@ -29,7 +29,26 @@ function describeTrigger(trigger: AutomationTrigger): string {
   return `${trigger.at ?? '--:--'} ${describeDays(trigger.days ?? [])}`;
 }
 
-function describeStep({ sensor_id, property, value }: AutomationStep, sensorName: (id: number) => string): string {
+const durationUnits: readonly [number, string][] = [
+  [86_400, 'd'],
+  [3_600, 'h'],
+  [60, 'min'],
+  [1, 's'],
+];
+
+export function formatDuration(totalSeconds: number): string {
+  let rest = totalSeconds;
+  const parts: string[] = [];
+  for (const [size, unit] of durationUnits) {
+    const count = Math.floor(rest / size);
+    rest -= count * size;
+    if (count > 0) parts.push(`${count} ${unit}`);
+  }
+  return parts.slice(0, 2).join(' ') || '0 s';
+}
+
+function describeStep({ type, sensor_id, property, value, seconds }: AutomationStep, sensorName: (id: number) => string): string {
+  if (type === 'wait') return seconds === undefined ? 'wait' : `wait ${formatDuration(seconds)}`;
   if (sensor_id === undefined) return 'set a device';
   if (property === undefined) return `set ${sensorName(sensor_id)}`;
   return `set ${sensorName(sensor_id)} ${property} to ${value ?? '?'}`;
@@ -48,12 +67,16 @@ export function formatHubTime(iso: string, zone: string): string {
   return DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone).toFormat('ccc d LLL, HH:mm');
 }
 
-export function describeRun(run: AutomationRun): string {
+export function describeRun(run: AutomationRun, zone: string): string {
   const total = run.steps.length;
   const count = `${total} ${total === 1 ? 'step' : 'steps'}`;
   switch (run.status) {
     case 'running':
       return `on step ${Math.max(run.current_step, 1)} of ${total}`;
+    case 'waiting':
+      return `waiting · step ${run.current_step} of ${total}${run.resume_at ? ` · resumes ${formatHubTime(run.resume_at, zone)}` : ''}`;
+    case 'missed':
+      return `hub was down - ${formatDuration(run.past_grace_seconds ?? 0)} past the grace window`;
     case 'succeeded':
       return `${count} · all succeeded`;
     case 'failed':
@@ -71,12 +94,14 @@ export const automationStatus: Record<Automation['status'], { label: string; key
 
 export const runStatus: Record<AutomationRun['status'], StatusKey> = {
   running: 'info',
+  waiting: 'info',
   succeeded: 'ok',
   failed: 'bad',
+  missed: 'unknown',
 };
 
 const savedLists: Record<string, string> = { triggers: 'Trigger', steps: 'Step' };
-const savedFields: Record<string, string> = { at: 'time', days: 'weekdays', sensor_id: 'device' };
+const savedFields: Record<string, string> = { at: 'time', days: 'weekdays', sensor_id: 'device', seconds: 'wait' };
 
 // The API names the field as a 0-based JSON path, such as "steps[1].value"; the editor numbers cards from 1.
 export function readableSaveError(message: string): string {

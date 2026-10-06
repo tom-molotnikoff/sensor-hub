@@ -69,13 +69,16 @@ func triggerView(trigger Trigger) gen.AutomationTrigger {
 func stepViews(steps []Step) []gen.AutomationStep {
 	views := make([]gen.AutomationStep, 0, len(steps))
 	for _, step := range steps {
-		sensorID, property, value := step.SensorID, step.Property, step.Value
-		views = append(views, gen.AutomationStep{
-			Type:     gen.AutomationStepType(step.Kind),
-			SensorId: &sensorID,
-			Property: &property,
-			Value:    &value,
-		})
+		view := gen.AutomationStep{Type: gen.AutomationStepType(step.Kind)}
+		switch step.Kind {
+		case StepSet:
+			sensorID, property, value := step.SensorID, step.Property, step.Value
+			view.SensorId, view.Property, view.Value = &sensorID, &property, &value
+		case StepWait:
+			seconds := step.Seconds
+			view.Seconds = &seconds
+		}
+		views = append(views, view)
 	}
 	return views
 }
@@ -93,9 +96,12 @@ func runView(run Run) gen.AutomationRun {
 		StartedAt:    run.StartedAt.UTC(),
 		Error:        run.Error,
 	}
-	if run.FinishedAt != nil {
-		finished := run.FinishedAt.UTC()
-		view.FinishedAt = &finished
+	view.FinishedAt = utc(run.FinishedAt)
+	view.ResumeAt = utc(run.ResumeAt)
+	view.DueAt = utc(run.DueAt)
+	if run.PastGrace != nil {
+		seconds := int(run.PastGrace.Seconds())
+		view.PastGraceSeconds = &seconds
 	}
 	for _, step := range run.StepOutcomes {
 		outcome := gen.AutomationRunStep{
@@ -105,11 +111,16 @@ func runView(run Run) gen.AutomationRun {
 			CommandId: step.CommandID,
 			StartedAt: step.StartedAt.UTC(),
 		}
-		if step.FinishedAt != nil {
-			finished := step.FinishedAt.UTC()
-			outcome.FinishedAt = &finished
-		}
+		outcome.FinishedAt = utc(step.FinishedAt)
 		view.StepOutcomes = append(view.StepOutcomes, outcome)
 	}
 	return view
+}
+
+func utc(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	converted := t.UTC()
+	return &converted
 }

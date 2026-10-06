@@ -2547,16 +2547,21 @@ export interface components {
              */
             days?: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[];
         };
-        /** @description One step of a run. A "set" step sends a command to a writable capability of a sensor and waits for the device to acknowledge it. */
+        /** @description One step of a run. A "set" step sends a command to a writable capability of a sensor and waits for the device to acknowledge it. A "wait" step pauses the run, and the pause survives a hub restart. */
         AutomationStep: {
             /** @enum {string} */
-            type: "set";
+            type: "set" | "wait";
             /** @description Sensor to command. Set steps only. */
             sensor_id?: number;
             /** @description Writable capability property, as on POST /sensors/{id}/command. Set steps only. */
             property?: string;
             /** @description Value to send, as on POST /sensors/{id}/command. Checked against the capability (binary value_on/value_off, numeric min/max, enum values) when saved and again when the step runs. Set steps only. */
             value?: string;
+            /**
+             * @description How long to wait, at least 1. There is no maximum. Wait steps only.
+             * @example 14400
+             */
+            seconds?: number;
         };
         /**
          * @description An automation as sent on create and update. Any trigger starts a run, and the steps run in order.
@@ -2588,6 +2593,16 @@ export interface components {
          *           "sensor_id": 14,
          *           "property": "brightness",
          *           "value": "150"
+         *         },
+         *         {
+         *           "type": "wait",
+         *           "seconds": 14400
+         *         },
+         *         {
+         *           "type": "set",
+         *           "sensor_id": 14,
+         *           "property": "state",
+         *           "value": "OFF"
          *         }
          *       ]
          *     }
@@ -2609,7 +2624,7 @@ export interface components {
             triggers: components["schemas"]["AutomationTrigger"][];
             steps: components["schemas"]["AutomationStep"][];
             /**
-             * @description "off" when switched off, "running" while a run is in progress, otherwise "armed".
+             * @description "off" when switched off, "running" while a run is running or waiting, otherwise "armed".
              * @enum {string}
              */
             status: "off" | "armed" | "running";
@@ -2643,8 +2658,11 @@ export interface components {
             trigger_id?: number | null;
             /** @enum {string} */
             trigger_kind: "schedule";
-            /** @enum {string} */
-            status: "running" | "succeeded" | "failed";
+            /**
+             * @description "running" or "waiting" while active, then "succeeded" or "failed". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started.
+             * @enum {string}
+             */
+            status: "running" | "waiting" | "succeeded" | "failed" | "missed";
             /** @description Position of the step the run is on, or ended on, counting from 1. 0 before the first step starts. */
             current_step: number;
             /** @description The automation's steps as they were when the run started. */
@@ -2654,6 +2672,18 @@ export interface components {
             started_at: string;
             /** Format: date-time */
             finished_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When a waiting run carries on with its next step.
+             */
+            resume_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When the trigger of a missed run came due.
+             */
+            due_at?: string | null;
+            /** @description How long after the end of the grace window the hub started, for a missed run. */
+            past_grace_seconds?: number | null;
             /** @description Why the run failed, naming the step. */
             error?: string | null;
         };
@@ -2662,7 +2692,7 @@ export interface components {
             /** @description Position of the step, counting from 1. */
             position: number;
             /** @enum {string} */
-            kind: "set";
+            kind: "set" | "wait";
             /** @enum {string} */
             outcome: "running" | "succeeded" | "failed";
             /** @description The command a set step sent, in the sensor's command history. */

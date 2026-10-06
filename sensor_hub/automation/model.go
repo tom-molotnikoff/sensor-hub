@@ -11,14 +11,19 @@ const TriggerSchedule TriggerKind = "schedule"
 
 type StepKind string
 
-const StepSet StepKind = "set"
+const (
+	StepSet  StepKind = "set"
+	StepWait StepKind = "wait"
+)
 
 type RunStatus string
 
 const (
 	RunRunning   RunStatus = "running"
+	RunWaiting   RunStatus = "waiting"
 	RunSucceeded RunStatus = "succeeded"
 	RunFailed    RunStatus = "failed"
+	RunMissed    RunStatus = "missed"
 )
 
 type StepOutcome string
@@ -43,9 +48,10 @@ type Automation struct {
 }
 
 type Trigger struct {
-	ID       int
-	Kind     TriggerKind
-	Schedule *Schedule
+	ID        int
+	Kind      TriggerKind
+	Schedule  *Schedule
+	NextDueAt *time.Time
 }
 
 // A Step's JSON form is the API body's step shape, which is also how a run
@@ -55,6 +61,11 @@ type Step struct {
 	SensorID int      `json:"sensor_id,omitempty"`
 	Property string   `json:"property,omitempty"`
 	Value    string   `json:"value,omitempty"`
+	Seconds  int      `json:"seconds,omitempty"`
+}
+
+func (s Step) Wait() time.Duration {
+	return time.Duration(s.Seconds) * time.Second
 }
 
 type Run struct {
@@ -67,6 +78,9 @@ type Run struct {
 	Steps        []Step
 	StartedAt    time.Time
 	FinishedAt   *time.Time
+	ResumeAt     *time.Time
+	DueAt        *time.Time
+	PastGrace    *time.Duration
 	Error        *string
 	StepOutcomes []RunStep
 }

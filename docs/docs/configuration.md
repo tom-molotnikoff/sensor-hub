@@ -61,6 +61,10 @@ If the page cannot load the property definitions, it still lists and saves every
 
 `hub.timezone` is the zone [automation](automations) schedules run in, as an IANA zone name such as `Europe/London`. A change applies straight away. Its default is the server's own zone, or `UTC` when the server's zone has no IANA name, as in many Docker images. A value that is not a zone name Sensor Hub can load is rejected.
 
+### Missed trigger grace window
+
+`automation.missed.grace.minutes` decides what happens to an [automation](automations#restarts-and-the-grace-window) trigger that came due while the hub was down. When the hub starts no more than this many minutes after the trigger's due time, the run starts on startup. A trigger later than that is recorded as a `missed` run and does not run. The default is `10`. A change applies the next time the hub starts.
+
 ### Readings aggregation
 
 Readings aggregation is controlled by the `readings.aggregation.*` properties. Tier values use ISO 8601 durations in `THRESHOLD:INTERVAL` format. The special interval `raw` means no aggregation. Tiers are evaluated in ascending order - the first tier whose threshold is >= the query span is used. Queries exceeding all thresholds fall back to `P1D` buckets. See the [auto-aggregation developer docs](development/auto-aggregation.md) for details.

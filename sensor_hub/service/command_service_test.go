@@ -3,11 +3,15 @@ package service
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"example/sensorHub/actuation"
+	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 
@@ -41,6 +45,11 @@ type mockCommandHistoryRepository struct{ mock.Mock }
 func (m *mockCommandHistoryRepository) HasPendingCommand(ctx context.Context, sensorID int, property string) (bool, error) {
 	args := m.Called(ctx, sensorID, property)
 	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockCommandHistoryRepository) CommandStatus(ctx context.Context, id int) (string, error) {
+	args := m.Called(ctx, id)
+	return args.String(0), args.Error(1)
 }
 
 func (m *mockCommandHistoryRepository) AddSentCommand(ctx context.Context, command database.NewCommand) (int, error) {
@@ -146,6 +155,10 @@ func (f *fakeCommandLifecycle) RecoverPending(context.Context) error {
 	return nil
 }
 
+func (f *fakeCommandLifecycle) Await(int) (<-chan string, bool) {
+	return nil, false
+}
+
 func controllableOfficePlug() *gen.Sensor {
 	return &gen.Sensor{
 		Id:           7,
@@ -226,6 +239,48 @@ func TestCommandService_SendAsSystem_RecordsTheRunAndNoUser(t *testing.T) {
 	require.Len(t, lifecycle.tracked, 1)
 	assert.Equal(t, actuation.CommandStatusAcknowledged, <-outcome)
 	historyRepo.AssertExpectations(t)
+}
+
+type discardCommandStatus struct{}
+
+func (discardCommandStatus) BroadcastCommandStatus(actuation.CommandStatusMessage) {}
+
+func TestCommandService_AwaitOutcome_GivesACommandThatAlreadySettledItsStatus(t *testing.T) {
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handles, err := database.Open(&appProps.ApplicationConfiguration{
+		DatabasePath:              filepath.Join(t.TempDir(), "commands.db"),
+		DatabaseReaderConnections: 2,
+	}, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { handles.Close() })
+	result, err := handles.Writer.Exec("INSERT INTO sensors (name, sensor_driver, config) VALUES ('office-plug', 'mqtt-zigbee2mqtt', '{}')")
+	require.NoError(t, err)
+	sensorID, err := result.LastInsertId()
+	require.NoError(t, err)
+	historyRepo := database.NewSensorCommandHistoryRepository(handles, logger)
+	commandID, err := historyRepo.AddSentCommand(ctx, database.NewCommand{
+		SensorID:       int(sensorID),
+		Property:       "state",
+		Value:          "ON",
+		MQTTTopic:      "zigbee2mqtt/office-plug/set",
+		MQTTPayload:    `{"state":"ON"}`,
+		TimeoutSeconds: 10,
+		SentAt:         time.Now().UTC(),
+	})
+	require.NoError(t, err)
+	_, err = historyRepo.MarkTimedOut(ctx, commandID)
+	require.NoError(t, err)
+
+	tracker := actuation.NewCommandTracker(historyRepo, discardCommandStatus{}, logger)
+	t.Cleanup(tracker.Close)
+	require.NoError(t, tracker.RecoverPending(ctx))
+	service := NewCommandService(nil, nil, historyRepo, nil, tracker, logger)
+
+	outcome, err := service.AwaitOutcome(ctx, commandID)
+
+	require.NoError(t, err)
+	assert.Equal(t, actuation.CommandStatusTimedOut, <-outcome)
 }
 
 func TestCommandService_GetHistory_ReturnsLatestEntriesFromRepository(t *testing.T) {
