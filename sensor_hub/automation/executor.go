@@ -265,8 +265,6 @@ func verdict(name string, status string) string {
 	}
 }
 
-// finish returns false when the run was cancelled or deleted before it could
-// finish, and then records nothing.
 func (e *executor) finish(ctx context.Context, logger *slog.Logger, run Run, status RunStatus, message *string) bool {
 	err := e.store.FinishRun(ctx, run.ID, status, message, e.now())
 	if errors.Is(err, ErrRunGone) {

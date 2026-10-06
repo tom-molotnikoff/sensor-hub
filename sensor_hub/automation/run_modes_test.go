@@ -95,7 +95,7 @@ func TestMode_SingleRecordsASkippedRunAndTheActiveRunCarriesOn(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return f.run(t, created.Id, waiting.Id).Status == gen.AutomationRunStatusSucceeded
 	}, 5*time.Second, 10*time.Millisecond, "the active run did not carry on")
-	assert.Equal(t, 3, f.commands.count())
+	assert.Equal(t, 3, f.commandsInHistory(t))
 }
 
 func TestMode_RestartCancelsTheActiveRunAndStartsOverFromStepOne(t *testing.T) {
