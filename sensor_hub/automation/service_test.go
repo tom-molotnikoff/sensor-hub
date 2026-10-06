@@ -124,6 +124,14 @@ func (f *fixture) latestRun(t *testing.T, automationID int, status gen.Automatio
 	return run
 }
 
+// commandsInHistory counts the lamp's commands in command history.
+func (f *fixture) commandsInHistory(t *testing.T) int {
+	t.Helper()
+	var count int
+	assert.NoError(t, f.db.Reader.QueryRow("SELECT COUNT(*) FROM sensor_command_history WHERE sensor_id = ?", f.lampID).Scan(&count))
+	return count
+}
+
 type fakeSensors struct {
 	mu      sync.Mutex
 	sensors map[int]gen.Sensor
@@ -232,7 +240,7 @@ func TestRun_SendsEachSetStepOnlyAfterThePreviousIsAcknowledged(t *testing.T) {
 	first := f.commands.await(t, 0)
 	assert.Equal(t, "state", first.property)
 	assert.Equal(t, "ON", first.value)
-	assert.Never(t, func() bool { return f.commands.count() > 1 }, 200*time.Millisecond, 10*time.Millisecond,
+	assert.Never(t, func() bool { return f.commandsInHistory(t) > 1 }, 200*time.Millisecond, 10*time.Millisecond,
 		"the second step went out before the first was acknowledged")
 
 	first.outcome <- "acknowledged"
@@ -284,7 +292,7 @@ func TestRun_AFailedStepEndsTheRunAndNotifiesAutomationManagers(t *testing.T) {
 	assert.Contains(t, *run.Error, "did not acknowledge")
 	require.Len(t, run.StepOutcomes, 1, "no step after the failed one runs")
 	assert.Equal(t, gen.AutomationRunStepOutcomeFailed, run.StepOutcomes[0].Outcome)
-	assert.Equal(t, 1, f.commands.count())
+	assert.Equal(t, 1, f.commandsInHistory(t))
 
 	sent := f.notifier.all()
 	require.Len(t, sent, 1)
@@ -348,7 +356,7 @@ func TestRun_AStepThatCannotBeSentFailsWithoutRetrying(t *testing.T) {
 			run := f.latestRun(t, created.Id, gen.AutomationRunStatusFailed)
 			require.NotNil(t, run.Error)
 			assert.Contains(t, *run.Error, tt.reason)
-			assert.Equal(t, 0, f.commands.count())
+			assert.Equal(t, 0, f.commandsInHistory(t))
 			assert.Len(t, f.notifier.all(), 1)
 		})
 	}
@@ -457,7 +465,7 @@ func TestStatus_FollowsTheEnabledSwitchAndTheRuns(t *testing.T) {
 	assert.Nil(t, off.NextFireAt)
 
 	f.fire(created)
-	assert.Never(t, func() bool { return f.commands.count() > 2 }, 200*time.Millisecond, 10*time.Millisecond,
+	assert.Never(t, func() bool { return f.commandsInHistory(t) > 2 }, 200*time.Millisecond, 10*time.Millisecond,
 		"an automation that is off started a run")
 }
 

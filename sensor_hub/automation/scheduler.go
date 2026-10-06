@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const maxSleep = time.Minute
+
 // scheduler holds a due time per key in a min-heap and sleeps on one timer
 // until the earliest, then hands each due key to fire. Keys are trigger IDs.
 type scheduler struct {
@@ -78,7 +80,10 @@ func (s *scheduler) run(ctx context.Context, healthy func()) {
 		var timer *time.Timer
 		var timerC <-chan time.Time
 		if earliest, ok := s.earliest(); ok {
-			timer = time.NewTimer(max(earliest.Sub(s.now()), 0))
+			// Timers measure elapsed time, not the wall clock, so a clock
+			// that jumps forward would make a long sleep end late. Waking at
+			// least once a minute re-reads the clock.
+			timer = time.NewTimer(min(max(earliest.Sub(s.now()), 0), maxSleep))
 			timerC = timer.C
 		}
 

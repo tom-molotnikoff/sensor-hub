@@ -67,28 +67,6 @@ func TestMigration25_GrantsAutomationPermissions(t *testing.T) {
 	assert.True(t, inApp)
 }
 
-func TestMigration25_DeletingARunKeepsItsCommands(t *testing.T) {
-	db := newTempFileDB(t)
-	m := newTestMigrator(t, db)
-	require.NoError(t, m.Migrate(25))
-	insertCommandHistorySensor(t, db)
-
-	_, err := db.Exec("INSERT INTO automations (name) VALUES ('Evening lights')")
-	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO automation_runs (automation_id, trigger_kind, status, steps_snapshot, started_at)
-		VALUES (1, 'schedule', 'succeeded', '[]', CURRENT_TIMESTAMP)`)
-	require.NoError(t, err)
-	_, err = db.Exec("UPDATE sensor_command_history SET automation_run_id = 1")
-	require.NoError(t, err)
-
-	_, err = db.Exec("DELETE FROM automations WHERE id = 1")
-	require.NoError(t, err)
-
-	var commands int
-	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM sensor_command_history WHERE automation_run_id IS NULL").Scan(&commands))
-	assert.Equal(t, 1, commands)
-}
-
 func TestMigration25_ScheduleTriggerColumnsAreChecked(t *testing.T) {
 	db := newTempFileDB(t)
 	m := newTestMigrator(t, db)

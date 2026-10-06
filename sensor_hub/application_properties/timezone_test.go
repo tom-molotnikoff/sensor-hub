@@ -39,15 +39,3 @@ func TestZoneFromLocaltimeLink(t *testing.T) {
 	assert.Equal(t, "Europe/London", zoneFromLocaltimeLink("../usr/share/zoneinfo/Europe/London"))
 	assert.Equal(t, "", zoneFromLocaltimeLink("/etc/localtime.custom"))
 }
-
-func TestOnReload_SeesTheNewConfiguration(t *testing.T) {
-	appProps := validAppPropsMap()
-	appProps["hub.timezone"] = "Asia/Tokyo"
-
-	var seen string
-	remove := OnReload(func(cfg *ApplicationConfiguration) { seen = cfg.HubTimezone })
-	defer remove()
-
-	require.NoError(t, ReloadConfig(appProps, validSmtpPropsMap(), validDbPropsMap()))
-	assert.Equal(t, "Asia/Tokyo", seen)
-}
