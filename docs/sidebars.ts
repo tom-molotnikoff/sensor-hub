@@ -20,6 +20,7 @@ const sidebars: SidebarsConfig = {
       ],
     },
     'alerts-and-notifications',
+    'automations',
     'session-management',
     'user-management',
     'dashboards',

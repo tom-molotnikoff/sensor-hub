@@ -43,9 +43,28 @@ func (m *mockCommandHistoryRepository) HasPendingCommand(ctx context.Context, se
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *mockCommandHistoryRepository) AddSentCommand(ctx context.Context, sensorID int, userID *int, property string, value string, mqttTopic string, mqttPayload string, timeoutSeconds int, sentAt time.Time) (int, error) {
-	args := m.Called(ctx, sensorID, userID, property, value, mqttTopic, mqttPayload, timeoutSeconds, sentAt)
+func (m *mockCommandHistoryRepository) AddSentCommand(ctx context.Context, command database.NewCommand) (int, error) {
+	args := m.Called(ctx, command)
 	return args.Int(0), args.Error(1)
+}
+
+// officePlugCommand matches the "state ON" command to office-plug sent by
+// the given actor, whenever it was sent.
+func officePlugCommand(userID *int, automationRunID *int) interface{} {
+	want := database.NewCommand{
+		SensorID:        7,
+		UserID:          userID,
+		AutomationRunID: automationRunID,
+		Property:        "state",
+		Value:           "ON",
+		MQTTTopic:       "zigbee2mqtt/office-plug/set",
+		MQTTPayload:     `{"state":"ON"}`,
+		TimeoutSeconds:  10,
+	}
+	return mock.MatchedBy(func(got database.NewCommand) bool {
+		got.SentAt = time.Time{}
+		return assert.ObjectsAreEqual(want, got)
+	})
 }
 
 func (m *mockCommandHistoryRepository) MarkAcknowledged(ctx context.Context, id int, acknowledgedValue string, acknowledgedAt time.Time) (bool, error) {
@@ -114,8 +133,11 @@ type fakeCommandLifecycle struct {
 	failed  []database.PendingCommandRecord
 }
 
-func (f *fakeCommandLifecycle) Track(_ context.Context, command database.PendingCommandRecord) {
+func (f *fakeCommandLifecycle) Track(_ context.Context, command database.PendingCommandRecord) <-chan string {
 	f.tracked = append(f.tracked, command)
+	outcome := make(chan string, 1)
+	outcome <- actuation.CommandStatusAcknowledged
+	return outcome
 }
 
 func (f *fakeCommandLifecycle) MarkFailed(_ context.Context, command database.PendingCommandRecord) {
@@ -126,21 +148,8 @@ func (f *fakeCommandLifecycle) RecoverPending(context.Context) error {
 	return nil
 }
 
-func newCommandServiceForTest(sensorRepo CommandSensorRepository, subRepo CommandSubscriptionRepository, historyRepo CommandHistoryRepository, publisher CommandPublisher, lifecycle *fakeCommandLifecycle) (*CommandService, *fakeCommandLifecycle) {
-	if lifecycle == nil {
-		lifecycle = &fakeCommandLifecycle{}
-	}
-	return NewCommandService(sensorRepo, subRepo, historyRepo, publisher, lifecycle, nil), lifecycle
-}
-
-func TestCommandService_Send_PublishesAndPersistsSentCommand(t *testing.T) {
-	sensorRepo := &mockCommandSensorRepository{}
-	subRepo := &mockCommandSubscriptionRepository{}
-	historyRepo := &mockCommandHistoryRepository{}
-	publisher := &mockCommandPublisher{}
-	svc, lifecycle := newCommandServiceForTest(sensorRepo, subRepo, historyRepo, publisher, nil)
-
-	sensor := &gen.Sensor{
+func controllableOfficePlug() *gen.Sensor {
+	return &gen.Sensor{
 		Id:           7,
 		Name:         "office-plug",
 		SensorDriver: "mqtt-zigbee2mqtt",
@@ -158,6 +167,23 @@ func TestCommandService_Send_PublishesAndPersistsSentCommand(t *testing.T) {
 			},
 		},
 	}
+}
+
+func newCommandServiceForTest(sensorRepo CommandSensorRepository, subRepo CommandSubscriptionRepository, historyRepo CommandHistoryRepository, publisher CommandPublisher, lifecycle *fakeCommandLifecycle) (*CommandService, *fakeCommandLifecycle) {
+	if lifecycle == nil {
+		lifecycle = &fakeCommandLifecycle{}
+	}
+	return NewCommandService(sensorRepo, subRepo, historyRepo, publisher, lifecycle, nil), lifecycle
+}
+
+func TestCommandService_Send_PublishesAndPersistsSentCommand(t *testing.T) {
+	sensorRepo := &mockCommandSensorRepository{}
+	subRepo := &mockCommandSubscriptionRepository{}
+	historyRepo := &mockCommandHistoryRepository{}
+	publisher := &mockCommandPublisher{}
+	svc, lifecycle := newCommandServiceForTest(sensorRepo, subRepo, historyRepo, publisher, nil)
+
+	sensor := controllableOfficePlug()
 	userID := 99
 	actor := &gen.User{Id: userID, Permissions: []string{"control_sensors"}}
 	sub := gen.MQTTSubscription{BrokerId: 12, DriverType: "mqtt-zigbee2mqtt", Enabled: true}
@@ -166,17 +192,7 @@ func TestCommandService_Send_PublishesAndPersistsSentCommand(t *testing.T) {
 	subRepo.On("ListEnabledByDriverType", mock.Anything, "mqtt-zigbee2mqtt").Return([]gen.MQTTSubscription{sub}, nil)
 	historyRepo.On("HasPendingCommand", mock.Anything, 7, "state").Return(false, nil)
 	publisher.On("Publish", 12, "zigbee2mqtt/office-plug/set", []byte(`{"state":"ON"}`), byte(1)).Return(nil)
-	historyRepo.On("AddSentCommand",
-		mock.Anything,
-		7,
-		&userID,
-		"state",
-		"ON",
-		"zigbee2mqtt/office-plug/set",
-		`{"state":"ON"}`,
-		10,
-		mock.AnythingOfType("time.Time"),
-	).Return(42, nil)
+	historyRepo.On("AddSentCommand", mock.Anything, officePlugCommand(&userID, nil)).Return(42, nil)
 
 	result, err := svc.Send(context.Background(), 7, actor, "state", "ON")
 
@@ -189,6 +205,29 @@ func TestCommandService_Send_PublishesAndPersistsSentCommand(t *testing.T) {
 	}, result)
 	require.Len(t, lifecycle.tracked, 1)
 	assert.Equal(t, 42, lifecycle.tracked[0].ID)
+}
+
+func TestCommandService_SendAsSystem_RecordsTheRunAndNoUser(t *testing.T) {
+	sensorRepo := &mockCommandSensorRepository{}
+	subRepo := &mockCommandSubscriptionRepository{}
+	historyRepo := &mockCommandHistoryRepository{}
+	publisher := &mockCommandPublisher{}
+	svc, lifecycle := newCommandServiceForTest(sensorRepo, subRepo, historyRepo, publisher, nil)
+
+	sensorRepo.On("GetSensorById", mock.Anything, 7).Return(controllableOfficePlug(), nil)
+	subRepo.On("ListEnabledByDriverType", mock.Anything, "mqtt-zigbee2mqtt").Return([]gen.MQTTSubscription{{BrokerId: 12, DriverType: "mqtt-zigbee2mqtt", Enabled: true}}, nil)
+	historyRepo.On("HasPendingCommand", mock.Anything, 7, "state").Return(false, nil)
+	publisher.On("Publish", 12, "zigbee2mqtt/office-plug/set", []byte(`{"state":"ON"}`), byte(1)).Return(nil)
+	runID := 31
+	historyRepo.On("AddSentCommand", mock.Anything, officePlugCommand(nil, &runID)).Return(42, nil)
+
+	commandID, outcome, err := svc.SendAsSystem(context.Background(), 7, "state", "ON", runID)
+
+	require.NoError(t, err)
+	assert.Equal(t, 42, commandID)
+	require.Len(t, lifecycle.tracked, 1)
+	assert.Equal(t, actuation.CommandStatusAcknowledged, <-outcome)
+	historyRepo.AssertExpectations(t)
 }
 
 func TestCommandService_GetHistory_ReturnsLatestEntriesFromRepository(t *testing.T) {
@@ -411,17 +450,7 @@ func TestCommandService_Send_BrokerDisconnected(t *testing.T) {
 	}}, nil)
 	historyRepo.On("HasPendingCommand", mock.Anything, 7, "state").Return(false, nil)
 	userID := 5
-	historyRepo.On("AddSentCommand",
-		mock.Anything,
-		7,
-		&userID,
-		"state",
-		"ON",
-		"zigbee2mqtt/office-plug/set",
-		`{"state":"ON"}`,
-		10,
-		mock.AnythingOfType("time.Time"),
-	).Return(42, nil)
+	historyRepo.On("AddSentCommand", mock.Anything, officePlugCommand(&userID, nil)).Return(42, nil)
 	publisher.On("Publish", 12, "zigbee2mqtt/office-plug/set", []byte(`{"state":"ON"}`), byte(1)).Return(errors.New("broker 12 is not connected"))
 	historyRepo.On("MarkFailed", mock.Anything, 42).Return(true, nil)
 
@@ -466,17 +495,7 @@ func TestCommandService_Send_SkipsDisconnectedSubscriptionAndPublishesToNext(t *
 	publisher.On("Publish", 12, "zigbee2mqtt/office-plug/set", []byte(`{"state":"ON"}`), byte(1)).Return(errors.New("broker 12 is not connected"))
 	publisher.On("Publish", 18, "zigbee2mqtt/office-plug/set", []byte(`{"state":"ON"}`), byte(1)).Return(nil)
 	userID := 5
-	historyRepo.On("AddSentCommand",
-		mock.Anything,
-		7,
-		&userID,
-		"state",
-		"ON",
-		"zigbee2mqtt/office-plug/set",
-		`{"state":"ON"}`,
-		10,
-		mock.AnythingOfType("time.Time"),
-	).Return(42, nil)
+	historyRepo.On("AddSentCommand", mock.Anything, officePlugCommand(&userID, nil)).Return(42, nil)
 
 	result, err := svc.Send(context.Background(), 7, &gen.User{Id: userID, Permissions: []string{"control_sensors"}}, "state", "ON")
 
@@ -517,17 +536,7 @@ func TestCommandService_Send_PublishFailureMarksCommandFailed(t *testing.T) {
 	}}, nil)
 	historyRepo.On("HasPendingCommand", mock.Anything, 7, "state").Return(false, nil)
 	userID := 5
-	historyRepo.On("AddSentCommand",
-		mock.Anything,
-		7,
-		&userID,
-		"state",
-		"ON",
-		"zigbee2mqtt/office-plug/set",
-		`{"state":"ON"}`,
-		10,
-		mock.AnythingOfType("time.Time"),
-	).Return(42, nil)
+	historyRepo.On("AddSentCommand", mock.Anything, officePlugCommand(&userID, nil)).Return(42, nil)
 	publisher.On("Publish", 12, "zigbee2mqtt/office-plug/set", []byte(`{"state":"ON"}`), byte(1)).Return(errors.New("publish exploded"))
 	historyRepo.On("MarkFailed", mock.Anything, 42).Return(true, nil)
 

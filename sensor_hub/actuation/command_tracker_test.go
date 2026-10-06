@@ -29,12 +29,13 @@ func TestAckOnReading_MarksAcknowledged(t *testing.T) {
 	tracker.now = func() time.Time { return now }
 	defer tracker.Close()
 
-	tracker.Track(context.Background(), repo.mustGet(42))
+	outcome := tracker.Track(context.Background(), repo.mustGet(42))
 	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, []gen.Reading{{
 		MeasurementType: "state",
 		TextState:       ptrString("OFF"),
 	}})
 
+	assert.Equal(t, CommandStatusAcknowledged, <-outcome)
 	command := repo.mustGet(42)
 	require.Equal(t, CommandStatusAcknowledged, command.Status)
 	require.NotNil(t, command.AcknowledgedAt)
@@ -66,12 +67,13 @@ func TestAckTimeout_MarksTimedOut(t *testing.T) {
 		return func() {}
 	}
 
-	tracker.Track(context.Background(), repo.mustGet(43))
+	outcome := tracker.Track(context.Background(), repo.mustGet(43))
 
 	require.Eventually(t, func() bool {
 		command := repo.mustGet(43)
 		return command.Status == CommandStatusTimedOut && len(broadcaster.messages) == 1
 	}, time.Second, 10*time.Millisecond)
+	assert.Equal(t, CommandStatusTimedOut, <-outcome)
 
 	assert.Equal(t, "command_status", broadcaster.messages[0].Type)
 	assert.Equal(t, CommandStatusTimedOut, broadcaster.messages[0].Status)

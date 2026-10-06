@@ -15,6 +15,7 @@ const CATEGORIES: CategoryConfig[] = [
   { category: 'threshold_alert', label: 'Threshold Alerts', description: 'Notifications when sensor readings exceed configured thresholds' },
   { category: 'user_management', label: 'User Management', description: 'Notifications about user creation, deletion, and role changes' },
   { category: 'config_change', label: 'Configuration Changes', description: 'Notifications when sensors are added, updated, or removed' },
+  { category: 'automation_failure', label: 'Automation Failures', description: 'Notifications when a step of an automation run fails' },
 ];
 
 function buildPrefMap(preferences: ChannelPreference[]): Record<NotificationCategory, ChannelPreference> {

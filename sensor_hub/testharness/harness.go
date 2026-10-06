@@ -20,6 +20,7 @@ import (
 	"example/sensorHub/api"
 	"example/sensorHub/api/middleware"
 	appProps "example/sensorHub/application_properties"
+	"example/sensorHub/automation"
 	database "example/sensorHub/db"
 	_ "example/sensorHub/drivers" // register sensor drivers
 	mqttpkg "example/sensorHub/mqtt"
@@ -189,6 +190,7 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		cleanupDir()
 		return nil, func() {}, fmt.Errorf("failed to recover pending commands: %w", err)
 	}
+	automationService := automation.NewService(database.NewAutomationRepository(db, logger), sensorService, commandService, notificationService, logger)
 
 	server := api.NewServer(
 		sensorService,
@@ -205,6 +207,7 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		mqttService,
 		nil, // no OAuth in tests
 		connManager,
+		automationService,
 	)
 
 	gin.SetMode(gin.TestMode)
@@ -237,9 +240,19 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		propertiesService.BroadcastProperties(context.Background())
 	})
 
+	automationCtx, stopAutomations := context.WithCancel(context.Background())
+	if err := automationService.Start(automationCtx); err != nil {
+		stopAutomations()
+		stopWatcher()
+		db.Close()
+		cleanupDir()
+		return nil, func() {}, fmt.Errorf("failed to start automations: %w", err)
+	}
+
 	cleanup := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		stopAutomations()
 		stopWatcher()
 		connManager.Stop()
 		srv.Shutdown(ctx)

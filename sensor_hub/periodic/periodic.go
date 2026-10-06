@@ -33,28 +33,38 @@ const (
 // On panic the goroutine logs the stack trace, backs off exponentially, and restarts.
 // The goroutine exits cleanly when ctx is cancelled.
 func RunTask(ctx context.Context, cfg TaskConfig, task func(ctx context.Context) error) {
+	Supervise(ctx, cfg.Name, cfg.Logger, func(ctx context.Context, healthy func()) {
+		runLoop(ctx, cfg, task, healthy)
+	})
+}
+
+// Supervise runs loop in a goroutine and, whenever it panics, logs the stack
+// trace, backs off exponentially and runs it again. loop should run until ctx
+// is cancelled, and call healthy after each piece of useful work so that the
+// backoff for a later panic starts from the beginning again.
+func Supervise(ctx context.Context, name string, logger *slog.Logger, loop func(ctx context.Context, healthy func())) {
 	go func() {
 		consecutivePanics := 0
+		healthy := func() { consecutivePanics = 0 }
 		for {
-			stopped := runLoop(ctx, cfg, task, &consecutivePanics)
-			if stopped {
+			if !runRecovered(ctx, name, logger, loop, healthy) {
 				return
 			}
+			consecutivePanics++
 
-			// We only reach here after a panic recovery. Back off before restarting.
 			backoff := time.Duration(float64(initialBackoff) * math.Pow(2, float64(consecutivePanics-1)))
 			if backoff > maxBackoff {
 				backoff = maxBackoff
 			}
-			cfg.Logger.Error("restarting periodic task after backoff",
-				"task", cfg.Name,
+			logger.Error("restarting supervised task after backoff",
+				"task", name,
 				"backoff", backoff.String(),
 				"consecutive_panics", consecutivePanics,
 			)
 
 			select {
 			case <-ctx.Done():
-				cfg.Logger.Info("periodic task stopping during backoff", "task", cfg.Name, "reason", ctx.Err())
+				logger.Info("supervised task stopping during backoff", "task", name, "reason", ctx.Err())
 				return
 			case <-time.After(backoff):
 			}
@@ -62,26 +72,27 @@ func RunTask(ctx context.Context, cfg TaskConfig, task func(ctx context.Context)
 	}()
 }
 
-// runLoop runs the tick loop. It returns true if ctx was cancelled (clean
-// shutdown) or false if the loop exited due to a recovered panic.
-func runLoop(ctx context.Context, cfg TaskConfig, task func(ctx context.Context) error, consecutivePanics *int) (stopped bool) {
+// runRecovered runs loop and reports whether it ended in a panic.
+func runRecovered(ctx context.Context, name string, logger *slog.Logger, loop func(ctx context.Context, healthy func()), healthy func()) (panicked bool) {
 	defer func() {
 		if r := recover(); r != nil {
-			*consecutivePanics++
-			cfg.Logger.Error("periodic task panicked",
-				"task", cfg.Name,
+			logger.Error("supervised task panicked",
+				"task", name,
 				"panic", fmt.Sprintf("%v", r),
 				"stack", string(debug.Stack()),
-				"consecutive_panics", *consecutivePanics,
 			)
-			stopped = false
+			panicked = true
 		}
 	}()
+	loop(ctx, healthy)
+	return false
+}
 
+func runLoop(ctx context.Context, cfg TaskConfig, task func(ctx context.Context) error, healthy func()) {
 	cfg.Logger.Info("periodic task started", "task", cfg.Name, "interval", clamped(cfg.Interval()).String())
 
 	if cfg.RunImmediately {
-		executeTask(ctx, cfg, task, consecutivePanics)
+		executeTask(ctx, cfg, task, healthy)
 	}
 
 	for {
@@ -90,9 +101,9 @@ func runLoop(ctx context.Context, cfg TaskConfig, task func(ctx context.Context)
 		case <-ctx.Done():
 			timer.Stop()
 			cfg.Logger.Info("periodic task stopping", "task", cfg.Name, "reason", ctx.Err())
-			return true
+			return
 		case <-timer.C:
-			executeTask(ctx, cfg, task, consecutivePanics)
+			executeTask(ctx, cfg, task, healthy)
 		}
 	}
 }
@@ -120,12 +131,12 @@ func clamped(d time.Duration) time.Duration {
 	return d
 }
 
-func executeTask(ctx context.Context, cfg TaskConfig, task func(ctx context.Context) error, consecutivePanics *int) {
+func executeTask(ctx context.Context, cfg TaskConfig, task func(ctx context.Context) error, healthy func()) {
 	err := task(ctx)
 	if err != nil {
 		cfg.Logger.Error("periodic task error", "task", cfg.Name, "error", err)
 	} else {
-		*consecutivePanics = 0
+		healthy()
 		cfg.Logger.Info("periodic task completed", "task", cfg.Name, "next_in", clamped(cfg.Interval()).String())
 	}
 }

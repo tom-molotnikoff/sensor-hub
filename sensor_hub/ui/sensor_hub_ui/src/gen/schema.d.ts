@@ -1509,6 +1509,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/automations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List automations
+         * @description Returns every automation with its status and next fire time. Requires view_automations permission.
+         */
+        get: operations["listAutomations"];
+        put?: never;
+        /**
+         * Create an automation
+         * @description Creates an automation from its triggers and steps. Set steps are checked against the target sensor's writable capabilities. Requires both manage_automations and control_sensors permissions.
+         */
+        post: operations["createAutomation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/automations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an automation
+         * @description Returns one automation with its status and next fire time. Requires view_automations permission.
+         */
+        get: operations["getAutomation"];
+        /**
+         * Update an automation
+         * @description Replaces an automation's name, triggers and steps. Its schedule is recomputed straight away. Requires both manage_automations and control_sensors permissions.
+         */
+        put: operations["updateAutomation"];
+        post?: never;
+        /**
+         * Delete an automation
+         * @description Deletes an automation with its triggers, steps and runs. Commands its runs sent stay in command history, no longer linked to a run. Requires manage_automations permission.
+         */
+        delete: operations["deleteAutomation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/automations/{id}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Switch an automation on or off
+         * @description An automation that is off starts no runs. Requires both manage_automations and control_sensors permissions.
+         */
+        put: operations["setAutomationEnabled"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/automations/{id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List an automation's runs
+         * @description Returns the automation's runs newest first, each with the outcome of every step it reached. Requires view_automations permission.
+         */
+        get: operations["listAutomationRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1917,6 +2009,10 @@ export interface components {
             mqtt_payload: string;
             /** @description Acting user that sent the command, or null for system-issued commands. */
             user?: components["schemas"]["CommandHistoryUser"] | null;
+            /** @description The automation run that sent the command, or null when a user sent it or the run has since been deleted. */
+            automation_run_id?: number | null;
+            /** @description The automation whose run sent the command, or null when a user sent it. */
+            automation?: components["schemas"]["CommandHistoryAutomation"] | null;
         };
         /** @description A controllable property exposed by a driver. This is derived from driver metadata and is never user-configurable. */
         Capability: {
@@ -2167,7 +2263,7 @@ export interface components {
             enum?: string[];
             /** @description How a saved change takes effect: "live", "next-cycle", "readonly", or "action:<id>" naming a required user action ("action:service-restart" or "action:oauth-reload"). */
             apply: string;
-            /** @description Client-side validation rule ("positive", "non_negative" or "non_empty"). */
+            /** @description Validation rule: "positive", "non_negative" or "non_empty", checked client-side, or "timezone" (an IANA zone name), checked on save. */
             validate?: string;
             /** @description True when the property is not editable at runtime. */
             readOnly: boolean;
@@ -2308,7 +2404,7 @@ export interface components {
         Notification: {
             id: number;
             /** @enum {string} */
-            category: "threshold_alert" | "user_management" | "config_change";
+            category: "threshold_alert" | "user_management" | "config_change" | "automation_failure";
             /** @enum {string} */
             severity: "info" | "warning" | "error";
             title: string;
@@ -2336,7 +2432,7 @@ export interface components {
         ChannelPreference: {
             user_id?: number;
             /** @enum {string} */
-            category: "threshold_alert" | "user_management" | "config_change";
+            category: "threshold_alert" | "user_management" | "config_change" | "automation_failure";
             email_enabled?: boolean;
             inapp_enabled?: boolean;
         };
@@ -2428,6 +2524,158 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
+        };
+        /** @description What starts a run. A "schedule" trigger fires at a time of day on the chosen weekdays, in the hub's timezone (the hub.timezone property). */
+        AutomationTrigger: {
+            readonly id?: number;
+            /** @enum {string} */
+            type: "schedule";
+            /**
+             * @description Time of day as HH:MM, 00:00 to 23:59. Schedule triggers only.
+             * @example 19:00
+             */
+            at?: string;
+            /**
+             * @description Weekdays the trigger fires on, at least one. Schedule triggers only.
+             * @example [
+             *       "mon",
+             *       "tue",
+             *       "wed",
+             *       "thu",
+             *       "fri"
+             *     ]
+             */
+            days?: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[];
+        };
+        /** @description One step of a run. A "set" step sends a command to a writable capability of a sensor and waits for the device to acknowledge it. */
+        AutomationStep: {
+            /** @enum {string} */
+            type: "set";
+            /** @description Sensor to command. Set steps only. */
+            sensor_id?: number;
+            /** @description Writable capability property, as on POST /sensors/{id}/command. Set steps only. */
+            property?: string;
+            /** @description Value to send, as on POST /sensors/{id}/command. Checked against the capability (binary value_on/value_off, numeric min/max, enum values) when saved and again when the step runs. Set steps only. */
+            value?: string;
+        };
+        /**
+         * @description An automation as sent on create and update. Any trigger starts a run, and the steps run in order.
+         * @example {
+         *       "name": "Evening lights",
+         *       "enabled": true,
+         *       "triggers": [
+         *         {
+         *           "type": "schedule",
+         *           "at": "19:00",
+         *           "days": [
+         *             "mon",
+         *             "tue",
+         *             "wed",
+         *             "thu",
+         *             "fri"
+         *           ]
+         *         }
+         *       ],
+         *       "steps": [
+         *         {
+         *           "type": "set",
+         *           "sensor_id": 14,
+         *           "property": "state",
+         *           "value": "ON"
+         *         },
+         *         {
+         *           "type": "set",
+         *           "sensor_id": 14,
+         *           "property": "brightness",
+         *           "value": "150"
+         *         }
+         *       ]
+         *     }
+         */
+        AutomationInput: {
+            name: string;
+            /** @description Whether the automation's triggers start runs. Defaults to true. */
+            enabled?: boolean;
+            /** @description At least one trigger. Any of them starts a run. */
+            triggers: components["schemas"]["AutomationTrigger"][];
+            /** @description At least one step, run top to bottom. */
+            steps: components["schemas"]["AutomationStep"][];
+        };
+        /** @description A saved automation with its current status. */
+        Automation: {
+            id: number;
+            name: string;
+            enabled: boolean;
+            triggers: components["schemas"]["AutomationTrigger"][];
+            steps: components["schemas"]["AutomationStep"][];
+            /**
+             * @description "off" when switched off, "running" while a run is in progress, otherwise "armed".
+             * @enum {string}
+             */
+            status: "off" | "armed" | "running";
+            /** @description One line explaining the status, when it needs one. */
+            status_reason?: string | null;
+            /** @description True from a failed run until the next run that succeeds. */
+            last_run_failed: boolean;
+            /**
+             * Format: date-time
+             * @description When the earliest trigger next comes due, in UTC. Null when the automation is off.
+             */
+            next_fire_at?: string | null;
+            /**
+             * @description The hub's IANA zone that schedule times are in, for showing next_fire_at locally.
+             * @example Europe/London
+             */
+            hub_timezone: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        SetAutomationEnabledRequest: {
+            enabled: boolean;
+        };
+        /** @description One firing of an automation. */
+        AutomationRun: {
+            id: number;
+            automation_id: number;
+            /** @description The trigger that fired, or null when it has since been deleted by an edit. */
+            trigger_id?: number | null;
+            /** @enum {string} */
+            trigger_kind: "schedule";
+            /** @enum {string} */
+            status: "running" | "succeeded" | "failed";
+            /** @description Position of the step the run is on, or ended on, counting from 1. 0 before the first step starts. */
+            current_step: number;
+            /** @description The automation's steps as they were when the run started. */
+            steps: components["schemas"]["AutomationStep"][];
+            step_outcomes: components["schemas"]["AutomationRunStep"][];
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @description Why the run failed, naming the step. */
+            error?: string | null;
+        };
+        /** @description The outcome of one step of a run. */
+        AutomationRunStep: {
+            /** @description Position of the step, counting from 1. */
+            position: number;
+            /** @enum {string} */
+            kind: "set";
+            /** @enum {string} */
+            outcome: "running" | "succeeded" | "failed";
+            /** @description The command a set step sent, in the sensor's command history. */
+            command_id?: number | null;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+        };
+        /** @description The automation whose run sent a command. */
+        CommandHistoryAutomation: {
+            id: number;
+            name: string;
         };
         /** @description Generic success response */
         SuccessMessage: {
@@ -6624,6 +6872,406 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    listAutomations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of automations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Automation"][];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createAutomation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationInput"];
+            };
+        };
+        responses: {
+            /** @description Automation created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Automation"];
+                };
+            };
+            /** @description Invalid automation. The message names the field that failed. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getAutomation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Automation ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Automation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Automation"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Automation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateAutomation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Automation ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationInput"];
+            };
+        };
+        responses: {
+            /** @description Automation updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Automation"];
+                };
+            };
+            /** @description Invalid automation. The message names the field that failed. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Automation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteAutomation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Automation ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Automation deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessMessage"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Automation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setAutomationEnabled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Automation ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetAutomationEnabledRequest"];
+            };
+        };
+        responses: {
+            /** @description Automation after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Automation"];
+                };
+            };
+            /** @description Invalid request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Automation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAutomationRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Automation ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runs, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRun"][];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Automation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
         };
     };

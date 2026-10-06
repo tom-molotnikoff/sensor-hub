@@ -97,6 +97,162 @@ func (e AlertRuleAlertType) Valid() bool {
 	}
 }
 
+// Defines values for AutomationStatus.
+const (
+	AutomationStatusArmed   AutomationStatus = "armed"
+	AutomationStatusOff     AutomationStatus = "off"
+	AutomationStatusRunning AutomationStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the AutomationStatus enum.
+func (e AutomationStatus) Valid() bool {
+	switch e {
+	case AutomationStatusArmed:
+		return true
+	case AutomationStatusOff:
+		return true
+	case AutomationStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AutomationRunStatus.
+const (
+	AutomationRunStatusFailed    AutomationRunStatus = "failed"
+	AutomationRunStatusRunning   AutomationRunStatus = "running"
+	AutomationRunStatusSucceeded AutomationRunStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the AutomationRunStatus enum.
+func (e AutomationRunStatus) Valid() bool {
+	switch e {
+	case AutomationRunStatusFailed:
+		return true
+	case AutomationRunStatusRunning:
+		return true
+	case AutomationRunStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AutomationRunTriggerKind.
+const (
+	AutomationRunTriggerKindSchedule AutomationRunTriggerKind = "schedule"
+)
+
+// Valid indicates whether the value is a known member of the AutomationRunTriggerKind enum.
+func (e AutomationRunTriggerKind) Valid() bool {
+	switch e {
+	case AutomationRunTriggerKindSchedule:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AutomationRunStepKind.
+const (
+	AutomationRunStepKindSet AutomationRunStepKind = "set"
+)
+
+// Valid indicates whether the value is a known member of the AutomationRunStepKind enum.
+func (e AutomationRunStepKind) Valid() bool {
+	switch e {
+	case AutomationRunStepKindSet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AutomationRunStepOutcome.
+const (
+	AutomationRunStepOutcomeFailed    AutomationRunStepOutcome = "failed"
+	AutomationRunStepOutcomeRunning   AutomationRunStepOutcome = "running"
+	AutomationRunStepOutcomeSucceeded AutomationRunStepOutcome = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the AutomationRunStepOutcome enum.
+func (e AutomationRunStepOutcome) Valid() bool {
+	switch e {
+	case AutomationRunStepOutcomeFailed:
+		return true
+	case AutomationRunStepOutcomeRunning:
+		return true
+	case AutomationRunStepOutcomeSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AutomationStepType.
+const (
+	AutomationStepTypeSet AutomationStepType = "set"
+)
+
+// Valid indicates whether the value is a known member of the AutomationStepType enum.
+func (e AutomationStepType) Valid() bool {
+	switch e {
+	case AutomationStepTypeSet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AutomationTriggerDays.
+const (
+	AutomationDayFri AutomationTriggerDays = "fri"
+	AutomationDayMon AutomationTriggerDays = "mon"
+	AutomationDaySat AutomationTriggerDays = "sat"
+	AutomationDaySun AutomationTriggerDays = "sun"
+	AutomationDayThu AutomationTriggerDays = "thu"
+	AutomationDayTue AutomationTriggerDays = "tue"
+	AutomationDayWed AutomationTriggerDays = "wed"
+)
+
+// Valid indicates whether the value is a known member of the AutomationTriggerDays enum.
+func (e AutomationTriggerDays) Valid() bool {
+	switch e {
+	case AutomationDayFri:
+		return true
+	case AutomationDayMon:
+		return true
+	case AutomationDaySat:
+		return true
+	case AutomationDaySun:
+		return true
+	case AutomationDayThu:
+		return true
+	case AutomationDayTue:
+		return true
+	case AutomationDayWed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AutomationTriggerType.
+const (
+	AutomationTriggerTypeSchedule AutomationTriggerType = "schedule"
+)
+
+// Valid indicates whether the value is a known member of the AutomationTriggerType enum.
+func (e AutomationTriggerType) Valid() bool {
+	switch e {
+	case AutomationTriggerTypeSchedule:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CapabilityType.
 const (
 	CapabilityTypeBinary  CapabilityType = "binary"
@@ -120,14 +276,17 @@ func (e CapabilityType) Valid() bool {
 
 // Defines values for ChannelPreferenceCategory.
 const (
-	ChannelPreferenceCategoryConfigChange   ChannelPreferenceCategory = "config_change"
-	ChannelPreferenceCategoryThresholdAlert ChannelPreferenceCategory = "threshold_alert"
-	ChannelPreferenceCategoryUserManagement ChannelPreferenceCategory = "user_management"
+	ChannelPreferenceCategoryAutomationFailure ChannelPreferenceCategory = "automation_failure"
+	ChannelPreferenceCategoryConfigChange      ChannelPreferenceCategory = "config_change"
+	ChannelPreferenceCategoryThresholdAlert    ChannelPreferenceCategory = "threshold_alert"
+	ChannelPreferenceCategoryUserManagement    ChannelPreferenceCategory = "user_management"
 )
 
 // Valid indicates whether the value is a known member of the ChannelPreferenceCategory enum.
 func (e ChannelPreferenceCategory) Valid() bool {
 	switch e {
+	case ChannelPreferenceCategoryAutomationFailure:
+		return true
 	case ChannelPreferenceCategoryConfigChange:
 		return true
 	case ChannelPreferenceCategoryThresholdAlert:
@@ -183,14 +342,17 @@ func (e MeasurementTypeCategory) Valid() bool {
 
 // Defines values for NotificationCategory.
 const (
-	NotificationCategoryConfigChange   NotificationCategory = "config_change"
-	NotificationCategoryThresholdAlert NotificationCategory = "threshold_alert"
-	NotificationCategoryUserManagement NotificationCategory = "user_management"
+	NotificationCategoryAutomationFailure NotificationCategory = "automation_failure"
+	NotificationCategoryConfigChange      NotificationCategory = "config_change"
+	NotificationCategoryThresholdAlert    NotificationCategory = "threshold_alert"
+	NotificationCategoryUserManagement    NotificationCategory = "user_management"
 )
 
 // Valid indicates whether the value is a known member of the NotificationCategory enum.
 func (e NotificationCategory) Valid() bool {
 	switch e {
+	case NotificationCategoryAutomationFailure:
+		return true
 	case NotificationCategoryConfigChange:
 		return true
 	case NotificationCategoryThresholdAlert:
@@ -497,6 +659,129 @@ type ApiKey struct {
 	UserId    *int       `json:"user_id,omitempty"`
 }
 
+// Automation A saved automation with its current status.
+type Automation struct {
+	CreatedAt time.Time `json:"created_at"`
+	Enabled   bool      `json:"enabled"`
+
+	// HubTimezone The hub's IANA zone that schedule times are in, for showing next_fire_at locally.
+	HubTimezone string `json:"hub_timezone"`
+	Id          int    `json:"id"`
+
+	// LastRunFailed True from a failed run until the next run that succeeds.
+	LastRunFailed bool   `json:"last_run_failed"`
+	Name          string `json:"name"`
+
+	// NextFireAt When the earliest trigger next comes due, in UTC. Null when the automation is off.
+	NextFireAt *time.Time `json:"next_fire_at,omitempty"`
+
+	// Status "off" when switched off, "running" while a run is in progress, otherwise "armed".
+	Status AutomationStatus `json:"status"`
+
+	// StatusReason One line explaining the status, when it needs one.
+	StatusReason *string             `json:"status_reason,omitempty"`
+	Steps        []AutomationStep    `json:"steps"`
+	Triggers     []AutomationTrigger `json:"triggers"`
+	UpdatedAt    time.Time           `json:"updated_at"`
+}
+
+// AutomationStatus "off" when switched off, "running" while a run is in progress, otherwise "armed".
+type AutomationStatus string
+
+// AutomationInput An automation as sent on create and update. Any trigger starts a run, and the steps run in order.
+type AutomationInput struct {
+	// Enabled Whether the automation's triggers start runs. Defaults to true.
+	Enabled *bool  `json:"enabled,omitempty"`
+	Name    string `json:"name"`
+
+	// Steps At least one step, run top to bottom.
+	Steps []AutomationStep `json:"steps"`
+
+	// Triggers At least one trigger. Any of them starts a run.
+	Triggers []AutomationTrigger `json:"triggers"`
+}
+
+// AutomationRun One firing of an automation.
+type AutomationRun struct {
+	AutomationId int `json:"automation_id"`
+
+	// CurrentStep Position of the step the run is on, or ended on, counting from 1. 0 before the first step starts.
+	CurrentStep int `json:"current_step"`
+
+	// Error Why the run failed, naming the step.
+	Error        *string             `json:"error,omitempty"`
+	FinishedAt   *time.Time          `json:"finished_at,omitempty"`
+	Id           int                 `json:"id"`
+	StartedAt    time.Time           `json:"started_at"`
+	Status       AutomationRunStatus `json:"status"`
+	StepOutcomes []AutomationRunStep `json:"step_outcomes"`
+
+	// Steps The automation's steps as they were when the run started.
+	Steps []AutomationStep `json:"steps"`
+
+	// TriggerId The trigger that fired, or null when it has since been deleted by an edit.
+	TriggerId   *int                     `json:"trigger_id,omitempty"`
+	TriggerKind AutomationRunTriggerKind `json:"trigger_kind"`
+}
+
+// AutomationRunStatus defines model for AutomationRun.Status.
+type AutomationRunStatus string
+
+// AutomationRunTriggerKind defines model for AutomationRun.TriggerKind.
+type AutomationRunTriggerKind string
+
+// AutomationRunStep The outcome of one step of a run.
+type AutomationRunStep struct {
+	// CommandId The command a set step sent, in the sensor's command history.
+	CommandId  *int                     `json:"command_id,omitempty"`
+	FinishedAt *time.Time               `json:"finished_at,omitempty"`
+	Kind       AutomationRunStepKind    `json:"kind"`
+	Outcome    AutomationRunStepOutcome `json:"outcome"`
+
+	// Position Position of the step, counting from 1.
+	Position  int       `json:"position"`
+	StartedAt time.Time `json:"started_at"`
+}
+
+// AutomationRunStepKind defines model for AutomationRunStep.Kind.
+type AutomationRunStepKind string
+
+// AutomationRunStepOutcome defines model for AutomationRunStep.Outcome.
+type AutomationRunStepOutcome string
+
+// AutomationStep One step of a run. A "set" step sends a command to a writable capability of a sensor and waits for the device to acknowledge it.
+type AutomationStep struct {
+	// Property Writable capability property, as on POST /sensors/{id}/command. Set steps only.
+	Property *string `json:"property,omitempty"`
+
+	// SensorId Sensor to command. Set steps only.
+	SensorId *int               `json:"sensor_id,omitempty"`
+	Type     AutomationStepType `json:"type"`
+
+	// Value Value to send, as on POST /sensors/{id}/command. Checked against the capability (binary value_on/value_off, numeric min/max, enum values) when saved and again when the step runs. Set steps only.
+	Value *string `json:"value,omitempty"`
+}
+
+// AutomationStepType defines model for AutomationStep.Type.
+type AutomationStepType string
+
+// AutomationTrigger What starts a run. A "schedule" trigger fires at a time of day on the chosen weekdays, in the hub's timezone (the hub.timezone property).
+type AutomationTrigger struct {
+	// At Time of day as HH:MM, 00:00 to 23:59. Schedule triggers only.
+	At *string `json:"at,omitempty"`
+
+	// Days Weekdays the trigger fires on, at least one. Schedule triggers only.
+	Days *[]AutomationTriggerDays `json:"days,omitempty"`
+	Id   *int                     `json:"id,omitempty"`
+	Type AutomationTriggerType    `json:"type"`
+}
+
+// AutomationTriggerDays defines model for AutomationTrigger.Days.
+type AutomationTriggerDays string
+
+// AutomationTriggerType defines model for AutomationTrigger.Type.
+type AutomationTriggerType string
+
 // Capability A controllable property exposed by a driver. This is derived from driver metadata and is never user-configurable.
 type Capability struct {
 	// Max Maximum allowed value for numeric capabilities.
@@ -546,6 +831,12 @@ type ChannelPreference struct {
 // ChannelPreferenceCategory defines model for ChannelPreference.Category.
 type ChannelPreferenceCategory string
 
+// CommandHistoryAutomation The automation whose run sent a command.
+type CommandHistoryAutomation struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
+
 // CommandHistoryEntry Durable audit record for a sensor command.
 type CommandHistoryEntry struct {
 	// AcknowledgedAt RFC3339 timestamp of the first echoed reading that acknowledged the command.
@@ -553,6 +844,12 @@ type CommandHistoryEntry struct {
 
 	// AcknowledgedValue Actual value seen on the first echoed reading for the commanded property.
 	AcknowledgedValue *string `json:"acknowledged_value,omitempty"`
+
+	// Automation The automation whose run sent the command, or null when a user sent it.
+	Automation *CommandHistoryAutomation `json:"automation,omitempty"`
+
+	// AutomationRunId The automation run that sent the command, or null when a user sent it or the run has since been deleted.
+	AutomationRunId *int `json:"automation_run_id,omitempty"`
 
 	// Id Internal identifier of the persisted command history row.
 	Id int `json:"id"`
@@ -921,7 +1218,7 @@ type PropertyDefinition struct {
 	// Unit Unit shown as an input suffix, e.g. "seconds".
 	Unit *string `json:"unit,omitempty"`
 
-	// Validate Client-side validation rule ("positive", "non_negative" or "non_empty").
+	// Validate Validation rule: "positive", "non_negative" or "non_empty", checked client-side, or "timezone" (an IANA zone name), checked on save.
 	Validate *string `json:"validate,omitempty"`
 }
 
@@ -1096,6 +1393,11 @@ type SessionInfo struct {
 	UserId         *int       `json:"user_id,omitempty"`
 }
 
+// SetAutomationEnabledRequest defines model for SetAutomationEnabledRequest.
+type SetAutomationEnabledRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
 // ShareDashboardRequest Request body for sharing a dashboard
 type ShareDashboardRequest struct {
 	TargetUserId int `json:"target_user_id"`
@@ -1268,6 +1570,15 @@ type UpdateApiKeyExpiryJSONRequestBody UpdateApiKeyExpiryJSONBody
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
+
+// CreateAutomationJSONRequestBody defines body for CreateAutomation for application/json ContentType.
+type CreateAutomationJSONRequestBody = AutomationInput
+
+// UpdateAutomationJSONRequestBody defines body for UpdateAutomation for application/json ContentType.
+type UpdateAutomationJSONRequestBody = AutomationInput
+
+// SetAutomationEnabledJSONRequestBody defines body for SetAutomationEnabled for application/json ContentType.
+type SetAutomationEnabledJSONRequestBody = SetAutomationEnabledRequest
 
 // CreateDashboardJSONRequestBody defines body for CreateDashboard for application/json ContentType.
 type CreateDashboardJSONRequestBody = CreateDashboardRequest

@@ -48,10 +48,10 @@ type PropertyDef struct {
 	Kind        reflect.Kind
 	Default     string     // default value from `default` tag
 	File        string     // "application", "smtp", or "database"
-	Validate    string     // "positive", "non_negative", or ""
+	Validate    string     // "positive", "non_negative", "non_empty", "timezone", or ""
 	Label       string     // label - falls back to the field name split into words
 	Description string     // desc - one sentence, shown under the label
-	Group       string     // group - sensors|retention|security|mqtt|email|weather|advanced
+	Group       string     // group - sensors|automations|retention|security|mqtt|email|weather|advanced
 	Unit        string     // unit - "seconds", "days", "hours", "minutes"
 	Enum        []string   // enum - comma-separated in the tag
 	Apply       ApplyState // apply - defaults to live; readonly tag forces readonly
@@ -76,12 +76,13 @@ type PropertyGroup struct {
 // live here so the UI holds no hardcoded knowledge of what a group is.
 var propertyGroups = []PropertyGroup{
 	{ID: "sensors", Label: "Sensors & collection", Description: "How often sensors are polled and how they are discovered.", Order: 1},
-	{ID: "retention", Label: "Data retention", Description: "How long readings, history and logs are kept before cleanup.", Order: 2},
-	{ID: "security", Label: "Security & sessions", Description: "Password hashing, session lifetime and login backoff.", Order: 3},
-	{ID: "mqtt", Label: "MQTT broker", Description: "The embedded MQTT broker sensors publish to.", Order: 4},
-	{ID: "email", Label: "Email & OAuth", Description: "How alert emails are sent and authenticated.", Order: 5},
-	{ID: "weather", Label: "Weather", Description: "The location the weather forecast is fetched for.", Order: 6},
-	{ID: "advanced", Label: "Advanced", Description: "Logging, aggregation and instance internals.", Order: 7},
+	{ID: "automations", Label: "Automations", Description: "The clock automation schedules run on.", Order: 2},
+	{ID: "retention", Label: "Data retention", Description: "How long readings, history and logs are kept before cleanup.", Order: 3},
+	{ID: "security", Label: "Security & sessions", Description: "Password hashing, session lifetime and login backoff.", Order: 4},
+	{ID: "mqtt", Label: "MQTT broker", Description: "The embedded MQTT broker sensors publish to.", Order: 5},
+	{ID: "email", Label: "Email & OAuth", Description: "How alert emails are sent and authenticated.", Order: 6},
+	{ID: "weather", Label: "Weather", Description: "The location the weather forecast is fetched for.", Order: 7},
+	{ID: "advanced", Label: "Advanced", Description: "Logging, aggregation and instance internals.", Order: 8},
 }
 
 // Definitions returns the registered property definitions in struct order.
@@ -131,12 +132,17 @@ func buildRegistryFrom(t reflect.Type) []PropertyDef {
 			apply = ApplyLive
 		}
 
+		defaultValue := field.Tag.Get("default")
+		if hostDefault, ok := hostDefaults[key]; ok && defaultValue == "" {
+			defaultValue = hostDefault()
+		}
+
 		defs = append(defs, PropertyDef{
 			FieldName:   field.Name,
 			FieldIndex:  i,
 			Key:         key,
 			Kind:        field.Type.Kind(),
-			Default:     field.Tag.Get("default"),
+			Default:     defaultValue,
 			File:        field.Tag.Get("file"),
 			Validate:    field.Tag.Get("validate"),
 			Label:       label,
@@ -273,6 +279,10 @@ func validateString(def PropertyDef, value string) error {
 	case "non_empty":
 		if value == "" {
 			return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must not be empty", def.Key)}
+		}
+	case "timezone":
+		if !isIANAZone(value) {
+			return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must be an IANA zone name such as Europe/London, got %q", def.Key, value)}
 		}
 	}
 	return nil

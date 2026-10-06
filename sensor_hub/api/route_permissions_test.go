@@ -158,3 +158,63 @@ func TestRouteMiddleware_BlocksInsufficientPermissionForGetSensorCommandHistory(
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
+
+// routesWithoutPermission are the routes that need no permission: public
+// ones, and ones open to any signed-in user.
+var routesWithoutPermission = map[string]bool{
+	"GET /api/health":               true,
+	"GET /api/openapi.yaml":         true,
+	"GET /api/drivers":              true,
+	"POST /api/auth/login":          true,
+	"POST /api/auth/logout":         true,
+	"GET /api/auth/me":              true,
+	"GET /api/auth/sessions":        true,
+	"DELETE /api/auth/sessions/:id": true,
+	"PUT /api/users/password":       true,
+	"GET /api/sensors/ws":           true,
+	"GET /api/sensors/ws/:driver":   true,
+}
+
+// TestRoutePermissions_CoverEveryRoute makes every new route either name the
+// permissions it needs or be listed as needing none.
+func TestRoutePermissions_CoverEveryRoute(t *testing.T) {
+	router := setupGenRouter(&Server{})
+	registered := make(map[string]bool)
+	for _, route := range router.Routes() {
+		key := route.Method + " " + route.Path
+		registered[key] = true
+		_, gated := routePermissions[key]
+		assert.True(t, gated || routesWithoutPermission[key], "%s is in neither routePermissions nor routesWithoutPermission", key)
+	}
+	for key := range routePermissions {
+		assert.True(t, registered[key], "routePermissions names %s, which is not a route", key)
+	}
+}
+
+func TestRouteMiddleware_SavingAnAutomationNeedsControlSensorsToo(t *testing.T) {
+	mockAuth := &MockAuthService{}
+	middleware.InitAuthMiddleware(mockAuth)
+
+	manager := &gen.User{
+		Id:          1,
+		Username:    "testuser",
+		Roles:       []string{"custom"},
+		Permissions: []string{"view_automations", "manage_automations"},
+	}
+	mockAuth.On("ValidateSession", mock.Anything, "valid-token").Return(manager, nil)
+
+	router := setupGenRouter(&Server{authService: mockAuth})
+
+	for _, request := range []struct{ method, path string }{
+		{"POST", "/api/automations"},
+		{"PUT", "/api/automations/3"},
+		{"PUT", "/api/automations/3/enabled"},
+	} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(request.method, request.path, nil)
+		req.AddCookie(&http.Cookie{Name: "sensor_hub_session", Value: "valid-token"})
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code, "%s %s", request.method, request.path)
+	}
+}

@@ -32,6 +32,7 @@ func validAppPropsMap() map[string]string {
 		"oauth.token.refresh.interval.minutes": "30",
 		"mqtt.broker.enabled":                  "true",
 		"mqtt.broker.port":                     "1883",
+		"hub.timezone":                         "Europe/London",
 		"actuator.command.timeout_seconds":     "10",
 	}
 }
@@ -376,6 +377,7 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 		DatabasePath:                  "test/roundtrip.db",
 		DatabaseReaderConnections:     4,
 		MQTTBrokerPort:                1883,
+		HubTimezone:                   "Europe/London",
 		ActuatorCommandTimeoutSeconds: 25,
 	}
 
@@ -389,6 +391,7 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 	assert.Equal(t, original.SMTPUser, restored.SMTPUser)
 	assert.Equal(t, original.DatabasePath, restored.DatabasePath)
 	assert.Equal(t, original.DatabaseReaderConnections, restored.DatabaseReaderConnections)
+	assert.Equal(t, original.HubTimezone, restored.HubTimezone)
 	assert.Equal(t, original.ActuatorCommandTimeoutSeconds, restored.ActuatorCommandTimeoutSeconds)
 }
 

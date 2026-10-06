@@ -34,6 +34,7 @@ func setupPropertiesServiceTestConfig() func() {
 		DatabasePath:                  "data/sensor_hub.db",
 		DatabaseReaderConnections:     4,
 		MQTTBrokerPort:                1883,
+		HubTimezone:                   "UTC",
 		ActuatorCommandTimeoutSeconds: 10,
 	})
 

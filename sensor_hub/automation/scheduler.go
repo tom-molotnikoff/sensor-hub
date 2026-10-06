@@ -1,0 +1,153 @@
+package automation
+
+import (
+	"container/heap"
+	"context"
+	"sync"
+	"time"
+)
+
+// scheduler holds a due time per key in a min-heap and sleeps on one timer
+// until the earliest, then hands each due key to fire. Keys are trigger IDs.
+type scheduler struct {
+	fire func(key int, due time.Time)
+	now  func() time.Time
+
+	mu      sync.Mutex
+	entries map[int]*dueEntry
+	queue   dueQueue
+	wake    chan struct{}
+}
+
+func newScheduler(fire func(key int, due time.Time), now func() time.Time) *scheduler {
+	return &scheduler{
+		fire:    fire,
+		now:     now,
+		entries: make(map[int]*dueEntry),
+		wake:    make(chan struct{}, 1),
+	}
+}
+
+// set makes key due at due, replacing any earlier due time it had.
+func (s *scheduler) set(key int, due time.Time) {
+	s.mu.Lock()
+	if entry, ok := s.entries[key]; ok {
+		entry.due = due
+		heap.Fix(&s.queue, entry.index)
+	} else {
+		entry := &dueEntry{key: key, due: due}
+		s.entries[key] = entry
+		heap.Push(&s.queue, entry)
+	}
+	s.mu.Unlock()
+	s.rearm()
+}
+
+func (s *scheduler) remove(key int) {
+	s.mu.Lock()
+	if entry, ok := s.entries[key]; ok {
+		heap.Remove(&s.queue, entry.index)
+		delete(s.entries, key)
+	}
+	s.mu.Unlock()
+	s.rearm()
+}
+
+func (s *scheduler) due(key int) (time.Time, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry, ok := s.entries[key]
+	if !ok {
+		return time.Time{}, false
+	}
+	return entry.due, true
+}
+
+// rearm wakes the loop so it sleeps until the new earliest due time.
+func (s *scheduler) rearm() {
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+}
+
+// run sleeps until the earliest due time and fires everything due by then,
+// until ctx is cancelled.
+func (s *scheduler) run(ctx context.Context, healthy func()) {
+	for {
+		var timer *time.Timer
+		var timerC <-chan time.Time
+		if earliest, ok := s.earliest(); ok {
+			timer = time.NewTimer(max(earliest.Sub(s.now()), 0))
+			timerC = timer.C
+		}
+
+		select {
+		case <-ctx.Done():
+			if timer != nil {
+				timer.Stop()
+			}
+			return
+		case <-s.wake:
+			if timer != nil {
+				timer.Stop()
+			}
+		case <-timerC:
+			for _, entry := range s.popDue(s.now()) {
+				s.fire(entry.key, entry.due)
+			}
+			healthy()
+		}
+	}
+}
+
+func (s *scheduler) earliest() (time.Time, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.queue) == 0 {
+		return time.Time{}, false
+	}
+	return s.queue[0].due, true
+}
+
+func (s *scheduler) popDue(now time.Time) []*dueEntry {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var due []*dueEntry
+	for len(s.queue) > 0 && !s.queue[0].due.After(now) {
+		entry := heap.Pop(&s.queue).(*dueEntry)
+		delete(s.entries, entry.key)
+		due = append(due, entry)
+	}
+	return due
+}
+
+type dueEntry struct {
+	key   int
+	due   time.Time
+	index int
+}
+
+type dueQueue []*dueEntry
+
+func (q dueQueue) Len() int           { return len(q) }
+func (q dueQueue) Less(i, j int) bool { return q[i].due.Before(q[j].due) }
+func (q dueQueue) Swap(i, j int) {
+	q[i], q[j] = q[j], q[i]
+	q[i].index = i
+	q[j].index = j
+}
+
+func (q *dueQueue) Push(x any) {
+	entry := x.(*dueEntry)
+	entry.index = len(*q)
+	*q = append(*q, entry)
+}
+
+func (q *dueQueue) Pop() any {
+	old := *q
+	entry := old[len(old)-1]
+	old[len(old)-1] = nil
+	*q = old[:len(old)-1]
+	return entry
+}
