@@ -1,51 +1,21 @@
-package readings
+package readings_test
 
 import (
 	"context"
-	"errors"
+	"io"
 	"log/slog"
+	"path/filepath"
 	"testing"
 
+	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
+	"example/sensorHub/service"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type fakeStore struct {
-	batch    database.ReadingBatch
-	keepOnly string
-	err      error
-}
-
-func (f *fakeStore) Ingest(_ context.Context, batch database.ReadingBatch) ([]gen.Reading, error) {
-	f.batch = batch
-	if f.err != nil {
-		return nil, f.err
-	}
-	var stored []gen.Reading
-	for _, reading := range batch.Readings {
-		if reading.MeasurementType == f.keepOnly {
-			stored = append(stored, reading)
-		}
-	}
-	return stored, nil
-}
-
-type healthCall struct {
-	sensorID int
-	status   gen.SensorHealthStatus
-	reason   string
-}
-
-type fakeHealth struct {
-	calls []healthCall
-}
-
-func (f *fakeHealth) RecordHealth(_ context.Context, sensorID int, status gen.SensorHealthStatus, reason string) {
-	f.calls = append(f.calls, healthCall{sensorID: sensorID, status: status, reason: reason})
-}
 
 type consumerCall struct {
 	name     string
@@ -62,47 +32,91 @@ func (c recordingConsumer) Consume(_ context.Context, sensor gen.Sensor, reading
 	*c.calls = append(*c.calls, consumerCall{name: c.name, sensor: sensor, readings: readings})
 }
 
+type storage struct {
+	handles  *database.Handles
+	sensors  database.SensorRepositoryInterface[gen.Sensor]
+	readings database.ReadingsRepository
+	liveView *service.LiveView
+	sensor   gen.Sensor
+	logger   *slog.Logger
+}
+
+func migratedStorage(t *testing.T) storage {
+	t.Helper()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	handles, err := database.Open(&appProps.ApplicationConfiguration{
+		DatabasePath:              filepath.Join(t.TempDir(), "pipeline.db"),
+		DatabaseReaderConnections: 4,
+	}, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { handles.Close() })
+
+	ctx := context.Background()
+	sensors := database.NewSensorRepository(handles, logger)
+	require.NoError(t, sensors.AddSensor(ctx, gen.Sensor{Name: "office-sensor", SensorDriver: "sensor-hub-http-temperature"}))
+	sensor, err := sensors.GetSensorByName(ctx, "office-sensor")
+	require.NoError(t, err)
+
+	return storage{
+		handles:  handles,
+		sensors:  sensors,
+		readings: database.NewReadingsRepository(handles, sensors, database.NewMeasurementTypeRepository(handles, logger), logger),
+		liveView: service.NewLiveView(sensors, logger),
+		sensor:   *sensor,
+		logger:   logger,
+	}
+}
+
+func (s storage) storedSensor(t *testing.T) gen.Sensor {
+	t.Helper()
+	sensor, err := s.sensors.GetSensorByName(context.Background(), s.sensor.Name)
+	require.NoError(t, err)
+	return *sensor
+}
+
 func numeric(measurementType string, value float64) gen.Reading {
 	return gen.Reading{MeasurementType: measurementType, NumericValue: &value, Time: "2026-10-06 12:00:00"}
 }
 
 func TestProcess_PassesOnlyStoredReadingsToEachConsumerInOrder(t *testing.T) {
-	store := &fakeStore{keepOnly: "temperature"}
-	health := &fakeHealth{}
+	store := migratedStorage(t)
 	var calls []consumerCall
-	pipeline := NewPipeline(store, health, slog.Default(),
+	pipeline := readings.NewPipeline(store.readings, store.liveView, store.logger,
 		recordingConsumer{name: "commands", calls: &calls},
 		recordingConsumer{name: "alerts", calls: &calls},
 		recordingConsumer{name: "live view", calls: &calls},
 	)
-	sensor := gen.Sensor{Id: 7, Name: "office-sensor"}
 
-	err := pipeline.Process(context.Background(), sensor, []gen.Reading{numeric("temperature", 21.5), numeric("not_a_type", 1)})
+	err := pipeline.Process(context.Background(), store.sensor, []gen.Reading{numeric("temperature", 21.5), numeric("not_a_type", 1)})
 
 	require.NoError(t, err)
-	assert.Equal(t, "office-sensor", store.batch.SensorName)
-	for _, reading := range store.batch.Readings {
-		assert.Equal(t, "office-sensor", reading.SensorName)
-	}
 	require.Len(t, calls, 3)
 	for i, name := range []string{"commands", "alerts", "live view"} {
 		assert.Equal(t, name, calls[i].name)
-		assert.Equal(t, sensor, calls[i].sensor)
+		assert.Equal(t, store.sensor, calls[i].sensor)
 		require.Len(t, calls[i].readings, 1)
 		assert.Equal(t, "temperature", calls[i].readings[0].MeasurementType)
+		assert.Equal(t, "office-sensor", calls[i].readings[0].SensorName)
 	}
-	assert.Empty(t, health.calls)
+	stored := store.storedSensor(t)
+	assert.Equal(t, gen.Good, stored.HealthStatus)
+	assert.Equal(t, "successful reading", stored.HealthReason)
 }
 
 func TestProcess_MarksHealthBadAndCallsNoConsumerWhenStorageFails(t *testing.T) {
-	store := &fakeStore{err: errors.New("disk full")}
-	health := &fakeHealth{}
+	store := migratedStorage(t)
+	_, err := store.handles.Writer.Exec(`CREATE TRIGGER reject_high AFTER INSERT ON readings
+		WHEN NEW.numeric_value > 100 BEGIN SELECT RAISE(ABORT, 'rejected'); END`)
+	require.NoError(t, err)
 	var calls []consumerCall
-	pipeline := NewPipeline(store, health, slog.Default(), recordingConsumer{name: "alerts", calls: &calls})
+	pipeline := readings.NewPipeline(store.readings, store.liveView, store.logger, recordingConsumer{name: "alerts", calls: &calls})
 
-	err := pipeline.Process(context.Background(), gen.Sensor{Id: 7, Name: "office-sensor"}, []gen.Reading{numeric("temperature", 21.5)})
+	err = pipeline.Process(context.Background(), store.sensor, []gen.Reading{numeric("temperature", 21.5), numeric("temperature", 999)})
 
-	assert.ErrorContains(t, err, "disk full")
-	assert.Equal(t, []healthCall{{sensorID: 7, status: gen.Bad, reason: "error storing readings: disk full"}}, health.calls)
+	assert.ErrorContains(t, err, "rejected")
+	stored := store.storedSensor(t)
+	assert.Equal(t, gen.Bad, stored.HealthStatus)
+	assert.Regexp(t, `^error storing readings: issue persisting reading to database: .*rejected`, stored.HealthReason)
 	assert.Empty(t, calls)
 }
