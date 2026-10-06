@@ -45,15 +45,6 @@ Configuration files in `/etc/sensor-hub/` are marked as `noreplace` (RPM) or `co
 
 Review release notes for any new properties and refer to [Configuration Settings](configuration) for the full property reference.
 
-## Behaviour changes after 1.5.2
-
-Every reading now goes through the same steps, whether it was collected on the timer, collected on demand or received over MQTT. Two things behave differently as a result:
-
-- **The periodic collector marks a sensor Bad when its readings can't be stored.** Before, a storage failure during periodic collection was only logged and the sensor kept its old health. It now gets health Bad with the reason `error storing readings: ...`, as on-demand collection already did. MQTT sensors used the reason `storage error: ...` for the same failure and now use this one too.
-- **MQTT readings of unknown measurement types no longer reach alerts or the WebSocket.** They were never stored, but they were still checked against alert rules and broadcast to open browsers. Now they are dropped with a warning in the log before either sees them.
-
-MQTT sensors also record `successful reading` as their health reason after a stored reading, where they used to record `MQTT reading received`.
-
 ## Verify
 
 ```bash
