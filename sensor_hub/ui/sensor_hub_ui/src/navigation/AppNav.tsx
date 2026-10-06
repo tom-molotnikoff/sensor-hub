@@ -8,6 +8,7 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import CellTowerIcon from '@mui/icons-material/CellTower';
 import StorageIcon from '@mui/icons-material/Storage';
+import AutoModeIcon from '@mui/icons-material/AutoMode';
 import { SidebarContext } from '../providers/SidebarContextType';
 import { useAuth } from '../providers/AuthContext';
 import { hasAnyPerm, hasPerm } from '../tools/Utils';
@@ -26,6 +27,7 @@ interface NavEntry {
 const mainEntries: NavEntry[] = [
   { label: 'Dashboards', path: '/dashboard', icon: <DashboardIcon />, permissions: ['view_dashboards'] },
   { label: 'Sensors', path: '/sensors-overview', alsoMarks: ['/sensor'], icon: <SensorsIcon />, permissions: ['view_sensors'] },
+  { label: 'Automations', path: '/automations', icon: <AutoModeIcon />, permissions: ['view_automations'] },
   { label: 'Data Retention', path: '/data-retention', icon: <StorageIcon />, permissions: ['view_sensors'] },
   { label: 'Properties', path: '/properties-overview', icon: <SettingsIcon />, permissions: ['view_properties'] },
   { label: 'MQTT', path: '/mqtt', icon: <CellTowerIcon />, permissions: ['view_mqtt'] },

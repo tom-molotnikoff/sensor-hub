@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"time"
 
+	"example/sensorHub/automation"
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
@@ -47,6 +48,7 @@ var layoutFixtures = map[string]layoutFixture{
 	"api-keys":         createLayoutApiKeys,
 	"sessions":         createLayoutSessions,
 	"current-readings": publishLayoutCurrentReadings,
+	"automations":      createLayoutAutomations,
 }
 
 func StartLayoutServer(ctx context.Context, opts LayoutOptions) (*Env, func(), error) {
@@ -430,6 +432,54 @@ func createLayoutSessions(ctx context.Context, env *Env) error {
 				fmt.Sprintf("-%d hours", index*5), device.ip, device.userAgent, username); err != nil {
 				return fmt.Errorf("failed to insert session for %s: %w", username, err)
 			}
+		}
+	}
+	return nil
+}
+
+func createLayoutAutomations(ctx context.Context, env *Env) error {
+	var plugID int
+	if err := env.DB.Reader.QueryRowContext(ctx, "SELECT id FROM sensors WHERE name = 'kitchen-plug'").Scan(&plugID); err != nil {
+		return fmt.Errorf("failed to find kitchen-plug: %w", err)
+	}
+	everyDay := automation.WeekdaysOf(time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday, time.Saturday, time.Sunday)
+	weekdays := automation.WeekdaysOf(time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday)
+	set := func(value string) automation.Step {
+		return automation.Step{Kind: automation.StepSet, SensorID: plugID, Property: "state", Value: value}
+	}
+	at := func(minuteOfDay int, days automation.Weekdays) automation.Trigger {
+		return automation.Trigger{Kind: automation.TriggerSchedule, Schedule: &automation.Schedule{MinuteOfDay: minuteOfDay, Days: days}}
+	}
+	repository := database.NewAutomationRepository(env.DB, slog.Default())
+	automations := []struct {
+		automation automation.Automation
+		failed     bool
+	}{
+		{automation.Automation{Name: "Kitchen plug off at night", Enabled: true,
+			Triggers: []automation.Trigger{at(23*60+30, everyDay)}, Steps: []automation.Step{set("OFF")}}, false},
+		{automation.Automation{Name: "Kettle on before the school run, with a long name that has to fit", Enabled: true,
+			Triggers: []automation.Trigger{at(6*60+45, weekdays), at(8*60, automation.WeekdaysOf(time.Saturday, time.Sunday))},
+			Steps:    []automation.Step{set("ON"), set("OFF")}}, true},
+		{automation.Automation{Name: "Christmas lights", Enabled: false,
+			Triggers: []automation.Trigger{at(16*60+30, everyDay)}, Steps: []automation.Step{set("ON")}}, false},
+	}
+	for _, entry := range automations {
+		created, err := repository.CreateAutomation(ctx, entry.automation)
+		if err != nil {
+			return fmt.Errorf("failed to create automation %s: %w", entry.automation.Name, err)
+		}
+		if !entry.failed {
+			continue
+		}
+		started := time.Now().Add(-26 * time.Hour)
+		runID, err := repository.CreateRun(ctx, automation.Run{AutomationID: created.ID, TriggerKind: automation.TriggerSchedule,
+			Status: automation.RunRunning, Steps: created.Steps, StartedAt: started})
+		if err != nil {
+			return fmt.Errorf("failed to create run for %s: %w", created.Name, err)
+		}
+		message := "step 1 (set kitchen-plug state to ON) failed: kitchen-plug did not acknowledge the command within 10s"
+		if err := repository.FinishRun(ctx, runID, automation.RunFailed, &message, started.Add(10*time.Second)); err != nil {
+			return fmt.Errorf("failed to finish run for %s: %w", created.Name, err)
 		}
 	}
 	return nil

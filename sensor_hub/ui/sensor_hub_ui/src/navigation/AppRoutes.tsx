@@ -13,6 +13,8 @@ import RequireAuth from "./RequireAuth.tsx";
 import DashboardPage from "../dashboard/DashboardPage.tsx";
 import MqttPage from "../pages/mqtt/MqttPage.tsx";
 import DataRetentionPage from "../pages/data-retention/DataRetentionPage.tsx";
+import AutomationsPage from "../pages/automations/AutomationsPage.tsx";
+import AutomationEditorPage from "../pages/automations/AutomationEditorPage.tsx";
 
 const DeveloperPage = lazy(() => import("../pages/account/DeveloperPage.tsx"));
 
@@ -42,6 +44,8 @@ function AppRoutes() {
             />
           )
         })}
+        <Route path="/automations" element={<RequireAuth permission="view_automations"><AutomationsPage /></RequireAuth>} />
+        <Route path="/automations/:id" element={<RequireAuth permission="view_automations"><AutomationEditorPage /></RequireAuth>} />
         <Route path="/properties-overview" element={<RequireAuth><PropertiesOverview /></RequireAuth>} />
         <Route path="/data-retention" element={<RequireAuth><DataRetentionPage /></RequireAuth>} />
       </Routes>

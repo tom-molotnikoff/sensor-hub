@@ -10,7 +10,7 @@ type CompactRole<R extends TableRow> =
   | { compact: 'title' | 'meta' | 'hidden' }
   | { compact: 'status'; statusOf: (row: R) => StatusKey };
 
-export type DataTableColumn<R extends TableRow> = GridColDef<R> & CompactRole<R>;
+export type DataTableColumn<R extends TableRow> = GridColDef<R> & CompactRole<R> & { wide?: 'hidden' };
 
 type Tally<C extends readonly unknown[], Role, Found extends unknown[] = []> = C extends readonly [
   infer Head,

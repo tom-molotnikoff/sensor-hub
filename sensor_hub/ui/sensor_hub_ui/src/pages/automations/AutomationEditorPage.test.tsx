@@ -1,0 +1,200 @@
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { useLocation } from 'react-router';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Automation, AutomationRun, Sensor } from '../../gen/aliases';
+import { installFakeWebSocket } from '../../test/fakeWebSocket';
+import AutomationEditorPage from './AutomationEditorPage';
+import { editorPermissions, renderAutomationPages, serveGets } from './automationPageHarness';
+
+const api = vi.hoisted(() => ({ GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() }));
+
+vi.mock('../../gen/client', () => ({ apiClient: api }));
+
+const lamp: Sensor = {
+  id: 14,
+  name: 'hallway-lamp',
+  sensor_driver: 'zigbee2mqtt',
+  config: {},
+  health_status: 'good',
+  health_reason: '',
+  enabled: true,
+  status: 'active',
+  capabilities: [
+    { property: 'state', type: 'binary', value_on: 'ON', value_off: 'OFF' },
+    { property: 'brightness', type: 'numeric', min: 0, max: 254 },
+    { property: 'color_temp_preset', type: 'enum', values: ['warm', 'neutral', 'cool'] },
+  ],
+};
+
+function automation(overrides: Partial<Automation> = {}): Automation {
+  return {
+    id: 3,
+    name: 'Evening lights',
+    enabled: true,
+    triggers: [{ id: 1, type: 'schedule', at: '19:00', days: ['mon', 'tue', 'wed', 'thu', 'fri'] }],
+    steps: [
+      { type: 'set', sensor_id: lamp.id, property: 'state', value: 'ON' },
+      { type: 'set', sensor_id: lamp.id, property: 'brightness', value: '150' },
+    ],
+    status: 'armed',
+    last_run_failed: false,
+    next_fire_at: '2026-10-06T18:00:00Z',
+    hub_timezone: 'Europe/London',
+    created_at: '2026-10-01T00:00:00Z',
+    updated_at: '2026-10-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+function Location() {
+  return <output aria-label="location">{useLocation().pathname}</output>;
+}
+
+let responses: Record<string, unknown> = {};
+
+function serve(saved: Automation, runs: AutomationRun[] = []) {
+  responses = { '/automations/{id}': saved, '/automations/{id}/runs': runs };
+}
+
+function renderEditor(at: string, permissions = editorPermissions, width = 1280) {
+  serveGets(api.GET, permissions, responses);
+  return renderAutomationPages({
+    routes: { '/automations/:id': <AutomationEditorPage />, '/automations': <p>list</p> },
+    at,
+    width,
+    sensors: [lamp],
+    alongside: <Location />,
+  });
+}
+
+const savedBody = (mock: typeof api.PUT) => mock.mock.calls.at(-1)![1].body;
+
+describe('AutomationEditorPage', () => {
+  let restoreWebSocket: () => void;
+
+  beforeEach(() => {
+    restoreWebSocket = installFakeWebSocket();
+    Object.values(api).forEach((mock) => mock.mockReset());
+  });
+  afterEach(() => {
+    restoreWebSocket();
+    vi.unstubAllGlobals();
+  });
+
+  it('matches each set step value control to its capability type', async () => {
+    serve(automation({ steps: [
+      { type: 'set', sensor_id: lamp.id, property: 'state', value: 'ON' },
+      { type: 'set', sensor_id: lamp.id, property: 'brightness', value: '150' },
+      { type: 'set', sensor_id: lamp.id, property: 'color_temp_preset', value: 'cool' },
+    ] }));
+    await renderEditor('/automations/3');
+
+    const toggle = await screen.findByRole('group', { name: 'Value' });
+    expect(within(toggle).getByRole('button', { name: 'ON' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(toggle).getByRole('button', { name: 'OFF' })).toHaveAttribute('aria-pressed', 'false');
+    const slider = screen.getByRole('slider', { name: 'Value' });
+    expect(slider).toHaveAttribute('aria-valuemin', '0');
+    expect(slider).toHaveAttribute('aria-valuemax', '254');
+    expect(slider).toHaveValue('150');
+    expect(screen.getByRole('spinbutton', { name: 'Value' })).toHaveAttribute('max', '254');
+    expect(screen.getAllByRole('combobox', { name: 'Value' })[0]).toHaveTextContent('cool');
+  });
+
+  it("shows the API's message when it rejects a save, naming the trigger or step as the editor numbers it", async () => {
+    serve(automation());
+    api.PUT.mockResolvedValue({ error: { message: 'steps[1].value: 300 is above the maximum of 254' }, response: new Response(null, { status: 400 }) });
+    await renderEditor('/automations/3');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Step 2 value: 300 is above the maximum of 254');
+  });
+
+  it('saves the steps in the order the drag handles put them in', async () => {
+    serve(automation());
+    api.PUT.mockResolvedValue({ data: automation(), response: new Response() });
+    await renderEditor('/automations/3');
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Move step 2' }), { key: 'ArrowUp' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.PUT).toHaveBeenCalled());
+    expect(savedBody(api.PUT).steps.map((step: { property: string }) => step.property)).toEqual(['brightness', 'state']);
+  });
+
+  it('creates a new automation and opens it', async () => {
+    api.POST.mockResolvedValue({ data: automation({ id: 9 }), response: new Response() });
+    serve(automation({ id: 9 }));
+    await renderEditor('/automations/new');
+
+    expect(screen.getByRole('switch', { name: 'Enabled' })).toBeChecked();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Evening lights' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(screen.getByRole('status', { name: 'location' })).toHaveTextContent('/automations/9'));
+    expect(savedBody(api.POST)).toMatchObject({ name: 'Evening lights', enabled: true, triggers: [{ type: 'schedule', at: '19:00' }] });
+  });
+
+  it('deletes only after the confirmation', async () => {
+    serve(automation());
+    api.DELETE.mockResolvedValue({ data: { message: 'Automation deleted' }, response: new Response() });
+    await renderEditor('/automations/3');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(api.DELETE).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(screen.getByRole('status', { name: 'location' })).toHaveTextContent(/^\/automations$/));
+    expect(api.DELETE).toHaveBeenCalledWith('/automations/{id}', { params: { path: { id: 3 } } });
+  });
+
+  it('gives viewers every control read-only, with no Enabled switch, Save or Delete', async () => {
+    serve(automation());
+    await renderEditor('/automations/3', ['view_automations']);
+
+    expect(await screen.findByRole('slider', { name: 'Value' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Enabled' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '+ Add trigger' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Move step/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Mon' })).toBeDisabled();
+  });
+
+  it('lists the last 30 days of runs newest first with what each one did', async () => {
+    const run = (id: number, daysAgo: number, overrides: Partial<AutomationRun>): AutomationRun => ({
+      id,
+      automation_id: 3,
+      trigger_kind: 'schedule',
+      status: 'succeeded',
+      current_step: 2,
+      steps: automation().steps,
+      step_outcomes: [],
+      started_at: new Date(Date.now() - daysAgo * 86_400_000).toISOString(),
+      ...overrides,
+    });
+    const failure = 'step 1 (set hallway-lamp state to ON) failed: hallway-lamp did not acknowledge the command within 10s';
+    serve(automation(), [
+      run(3, 1, {}),
+      run(2, 2, { status: 'failed', current_step: 1, error: failure }),
+      run(1, 31, {}),
+    ]);
+    await renderEditor('/automations/3');
+
+    await waitFor(() => expect(document.querySelectorAll('[data-ui=automation-run]')).toHaveLength(2));
+    const [succeeded, failed] = document.querySelectorAll<HTMLElement>('[data-ui=automation-run]');
+    expect(succeeded.querySelector('[data-ui=status-pill]')).toHaveTextContent(/^succeeded$/);
+    expect(succeeded.lastElementChild).toHaveTextContent(/\b2\b/);
+    expect(failed.querySelector('[data-ui=status-pill]')).toHaveTextContent(/^failed$/);
+    expect(failed.lastElementChild).toHaveTextContent(failure);
+  });
+
+  it('stacks the summary, When, Then and Recent runs on phones with Save in the bottom bar', async () => {
+    serve(automation());
+    await renderEditor('/automations/3', editorPermissions, 390);
+
+    expect((await screen.findByRole('button', { name: 'Save' })).closest('[data-ui=sticky-footer]')).not.toBeNull();
+    const titles = Array.from(document.querySelectorAll('[data-ui=card-header] h2'), (heading) => heading.textContent);
+    expect(titles).toEqual(['In plain words', 'When any of these happens', 'Then in this order', 'Recent runs']);
+  });
+});

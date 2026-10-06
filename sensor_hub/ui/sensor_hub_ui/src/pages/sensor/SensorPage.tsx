@@ -8,6 +8,7 @@ import EditSensorDetails from '../../components/EditSensorDetails';
 import SensorHealthHistory from '../../components/SensorHealthHistory';
 import SensorHealthHistoryChartCard from '../../components/SensorHealthHistoryChartCard';
 import SensorTemperatureDataCard from '../../components/SensorTemperatureDataCard';
+import CommandHistoryCard from '../../components/CommandHistoryCard';
 import { useAuth } from '../../providers/AuthContext';
 import { hasPerm } from '../../tools/Utils';
 
@@ -53,6 +54,9 @@ function SensorPage({ sensorId }: SensorPageProps) {
         )}
         {hasPerm(user, 'view_sensors') && (
           <PageGrid.Item span={{ wide: 6 }}><SensorHealthHistory sensor={sensor} /></PageGrid.Item>
+        )}
+        {hasPerm(user, 'view_sensors') && (sensor.capabilities?.length ?? 0) > 0 && (
+          <PageGrid.Item><CommandHistoryCard sensorId={sensor.id} /></PageGrid.Item>
         )}
       </PageGrid>
     </Page>
