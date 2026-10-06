@@ -45,6 +45,7 @@ export type AutomationInput           = components['schemas']['AutomationInput']
 export type AutomationTrigger         = components['schemas']['AutomationTrigger'];
 export type AutomationStep            = components['schemas']['AutomationStep'];
 export type AutomationRun             = components['schemas']['AutomationRun'];
+export type CommandHistoryEntry       = components['schemas']['CommandHistoryEntry'];
 
 export type NotificationSeverity = Notification['severity'];
 export type NotificationCategory = Notification['category'];

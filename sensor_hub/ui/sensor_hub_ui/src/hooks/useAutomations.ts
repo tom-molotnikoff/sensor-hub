@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Automation, AutomationInput } from '../gen/aliases';
+import { unwrap } from '../api/unwrap';
 import { apiClient } from '../gen/client';
 
 // Statuses and next fire times move on as the scheduler fires, with nothing pushed to the page.
@@ -10,13 +11,6 @@ const keys = {
   one: (id: number) => ['automations', id] as const,
   runs: (id: number) => ['automations', id, 'runs'] as const,
 };
-
-async function unwrap<T>(request: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
-  const { data, error, response } = await request;
-  if (data !== undefined) return data;
-  const message = (error as { message?: string } | undefined)?.message;
-  throw new Error(message ?? `${response.status} ${response.statusText}`);
-}
 
 export function useAutomations() {
   return useQuery({
