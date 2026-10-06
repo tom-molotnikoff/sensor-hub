@@ -21,7 +21,7 @@ type ReadingBatch struct {
 }
 
 type ReadingsRepository interface {
-	Ingest(ctx context.Context, batch ReadingBatch) error
+	Ingest(ctx context.Context, batch ReadingBatch) ([]gen.Reading, error)
 	GetBetweenDates(ctx context.Context, startDate, endDate, sensorName, measurementType string, interval AggregationInterval, aggFunc AggregationFunction) ([]gen.Reading, error)
 	GetLatest(ctx context.Context) ([]gen.Reading, error)
 	CountReadingsPerActiveSensor(ctx context.Context) (map[string]int, error)

@@ -15,6 +15,7 @@ import (
 	database "example/sensorHub/db"
 	_ "example/sensorHub/drivers" // trigger init() to register drivers
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -180,18 +181,10 @@ func setupSensorServiceWithSampler() (*SensorService, *MockSensorRepository, *Mo
 	alertRepo := new(MockAlertRepository)
 	sampler := new(MockReadingsSampler)
 	processor := alerting.NewThresholdAlertProcessor(alertRepo, nil, nil, nil, slog.Default())
-	service := NewSensorService(sensorRepo, readingsRepo, mtRepo, processor, nil, sampler, slog.Default())
+	liveView := NewLiveView(sensorRepo, slog.Default())
+	pipeline := readings.NewPipeline(readingsRepo, liveView, slog.Default(), processor, liveView)
+	service := NewSensorService(sensorRepo, mtRepo, pipeline, liveView, nil, sampler, slog.Default())
 	return service, sensorRepo, readingsRepo, mtRepo, alertRepo, sampler
-}
-
-type fakeReadingsObserver struct {
-	sensorID int
-	readings []gen.Reading
-}
-
-func (f *fakeReadingsObserver) ObserveReadings(_ context.Context, sensorID int, readings []gen.Reading) {
-	f.sensorID = sensorID
-	f.readings = append([]gen.Reading(nil), readings...)
 }
 
 // ============================================================================
@@ -234,37 +227,8 @@ func TestSensorService_ServiceProcessPushReadings_StoreError_SetsHealthBad(t *te
 	err := service.ServiceProcessPushReadings(context.Background(), sensor, readings)
 
 	assert.Error(t, err)
-	sensorRepo.AssertCalled(t, "UpdateSensorHealthById", mock.Anything, 7, gen.Bad, "storage error: disk full")
+	sensorRepo.AssertCalled(t, "UpdateSensorHealthById", mock.Anything, 7, gen.Bad, "error storing readings: disk full")
 	time.Sleep(50 * time.Millisecond)
-}
-
-func TestSensorService_ServiceProcessPushReadings_NotifiesReadingsObserver(t *testing.T) {
-	service, sensorRepo, readingsRepo, _, alertRepo := setupSensorService()
-	observer := &fakeReadingsObserver{}
-	service.SetReadingsObserver(observer)
-
-	sensor := gen.Sensor{Id: 7, Name: "office-plug"}
-	readings := []gen.Reading{{
-		MeasurementType: "state",
-		TextState: func() *string {
-			value := "ON"
-			return &value
-		}(),
-	}}
-
-	readingsRepo.On("Ingest", mock.Anything, mock.MatchedBy(func(batch database.ReadingBatch) bool {
-		return batch.SensorName == "office-plug" && batch.HealthReason == "MQTT reading received" &&
-			len(batch.Readings) == 1 && batch.Readings[0].MeasurementType == "state"
-	})).Return(nil)
-	sensorRepo.On("GetAllSensors", mock.Anything).Return([]gen.Sensor{sensor}, nil).Maybe()
-	alertRepo.On("GetAlertRulesBySensorID", mock.Anything, 7).Return([]alerting.AlertRule{}, nil)
-
-	err := service.ServiceProcessPushReadings(context.Background(), sensor, readings)
-
-	assert.NoError(t, err)
-	assert.Equal(t, 7, observer.sensorID)
-	assert.Len(t, observer.readings, 1)
-	assert.Equal(t, "office-plug", observer.readings[0].SensorName)
 }
 
 func TestSensorService_ServiceAddSensor_AlreadyExists(t *testing.T) {
@@ -858,6 +822,26 @@ func TestSensorService_ServiceCollectFromSensorByName_FetchError_SetsHealthBad(t
 
 	assert.Error(t, err)
 	sensorRepo.AssertCalled(t, "UpdateSensorHealthById", mock.Anything, 1, gen.Bad, mock.Anything)
+	time.Sleep(50 * time.Millisecond)
+}
+
+func TestSensorService_ServiceCollectAndStoreAllSensorReadings_StoreError_SetsHealthBad(t *testing.T) {
+	service, sensorRepo, readingsRepo, _, _ := setupSensorService()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]interface{}{"temperature": 22.5, "time": "2025-01-01 12:00:00"})
+	}))
+	defer server.Close()
+
+	sensor := gen.Sensor{Id: 1, Name: "store-fail-sensor", SensorDriver: "sensor-hub-http-temperature", Config: map[string]string{"url": server.URL}, Enabled: true}
+	sensorRepo.On("GetAllSensors", mock.Anything).Return([]gen.Sensor{sensor}, nil)
+	sensorRepo.On("UpdateSensorHealthById", mock.Anything, 1, gen.Bad, mock.Anything).Return(nil)
+	readingsRepo.On("Ingest", mock.Anything, mock.Anything).Return(errors.New("db error"))
+
+	err := service.ServiceCollectAndStoreAllSensorReadings(context.Background())
+
+	assert.NoError(t, err)
+	sensorRepo.AssertCalled(t, "UpdateSensorHealthById", mock.Anything, 1, gen.Bad, "error storing readings: db error")
 	time.Sleep(50 * time.Millisecond)
 }
 

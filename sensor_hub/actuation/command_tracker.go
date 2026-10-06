@@ -46,10 +46,6 @@ type LifecycleManager interface {
 	RecoverPending(ctx context.Context) error
 }
 
-type ReadingsObserver interface {
-	ObserveReadings(ctx context.Context, sensorID int, readings []gen.Reading)
-}
-
 type CommandTracker struct {
 	repo        CommandRepository
 	broadcaster CommandStatusBroadcaster
@@ -112,7 +108,7 @@ func (t *CommandTracker) Track(ctx context.Context, command database.PendingComm
 	t.logger.Debug("tracking command", "command_id", command.ID, "sensor_id", command.SensorID, "property", command.Property, "timeout_seconds", command.TimeoutSeconds, "delay_ms", delay.Milliseconds())
 }
 
-func (t *CommandTracker) ObserveReadings(ctx context.Context, sensorID int, readings []gen.Reading) {
+func (t *CommandTracker) Consume(ctx context.Context, sensor gen.Sensor, readings []gen.Reading) {
 	for _, reading := range readings {
 		if reading.MeasurementType == "" {
 			continue
@@ -123,7 +119,7 @@ func (t *CommandTracker) ObserveReadings(ctx context.Context, sensorID int, read
 			continue
 		}
 
-		command, ok := t.matchingCommand(sensorID, reading.MeasurementType)
+		command, ok := t.matchingCommand(sensor.Id, reading.MeasurementType)
 		if !ok {
 			continue
 		}

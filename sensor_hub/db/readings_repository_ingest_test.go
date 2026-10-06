@@ -38,19 +38,21 @@ func TestIngest_RecordsASeriesOnFirstSightOnly(t *testing.T) {
 	ctx := context.Background()
 	require.Equal(t, 0, seriesCount(t, repo, "Office", "temperature"), "the pair starts unknown")
 
-	require.NoError(t, repo.Ingest(ctx, ReadingBatch{
+	_, err := repo.Ingest(ctx, ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 21.0), reading("temperature", 21.5)},
-	}))
+	})
+	require.NoError(t, err)
 	assert.Equal(t, 1, seriesCount(t, repo, "Office", "temperature"), "one row however many readings")
 
-	_, err := db.Exec("DELETE FROM sensor_measurement_types")
+	_, err = db.Exec("DELETE FROM sensor_measurement_types")
 	require.NoError(t, err)
 
-	require.NoError(t, repo.Ingest(ctx, ReadingBatch{
+	_, err = repo.Ingest(ctx, ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 22.0)},
-	}))
+	})
+	require.NoError(t, err)
 	assert.Equal(t, 0, seriesCount(t, repo, "Office", "temperature"), "a known pair is not written again")
 }
 
@@ -61,7 +63,7 @@ func TestIngest_RollsBackTheWholeBatchWhenAReadingFails(t *testing.T) {
 		WHEN NEW.numeric_value > 100 BEGIN SELECT RAISE(ABORT, 'rejected'); END`)
 	require.NoError(t, err)
 
-	err = repo.Ingest(ctx, ReadingBatch{
+	_, err = repo.Ingest(ctx, ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 21.0), reading("temperature", 999.0)},
 	})
@@ -77,10 +79,11 @@ func TestIngest_ResolvesARenamedSensorAndForgetsTheOldName(t *testing.T) {
 	sensorRepo := NewSensorRepository(handles(db), slog.Default())
 	renamedRepo := NewReadingsRepository(handles(db), sensorRepo, NewMeasurementTypeRepository(handles(db), slog.Default()), slog.Default())
 
-	require.NoError(t, renamedRepo.Ingest(ctx, ReadingBatch{
+	_, err := renamedRepo.Ingest(ctx, ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 21.0)},
-	}))
+	})
+	require.NoError(t, err)
 	id, err := sensorRepo.GetSensorIdByName(ctx, "Office")
 	require.NoError(t, err)
 
@@ -91,13 +94,14 @@ func TestIngest_ResolvesARenamedSensorAndForgetsTheOldName(t *testing.T) {
 		Config:       map[string]string{},
 	}, false))
 
-	require.NoError(t, renamedRepo.Ingest(ctx, ReadingBatch{
+	_, err = renamedRepo.Ingest(ctx, ReadingBatch{
 		SensorName: "Study",
 		Readings:   []gen.Reading{reading("temperature", 22.0)},
-	}))
+	})
+	require.NoError(t, err)
 	assert.Equal(t, 2, readingCount(t, repo), "the new name resolves to the same sensor")
 
-	err = renamedRepo.Ingest(ctx, ReadingBatch{
+	_, err = renamedRepo.Ingest(ctx, ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 23.0)},
 	})
@@ -112,11 +116,26 @@ func TestIngest_ResolvesASensorWhoseNameIsNotASCII(t *testing.T) {
 	unicodeRepo := NewReadingsRepository(handles(db), sensorRepo, NewMeasurementTypeRepository(handles(db), slog.Default()), slog.Default())
 
 	for range 2 {
-		require.NoError(t, unicodeRepo.Ingest(ctx, ReadingBatch{
+		_, err := unicodeRepo.Ingest(ctx, ReadingBatch{
 			SensorName: "\u00d6lkessel",
 			Readings:   []gen.Reading{reading("temperature", 60.0)},
-		}), "resolves through the cache as well as the database")
+		})
+		require.NoError(t, err, "resolves through the cache as well as the database")
 	}
 
 	assert.Equal(t, 2, readingCount(t, repo))
+}
+
+func TestIngest_ReturnsOnlyTheReadingsOfKnownMeasurementTypes(t *testing.T) {
+	repo, _ := migratedReadingsRepo(t)
+
+	stored, err := repo.Ingest(context.Background(), ReadingBatch{
+		SensorName: "Office",
+		Readings:   []gen.Reading{reading("temperature", 21.0), reading("not_a_type", 1.0)},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+	assert.Equal(t, "temperature", stored[0].MeasurementType)
+	assert.Equal(t, 1, readingCount(t, repo))
 }

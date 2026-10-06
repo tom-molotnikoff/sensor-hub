@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	gen "example/sensorHub/gen"
 	"example/sensorHub/notifications"
 )
 
@@ -55,7 +56,7 @@ type ReadingAlert struct {
 
 // ThresholdAlertProcessor owns the threshold-alert workflow end-to-end: rule evaluation,
 // rate-limiting, alert_history persistence, notification persistence, WebSocket fan-out,
-// and email dispatch. It is constructed once and injected into SensorService.
+// and email dispatch. It is constructed once and registered as a reading pipeline consumer.
 type ThresholdAlertProcessor struct {
 	alertRepo AlertRepository
 	notifRepo NotificationRepository
@@ -121,6 +122,21 @@ func ruleForMeasurementType(rules []AlertRule, measurementType string) *AlertRul
 		}
 	}
 	return nil
+}
+
+func (p *ThresholdAlertProcessor) Consume(ctx context.Context, sensor gen.Sensor, readings []gen.Reading) {
+	for _, reading := range readings {
+		alert := ReadingAlert{SensorID: sensor.Id, SensorName: sensor.Name, MeasurementType: reading.MeasurementType}
+		if reading.NumericValue != nil {
+			alert.NumericValue = *reading.NumericValue
+		}
+		if reading.TextState != nil {
+			alert.StatusValue = *reading.TextState
+		}
+		if err := p.ProcessReading(ctx, alert); err != nil {
+			p.logger.Error("failed to process alert", "sensor", sensor.Name, "error", err)
+		}
+	}
 }
 
 // ProcessReading evaluates a sensor reading against configured alert rules and, if

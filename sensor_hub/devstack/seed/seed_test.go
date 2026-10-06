@@ -18,6 +18,7 @@ import (
 	database "example/sensorHub/db"
 	"example/sensorHub/drivers"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 	"example/sensorHub/service"
 
 	"github.com/stretchr/testify/assert"
@@ -81,7 +82,9 @@ func newSensorService(db *database.Handles) *service.SensorService {
 	logger := discardLogger()
 	sensors := database.NewSensorRepository(db, logger)
 	types := database.NewMeasurementTypeRepository(db, logger)
-	return service.NewSensorService(sensors, database.NewReadingsRepository(db, sensors, types, logger), types, nil, nil, nil, logger)
+	liveView := service.NewLiveView(sensors, logger)
+	pipeline := readings.NewPipeline(database.NewReadingsRepository(db, sensors, types, logger), liveView, logger)
+	return service.NewSensorService(sensors, types, pipeline, liveView, nil, nil, logger)
 }
 
 type entityCounts struct {

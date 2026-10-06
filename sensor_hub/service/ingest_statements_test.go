@@ -12,6 +12,7 @@ import (
 	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 	"example/sensorHub/testharness/sqlcount"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ const readingsPerMessage = 9
 
 var messageTypes = []string{"temperature", "humidity", "pressure", "power", "battery", "voltage", "luminance", "link_quality", "energy"}
 
-func countingSensorService(t *testing.T) (*SensorService, gen.Sensor, *sqlcount.Recorder) {
+func countingSensorService(t *testing.T) (*SensorService, database.ReadingsRepository, gen.Sensor, *sqlcount.Recorder) {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -46,7 +47,10 @@ func countingSensorService(t *testing.T) (*SensorService, gen.Sensor, *sqlcount.
 	readingsRepo := database.NewReadingsRepository(handles, sensorRepo, mtRepo, logger)
 	processor := alerting.NewThresholdAlertProcessor(database.NewAlertRepository(handles, logger), nil, nil, nil, logger)
 
-	return NewSensorService(sensorRepo, readingsRepo, mtRepo, processor, nil, nil, logger), *sensor, recorder
+	liveView := NewLiveView(sensorRepo, logger)
+	pipeline := readings.NewPipeline(readingsRepo, liveView, logger, processor, liveView)
+
+	return NewSensorService(sensorRepo, mtRepo, pipeline, liveView, nil, nil, logger), readingsRepo, *sensor, recorder
 }
 
 func message() []gen.Reading {
@@ -63,7 +67,7 @@ func message() []gen.Reading {
 }
 
 func TestServiceProcessPushReadings_CostsAtMostTwelveStatementsInOneTransaction(t *testing.T) {
-	service, sensor, recorder := countingSensorService(t)
+	service, _, sensor, recorder := countingSensorService(t)
 	ctx := context.Background()
 	require.NoError(t, service.ServiceProcessPushReadings(ctx, sensor, message()))
 
@@ -88,13 +92,15 @@ func TestServiceProcessPushReadings_CostsAtMostTwelveStatementsInOneTransaction(
 }
 
 func TestIngest_LooksUpNoNamesAndWritesNoSeriesRowForAKnownPair(t *testing.T) {
-	service, sensor, recorder := countingSensorService(t)
+	_, readingsRepo, sensor, recorder := countingSensorService(t)
 	ctx := context.Background()
-	batch := database.ReadingBatch{SensorName: sensor.Name, HealthReason: "MQTT reading received", Readings: message()}
-	require.NoError(t, service.readingsRepo.Ingest(ctx, batch))
+	batch := database.ReadingBatch{SensorName: sensor.Name, HealthReason: "successful reading", Readings: message()}
+	_, err := readingsRepo.Ingest(ctx, batch)
+	require.NoError(t, err)
 
 	recorder.Reset()
-	require.NoError(t, service.readingsRepo.Ingest(ctx, batch))
+	_, err = readingsRepo.Ingest(ctx, batch)
+	require.NoError(t, err)
 
 	statements := recorder.All()
 	assert.Len(t, statements, 11, "nine inserts and the two-statement health update: %v", statements)
