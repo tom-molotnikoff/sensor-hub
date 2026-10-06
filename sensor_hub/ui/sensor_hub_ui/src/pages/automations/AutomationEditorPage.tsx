@@ -208,7 +208,7 @@ export default function AutomationEditorPage() {
   const canDelete = hasPerm(user, 'manage_automations');
 
   if (automationId === undefined && !canEdit) return <Navigate to="/automations" replace />;
-  if (automationId !== undefined && (isPending || error)) {
+  if (automationId !== undefined && saved === undefined) {
     return (
       <Page title="Automation" loading={isPending}>
         {error && <Alert severity="error">{error.message}</Alert>}

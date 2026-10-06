@@ -11,10 +11,10 @@ import (
 	"log/slog"
 	"time"
 
+	"example/sensorHub/automation"
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
-	"example/sensorHub/automation"
 	"example/sensorHub/testharness/fixtures"
 	"example/sensorHub/testharness/seed"
 	"example/sensorHub/ws"
