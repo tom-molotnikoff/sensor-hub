@@ -150,6 +150,18 @@ func (f *fixture) commandsInHistory(t *testing.T) int {
 	return count
 }
 
+// Not assert.Never, which checks on a goroutine that can still be reading the
+// database after the test has closed it.
+func (f *fixture) neverMoreCommandsThan(t *testing.T, limit int, message string) {
+	t.Helper()
+	for deadline := time.Now().Add(200 * time.Millisecond); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if f.commandsInHistory(t) > limit {
+			assert.Fail(t, message)
+			return
+		}
+	}
+}
+
 type fakeSensors struct {
 	mu      sync.Mutex
 	sensors map[int]gen.Sensor
@@ -282,8 +294,7 @@ func TestRun_SendsEachSetStepOnlyAfterThePreviousIsAcknowledged(t *testing.T) {
 	first := f.commands.await(t, 0)
 	assert.Equal(t, "state", first.property)
 	assert.Equal(t, "ON", first.value)
-	assert.Never(t, func() bool { return f.commandsInHistory(t) > 1 }, 200*time.Millisecond, 10*time.Millisecond,
-		"the second step went out before the first was acknowledged")
+	f.neverMoreCommandsThan(t, 1, "the second step went out before the first was acknowledged")
 
 	first.outcome <- "acknowledged"
 	second := f.commands.await(t, 1)
@@ -509,8 +520,7 @@ func TestStatus_FollowsTheEnabledSwitchAndTheRuns(t *testing.T) {
 	assert.Nil(t, off.NextFireAt)
 
 	f.fire(created)
-	assert.Never(t, func() bool { return f.commandsInHistory(t) > 2 }, 200*time.Millisecond, 10*time.Millisecond,
-		"an automation that is off started a run")
+	f.neverMoreCommandsThan(t, 2, "an automation that is off started a run")
 }
 
 func TestTriggers_EitherStartsARunAndTwoDueTogetherStartOne(t *testing.T) {

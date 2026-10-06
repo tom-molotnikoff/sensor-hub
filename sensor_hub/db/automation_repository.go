@@ -150,10 +150,7 @@ func (r *AutomationRepository) CreateRun(ctx context.Context, run automation.Run
 func (r *AutomationRepository) StartRunStep(ctx context.Context, runID int, position int, kind automation.StepKind, at time.Time) (int, error) {
 	return r.inTx(ctx, func(tx *sql.Tx) (int, error) {
 		result, err := tx.ExecContext(ctx, "UPDATE automation_runs SET current_step = ? WHERE id = ?", position, runID)
-		if err := requireRow(result, err, "move automation run on"); err != nil {
-			if errors.Is(err, automation.ErrNotFound) {
-				return 0, automation.ErrRunGone
-			}
+		if err := requireRun(result, err, "move automation run on"); err != nil {
 			return 0, err
 		}
 		result, err = tx.ExecContext(ctx, `INSERT INTO automation_run_steps (run_id, position, kind, outcome, started_at)
@@ -190,10 +187,7 @@ func (r *AutomationRepository) WaitRun(ctx context.Context, runID int, position 
 	_, err := r.inTx(ctx, func(tx *sql.Tx) (int, error) {
 		result, err := tx.ExecContext(ctx, "UPDATE automation_runs SET status = ?, current_step = ?, resume_at = ? WHERE id = ?",
 			automation.RunWaiting, position, resumeAt, runID)
-		if err := requireRow(result, err, "set automation run waiting"); err != nil {
-			if errors.Is(err, automation.ErrNotFound) {
-				return 0, automation.ErrRunGone
-			}
+		if err := requireRun(result, err, "set automation run waiting"); err != nil {
 			return 0, err
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO automation_run_steps (run_id, position, kind, outcome, started_at)
@@ -209,10 +203,7 @@ func (r *AutomationRepository) ResumeRun(ctx context.Context, runID int, at time
 	_, err := r.inTx(ctx, func(tx *sql.Tx) (int, error) {
 		result, err := tx.ExecContext(ctx, "UPDATE automation_runs SET status = ?, resume_at = NULL WHERE id = ? AND status = ?",
 			automation.RunRunning, runID, automation.RunWaiting)
-		if err := requireRow(result, err, "resume automation run"); err != nil {
-			if errors.Is(err, automation.ErrNotFound) {
-				return 0, automation.ErrRunGone
-			}
+		if err := requireRun(result, err, "resume automation run"); err != nil {
 			return 0, err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE automation_run_steps SET outcome = ?, finished_at = ?
@@ -477,6 +468,14 @@ func requireRow(result sql.Result, err error, action string) error {
 		return automation.ErrNotFound
 	}
 	return nil
+}
+
+func requireRun(result sql.Result, err error, action string) error {
+	err = requireRow(result, err, action)
+	if errors.Is(err, automation.ErrNotFound) {
+		return automation.ErrRunGone
+	}
+	return err
 }
 
 func nullableInt(value sql.NullInt64) *int {

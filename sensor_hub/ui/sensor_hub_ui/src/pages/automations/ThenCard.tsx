@@ -223,7 +223,8 @@ const largestWholeUnit = (seconds: number | undefined) =>
 
 function WaitStepCard({ step, onChange, ...shell }: StepCardProps) {
   const [unit, setUnit] = useState(() => largestWholeUnit(step.seconds));
-  const amount = step.seconds === undefined ? '' : String(step.seconds / unit);
+  // Kept as typed, so that a partial number such as "1." is not rewritten from the seconds it gives.
+  const [amount, setAmount] = useState(() => (step.seconds === undefined ? '' : String(step.seconds / unit)));
   const setSeconds = (typed: string, inUnit: number) =>
     onChange({ ...step, seconds: typed === '' ? undefined : Math.round(Number(typed) * inUnit) });
 
@@ -240,7 +241,10 @@ function WaitStepCard({ step, onChange, ...shell }: StepCardProps) {
             value={amount}
             disabled={shell.readOnly}
             slotProps={{ htmlInput: { min: 1 } }}
-            onChange={(event) => setSeconds(event.target.value, unit)}
+            onChange={(event) => {
+              setAmount(event.target.value);
+              setSeconds(event.target.value, unit);
+            }}
           />
           <TextField
             select

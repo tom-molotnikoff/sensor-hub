@@ -3,11 +3,15 @@ package service
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"example/sensorHub/actuation"
+	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 
@@ -237,12 +241,43 @@ func TestCommandService_SendAsSystem_RecordsTheRunAndNoUser(t *testing.T) {
 	historyRepo.AssertExpectations(t)
 }
 
-func TestCommandService_AwaitOutcome_GivesACommandThatAlreadySettledItsStatus(t *testing.T) {
-	historyRepo := &mockCommandHistoryRepository{}
-	historyRepo.On("CommandStatus", mock.Anything, 12).Return(actuation.CommandStatusTimedOut, nil)
-	service, _ := newCommandServiceForTest(&mockCommandSensorRepository{}, &mockCommandSubscriptionRepository{}, historyRepo, &mockCommandPublisher{}, nil)
+type discardCommandStatus struct{}
 
-	outcome, err := service.AwaitOutcome(context.Background(), 12)
+func (discardCommandStatus) BroadcastCommandStatus(actuation.CommandStatusMessage) {}
+
+func TestCommandService_AwaitOutcome_GivesACommandThatAlreadySettledItsStatus(t *testing.T) {
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handles, err := database.Open(&appProps.ApplicationConfiguration{
+		DatabasePath:              filepath.Join(t.TempDir(), "commands.db"),
+		DatabaseReaderConnections: 2,
+	}, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { handles.Close() })
+	result, err := handles.Writer.Exec("INSERT INTO sensors (name, sensor_driver, config) VALUES ('office-plug', 'mqtt-zigbee2mqtt', '{}')")
+	require.NoError(t, err)
+	sensorID, err := result.LastInsertId()
+	require.NoError(t, err)
+	historyRepo := database.NewSensorCommandHistoryRepository(handles, logger)
+	commandID, err := historyRepo.AddSentCommand(ctx, database.NewCommand{
+		SensorID:       int(sensorID),
+		Property:       "state",
+		Value:          "ON",
+		MQTTTopic:      "zigbee2mqtt/office-plug/set",
+		MQTTPayload:    `{"state":"ON"}`,
+		TimeoutSeconds: 10,
+		SentAt:         time.Now().UTC(),
+	})
+	require.NoError(t, err)
+	_, err = historyRepo.MarkTimedOut(ctx, commandID)
+	require.NoError(t, err)
+
+	tracker := actuation.NewCommandTracker(historyRepo, discardCommandStatus{}, logger)
+	t.Cleanup(tracker.Close)
+	require.NoError(t, tracker.RecoverPending(ctx))
+	service := NewCommandService(nil, nil, historyRepo, nil, tracker, logger)
+
+	outcome, err := service.AwaitOutcome(ctx, commandID)
 
 	require.NoError(t, err)
 	assert.Equal(t, actuation.CommandStatusTimedOut, <-outcome)

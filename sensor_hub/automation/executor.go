@@ -119,8 +119,7 @@ func (e *executor) executeStep(ctx context.Context, logger *slog.Logger, run Run
 		return "", false
 	}
 
-	commandID, reason, interrupted := e.set(ctx, logger, run, step)
-	return e.finishStep(ctx, logger, span, stepID, position, commandID, reason, interrupted)
+	return e.finishStep(ctx, logger, span, RunStep{ID: stepID, Position: position}, e.set(ctx, logger, run, step))
 }
 
 // Only a set step can be interrupted: a wait step is never left running in a
@@ -144,8 +143,7 @@ func (e *executor) settleInterrupted(ctx context.Context, logger *slog.Logger, r
 	}
 	if !recorded {
 		logger.Info("no command was recorded for the interrupted automation step; sending it", "position", last.Position)
-		sent, reason, interrupted := e.set(ctx, logger, run, step)
-		return e.finishStep(ctx, logger, span, last.ID, last.Position, sent, reason, interrupted)
+		return e.finishStep(ctx, logger, span, last, e.set(ctx, logger, run, step))
 	}
 
 	logger.Info("taking the outcome of the command the interrupted automation step sent", "position", last.Position, "command_id", commandID)
@@ -153,27 +151,33 @@ func (e *executor) settleInterrupted(ctx context.Context, logger *slog.Logger, r
 	outcome, err := e.commands.AwaitOutcome(ctx, commandID)
 	if err != nil {
 		logger.Error("could not follow the command of an interrupted automation step", "command_id", commandID, "error", err)
-		return e.finishStep(ctx, logger, span, last.ID, last.Position, &commandID, fmt.Sprintf("no outcome was recorded for the command to %s", name), false)
+		return e.finishStep(ctx, logger, span, last, setResult{commandID: &commandID, reason: fmt.Sprintf("no outcome was recorded for the command to %s", name)})
 	}
 	reason, interrupted := e.await(ctx, name, outcome)
-	return e.finishStep(ctx, logger, span, last.ID, last.Position, &commandID, reason, interrupted)
+	return e.finishStep(ctx, logger, span, last, setResult{commandID: &commandID, reason: reason, interrupted: interrupted})
 }
 
-func (e *executor) finishStep(ctx context.Context, logger *slog.Logger, span trace.Span, stepID int, position int, commandID *int, reason string, interrupted bool) (string, bool) {
-	if interrupted {
-		logger.Warn("automation run interrupted", "position", position)
+type setResult struct {
+	commandID   *int
+	reason      string
+	interrupted bool
+}
+
+func (e *executor) finishStep(ctx context.Context, logger *slog.Logger, span trace.Span, step RunStep, result setResult) (string, bool) {
+	if result.interrupted {
+		logger.Warn("automation run interrupted", "position", step.Position)
 		return "", false
 	}
 	outcome := StepSucceeded
-	if reason != "" {
+	if result.reason != "" {
 		outcome = StepFailed
-		span.SetStatus(codes.Error, reason)
+		span.SetStatus(codes.Error, result.reason)
 	}
-	if err := e.store.FinishRunStep(ctx, stepID, outcome, commandID, e.now()); err != nil {
-		logger.Error("could not record automation step outcome", "position", position, "error", err)
+	if err := e.store.FinishRunStep(ctx, step.ID, outcome, result.commandID, e.now()); err != nil {
+		logger.Error("could not record automation step outcome", "position", step.Position, "error", err)
 	}
-	logger.Info("automation step finished", "position", position, "outcome", outcome, "reason", reason)
-	return reason, true
+	logger.Info("automation step finished", "position", step.Position, "outcome", outcome, "reason", result.reason)
+	return result.reason, true
 }
 
 func (e *executor) wait(ctx context.Context, logger *slog.Logger, run Run, position int, step Step) (time.Time, bool) {
@@ -204,36 +208,38 @@ func (e *executor) startStepSpan(ctx context.Context, position int, step Step) (
 
 // The sensor and value are checked again because either may have changed
 // since the automation was saved.
-func (e *executor) set(ctx context.Context, logger *slog.Logger, run Run, step Step) (commandID *int, reason string, interrupted bool) {
+func (e *executor) set(ctx context.Context, logger *slog.Logger, run Run, step Step) setResult {
 	sensor, err := e.sensors.ServiceGetSensorById(ctx, step.SensorID)
 	if err != nil || sensor == nil {
-		return nil, fmt.Sprintf("sensor %d could not be loaded", step.SensorID), false
+		return setResult{reason: fmt.Sprintf("sensor %d could not be loaded", step.SensorID)}
 	}
 	if !sensor.Enabled {
-		return nil, fmt.Sprintf("%s is disabled", sensor.Name), false
+		return setResult{reason: fmt.Sprintf("%s is disabled", sensor.Name)}
 	}
 	if sensor.Status != gen.SensorStatusActive {
-		return nil, fmt.Sprintf("%s is %s, not active", sensor.Name, sensor.Status), false
+		return setResult{reason: fmt.Sprintf("%s is %s, not active", sensor.Name, sensor.Status)}
 	}
 	capability, err := writableCapability(*sensor, step.Property)
 	if err != nil {
-		return nil, err.Error(), false
+		return setResult{reason: err.Error()}
 	}
 	if err := checkValue(capability, step.Value); err != nil {
-		return nil, err.Error(), false
+		return setResult{reason: err.Error()}
 	}
 
+	var result setResult
 	id, outcome, err := e.commands.SendAsSystem(ctx, step.SensorID, step.Property, step.Value, run.ID)
 	if id != 0 {
-		commandID = &id
+		result.commandID = &id
 	}
 	if err != nil {
-		return commandID, err.Error(), false
+		result.reason = err.Error()
+		return result
 	}
 	logger.Info("automation command sent", "command_id", id, "sensor", sensor.Name, "property", step.Property, "value", step.Value)
 
-	reason, interrupted = e.await(ctx, sensor.Name, outcome)
-	return commandID, reason, interrupted
+	result.reason, result.interrupted = e.await(ctx, sensor.Name, outcome)
+	return result
 }
 
 func (e *executor) await(ctx context.Context, name string, outcome <-chan string) (reason string, interrupted bool) {
@@ -264,6 +270,30 @@ func (e *executor) finish(ctx context.Context, logger *slog.Logger, run Run, sta
 	}
 	e.runsEnded.Add(ctx, 1, metric.WithAttributes(attribute.String("status", string(status))))
 	logger.Info("automation run finished", "status", status)
+}
+
+func (e *executor) recordMissed(ctx context.Context, automation Automation, trigger Trigger, due time.Time, pastGrace time.Duration) {
+	triggerID := trigger.ID
+	now := e.now()
+	run := Run{
+		AutomationID: automation.ID,
+		TriggerID:    &triggerID,
+		TriggerKind:  trigger.Kind,
+		Status:       RunMissed,
+		Steps:        automation.Steps,
+		StartedAt:    now,
+		FinishedAt:   &now,
+		DueAt:        &due,
+		PastGrace:    &pastGrace,
+	}
+	id, err := e.store.CreateRun(ctx, run)
+	if err != nil {
+		e.logger.Error("could not record missed automation run", "automation_id", automation.ID, "trigger_id", triggerID, "due", due, "error", err)
+		return
+	}
+	e.runsEnded.Add(ctx, 1, metric.WithAttributes(attribute.String("status", string(RunMissed))))
+	e.logger.Warn("automation trigger came due while the hub was down, past the grace window; not running it",
+		"automation_id", automation.ID, "run_id", id, "trigger_id", triggerID, "due", due, "past_grace", pastGrace)
 }
 
 func (e *executor) notifyFailure(ctx context.Context, logger *slog.Logger, automation Automation, message string) {

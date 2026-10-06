@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
 
@@ -76,7 +75,7 @@ func (e *engine) load(runCtx context.Context, zone *time.Location, automations [
 	e.mu.Unlock()
 
 	for _, overdue := range missed {
-		e.recordMissed(runCtx, overdue.automation, overdue.trigger, overdue.due, now.Sub(overdue.due)-grace)
+		e.executor.recordMissed(runCtx, overdue.automation, overdue.trigger, overdue.due, now.Sub(overdue.due)-grace)
 	}
 	for _, run := range active {
 		if run.Status == RunWaiting && run.ResumeAt != nil && run.ResumeAt.After(now) {
@@ -267,30 +266,6 @@ func (e *engine) startRun(ctx context.Context, automation Automation, trigger Tr
 	}
 	run.ID = id
 	go e.run(ctx, automation, run)
-}
-
-func (e *engine) recordMissed(ctx context.Context, automation Automation, trigger Trigger, due time.Time, pastGrace time.Duration) {
-	triggerID := trigger.ID
-	now := e.now()
-	run := Run{
-		AutomationID: automation.ID,
-		TriggerID:    &triggerID,
-		TriggerKind:  trigger.Kind,
-		Status:       RunMissed,
-		Steps:        automation.Steps,
-		StartedAt:    now,
-		FinishedAt:   &now,
-		DueAt:        &due,
-		PastGrace:    &pastGrace,
-	}
-	id, err := e.store.CreateRun(ctx, run)
-	if err != nil {
-		e.logger.Error("could not record missed automation run", "automation_id", automation.ID, "trigger_id", triggerID, "due", due, "error", err)
-		return
-	}
-	e.executor.runsEnded.Add(ctx, 1, metric.WithAttributes(attribute.String("status", string(RunMissed))))
-	e.logger.Warn("automation trigger came due while the hub was down, past the grace window; not running it",
-		"automation_id", automation.ID, "run_id", id, "trigger_id", triggerID, "due", due, "past_grace", pastGrace)
 }
 
 func (e *engine) resume(ctx context.Context, runID int) {
