@@ -41,8 +41,7 @@ type CommandStatusBroadcaster interface {
 }
 
 type LifecycleManager interface {
-	// Track watches a sent command until it is acknowledged or times out. The
-	// returned channel receives the command's final status once.
+	// The returned channel receives the command's final status once.
 	Track(ctx context.Context, command database.PendingCommandRecord) <-chan string
 	MarkFailed(ctx context.Context, command database.PendingCommandRecord)
 	RecoverPending(ctx context.Context) error
@@ -210,8 +209,6 @@ func (t *CommandTracker) matchingCommand(sensorID int, property string) (databas
 	return matched, found
 }
 
-// settle stops tracking a command that has reached its final status and
-// hands that status to whoever is waiting on the command's outcome.
 func (t *CommandTracker) settle(command database.PendingCommandRecord) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

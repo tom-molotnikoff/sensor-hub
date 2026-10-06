@@ -9,8 +9,6 @@ import (
 
 const maxSleep = time.Minute
 
-// scheduler holds a due time per key in a min-heap and sleeps on one timer
-// until the earliest, then hands each due key to fire. Keys are trigger IDs.
 type scheduler struct {
 	fire func(key int, due time.Time)
 	now  func() time.Time
@@ -30,7 +28,6 @@ func newScheduler(fire func(key int, due time.Time), now func() time.Time) *sche
 	}
 }
 
-// set makes key due at due, replacing any earlier due time it had.
 func (s *scheduler) set(key int, due time.Time) {
 	s.mu.Lock()
 	if entry, ok := s.entries[key]; ok {
@@ -65,7 +62,6 @@ func (s *scheduler) due(key int) (time.Time, bool) {
 	return entry.due, true
 }
 
-// rearm wakes the loop so it sleeps until the new earliest due time.
 func (s *scheduler) rearm() {
 	select {
 	case s.wake <- struct{}{}:
@@ -73,8 +69,6 @@ func (s *scheduler) rearm() {
 	}
 }
 
-// run sleeps until the earliest due time and fires everything due by then,
-// until ctx is cancelled.
 func (s *scheduler) run(ctx context.Context, healthy func()) {
 	for {
 		var timer *time.Timer

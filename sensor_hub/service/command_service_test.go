@@ -48,8 +48,6 @@ func (m *mockCommandHistoryRepository) AddSentCommand(ctx context.Context, comma
 	return args.Int(0), args.Error(1)
 }
 
-// officePlugCommand matches the "state ON" command to office-plug sent by
-// the given actor, whenever it was sent.
 func officePlugCommand(userID *int, automationRunID *int) interface{} {
 	want := database.NewCommand{
 		SensorID:        7,

@@ -31,8 +31,6 @@ func NewSensorCommandHistoryRepository(db *Handles, logger *slog.Logger) *Sensor
 	return &SensorCommandHistoryRepository{db: db, logger: logger.With("component", "sensor_command_history_repository")}
 }
 
-// NewCommand is a command about to be published. UserID is set when a person
-// sent it and AutomationRunID when an automation run did.
 type NewCommand struct {
 	SensorID        int
 	UserID          *int

@@ -2,7 +2,6 @@ package automation
 
 import "time"
 
-// Weekdays is a set of days of the week, one bit per time.Weekday.
 type Weekdays uint8
 
 func (w Weekdays) Has(day time.Weekday) bool {
@@ -17,14 +16,12 @@ func WeekdaysOf(days ...time.Weekday) Weekdays {
 	return w
 }
 
-// Schedule is a time of day on chosen weekdays, read on the hub's clock.
 type Schedule struct {
 	MinuteOfDay int
 	Days        Weekdays
 }
 
-// NextAfter returns the first moment strictly after t at which the clocks in
-// loc show the schedule's time on one of its days. Days must not be empty.
+// Days must not be empty, or NextAfter never returns.
 func (s Schedule) NextAfter(t time.Time, loc *time.Location) time.Time {
 	local := t.In(loc)
 	for offset := 0; ; offset++ {
@@ -40,10 +37,9 @@ func (s Schedule) NextAfter(t time.Time, loc *time.Location) time.Time {
 	}
 }
 
-// wallClock returns the moment the clocks show minuteOfDay on day's date. A
-// time the clocks skip when they go forward resolves to the first minute after
-// the gap. A time that happens twice when they go back resolves to its first
-// occurrence, so a schedule fires once that night.
+// A time the clocks skip when they go forward resolves to the first minute
+// after the gap. A time that happens twice when they go back resolves to its
+// first occurrence, so a schedule fires once that night.
 func wallClock(day time.Time, minuteOfDay int) time.Time {
 	year, month, date := day.Date()
 	hour, minute := minuteOfDay/60, minuteOfDay%60
@@ -74,7 +70,6 @@ func wallClock(day time.Time, minuteOfDay int) time.Time {
 	return t
 }
 
-// wallTime is what the clocks show at t, as a comparable value.
 func wallTime(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.UTC)
 }

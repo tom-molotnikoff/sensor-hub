@@ -1,5 +1,3 @@
-// Package automation runs user-defined automations: triggers that start a
-// run, and an ordered list of steps the hub carries out as the system actor.
 package automation
 
 import (
@@ -31,8 +29,7 @@ const (
 	StepFailed    StepOutcome = "failed"
 )
 
-// ErrRunGone reports that a run's row no longer exists, because its
-// automation was deleted while the run was going.
+// ErrRunGone means the run was deleted, with its automation, while it was going.
 var ErrRunGone = errors.New("automation run no longer exists")
 
 type Automation struct {
@@ -45,15 +42,14 @@ type Automation struct {
 	UpdatedAt time.Time
 }
 
-// Trigger starts a run. Schedule is set for schedule triggers.
 type Trigger struct {
 	ID       int
 	Kind     TriggerKind
 	Schedule *Schedule
 }
 
-// Step is one action of a run. Its JSON form is the API body's step shape,
-// which is also how a run keeps a copy of the steps it started with.
+// A Step's JSON form is the API body's step shape, which is also how a run
+// keeps a copy of the steps it started with.
 type Step struct {
 	Kind     StepKind `json:"type"`
 	SensorID int      `json:"sensor_id,omitempty"`
@@ -75,7 +71,7 @@ type Run struct {
 	StepOutcomes []RunStep
 }
 
-// RunStep is the outcome of one step of a run. Position counts from 1.
+// RunStep positions count from 1.
 type RunStep struct {
 	ID         int
 	Position   int
@@ -86,7 +82,6 @@ type RunStep struct {
 	FinishedAt *time.Time
 }
 
-// RunState is what an automation's runs say about its status.
 type RunState struct {
 	Running       bool
 	LastRunFailed bool

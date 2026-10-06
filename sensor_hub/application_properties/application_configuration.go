@@ -141,9 +141,8 @@ var (
 	nextReloadListener int
 )
 
-// OnReload calls listener with the new configuration after every successful
-// reload, whether it came from a PATCH or from an edit to the files on disk.
-// The returned function removes the listener.
+// OnReload listeners run after every successful reload, from a PATCH or from
+// an edit to the files on disk.
 func OnReload(listener func(cfg *ApplicationConfiguration)) (remove func()) {
 	reloadListenersMu.Lock()
 	defer reloadListenersMu.Unlock()

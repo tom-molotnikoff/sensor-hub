@@ -104,7 +104,6 @@ func (f *fixture) create(t *testing.T, triggers []gen.AutomationTrigger, steps .
 	return created
 }
 
-// fire makes the automation's first trigger come due now.
 func (f *fixture) fire(automation gen.Automation) {
 	f.service.Fire(*automation.Triggers[0].Id, time.Now().UTC())
 }
@@ -124,7 +123,6 @@ func (f *fixture) latestRun(t *testing.T, automationID int, status gen.Automatio
 	return run
 }
 
-// commandsInHistory counts the lamp's commands in command history.
 func (f *fixture) commandsInHistory(t *testing.T) int {
 	t.Helper()
 	var count int
@@ -164,8 +162,8 @@ type sentCommand struct {
 	outcome  chan string
 }
 
-// fakeCommands records each command in real command history, as the command
-// service does, and lets the test decide each command's outcome.
+// fakeCommands writes real command history because a run step's
+// command_id has to reference a real row.
 type fakeCommands struct {
 	history *database.SensorCommandHistoryRepository
 	mu      sync.Mutex

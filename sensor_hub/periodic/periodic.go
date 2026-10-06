@@ -38,10 +38,8 @@ func RunTask(ctx context.Context, cfg TaskConfig, task func(ctx context.Context)
 	})
 }
 
-// Supervise runs loop in a goroutine and, whenever it panics, logs the stack
-// trace, backs off exponentially and runs it again. loop should run until ctx
-// is cancelled, and call healthy after each piece of useful work so that the
-// backoff for a later panic starts from the beginning again.
+// Supervise reruns loop after a backoff whenever it panics. loop should call
+// healthy after useful work so a later panic backs off from the start again.
 func Supervise(ctx context.Context, name string, logger *slog.Logger, loop func(ctx context.Context, healthy func())) {
 	go func() {
 		consecutivePanics := 0
@@ -72,7 +70,6 @@ func Supervise(ctx context.Context, name string, logger *slog.Logger, loop func(
 	}()
 }
 
-// runRecovered runs loop and reports whether it ended in a panic.
 func runRecovered(ctx context.Context, name string, logger *slog.Logger, loop func(ctx context.Context, healthy func()), healthy func()) (panicked bool) {
 	defer func() {
 		if r := recover(); r != nil {

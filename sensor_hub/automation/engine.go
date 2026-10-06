@@ -9,8 +9,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-// engine keeps the schedule of every enabled automation in the scheduler and
-// starts a run when one of its triggers comes due.
 type engine struct {
 	store     Store
 	executor  *executor
@@ -44,8 +42,6 @@ func newEngine(store Store, executor *executor, logger *slog.Logger, now func() 
 	return e
 }
 
-// load replaces everything the engine knows. Runs it starts afterwards run
-// under runCtx.
 func (e *engine) load(runCtx context.Context, zone *time.Location, automations []Automation) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -59,7 +55,6 @@ func (e *engine) load(runCtx context.Context, zone *time.Location, automations [
 	}
 }
 
-// put arms a new or changed automation, recomputing its triggers' due times.
 func (e *engine) put(automation Automation) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -73,7 +68,6 @@ func (e *engine) forget(automationID int) {
 	e.dropLocked(automationID)
 }
 
-// setZone recomputes every due time in a new hub timezone.
 func (e *engine) setZone(zone *time.Location) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -93,8 +87,6 @@ func (e *engine) zoneName() string {
 	return e.zone.String()
 }
 
-// nextFireAt is when the automation's earliest trigger next comes due, or nil
-// when it is off.
 func (e *engine) nextFireAt(automationID int) *time.Time {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -144,9 +136,8 @@ func (e *engine) dropLocked(automationID int) {
 	delete(e.lastDue, automationID)
 }
 
-// fire is the scheduler's callback for a trigger that has come due. It arms
-// the trigger's next due time and starts a run. Two triggers of one
-// automation due at the same moment start one run between them.
+// Two triggers of one automation due at the same moment start one run
+// between them.
 func (e *engine) fire(triggerID int, due time.Time) {
 	e.mu.Lock()
 	automation, ok := e.automations[e.triggers[triggerID]]

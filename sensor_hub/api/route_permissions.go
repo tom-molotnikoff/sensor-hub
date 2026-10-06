@@ -7,10 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// routePermissions maps "METHOD /api/full-path" to the permissions it
-// requires, all of them. Routes not in this map require only authentication
-// (no specific permission), or are fully public (no CookieAuthScopes set by
-// the generated wrapper).
+// routePermissions maps "METHOD /api/full-path" to the permissions it requires,
+// all of them. Routes not in this map require only authentication (no specific
+// permission), or are fully public (no CookieAuthScopes set by the generated
+// wrapper).
 var routePermissions = map[string][]string{
 	// Alerts
 	"GET /api/alerts":                          {"view_alerts"},

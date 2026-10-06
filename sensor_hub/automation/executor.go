@@ -21,13 +21,13 @@ import (
 const (
 	failureRecipients = "manage_automations"
 
-	// outcomeGrace is how long past the command timeout a step keeps waiting
-	// for the tracker's verdict before giving up on the command itself.
+	// outcomeGrace covers the tracker failing to record a verdict, so a step
+	// cannot wait forever.
 	outcomeGrace = 5 * time.Second
 
 	defaultCommandTimeout = 10 * time.Second
 
-	// Command statuses, as the command tracker reports them.
+	// The command tracker's statuses. Importing actuation would be a cycle through db.
 	commandAcknowledged = "acknowledged"
 	commandTimedOut     = "timed_out"
 )
@@ -43,9 +43,8 @@ type executor struct {
 	runsEnded metric.Int64Counter
 }
 
-// execute carries out a run's steps in order, stopping at the first that
-// fails, and records the run's outcome. It returns early, leaving the run
-// unfinished, when ctx is cancelled or the run is deleted under it.
+// execute returns early, leaving the run unfinished, when ctx is cancelled or
+// the run is deleted under it.
 func (e *executor) execute(ctx context.Context, automation Automation, run Run) {
 	logger := e.logger.With("automation_id", automation.ID, "run_id", run.ID)
 	ctx, span := e.tracer.Start(ctx, "automation.run", trace.WithAttributes(
@@ -72,9 +71,8 @@ func (e *executor) execute(ctx context.Context, automation Automation, run Run) 
 	e.finish(ctx, logger, run, RunSucceeded, nil)
 }
 
-// executeStep runs one step and records its outcome. reason explains a
-// failure and is empty on success; finished is false when the step could not
-// be recorded and the run has to stop where it is.
+// reason is empty on success. finished is false when the run has to stop
+// where it is.
 func (e *executor) executeStep(ctx context.Context, logger *slog.Logger, run Run, position int, step Step) (reason string, finished bool) {
 	ctx, span := e.tracer.Start(ctx, "automation.step", trace.WithAttributes(
 		attribute.Int("position", position),
@@ -110,9 +108,8 @@ func (e *executor) executeStep(ctx context.Context, logger *slog.Logger, run Run
 	return reason, true
 }
 
-// set sends a set step's command and waits for the device to acknowledge it.
-// The sensor and value are checked again here because either may have
-// changed since the automation was saved.
+// The sensor and value are checked again because either may have changed
+// since the automation was saved.
 func (e *executor) set(ctx context.Context, logger *slog.Logger, run Run, step Step) (commandID *int, reason string, interrupted bool) {
 	sensor, err := e.sensors.ServiceGetSensorById(ctx, step.SensorID)
 	if err != nil || sensor == nil {
@@ -183,7 +180,6 @@ func (e *executor) notifyFailure(ctx context.Context, logger *slog.Logger, autom
 	}
 }
 
-// describeStep names a step for people, such as "set office-plug state to ON".
 func describeStep(ctx context.Context, sensors SensorLookup, step Step) string {
 	name := fmt.Sprintf("sensor %d", step.SensorID)
 	if sensor, err := sensors.ServiceGetSensorById(ctx, step.SensorID); err == nil && sensor != nil {

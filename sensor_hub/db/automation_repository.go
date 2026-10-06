@@ -92,16 +92,13 @@ func (r *AutomationRepository) SetAutomationEnabled(ctx context.Context, id int,
 	return r.GetAutomation(ctx, id)
 }
 
-// DeleteAutomation deletes the automation, and with it, by cascade, its
-// triggers, steps, runs and run steps. Commands its runs sent lose their
-// automation_run_id.
+// The schema cascades the delete to triggers, steps, runs and run steps, and
+// clears automation_run_id on the commands its runs sent.
 func (r *AutomationRepository) DeleteAutomation(ctx context.Context, id int) error {
 	result, err := r.db.Writer.ExecContext(ctx, "DELETE FROM automations WHERE id = ?", id)
 	return requireRow(result, err, "delete automation")
 }
 
-// RunStates reports, per automation, whether a run is going and whether the
-// latest run to succeed or fail failed.
 func (r *AutomationRepository) RunStates(ctx context.Context) (map[int]automation.RunState, error) {
 	rows, err := r.db.Reader.QueryContext(ctx, `SELECT a.id,
 			EXISTS (SELECT 1 FROM automation_runs r WHERE r.automation_id = a.id AND r.status = 'running'),
@@ -290,8 +287,6 @@ func insertDefinition(ctx context.Context, tx *sql.Tx, automationID int, a autom
 	return nil
 }
 
-// queryAutomations loads automations matching where, with their triggers and
-// steps in order.
 func (r *AutomationRepository) queryAutomations(ctx context.Context, where string, args ...any) ([]automation.Automation, error) {
 	rows, err := r.db.Reader.QueryContext(ctx,
 		"SELECT id, name, enabled, created_at, updated_at FROM automations "+where+" ORDER BY name COLLATE NOCASE, id", args...)
@@ -382,7 +377,6 @@ func (r *AutomationRepository) inTx(ctx context.Context, work func(tx *sql.Tx) (
 	return id, nil
 }
 
-// requireRow turns a statement that touched no row into ErrNotFound.
 func requireRow(result sql.Result, err error, action string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", action, err)

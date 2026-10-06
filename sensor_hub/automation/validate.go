@@ -13,8 +13,6 @@ import (
 	gen "example/sensorHub/gen"
 )
 
-// ValidationError is an automation the API refuses to save. The message
-// names the field that failed.
 type ValidationError struct {
 	Message string
 }
@@ -39,8 +37,6 @@ var weekdayNames = map[gen.AutomationTriggerDays]time.Weekday{
 	gen.AutomationDaySun: time.Sunday,
 }
 
-// fromInput checks an API body and turns it into an automation. Set steps are
-// checked against their sensor's writable capabilities as they are now.
 func fromInput(ctx context.Context, sensors SensorLookup, input gen.AutomationInput) (Automation, error) {
 	automation := Automation{Name: strings.TrimSpace(input.Name), Enabled: true}
 	if input.Enabled != nil {
@@ -138,7 +134,6 @@ func stepFromInput(ctx context.Context, sensors SensorLookup, i int, step gen.Au
 	return parsed, nil
 }
 
-// writableCapability finds property among the sensor's writable capabilities.
 // The sensor must come from the sensor service, which fills in capabilities.
 func writableCapability(sensor gen.Sensor, property string) (gen.Capability, error) {
 	if sensor.Capabilities == nil || len(*sensor.Capabilities) == 0 {
@@ -152,8 +147,6 @@ func writableCapability(sensor gen.Sensor, property string) (gen.Capability, err
 	return gen.Capability{}, fmt.Errorf("%s has no writable property %q", sensor.Name, property)
 }
 
-// checkValue checks a command value against its capability: one of the two
-// binary values, a number within the numeric range, or one of the enum values.
 func checkValue(capability gen.Capability, value string) error {
 	switch capability.Type {
 	case gen.CapabilityTypeBinary:

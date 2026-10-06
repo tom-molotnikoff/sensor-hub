@@ -18,13 +18,11 @@ import (
 
 var ErrNotFound = errors.New("automation not found")
 
-// Store persists automations and their runs. Automation writes go through
-// the writer connection, and none of them holds a transaction across a
-// command round trip.
+// A Store must not hold a transaction across a command round trip.
 type Store interface {
 	ListAutomations(ctx context.Context) ([]Automation, error)
-	// GetAutomation returns ErrNotFound when there is no such automation, as
-	// do the update, enable and delete methods.
+	// Missing automations are ErrNotFound here and in the update, enable and
+	// delete methods.
 	GetAutomation(ctx context.Context, id int) (Automation, error)
 	CreateAutomation(ctx context.Context, automation Automation) (Automation, error)
 	UpdateAutomation(ctx context.Context, automation Automation) (Automation, error)
@@ -33,13 +31,11 @@ type Store interface {
 	RunStates(ctx context.Context) (map[int]RunState, error)
 
 	CreateRun(ctx context.Context, run Run) (int, error)
-	// StartRunStep records that a step has started and moves the run onto it.
-	// It returns ErrRunGone when the run has been deleted.
+	// StartRunStep returns ErrRunGone when the run has been deleted.
 	StartRunStep(ctx context.Context, runID int, position int, kind StepKind, at time.Time) (int, error)
 	FinishRunStep(ctx context.Context, stepID int, outcome StepOutcome, commandID *int, at time.Time) error
 	FinishRun(ctx context.Context, runID int, status RunStatus, message *string, at time.Time) error
 	ListRuns(ctx context.Context, automationID int) ([]Run, error)
-	// FailRunningRuns ends every run still marked running, returning how many.
 	FailRunningRuns(ctx context.Context, message string, at time.Time) (int, error)
 }
 
@@ -49,7 +45,6 @@ type SensorLookup interface {
 	ServiceGetSensorById(ctx context.Context, id int) (*gen.Sensor, error)
 }
 
-// CommandSender sends a command as the system actor for an automation run.
 // The ID is non-zero whenever the command was recorded, even alongside an
 // error. The channel receives the command's final status once.
 type CommandSender interface {
@@ -60,8 +55,6 @@ type Notifier interface {
 	CreateNotification(ctx context.Context, notification notifications.Notification, targetPermission string) (int, error)
 }
 
-// Service is how the rest of the hub manages automations. Saves take effect
-// on the running schedule straight away.
 type Service struct {
 	store   Store
 	sensors SensorLookup
@@ -95,9 +88,6 @@ func NewService(store Store, sensors SensorLookup, commands CommandSender, notif
 	}
 }
 
-// Start loads every automation, arms the scheduler and keeps it running
-// until ctx is cancelled. Runs left running by a previous process are ended
-// as failed first.
 func (s *Service) Start(ctx context.Context) error {
 	interrupted, err := s.store.FailRunningRuns(ctx, "the hub stopped during the run", s.now())
 	if err != nil {
@@ -196,8 +186,6 @@ func (s *Service) SetEnabled(ctx context.Context, id int, enabled bool) (gen.Aut
 	return s.viewWithState(ctx, saved)
 }
 
-// Delete removes an automation with its triggers, steps and runs. The
-// commands its runs sent stay in command history.
 func (s *Service) Delete(ctx context.Context, id int) error {
 	if err := s.store.DeleteAutomation(ctx, id); err != nil {
 		return err
@@ -207,7 +195,6 @@ func (s *Service) Delete(ctx context.Context, id int) error {
 	return nil
 }
 
-// Runs returns an automation's runs, newest first.
 func (s *Service) Runs(ctx context.Context, id int) ([]gen.AutomationRun, error) {
 	if _, err := s.store.GetAutomation(ctx, id); err != nil {
 		return nil, err

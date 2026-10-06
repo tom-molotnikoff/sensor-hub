@@ -159,8 +159,6 @@ func TestRouteMiddleware_BlocksInsufficientPermissionForGetSensorCommandHistory(
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-// routesWithoutPermission are the routes that need no permission: public
-// ones, and ones open to any signed-in user.
 var routesWithoutPermission = map[string]bool{
 	"GET /api/health":               true,
 	"GET /api/openapi.yaml":         true,
@@ -175,8 +173,6 @@ var routesWithoutPermission = map[string]bool{
 	"GET /api/sensors/ws/:driver":   true,
 }
 
-// TestRoutePermissions_CoverEveryRoute makes every new route either name the
-// permissions it needs or be listed as needing none.
 func TestRoutePermissions_CoverEveryRoute(t *testing.T) {
 	router := setupGenRouter(&Server{})
 	registered := make(map[string]bool)

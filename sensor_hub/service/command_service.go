@@ -116,11 +116,8 @@ func (s *CommandService) Send(ctx context.Context, sensorID int, actor *gen.User
 	return result, err
 }
 
-// SendAsSystem sends a command for an automation run with no user attached
-// and returns its ID, which is set whenever the command was recorded, even if
-// publishing it then failed. There is no permission check: whoever saved or
-// enabled the automation was checked for control_sensors then. The returned
-// channel receives the command's final status once.
+// There is no permission check: whoever saved or enabled the automation was
+// checked for control_sensors then.
 func (s *CommandService) SendAsSystem(ctx context.Context, sensorID int, property string, value string, automationRunID int) (int, <-chan string, error) {
 	sensor, err := s.commandableSensor(ctx, sensorID)
 	if err != nil {
@@ -138,9 +135,6 @@ func (s *CommandService) commandableSensor(ctx context.Context, sensorID int) (*
 	return sensor, nil
 }
 
-// send publishes command to sensor. command carries the actor and the
-// property and value; send fills in everything else. The result carries the
-// command's ID whenever it was recorded, including when publishing failed.
 func (s *CommandService) send(ctx context.Context, sensor *gen.Sensor, command database.NewCommand) (SentCommandResult, <-chan string, error) {
 	commandDriver, ok := drivers.GetCommandDriver(sensor.SensorDriver)
 	if !ok {
