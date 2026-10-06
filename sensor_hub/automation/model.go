@@ -7,7 +7,10 @@ import (
 
 type TriggerKind string
 
-const TriggerSchedule TriggerKind = "schedule"
+const (
+	TriggerSchedule TriggerKind = "schedule"
+	TriggerInterval TriggerKind = "interval"
+)
 
 type StepKind string
 
@@ -51,6 +54,7 @@ type Trigger struct {
 	ID        int
 	Kind      TriggerKind
 	Schedule  *Schedule
+	Interval  time.Duration
 	NextDueAt *time.Time
 }
 

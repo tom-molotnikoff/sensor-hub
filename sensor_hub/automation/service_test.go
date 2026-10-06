@@ -109,6 +109,10 @@ func scheduleTrigger(at string, days ...gen.AutomationTriggerDays) gen.Automatio
 	return gen.AutomationTrigger{Type: gen.AutomationTriggerTypeSchedule, At: &at, Days: &days}
 }
 
+func intervalTrigger(seconds int) gen.AutomationTrigger {
+	return gen.AutomationTrigger{Type: gen.AutomationTriggerTypeInterval, Seconds: &seconds}
+}
+
 func setStep(sensorID int, property, value string) gen.AutomationStep {
 	return gen.AutomationStep{Type: gen.AutomationStepTypeSet, SensorId: &sensorID, Property: &property, Value: &value}
 }
@@ -448,6 +452,10 @@ func TestSave_RejectsAnInvalidAutomationNamingTheField(t *testing.T) {
 			trigger.Days = &[]gen.AutomationTriggerDays{}
 			return []gen.AutomationTrigger{trigger}
 		}, nil, "triggers[0].days"},
+		{"an interval under a minute", func(int) []gen.AutomationTrigger { return []gen.AutomationTrigger{intervalTrigger(59)} }, nil, "triggers[0].seconds"},
+		{"an interval with no length", func(int) []gen.AutomationTrigger {
+			return []gen.AutomationTrigger{{Type: gen.AutomationTriggerTypeInterval}}
+		}, nil, "triggers[0].seconds"},
 		{"a cron trigger", func(int) []gen.AutomationTrigger {
 			return []gen.AutomationTrigger{{Type: "cron", At: ptr("0 19 * * 1-5")}}
 		}, nil, "triggers[0].type"},

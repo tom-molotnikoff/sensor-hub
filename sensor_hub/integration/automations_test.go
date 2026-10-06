@@ -43,6 +43,21 @@ func TestAutomation_RejectsAScheduleWithNoWeekdays(t *testing.T) {
 	assert.Contains(t, string(body), "triggers[0].days")
 }
 
+func TestAutomation_RejectsAnIntervalUnderAMinute(t *testing.T) {
+	fixture := setupCommandFixture(t, fmt.Sprintf("short-interval-plug-%d", reserveTCPPort(t)))
+	defer fixture.stop()
+
+	seconds := 59
+	body, status := client.CreateAutomation(gen.AutomationInput{
+		Name:     "Too often",
+		Triggers: []gen.AutomationTrigger{{Type: gen.AutomationTriggerTypeInterval, Seconds: &seconds}},
+		Steps:    []gen.AutomationStep{{Type: gen.AutomationStepTypeSet, SensorId: &fixture.sensor.Id, Property: ptrStr("state"), Value: ptrStr("ON")}},
+	})
+
+	assert.Equal(t, http.StatusBadRequest, status)
+	assert.Contains(t, string(body), "triggers[0].seconds")
+}
+
 // TestAutomation_ASchedulePublishesTheCommandAsTheSystem waits for the next
 // whole minute, so it takes up to a minute.
 func TestAutomation_ASchedulePublishesTheCommandAsTheSystem(t *testing.T) {

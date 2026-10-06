@@ -15,7 +15,14 @@ export interface Draft {
 let nextKey = 0;
 const keyed = <T extends object>(item: T): Keyed<T> => ({ ...item, key: nextKey++ });
 
-export const newTrigger = (): DraftTrigger => keyed({ type: 'schedule', at: '19:00', days: ['mon', 'tue', 'wed', 'thu', 'fri'] });
+const triggerDefaults: Record<AutomationTrigger['type'], AutomationTrigger> = {
+  schedule: { type: 'schedule', at: '19:00', days: ['mon', 'tue', 'wed', 'thu', 'fri'] },
+  interval: { type: 'interval', seconds: 1_800 },
+};
+
+export const newTrigger = (): DraftTrigger => keyed(triggerDefaults.schedule);
+
+export const retyped = (trigger: DraftTrigger, type: AutomationTrigger['type']): DraftTrigger => ({ ...triggerDefaults[type], key: trigger.key });
 
 export const newSetStep = (): DraftStep => keyed({ type: 'set' });
 
@@ -35,7 +42,7 @@ export function inputOf({ name, enabled, triggers, steps }: Draft): AutomationIn
   return {
     name,
     enabled,
-    triggers: triggers.map(({ type, at, days }) => ({ type, at, days })),
+    triggers: triggers.map(({ type, at, days, seconds }) => ({ type, at, days, seconds })),
     steps: steps.map(({ type, sensor_id, property, value, seconds }) => ({ type, sensor_id, property, value, seconds })),
   };
 }
