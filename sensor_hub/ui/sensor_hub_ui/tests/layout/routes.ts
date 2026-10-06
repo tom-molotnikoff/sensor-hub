@@ -24,6 +24,8 @@ export const routes: readonly LayoutRoute[] = [
   { path: '/sensors-overview', users: signedIn, fixtures: ['sensors', 'pending-sensors'] },
   { path: '/sensor/1', users: signedIn, fixtures: ['health-history'] },
   { path: '/sensor/9', users: signedIn, fixtures: ['sensors', 'health-history'] },
+  { path: '/automations', users: signedIn, fixtures: ['sensors', 'automations'] },
+  { path: '/automations/2', users: signedIn, fixtures: ['sensors', 'automations'] },
   { path: '/properties-overview', users: signedIn, fixtures: [], checks: pinnedHeaderChecks },
   { path: '/data-retention', users: signedIn, fixtures: ['sensors'] },
   { path: '/notifications', users: signedIn, fixtures: ['alerts', 'notifications'] },

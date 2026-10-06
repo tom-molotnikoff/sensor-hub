@@ -31,7 +31,8 @@ export default function DataTable<R extends TableRow, const C extends readonly D
   const bounded = useBounded();
   useBleed(bounded);
   const gridColumns = useMemo<GridColDef<R>[]>(() => {
-    if (!rowActions) return [...columns];
+    const wideColumns = columns.filter((column) => column.wide !== 'hidden');
+    if (!rowActions) return wideColumns;
     const actionsColumn: GridColDef<R> = {
       field: 'actions',
       headerName: 'Actions',
@@ -42,7 +43,7 @@ export default function DataTable<R extends TableRow, const C extends readonly D
       disableExport: true,
       renderCell: ({ row }) => <RowActionButtons actions={rowActions(row)} />,
     };
-    return [...columns, actionsColumn];
+    return [...wideColumns, actionsColumn];
   }, [columns, rowActions]);
 
   const table =

@@ -54,3 +54,33 @@ export function StickyBar({ title, actions, ref }: StickyBarProps) {
     </Box>
   );
 }
+
+interface StickyFooterProps {
+  children?: ReactNode;
+}
+
+export function StickyFooter({ children }: StickyFooterProps) {
+  return (
+    <Box
+      data-ui="sticky-footer"
+      sx={{
+        position: 'sticky',
+        bottom: 0,
+        zIndex: 1,
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 1,
+        marginBottom: responsive({ compact: `-${density.page.compact}px`, wide: `-${density.page.wide}px` }),
+        paddingY: `${barPadding}px`,
+        minWidth: 0,
+        bgcolor: 'background.default',
+        borderTop: 1,
+        borderColor: 'divider',
+      }}
+    >
+      {children}
+    </Box>
+  );
+}

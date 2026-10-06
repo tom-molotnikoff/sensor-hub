@@ -13,12 +13,17 @@ import RequireAuth from "./RequireAuth.tsx";
 import DashboardPage from "../dashboard/DashboardPage.tsx";
 import MqttPage from "../pages/mqtt/MqttPage.tsx";
 import DataRetentionPage from "../pages/data-retention/DataRetentionPage.tsx";
+import AutomationsPage from "../pages/automations/AutomationsPage.tsx";
+import AutomationEditorPage from "../pages/automations/AutomationEditorPage.tsx";
+import {useAuth} from "../providers/AuthContext.tsx";
+import {hasPerm} from "../tools/Utils.ts";
 
 const DeveloperPage = lazy(() => import("../pages/account/DeveloperPage.tsx"));
 
 
 function AppRoutes() {
   const {sensors} = useSensorContext();
+  const {user} = useAuth();
 
   return (
     <BrowserRouter>
@@ -42,6 +47,12 @@ function AppRoutes() {
             />
           )
         })}
+        {hasPerm(user, "view_automations") && (
+          <>
+            <Route path="/automations" element={<RequireAuth><AutomationsPage /></RequireAuth>} />
+            <Route path="/automations/:id" element={<RequireAuth><AutomationEditorPage /></RequireAuth>} />
+          </>
+        )}
         <Route path="/properties-overview" element={<RequireAuth><PropertiesOverview /></RequireAuth>} />
         <Route path="/data-retention" element={<RequireAuth><DataRetentionPage /></RequireAuth>} />
       </Routes>

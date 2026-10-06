@@ -40,6 +40,11 @@ export type PropertyGroup             = components['schemas']['PropertyGroup'];
 export type PropertyDefinitionsResponse = components['schemas']['PropertyDefinitionsResponse'];
 export type MeResponse                = components['schemas']['MeResponse'];
 export type TotalReadingsSample       = components['schemas']['TotalReadingsSample'];
+export type Automation                = components['schemas']['Automation'];
+export type AutomationInput           = components['schemas']['AutomationInput'];
+export type AutomationTrigger         = components['schemas']['AutomationTrigger'];
+export type AutomationStep            = components['schemas']['AutomationStep'];
+export type AutomationRun             = components['schemas']['AutomationRun'];
 
 export type NotificationSeverity = Notification['severity'];
 export type NotificationCategory = Notification['category'];

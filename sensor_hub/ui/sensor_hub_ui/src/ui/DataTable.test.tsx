@@ -169,6 +169,24 @@ describe('DataTable on wide', () => {
     expect(approve).toHaveBeenCalledWith(rowsOf(1)[0]);
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeDisabled();
   });
+
+  it('leaves out a column hidden on wide, which the compact list still shows', async () => {
+    const wideHidden = [
+      { field: 'name', headerName: 'Name', compact: 'title' },
+      { field: 'driver', headerName: 'Driver', compact: 'meta', wide: 'hidden' },
+    ] as const satisfies readonly DataTableColumn<Row>[];
+    const table = <DataTable rows={rowsOf(1)} columns={wideHidden} />;
+
+    stubWide();
+    const { unmount } = render(<ThemeProvider theme={theme}>{table}</ThemeProvider>);
+    expect(await screen.findByRole('columnheader', { name: 'Name' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Driver' })).toBeNull();
+    unmount();
+
+    vi.unstubAllGlobals();
+    render(<ThemeProvider theme={theme}>{table}</ThemeProvider>);
+    expect(screen.getByText('http')).toHaveAttribute('data-ui', 'data-table-meta');
+  });
 });
 
 describe('DataTable columns', () => {

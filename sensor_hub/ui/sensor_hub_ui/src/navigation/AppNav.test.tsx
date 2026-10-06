@@ -36,7 +36,7 @@ const viewer = {
   permissions: ['view_dashboards', 'view_api_docs', 'manage_api_keys', 'view_mqtt', 'view_drivers', 'view_measurement_types'],
 };
 
-const adminItems = ['Dashboards', 'Sensors', 'Data Retention', 'Properties', 'MQTT', 'Alerts & Notifications', 'User Management'];
+const adminItems = ['Dashboards', 'Sensors', 'Automations', 'Data Retention', 'Properties', 'MQTT', 'Alerts & Notifications', 'User Management'];
 const accountDestinations = ['Sessions', 'My sessions', 'Change password', 'Developer', 'Documentation', 'Logout'];
 
 function Location() {
@@ -152,6 +152,7 @@ describe('AppNav', () => {
   it.each([
     ['view_dashboards', ['Dashboards']],
     ['view_sensors', ['Sensors', 'Data Retention']],
+    ['view_automations', ['Automations']],
     ['view_properties', ['Properties']],
     ['view_mqtt', ['MQTT']],
     ['view_alerts', ['Alerts & Notifications']],
@@ -171,6 +172,8 @@ describe('AppNav', () => {
     ['/dashboard', 'Dashboards'],
     ['/sensors-overview', 'Sensors'],
     ['/sensor/7', 'Sensors'],
+    ['/automations', 'Automations'],
+    ['/automations/3', 'Automations'],
     ['/data-retention', 'Data Retention'],
     ['/properties-overview', 'Properties'],
     ['/mqtt', 'MQTT'],
