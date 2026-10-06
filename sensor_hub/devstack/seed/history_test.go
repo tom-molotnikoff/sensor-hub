@@ -158,10 +158,11 @@ func TestHistory_FirstRunFillsTheWindow(t *testing.T) {
 		live := database.NewReadingsRepository(db, sensors, database.NewMeasurementTypeRepository(db, logger), logger)
 		for name := range ids {
 			reading := 1.0
-			require.NoError(t, live.Ingest(context.Background(), database.ReadingBatch{
+			_, err := live.Ingest(context.Background(), database.ReadingBatch{
 				SensorName: name,
 				Readings:   []gen.Reading{{MeasurementType: "battery", NumericValue: &reading, Time: time.Now().UTC().Format(time.RFC3339)}},
-			}))
+			})
+			require.NoError(t, err)
 		}
 		for name, id := range ids {
 			assert.Positive(t, queryInt(t, db, "SELECT COUNT(*) FROM sensor_health_history WHERE sensor_id = ? AND health_status = 'bad'", id), name)

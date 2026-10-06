@@ -24,6 +24,7 @@ import (
 	_ "example/sensorHub/drivers" // register sensor drivers
 	mqttpkg "example/sensorHub/mqtt"
 	"example/sensorHub/notifications"
+	"example/sensorHub/readings"
 	"example/sensorHub/service"
 	"example/sensorHub/smtp"
 	"example/sensorHub/web"
@@ -148,7 +149,15 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		cleanupDir()
 		return nil, func() {}, fmt.Errorf("failed to sample readings row counts: %w", err)
 	}
-	sensorService := service.NewSensorService(sensorRepo, readingsRepo, mtRepo, thresholdProcessor, notificationService, readingsSampler, logger)
+	commandHistoryRepo := database.NewSensorCommandHistoryRepository(db, logger)
+	commandTracker := actuation.NewCommandTracker(commandHistoryRepo, ws.NewCommandStatusBroadcaster(logger), logger)
+	liveView := service.NewLiveView(sensorRepo, logger)
+	readingPipeline := readings.NewPipeline(readingsRepo, liveView, logger,
+		commandTracker,
+		thresholdProcessor,
+		liveView,
+	)
+	sensorService := service.NewSensorService(sensorRepo, mtRepo, readingPipeline, liveView, notificationService, readingsSampler, logger)
 
 	tiers := service.DefaultAggregationTiers
 	readingsService := service.NewReadingsService(readingsRepo, mtRepo, tiers, appProps.AppConfig().ReadingsAggregationEnabled, logger)
@@ -171,13 +180,10 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 
 	mqttBrokerRepo := database.NewMQTTBrokerRepository(db, logger)
 	mqttSubRepo := database.NewMQTTSubscriptionRepository(db, logger)
-	commandHistoryRepo := database.NewSensorCommandHistoryRepository(db, logger)
 	mqttService := service.NewMQTTService(mqttBrokerRepo, mqttSubRepo, logger)
 	connManager := mqttpkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, logger)
 	mqttService.SetSubscriptionNotifier(connManager)
-	commandTracker := actuation.NewCommandTracker(commandHistoryRepo, ws.NewCommandStatusBroadcaster(logger), logger)
 	commandService := service.NewCommandService(sensorRepo, mqttSubRepo, commandHistoryRepo, connManager, commandTracker, logger)
-	sensorService.SetReadingsObserver(commandTracker)
 	if err := commandTracker.RecoverPending(context.Background()); err != nil {
 		db.Close()
 		cleanupDir()

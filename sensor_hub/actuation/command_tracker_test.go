@@ -30,7 +30,7 @@ func TestAckOnReading_MarksAcknowledged(t *testing.T) {
 	defer tracker.Close()
 
 	tracker.Track(context.Background(), repo.mustGet(42))
-	tracker.ObserveReadings(context.Background(), 7, []gen.Reading{{
+	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, []gen.Reading{{
 		MeasurementType: "state",
 		TextState:       ptrString("OFF"),
 	}})
@@ -94,7 +94,7 @@ func TestAckOnReading_MatchesPropertyOnly(t *testing.T) {
 	defer tracker.Close()
 
 	tracker.Track(context.Background(), repo.mustGet(44))
-	tracker.ObserveReadings(context.Background(), 7, []gen.Reading{{
+	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, []gen.Reading{{
 		MeasurementType: "state",
 		TextState:       ptrString("OFF"),
 	}})
@@ -136,7 +136,7 @@ func TestRecoverPending_TimesOutExpiredCommandsAndTracksRemainingOnes(t *testing
 	expired := repo.mustGet(45)
 	assert.Equal(t, CommandStatusTimedOut, expired.Status)
 
-	tracker.ObserveReadings(context.Background(), 8, []gen.Reading{{
+	tracker.Consume(context.Background(), gen.Sensor{Id: 8}, []gen.Reading{{
 		MeasurementType: "state",
 		TextState:       ptrString("OFF"),
 	}})

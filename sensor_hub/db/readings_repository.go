@@ -98,18 +98,18 @@ func (r *ReadingsRepositoryImpl) remember(keys []seriesKey) {
 	r.pairMu.Unlock()
 }
 
-func (r *ReadingsRepositoryImpl) Ingest(ctx context.Context, batch ReadingBatch) error {
+func (r *ReadingsRepositoryImpl) Ingest(ctx context.Context, batch ReadingBatch) ([]gen.Reading, error) {
 	if len(batch.Readings) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	sensorID, err := r.sensors.GetSensorIdByName(ctx, batch.SensorName)
 	if err != nil {
-		return fmt.Errorf("issue finding sensor id: %w", err)
+		return nil, fmt.Errorf("issue finding sensor id: %w", err)
 	}
 
 	if err := r.loadKnownPairs(ctx); err != nil {
-		return err
+		return nil, err
 	}
 
 	type resolved struct {
@@ -127,25 +127,25 @@ func (r *ReadingsRepositoryImpl) Ingest(ctx context.Context, batch ReadingBatch)
 		recognised = append(recognised, resolved{typeID: typeID, reading: reading})
 	}
 	if len(recognised) == 0 {
-		return fmt.Errorf("no readings stored: all %d readings had unrecognised measurement types", len(batch.Readings))
+		return nil, fmt.Errorf("no readings stored: all %d readings had unrecognised measurement types", len(batch.Readings))
 	}
 
 	tx, err := r.db.Writer.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("issue beginning the ingest transaction: %w", err)
+		return nil, fmt.Errorf("issue beginning the ingest transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	insert, err := tx.PrepareContext(ctx, insertReadingQuery())
 	if err != nil {
-		return fmt.Errorf("issue preparing the reading insert: %w", err)
+		return nil, fmt.Errorf("issue preparing the reading insert: %w", err)
 	}
 	defer func() { _ = insert.Close() }()
 
 	var firstSeen []seriesKey
 	for _, item := range recognised {
 		if _, err := insert.ExecContext(ctx, sensorID, item.typeID, item.reading.NumericValue, item.reading.TextState, utils.NormalizeTimeToSpaceFormat(item.reading.Time)); err != nil {
-			return fmt.Errorf("issue persisting reading to database: %w", err)
+			return nil, fmt.Errorf("issue persisting reading to database: %w", err)
 		}
 
 		key := seriesKey{sensorID: sensorID, typeID: item.typeID}
@@ -153,22 +153,26 @@ func (r *ReadingsRepositoryImpl) Ingest(ctx context.Context, batch ReadingBatch)
 			continue
 		}
 		if _, err := tx.ExecContext(ctx, insertSeriesQuery(), sensorID, item.typeID); err != nil {
-			return fmt.Errorf("issue recording the series: %w", err)
+			return nil, fmt.Errorf("issue recording the series: %w", err)
 		}
 		firstSeen = append(firstSeen, key)
 	}
 
 	if err := updateSensorHealthTx(ctx, tx, sensorID, gen.Good, batch.HealthReason); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("issue committing the ingest transaction: %w", err)
+		return nil, fmt.Errorf("issue committing the ingest transaction: %w", err)
 	}
 
 	r.remember(firstSeen)
 	r.logger.Debug("stored readings", "sensor", batch.SensorName, "count", len(recognised))
-	return nil
+	stored := make([]gen.Reading, len(recognised))
+	for i, item := range recognised {
+		stored[i] = item.reading
+	}
+	return stored, nil
 }
 
 func insertReadingQuery() string {

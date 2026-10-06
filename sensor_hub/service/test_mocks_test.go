@@ -347,9 +347,12 @@ type MockReadingsRepository struct {
 	mock.Mock
 }
 
-func (m *MockReadingsRepository) Ingest(ctx context.Context, batch database.ReadingBatch) error {
+func (m *MockReadingsRepository) Ingest(ctx context.Context, batch database.ReadingBatch) ([]gen.Reading, error) {
 	args := m.Called(ctx, batch)
-	return args.Error(0)
+	if err := args.Error(0); err != nil {
+		return nil, err
+	}
+	return batch.Readings, nil
 }
 
 func (m *MockReadingsRepository) GetBetweenDates(ctx context.Context, startDate, endDate, sensorName, measurementType string, interval database.AggregationInterval, aggFunc database.AggregationFunction) ([]gen.Reading, error) {

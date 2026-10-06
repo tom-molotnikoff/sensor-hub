@@ -16,6 +16,7 @@ import (
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 	mqttpkg "example/sensorHub/mqtt"
+	"example/sensorHub/readings"
 	"example/sensorHub/service"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
@@ -54,7 +55,9 @@ func setupZigbee2MQTTBridgeFixture(t *testing.T, brokerName string, cleanupSenso
 	brokerRepo := database.NewMQTTBrokerRepository(env.DB, logger)
 	subRepo := database.NewMQTTSubscriptionRepository(env.DB, logger)
 
-	sensorService := service.NewSensorService(sensorRepo, readingsRepo, mtRepo, nil, nil, service.NewReadingsSampler(readingsRepo, logger), logger)
+	liveView := service.NewLiveView(sensorRepo, logger)
+	pipeline := readings.NewPipeline(readingsRepo, liveView, logger)
+	sensorService := service.NewSensorService(sensorRepo, mtRepo, pipeline, liveView, nil, service.NewReadingsSampler(readingsRepo, logger), logger)
 	connManager := mqttpkg.NewConnectionManager(sensorService, subRepo, brokerRepo, logger)
 
 	resolvedBrokerName := fmt.Sprintf("%s-%d", brokerName, time.Now().UnixNano())

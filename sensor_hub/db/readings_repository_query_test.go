@@ -149,12 +149,14 @@ func TestGetBetweenDates_Raw_FiltersBySensorCaseInsensitively(t *testing.T) {
 	}))
 
 	v := 21.0
-	require.NoError(t, repo.Ingest(ctx, ReadingBatch{SensorName: "Office", Readings: []gen.Reading{
+	_, err := repo.Ingest(ctx, ReadingBatch{SensorName: "Office", Readings: []gen.Reading{
 		{SensorName: "Office", MeasurementType: "temperature", NumericValue: &v, Time: "2025-01-15 12:00:00"},
-	}}))
-	require.NoError(t, repo.Ingest(ctx, ReadingBatch{SensorName: "Attic", Readings: []gen.Reading{
+	}})
+	require.NoError(t, err)
+	_, err = repo.Ingest(ctx, ReadingBatch{SensorName: "Attic", Readings: []gen.Reading{
 		{SensorName: "Attic", MeasurementType: "temperature", NumericValue: &v, Time: "2025-01-15 12:00:00"},
-	}}))
+	}})
+	require.NoError(t, err)
 
 	got, err := repo.GetBetweenDates(ctx, "2025-01-01 00:00:00", "2025-02-01 00:00:00", "office", "temperature", AggregationRaw, "")
 	require.NoError(t, err)

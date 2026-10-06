@@ -8,6 +8,7 @@ import (
 	"time"
 
 	database "example/sensorHub/db"
+	"example/sensorHub/readings"
 	"example/sensorHub/service"
 	"example/sensorHub/testharness/fixtures"
 )
@@ -56,11 +57,12 @@ func seed(ctx context.Context, db *database.Handles, logger *slog.Logger, httpMo
 	sensorRepo := database.NewSensorRepository(db, logger)
 	measurementTypes := database.NewMeasurementTypeRepository(db, logger)
 	readingsRepo := database.NewReadingsRepository(db, sensorRepo, measurementTypes, logger)
+	liveView := service.NewLiveView(sensorRepo, logger)
 	s := &seeder{
 		db:            db,
 		users:         service.NewUserService(userRepo, nil, logger),
 		apiKeys:       service.NewApiKeyService(database.NewApiKeyRepository(db, logger), userRepo, database.NewRoleRepository(db, logger), logger),
-		sensors:       service.NewSensorService(sensorRepo, readingsRepo, measurementTypes, nil, nil, nil, logger),
+		sensors:       service.NewSensorService(sensorRepo, measurementTypes, readings.NewPipeline(readingsRepo, liveView, logger), liveView, nil, nil, logger),
 		mqtt:          service.NewMQTTService(database.NewMQTTBrokerRepository(db, logger), database.NewMQTTSubscriptionRepository(db, logger), logger),
 		alerts:        service.NewAlertManagementService(database.NewAlertRepository(db, logger), nil, logger),
 		notifications: service.NewNotificationService(database.NewNotificationRepository(db, logger), nil, logger),

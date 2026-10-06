@@ -4,16 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"example/sensorHub/actuation"
-	"example/sensorHub/alerting"
 	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
 	"example/sensorHub/drivers"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/notifications"
 	"example/sensorHub/periodic"
+	"example/sensorHub/readings"
 	"example/sensorHub/telemetry"
-	"example/sensorHub/ws"
 	"fmt"
 	"log/slog"
 	"os"
@@ -38,25 +36,24 @@ func (e *AlreadyExistsError) Error() string {
 }
 
 type SensorService struct {
-	sensorRepo         database.SensorRepositoryInterface[gen.Sensor]
-	readingsRepo       database.ReadingsRepository
-	mtRepo             database.MeasurementTypeRepository
-	thresholdProcessor *alerting.ThresholdAlertProcessor
-	notifSvc           NotificationServiceInterface
-	readingsObserver   actuation.ReadingsObserver
-	readingsSampler    ReadingsSamplerInterface
-	logger             *slog.Logger
+	sensorRepo      database.SensorRepositoryInterface[gen.Sensor]
+	mtRepo          database.MeasurementTypeRepository
+	pipeline        *readings.Pipeline
+	liveView        *LiveView
+	notifSvc        NotificationServiceInterface
+	readingsSampler ReadingsSamplerInterface
+	logger          *slog.Logger
 }
 
-func NewSensorService(sensorRepo database.SensorRepositoryInterface[gen.Sensor], readingsRepo database.ReadingsRepository, mtRepo database.MeasurementTypeRepository, processor *alerting.ThresholdAlertProcessor, notifSvc NotificationServiceInterface, readingsSampler ReadingsSamplerInterface, logger *slog.Logger) *SensorService {
+func NewSensorService(sensorRepo database.SensorRepositoryInterface[gen.Sensor], mtRepo database.MeasurementTypeRepository, pipeline *readings.Pipeline, liveView *LiveView, notifSvc NotificationServiceInterface, readingsSampler ReadingsSamplerInterface, logger *slog.Logger) *SensorService {
 	return &SensorService{
-		sensorRepo:         sensorRepo,
-		readingsRepo:       readingsRepo,
-		mtRepo:             mtRepo,
-		thresholdProcessor: processor,
-		notifSvc:           notifSvc,
-		readingsSampler:    readingsSampler,
-		logger:             logger.With("component", "sensor_service"),
+		sensorRepo:      sensorRepo,
+		mtRepo:          mtRepo,
+		pipeline:        pipeline,
+		liveView:        liveView,
+		notifSvc:        notifSvc,
+		readingsSampler: readingsSampler,
+		logger:          logger.With("component", "sensor_service"),
 	}
 }
 
@@ -72,10 +69,6 @@ func (s *SensorService) notifyConfigEvent(action, sensorName string, metadata ma
 		Metadata: metadata,
 	}
 	go s.notifSvc.CreateNotification(context.Background(), notif, "view_notifications_config")
-}
-
-func (s *SensorService) SetReadingsObserver(observer actuation.ReadingsObserver) {
-	s.readingsObserver = observer
 }
 
 func (s *SensorService) ServiceAddSensor(ctx context.Context, sensor gen.Sensor) error {
@@ -105,7 +98,7 @@ func (s *SensorService) ServiceAddSensor(ctx context.Context, sensor gen.Sensor)
 		return fmt.Errorf("error adding sensor: %w", err)
 	}
 	s.logger.Info("sensor added", "name", sensor.Name)
-	go s.broadcastSensors(context.Background())
+	s.liveView.AnnounceSensors()
 	s.notifyConfigEvent("added", sensor.Name, map[string]interface{}{"sensor_name": sensor.Name})
 	return nil
 }
@@ -120,7 +113,7 @@ func (s *SensorService) ServiceUpdateSensorById(ctx context.Context, sensor gen.
 		return fmt.Errorf("error updating sensor: %w", err)
 	}
 	s.logger.Info("sensor updated", "id", sensor.Id, "name", sensor.Name)
-	go s.broadcastSensors(context.Background())
+	s.liveView.AnnounceSensors()
 	s.notifyConfigEvent("updated", sensor.Name, map[string]interface{}{"sensor_name": sensor.Name})
 	return nil
 }
@@ -138,7 +131,7 @@ func (s *SensorService) ServiceDeleteSensorByName(ctx context.Context, name stri
 		return fmt.Errorf("error deleting sensor: %w", err)
 	}
 	s.logger.Info("sensor deleted", "name", name)
-	go s.broadcastSensors(context.Background())
+	s.liveView.AnnounceSensors()
 	s.notifyConfigEvent("removed", name, map[string]interface{}{"sensor_name": name})
 	return nil
 }
@@ -154,7 +147,7 @@ func (s *SensorService) ServiceGetSensorByName(ctx context.Context, name string)
 	if sensor == nil {
 		return nil, nil
 	}
-	return s.enrichSensor(sensor), nil
+	return enrichSensor(sensor, s.logger), nil
 }
 
 func (s *SensorService) ServiceGetSensorById(ctx context.Context, id int) (*gen.Sensor, error) {
@@ -165,7 +158,7 @@ func (s *SensorService) ServiceGetSensorById(ctx context.Context, id int) (*gen.
 	if sensor == nil {
 		return nil, nil
 	}
-	return s.enrichSensor(sensor), nil
+	return enrichSensor(sensor, s.logger), nil
 }
 
 func (s *SensorService) ServiceGetSensorCapabilities(ctx context.Context, id int) ([]gen.Capability, error) {
@@ -184,7 +177,7 @@ func (s *SensorService) ServiceGetAllSensors(ctx context.Context) ([]gen.Sensor,
 	if err != nil {
 		return nil, err
 	}
-	return s.enrichSensors(sensors), nil
+	return enrichSensors(sensors, s.logger), nil
 }
 
 func (s *SensorService) ServiceGetSensorsByDriver(ctx context.Context, sensorDriver string) ([]gen.Sensor, error) {
@@ -192,7 +185,7 @@ func (s *SensorService) ServiceGetSensorsByDriver(ctx context.Context, sensorDri
 	if err != nil {
 		return nil, err
 	}
-	return s.enrichSensors(sensors), nil
+	return enrichSensors(sensors, s.logger), nil
 }
 
 func (s *SensorService) ServiceGetSensorIdByName(ctx context.Context, name string) (int, error) {
@@ -214,7 +207,7 @@ func (s *SensorService) ServiceGetSensorByExternalId(ctx context.Context, extern
 	if sensor == nil {
 		return nil, nil
 	}
-	return s.enrichSensor(sensor), nil
+	return enrichSensor(sensor, s.logger), nil
 }
 
 func (s *SensorService) ServiceSensorExistsByExternalId(ctx context.Context, externalId string) (bool, error) {
@@ -233,7 +226,6 @@ func (s *SensorService) ServiceCollectAndStoreAllSensorReadings(ctx context.Cont
 	}
 	span.SetAttributes(attribute.Int("sensor.count", len(sensors)))
 
-	var allReadings []gen.Reading
 	for _, sensor := range sensors {
 		if !sensor.Enabled {
 			s.logger.Debug("skipping disabled sensor", "name", sensor.Name)
@@ -267,12 +259,7 @@ func (s *SensorService) ServiceCollectAndStoreAllSensorReadings(ctx context.Cont
 			s.logger.Error("error collecting readings from sensor", "name", sensor.Name, "error", err)
 			continue
 		}
-		err = s.readingsRepo.Ingest(sensorCtx, database.ReadingBatch{
-			SensorName:   sensor.Name,
-			HealthReason: "successful reading",
-			Readings:     readings,
-		})
-		if err != nil {
+		if err := s.pipeline.Process(sensorCtx, sensor, readings); err != nil {
 			sensorSpan.RecordError(err)
 			sensorSpan.SetStatus(codes.Error, "storage failed")
 			sensorSpan.End()
@@ -281,27 +268,8 @@ func (s *SensorService) ServiceCollectAndStoreAllSensorReadings(ctx context.Cont
 		}
 		sensorSpan.SetAttributes(attribute.Int("readings.count", len(readings)))
 		sensorSpan.End()
-
-		s.announceSensorHealth()
-		allReadings = append(allReadings, readings...)
 		s.logger.Debug("collected readings", "sensor", sensor.Name, "count", len(readings))
-
-		// Process alerts for each reading
-		for _, reading := range readings {
-			numVal := 0.0
-			textVal := ""
-			if reading.NumericValue != nil {
-				numVal = *reading.NumericValue
-			}
-			if reading.TextState != nil {
-				textVal = *reading.TextState
-			}
-			if err := s.thresholdProcessor.ProcessReading(ctx, alerting.ReadingAlert{SensorID: sensor.Id, SensorName: sensor.Name, MeasurementType: reading.MeasurementType, NumericValue: numVal, StatusValue: textVal}); err != nil {
-				s.logger.Error("failed to process alert", "sensor", sensor.Name, "error", err)
-			}
-		}
 	}
-	ws.PublishReadings(allReadings)
 	return nil
 }
 
@@ -351,51 +319,19 @@ func (s *SensorService) ServiceCollectFromSensorByName(ctx context.Context, sens
 			s.ServiceUpdateSensorHealthById(ctx, sensor.Id, gen.Bad, fmt.Sprintf("error collecting readings: %v", err))
 			return fmt.Errorf("error collecting readings from sensor %s: %w", sensorName, err)
 		}
-		err = s.readingsRepo.Ingest(ctx, database.ReadingBatch{
-			SensorName:   sensor.Name,
-			HealthReason: "successful reading",
-			Readings:     readings,
-		})
-		if err != nil {
+		if err := s.pipeline.Process(ctx, *sensor, readings); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "storage failed")
-			s.ServiceUpdateSensorHealthById(ctx, sensor.Id, gen.Bad, fmt.Sprintf("error storing readings: %v", err))
-			return fmt.Errorf("error storing readings from sensor %s: %w", sensorName, err)
+			return err
 		}
 		span.SetAttributes(attribute.Int("readings.count", len(readings)))
-		s.announceSensorHealth()
 		s.logger.Debug("collected readings", "sensor", sensorName, "count", len(readings))
-		ws.PublishReadings(readings)
-
-		// Process alerts for each reading
-		for _, reading := range readings {
-			numVal := 0.0
-			textVal := ""
-			if reading.NumericValue != nil {
-				numVal = *reading.NumericValue
-			}
-			if reading.TextState != nil {
-				textVal = *reading.TextState
-			}
-			if err := s.thresholdProcessor.ProcessReading(ctx, alerting.ReadingAlert{SensorID: sensor.Id, SensorName: sensorName, MeasurementType: reading.MeasurementType, NumericValue: numVal, StatusValue: textVal}); err != nil {
-				s.logger.Error("failed to process alert", "sensor", sensorName, "error", err)
-			}
-		}
 	}
 	return nil
 }
 
 func (s *SensorService) ServiceUpdateSensorHealthById(ctx context.Context, sensorId int, healthStatus gen.SensorHealthStatus, healthReason string) {
-	err := s.sensorRepo.UpdateSensorHealthById(ctx, sensorId, healthStatus, healthReason)
-	if err != nil {
-		s.logger.Error("error updating sensor health", "error", err)
-		return
-	}
-	s.announceSensorHealth()
-}
-
-func (s *SensorService) announceSensorHealth() {
-	go s.broadcastSensors(context.Background())
+	s.liveView.RecordHealth(ctx, sensorId, healthStatus, healthReason)
 }
 
 func (s *SensorService) ServiceCollectReadingToValidateSensor(ctx context.Context, sensor gen.Sensor) error {
@@ -481,7 +417,7 @@ func (s *SensorService) ServiceSetEnabledSensorByName(ctx context.Context, name 
 		return fmt.Errorf("error setting enabled status for sensor: %w", err)
 	}
 	s.logger.Info("sensor enabled status changed", "name", name, "enabled", enabled)
-	go s.broadcastSensors(context.Background())
+	s.liveView.AnnounceSensors()
 	if enabled {
 		go func() {
 			err := s.ServiceCollectFromSensorByName(context.Background(), name)
@@ -549,40 +485,12 @@ func (s *SensorService) ServiceValidateSensorConfig(ctx context.Context, sensor 
 	return nil
 }
 
-func (s *SensorService) broadcastSensors(ctx context.Context) {
-	sensors, err := s.sensorRepo.GetAllSensors(ctx)
-	if err != nil {
-		s.logger.Error("failed to fetch sensors for broadcast", "error", err)
-		return
-	}
-	sensors = s.enrichSensors(sensors)
-
-	// Per-driver broadcast (existing WebSocket subscribers)
-	byType := make(map[string][]gen.Sensor)
-	for _, sensor := range sensors {
-		byType[sensor.SensorDriver] = append(byType[sensor.SensorDriver], sensor)
-	}
-	for t, list := range byType {
-		topic := "sensors:" + t
-		ws.BroadcastToTopic(topic, list)
-	}
-
-	// Unified broadcast — only active sensors
-	active := make([]gen.Sensor, 0, len(sensors))
-	for _, sensor := range sensors {
-		if sensor.Status == gen.SensorStatusActive {
-			active = append(active, sensor)
-		}
-	}
-	ws.BroadcastToTopic("sensors:all", active)
-}
-
 func (s *SensorService) ServiceGetSensorsByStatus(ctx context.Context, status string) ([]gen.Sensor, error) {
 	sensors, err := s.sensorRepo.GetSensorsByStatus(ctx, status)
 	if err != nil {
 		return nil, err
 	}
-	return s.enrichSensors(sensors), nil
+	return enrichSensors(sensors, s.logger), nil
 }
 
 func (s *SensorService) ServiceApproveSensor(ctx context.Context, sensorId int) error {
@@ -593,53 +501,8 @@ func (s *SensorService) ServiceDismissSensor(ctx context.Context, sensorId int) 
 	return s.sensorRepo.UpdateSensorStatus(ctx, sensorId, string(gen.SensorStatusDismissed))
 }
 
-// ServiceProcessPushReadings stores readings from push-based (MQTT) sensors,
-// processes alerts, updates health, and broadcasts via WebSocket.
-// This provides the same pipeline as the pull-based collector.
 func (s *SensorService) ServiceProcessPushReadings(ctx context.Context, sensor gen.Sensor, readings []gen.Reading) error {
-	if len(readings) == 0 {
-		return nil
-	}
-
-	// Tag readings with sensor name
-	for i := range readings {
-		readings[i].SensorName = sensor.Name
-	}
-
-	batch := database.ReadingBatch{
-		SensorName:   sensor.Name,
-		HealthReason: "MQTT reading received",
-		Readings:     readings,
-	}
-	if err := s.readingsRepo.Ingest(ctx, batch); err != nil {
-		s.ServiceUpdateSensorHealthById(ctx, sensor.Id, gen.Bad, fmt.Sprintf("storage error: %v", err))
-		return fmt.Errorf("failed to store push readings: %w", err)
-	}
-	s.announceSensorHealth()
-
-	// Process alerts
-	for _, reading := range readings {
-		numVal := 0.0
-		textVal := ""
-		if reading.NumericValue != nil {
-			numVal = *reading.NumericValue
-		}
-		if reading.TextState != nil {
-			textVal = *reading.TextState
-		}
-		if err := s.thresholdProcessor.ProcessReading(ctx, alerting.ReadingAlert{SensorID: sensor.Id, SensorName: sensor.Name, MeasurementType: reading.MeasurementType, NumericValue: numVal, StatusValue: textVal}); err != nil {
-			s.logger.Error("failed to process alert for MQTT reading", "sensor", sensor.Name, "error", err)
-		}
-	}
-
-	if s.readingsObserver != nil {
-		s.readingsObserver.ObserveReadings(ctx, sensor.Id, readings)
-	}
-
-	// Broadcast
-	ws.PublishReadings(readings)
-
-	return nil
+	return s.pipeline.Process(ctx, sensor, readings)
 }
 
 func (s *SensorService) ServiceGetMeasurementTypesForSensor(ctx context.Context, sensorId int) ([]gen.MeasurementType, error) {
@@ -654,24 +517,24 @@ func (s *SensorService) ServiceGetAllMeasurementTypesWithReadings(ctx context.Co
 	return s.mtRepo.GetAllWithReadings(ctx)
 }
 
-func (s *SensorService) enrichSensor(sensor *gen.Sensor) *gen.Sensor {
+func enrichSensor(sensor *gen.Sensor, logger *slog.Logger) *gen.Sensor {
 	enriched := *sensor
-	capabilities := s.resolveSensorCapabilities(enriched)
+	capabilities := resolveSensorCapabilities(enriched, logger)
 	enriched.Capabilities = &capabilities
 	return &enriched
 }
 
-func (s *SensorService) enrichSensors(sensors []gen.Sensor) []gen.Sensor {
+func enrichSensors(sensors []gen.Sensor, logger *slog.Logger) []gen.Sensor {
 	enriched := make([]gen.Sensor, len(sensors))
 	for i := range sensors {
-		capabilities := s.resolveSensorCapabilities(sensors[i])
+		capabilities := resolveSensorCapabilities(sensors[i], logger)
 		enriched[i] = sensors[i]
 		enriched[i].Capabilities = &capabilities
 	}
 	return enriched
 }
 
-func (s *SensorService) resolveSensorCapabilities(sensor gen.Sensor) []gen.Capability {
+func resolveSensorCapabilities(sensor gen.Sensor, logger *slog.Logger) []gen.Capability {
 	commandDriver, ok := drivers.GetCommandDriver(sensor.SensorDriver)
 	if !ok || sensor.Metadata == nil {
 		return []gen.Capability{}
@@ -684,7 +547,7 @@ func (s *SensorService) resolveSensorCapabilities(sensor gen.Sensor) []gen.Capab
 
 	exposesJSON, err := json.Marshal(exposesValue)
 	if err != nil {
-		s.logger.Warn("failed to marshal sensor exposes metadata", "sensor", sensor.Name, "error", err)
+		logger.Warn("failed to marshal sensor exposes metadata", "sensor", sensor.Name, "error", err)
 		return []gen.Capability{}
 	}
 
