@@ -222,7 +222,7 @@ const largestWholeUnit = (seconds: number | undefined) =>
   [...waitUnits].reverse().find((unit) => seconds !== undefined && seconds % unit.seconds === 0)?.seconds ?? 1;
 
 function WaitStepCard({ step, onChange, ...shell }: StepCardProps) {
-  const [unit, setUnit] = useState(() => largestWholeUnit(step.seconds));
+  const [unit, setUnit] = useState<number>(() => largestWholeUnit(step.seconds));
   // Kept as typed, so that a partial number such as "1." is not rewritten from the seconds it gives.
   const [amount, setAmount] = useState(() => (step.seconds === undefined ? '' : String(step.seconds / unit)));
   const setSeconds = (typed: string, inUnit: number) =>
