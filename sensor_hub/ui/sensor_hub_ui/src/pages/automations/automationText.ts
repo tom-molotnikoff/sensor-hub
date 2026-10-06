@@ -17,7 +17,7 @@ export const weekdays: readonly { day: Weekday; letter: string; name: string }[]
 const sameDays = (days: readonly Weekday[], expected: readonly Weekday[]) =>
   days.length === expected.length && expected.every((day) => days.includes(day));
 
-export function describeDays(days: readonly Weekday[]): string {
+function describeDays(days: readonly Weekday[]): string {
   if (days.length === 7) return 'every day';
   if (sameDays(days, ['mon', 'tue', 'wed', 'thu', 'fri'])) return 'on weekdays';
   if (sameDays(days, ['sat', 'sun'])) return 'at weekends';

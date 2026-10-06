@@ -1,33 +1,30 @@
-import { ThemeProvider } from '@mui/material';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Automation, AutomationRun, Sensor } from '../../gen/aliases';
-import { theme } from '../../ui/theme';
+import { installFakeWebSocket } from '../../test/fakeWebSocket';
 import AutomationEditorPage from './AutomationEditorPage';
+import { editorPermissions, renderAutomationPages, serveGets } from './automationPageHarness';
 
 const api = vi.hoisted(() => ({ GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() }));
-const authState = vi.hoisted(() => ({ user: { id: 1, username: 'tom', roles: [] as string[], permissions: [] as string[] } }));
-const sensorState = vi.hoisted(() => ({ sensors: [] as unknown[], loaded: true }));
 
 vi.mock('../../gen/client', () => ({ apiClient: api }));
-vi.mock('../../providers/AuthContext', () => ({ useAuth: () => authState }));
-vi.mock('../../hooks/useSensorContext', () => ({ useSensorContext: () => sensorState }));
-vi.mock('../../navigation/AppNav', () => ({ default: () => <nav>sidebar</nav> }));
-vi.mock('../../navigation/TopAppBar', () => ({ default: ({ pageTitle }: { pageTitle: string }) => <header>{pageTitle}</header> }));
 
-const editor = ['view_automations', 'manage_automations', 'control_sensors'];
-
-const lamp = {
+const lamp: Sensor = {
   id: 14,
   name: 'hallway-lamp',
+  sensor_driver: 'zigbee2mqtt',
+  config: {},
+  health_status: 'good',
+  health_reason: '',
+  enabled: true,
+  status: 'active',
   capabilities: [
     { property: 'state', type: 'binary', value_on: 'ON', value_off: 'OFF' },
     { property: 'brightness', type: 'numeric', min: 0, max: 254 },
     { property: 'color_temp_preset', type: 'enum', values: ['warm', 'neutral', 'cool'] },
   ],
-} as unknown as Sensor;
+};
 
 function automation(overrides: Partial<Automation> = {}): Automation {
   return {
@@ -36,8 +33,8 @@ function automation(overrides: Partial<Automation> = {}): Automation {
     enabled: true,
     triggers: [{ id: 1, type: 'schedule', at: '19:00', days: ['mon', 'tue', 'wed', 'thu', 'fri'] }],
     steps: [
-      { type: 'set', sensor_id: 14, property: 'state', value: 'ON' },
-      { type: 'set', sensor_id: 14, property: 'brightness', value: '150' },
+      { type: 'set', sensor_id: lamp.id, property: 'state', value: 'ON' },
+      { type: 'set', sensor_id: lamp.id, property: 'brightness', value: '150' },
     ],
     status: 'armed',
     last_run_failed: false,
@@ -49,63 +46,48 @@ function automation(overrides: Partial<Automation> = {}): Automation {
   };
 }
 
-function atWidth(width: number) {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: Number(/\(min-width:\s*(\d+)px\)/.exec(query)?.[1] ?? 0) <= width,
-    media: query,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  }));
-}
-
-function serve(saved: Automation, runs: AutomationRun[] = []) {
-  api.GET.mockImplementation(async (path: string) => ({
-    data: path.endsWith('/runs') ? runs : saved,
-    response: new Response(),
-  }));
-}
-
 function Location() {
   return <output aria-label="location">{useLocation().pathname}</output>;
 }
 
-function renderEditor(at: string, permissions = editor, width = 1280) {
-  atWidth(width);
-  authState.user.permissions = permissions;
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <ThemeProvider theme={theme}>
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={[at]}>
-          <Routes>
-            <Route path="/automations/:id" element={<AutomationEditorPage />} />
-            <Route path="/automations" element={<p>list</p>} />
-          </Routes>
-          <Location />
-        </MemoryRouter>
-      </QueryClientProvider>
-    </ThemeProvider>,
-  );
+let responses: Record<string, unknown> = {};
+
+function serve(saved: Automation, runs: AutomationRun[] = []) {
+  responses = { '/automations/{id}': saved, '/automations/{id}/runs': runs };
+}
+
+function renderEditor(at: string, permissions = editorPermissions, width = 1280) {
+  serveGets(api.GET, permissions, responses);
+  return renderAutomationPages({
+    routes: { '/automations/:id': <AutomationEditorPage />, '/automations': <p>list</p> },
+    at,
+    width,
+    sensors: [lamp],
+    alongside: <Location />,
+  });
 }
 
 const savedBody = (mock: typeof api.PUT) => mock.mock.calls.at(-1)![1].body;
 
 describe('AutomationEditorPage', () => {
+  let restoreWebSocket: () => void;
+
   beforeEach(() => {
-    sensorState.sensors = [lamp];
+    restoreWebSocket = installFakeWebSocket();
     Object.values(api).forEach((mock) => mock.mockReset());
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    restoreWebSocket();
+    vi.unstubAllGlobals();
+  });
 
   it('matches each set step value control to its capability type', async () => {
     serve(automation({ steps: [
-      { type: 'set', sensor_id: 14, property: 'state', value: 'ON' },
-      { type: 'set', sensor_id: 14, property: 'brightness', value: '150' },
-      { type: 'set', sensor_id: 14, property: 'color_temp_preset', value: 'cool' },
+      { type: 'set', sensor_id: lamp.id, property: 'state', value: 'ON' },
+      { type: 'set', sensor_id: lamp.id, property: 'brightness', value: '150' },
+      { type: 'set', sensor_id: lamp.id, property: 'color_temp_preset', value: 'cool' },
     ] }));
-    renderEditor('/automations/3');
+    await renderEditor('/automations/3');
 
     const toggle = await screen.findByRole('group', { name: 'Value' });
     expect(within(toggle).getByRole('button', { name: 'ON' })).toHaveAttribute('aria-pressed', 'true');
@@ -121,7 +103,7 @@ describe('AutomationEditorPage', () => {
   it("shows the API's message when it rejects a save", async () => {
     serve(automation());
     api.PUT.mockResolvedValue({ error: { message: 'triggers[0].days: choose at least one weekday' }, response: new Response(null, { status: 400 }) });
-    renderEditor('/automations/3');
+    await renderEditor('/automations/3');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
 
@@ -131,7 +113,7 @@ describe('AutomationEditorPage', () => {
   it('saves the steps in the order the drag handles put them in', async () => {
     serve(automation());
     api.PUT.mockResolvedValue({ data: automation(), response: new Response() });
-    renderEditor('/automations/3');
+    await renderEditor('/automations/3');
 
     fireEvent.keyDown(await screen.findByRole('button', { name: 'Move step 2' }), { key: 'ArrowUp' });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -143,7 +125,7 @@ describe('AutomationEditorPage', () => {
   it('creates a new automation and opens it', async () => {
     api.POST.mockResolvedValue({ data: automation({ id: 9 }), response: new Response() });
     serve(automation({ id: 9 }));
-    renderEditor('/automations/new');
+    await renderEditor('/automations/new');
 
     expect(screen.getByRole('switch', { name: 'Enabled' })).toBeChecked();
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Evening lights' } });
@@ -156,7 +138,7 @@ describe('AutomationEditorPage', () => {
   it('deletes only after the confirmation', async () => {
     serve(automation());
     api.DELETE.mockResolvedValue({ data: { message: 'Automation deleted' }, response: new Response() });
-    renderEditor('/automations/3');
+    await renderEditor('/automations/3');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     expect(api.DELETE).not.toHaveBeenCalled();
@@ -168,7 +150,7 @@ describe('AutomationEditorPage', () => {
 
   it('gives viewers every control read-only, with no Enabled switch, Save or Delete', async () => {
     serve(automation());
-    renderEditor('/automations/3', ['view_automations']);
+    await renderEditor('/automations/3', ['view_automations']);
 
     expect(await screen.findByRole('slider', { name: 'Value' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
@@ -191,24 +173,25 @@ describe('AutomationEditorPage', () => {
       started_at: new Date(Date.now() - daysAgo * 86_400_000).toISOString(),
       ...overrides,
     });
+    const failure = 'step 1 (set hallway-lamp state to ON) failed: hallway-lamp did not acknowledge the command within 10s';
     serve(automation(), [
       run(3, 1, {}),
-      run(2, 2, { status: 'failed', current_step: 1, error: 'step 1 (set hallway-lamp state to ON) failed: hallway-lamp did not acknowledge the command within 10s' }),
+      run(2, 2, { status: 'failed', current_step: 1, error: failure }),
       run(1, 31, {}),
     ]);
-    renderEditor('/automations/3');
+    await renderEditor('/automations/3');
 
     await waitFor(() => expect(document.querySelectorAll('[data-ui=automation-run]')).toHaveLength(2));
     const [succeeded, failed] = document.querySelectorAll<HTMLElement>('[data-ui=automation-run]');
-    expect(succeeded).toHaveTextContent('succeeded');
-    expect(succeeded).toHaveTextContent('2 steps · all succeeded');
-    expect(failed).toHaveTextContent('failed');
-    expect(failed).toHaveTextContent('step 1 (set hallway-lamp state to ON) failed: hallway-lamp did not acknowledge');
+    expect(succeeded.querySelector('[data-ui=status-pill]')).toHaveTextContent(/^succeeded$/);
+    expect(succeeded.lastElementChild).toHaveTextContent(/\b2\b/);
+    expect(failed.querySelector('[data-ui=status-pill]')).toHaveTextContent(/^failed$/);
+    expect(failed.lastElementChild).toHaveTextContent(failure);
   });
 
   it('stacks the summary, When, Then and Recent runs on phones with Save in the bottom bar', async () => {
     serve(automation());
-    renderEditor('/automations/3', editor, 390);
+    await renderEditor('/automations/3', editorPermissions, 390);
 
     expect((await screen.findByRole('button', { name: 'Save' })).closest('[data-ui=sticky-footer]')).not.toBeNull();
     const titles = Array.from(document.querySelectorAll('[data-ui=card-header] h2'), (heading) => heading.textContent);
