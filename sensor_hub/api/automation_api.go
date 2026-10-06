@@ -20,6 +20,8 @@ type AutomationServiceInterface interface {
 	SetEnabled(ctx context.Context, id int, enabled bool) (gen.Automation, error)
 	Delete(ctx context.Context, id int) error
 	Runs(ctx context.Context, id int) ([]gen.AutomationRun, error)
+	RunNow(ctx context.Context, id int, userID int) (gen.AutomationRun, error)
+	CancelRun(ctx context.Context, id int, runID int) (gen.AutomationRun, error)
 }
 
 func (s *Server) ListAutomations(c *gin.Context) {
@@ -99,6 +101,25 @@ func (s *Server) ListAutomationRuns(c *gin.Context, id int) {
 	c.JSON(http.StatusOK, runs)
 }
 
+func (s *Server) RunAutomation(c *gin.Context, id int) {
+	user := c.MustGet("currentUser").(*gen.User)
+	run, err := s.automationService.RunNow(c.Request.Context(), id, user.Id)
+	if err != nil {
+		respondAutomationError(c, "Error running automation", err)
+		return
+	}
+	c.JSON(http.StatusAccepted, run)
+}
+
+func (s *Server) CancelAutomationRun(c *gin.Context, id int, runID int) {
+	run, err := s.automationService.CancelRun(c.Request.Context(), id, runID)
+	if err != nil {
+		respondAutomationError(c, "Error cancelling automation run", err)
+		return
+	}
+	c.JSON(http.StatusOK, run)
+}
+
 func respondAutomationError(c *gin.Context, message string, err error) {
 	var invalid *automation.ValidationError
 	switch {
@@ -106,6 +127,12 @@ func respondAutomationError(c *gin.Context, message string, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": invalid.Message})
 	case errors.Is(err, automation.ErrNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"message": "Automation not found"})
+	case errors.Is(err, automation.ErrRunNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"message": "Automation run not found"})
+	case errors.Is(err, automation.ErrRunNotActive):
+		c.JSON(http.StatusConflict, gin.H{"message": "The run has already ended"})
+	case errors.Is(err, automation.ErrActiveRun):
+		c.JSON(http.StatusConflict, gin.H{"message": "The automation has an active run. Cancel it or wait for it to finish, then delete the automation."})
 	default:
 		slog.Error(message, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": message, "error": err.Error()})

@@ -82,9 +82,15 @@ type ServerInterface interface {
 	// Switch an automation on or off
 	// (PUT /automations/{id}/enabled)
 	SetAutomationEnabled(c *gin.Context, id int)
+	// Run an automation now
+	// (POST /automations/{id}/run)
+	RunAutomation(c *gin.Context, id int)
 	// List an automation's runs
 	// (GET /automations/{id}/runs)
 	ListAutomationRuns(c *gin.Context, id int)
+	// Cancel an active run
+	// (POST /automations/{id}/runs/{runId}/cancel)
+	CancelAutomationRun(c *gin.Context, id int, runId int)
 	// List all dashboards
 	// (GET /dashboards)
 	ListDashboards(c *gin.Context)
@@ -903,6 +909,36 @@ func (siw *ServerInterfaceWrapper) SetAutomationEnabled(c *gin.Context) {
 	siw.Handler.SetAutomationEnabled(c, id)
 }
 
+// RunAutomation operation middleware
+func (siw *ServerInterfaceWrapper) RunAutomation(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RunAutomation(c, id)
+}
+
 // ListAutomationRuns operation middleware
 func (siw *ServerInterfaceWrapper) ListAutomationRuns(c *gin.Context) {
 
@@ -931,6 +967,45 @@ func (siw *ServerInterfaceWrapper) ListAutomationRuns(c *gin.Context) {
 	}
 
 	siw.Handler.ListAutomationRuns(c, id)
+}
+
+// CancelAutomationRun operation middleware
+func (siw *ServerInterfaceWrapper) CancelAutomationRun(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "runId" -------------
+	var runId int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", c.Param("runId"), &runId, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter runId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CancelAutomationRun(c, id, runId)
 }
 
 // ListDashboards operation middleware
@@ -2911,7 +2986,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/automations/:id", wrapper.GetAutomation)
 	router.PUT(options.BaseURL+"/automations/:id", wrapper.UpdateAutomation)
 	router.PUT(options.BaseURL+"/automations/:id/enabled", wrapper.SetAutomationEnabled)
+	router.POST(options.BaseURL+"/automations/:id/run", wrapper.RunAutomation)
 	router.GET(options.BaseURL+"/automations/:id/runs", wrapper.ListAutomationRuns)
+	router.POST(options.BaseURL+"/automations/:id/runs/:runId/cancel", wrapper.CancelAutomationRun)
 	router.GET(options.BaseURL+"/dashboards", wrapper.ListDashboards)
 	router.POST(options.BaseURL+"/dashboards", wrapper.CreateDashboard)
 	router.DELETE(options.BaseURL+"/dashboards/:id", wrapper.DeleteDashboard)

@@ -1553,7 +1553,7 @@ export interface paths {
         post?: never;
         /**
          * Delete an automation
-         * @description Deletes an automation with its triggers, steps and runs. Commands its runs sent stay in command history, no longer linked to a run. Requires manage_automations permission.
+         * @description Deletes an automation with its triggers, steps and runs. Commands its runs sent stay in command history, no longer linked to a run. An automation with a running or waiting run cannot be deleted until the run is cancelled or finishes. Requires manage_automations permission.
          */
         delete: operations["deleteAutomation"];
         options?: never;
@@ -1575,6 +1575,46 @@ export interface paths {
          */
         put: operations["setAutomationEnabled"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/automations/{id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run an automation now
+         * @description Starts a run straight away, recorded with trigger kind "manual" and the user who asked for it. It works on an automation that is off, and follows the automation's mode: in "single" mode, an automation that is already running records a skipped run instead, and in "restart" mode the active run is cancelled first. Requires both manage_automations and control_sensors permissions.
+         */
+        post: operations["runAutomation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/automations/{id}/runs/{runId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an active run
+         * @description Ends a running or waiting run as "cancelled", so none of its later steps run. A command the run already sent carries on, and its outcome is recorded in command history. Requires manage_automations permission.
+         */
+        post: operations["cancelAutomationRun"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2569,10 +2609,16 @@ export interface components {
             seconds?: number;
         };
         /**
+         * @description What a trigger does while the automation already has a running or waiting run. "single" records a skipped run and lets the active run carry on. "restart" cancels the active run and starts a new one from step 1. Defaults to "single" on create, and to the automation's current mode on update.
+         * @enum {string}
+         */
+        AutomationMode: "single" | "restart";
+        /**
          * @description An automation as sent on create and update. Any trigger starts a run, and the steps run in order.
          * @example {
          *       "name": "Evening lights",
          *       "enabled": true,
+         *       "mode": "single",
          *       "triggers": [
          *         {
          *           "type": "schedule",
@@ -2616,6 +2662,7 @@ export interface components {
             name: string;
             /** @description Whether the automation's triggers start runs. Defaults to true on create, and to the automation's current setting on update. */
             enabled?: boolean;
+            mode?: components["schemas"]["AutomationMode"];
             /** @description At least one trigger. Any of them starts a run. */
             triggers: components["schemas"]["AutomationTrigger"][];
             /** @description At least one step, run top to bottom. */
@@ -2626,6 +2673,7 @@ export interface components {
             id: number;
             name: string;
             enabled: boolean;
+            mode: components["schemas"]["AutomationMode"];
             triggers: components["schemas"]["AutomationTrigger"][];
             steps: components["schemas"]["AutomationStep"][];
             /**
@@ -2659,15 +2707,20 @@ export interface components {
         AutomationRun: {
             id: number;
             automation_id: number;
-            /** @description The trigger that fired, or null when it has since been deleted by an edit. */
+            /** @description The trigger that fired, or null for a manual run or when the trigger has since been deleted by an edit. */
             trigger_id?: number | null;
-            /** @enum {string} */
-            trigger_kind: "schedule" | "interval";
             /**
-             * @description "running" or "waiting" while active, then "succeeded" or "failed". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started.
+             * @description The kind of trigger that fired, or "manual" for Run now.
              * @enum {string}
              */
-            status: "running" | "waiting" | "succeeded" | "failed" | "missed";
+            trigger_kind: "schedule" | "interval" | "manual";
+            /** @description The user who pressed Run now, or null for a run a trigger started or when the user has since been deleted. */
+            initiated_by?: components["schemas"]["CommandHistoryUser"] | null;
+            /**
+             * @description "running" or "waiting" while active, then "succeeded", "failed" or "cancelled". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started. "skipped" records a trigger that fired while the automation, in single mode, was already running.
+             * @enum {string}
+             */
+            status: "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "missed" | "skipped";
             /** @description Position of the step the run is on, or ended on, counting from 1. 0 before the first step starts. */
             current_step: number;
             /** @description The automation's steps as they were when the run started. */
@@ -2698,8 +2751,11 @@ export interface components {
             position: number;
             /** @enum {string} */
             kind: "set" | "wait";
-            /** @enum {string} */
-            outcome: "running" | "succeeded" | "failed";
+            /**
+             * @description "cancelled" when the run was cancelled during the step. A set step cancelled while its command was in flight still records the command.
+             * @enum {string}
+             */
+            outcome: "running" | "succeeded" | "failed" | "cancelled";
             /** @description The command a set step sent, in the sensor's command history. */
             command_id?: number | null;
             /** Format: date-time */
@@ -7176,6 +7232,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description The automation has an active run */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -7237,6 +7302,127 @@ export interface operations {
             };
             /** @description Automation not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    runAutomation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Automation ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run that started, or the skipped run */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRun"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Automation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancelAutomationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Automation ID */
+                id: number;
+                /** @description Run ID */
+                runId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cancelled run */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRun"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The automation has no such run */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The run has already ended */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

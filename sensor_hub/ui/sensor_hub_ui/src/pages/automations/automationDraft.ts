@@ -8,6 +8,7 @@ export type DraftStep = Keyed<AutomationStep>;
 export interface Draft {
   name: string;
   enabled: boolean;
+  mode: Automation['mode'];
   triggers: DraftTrigger[];
   steps: DraftStep[];
 }
@@ -29,19 +30,21 @@ export const newSetStep = (): DraftStep => keyed({ type: 'set' });
 export const newWaitStep = (): DraftStep => keyed({ type: 'wait', seconds: 60 });
 
 export function draftOf(automation: Automation | undefined): Draft {
-  if (!automation) return { name: '', enabled: true, triggers: [newTrigger()], steps: [newSetStep()] };
+  if (!automation) return { name: '', enabled: true, mode: 'single', triggers: [newTrigger()], steps: [newSetStep()] };
   return {
     name: automation.name,
     enabled: automation.enabled,
+    mode: automation.mode,
     triggers: automation.triggers.map(keyed),
     steps: automation.steps.map(keyed),
   };
 }
 
-export function inputOf({ name, enabled, triggers, steps }: Draft): AutomationInput {
+export function inputOf({ name, enabled, mode, triggers, steps }: Draft): AutomationInput {
   return {
     name,
     enabled,
+    mode,
     triggers: triggers.map(({ type, at, days, seconds }) => ({ type, at, days, seconds })),
     steps: steps.map(({ type, sensor_id, property, value, seconds }) => ({ type, sensor_id, property, value, seconds })),
   };

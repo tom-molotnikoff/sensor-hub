@@ -26,6 +26,7 @@ function automation(id: number, name: string, overrides: Partial<Automation>): A
     id,
     name,
     enabled: true,
+    mode: 'single',
     triggers: [{ id, type: 'schedule', at: '06:15', days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }],
     steps: [{ type: 'set', sensor_id: socket.id, property: 'state', value: 'OFF' }],
     status: 'armed',

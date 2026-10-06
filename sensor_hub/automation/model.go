@@ -10,6 +10,16 @@ type TriggerKind string
 const (
 	TriggerSchedule TriggerKind = "schedule"
 	TriggerInterval TriggerKind = "interval"
+	TriggerManual   TriggerKind = "manual"
+)
+
+// Mode decides what a trigger does while the automation already has an
+// active run.
+type Mode string
+
+const (
+	ModeSingle  Mode = "single"
+	ModeRestart Mode = "restart"
 )
 
 type StepKind string
@@ -26,7 +36,9 @@ const (
 	RunWaiting   RunStatus = "waiting"
 	RunSucceeded RunStatus = "succeeded"
 	RunFailed    RunStatus = "failed"
+	RunCancelled RunStatus = "cancelled"
 	RunMissed    RunStatus = "missed"
+	RunSkipped   RunStatus = "skipped"
 )
 
 type StepOutcome string
@@ -35,15 +47,24 @@ const (
 	StepRunning   StepOutcome = "running"
 	StepSucceeded StepOutcome = "succeeded"
 	StepFailed    StepOutcome = "failed"
+	StepCancelled StepOutcome = "cancelled"
 )
 
-// ErrRunGone means the run was deleted, with its automation, while it was going.
-var ErrRunGone = errors.New("automation run no longer exists")
+// ErrRunGone means the run was cancelled, or deleted with its automation,
+// while it was going.
+var ErrRunGone = errors.New("automation run is no longer active")
+
+var (
+	ErrRunNotFound  = errors.New("automation run not found")
+	ErrRunNotActive = errors.New("automation run is not active")
+	ErrActiveRun    = errors.New("automation has an active run")
+)
 
 type Automation struct {
 	ID        int
 	Name      string
 	Enabled   bool
+	Mode      Mode
 	Triggers  []Trigger
 	Steps     []Step
 	CreatedAt time.Time
@@ -77,6 +98,7 @@ type Run struct {
 	AutomationID int
 	TriggerID    *int
 	TriggerKind  TriggerKind
+	InitiatedBy  *User
 	Status       RunStatus
 	CurrentStep  int
 	Steps        []Step
@@ -98,6 +120,18 @@ type RunStep struct {
 	CommandID  *int
 	StartedAt  time.Time
 	FinishedAt *time.Time
+}
+
+type User struct {
+	ID       int
+	Username string
+}
+
+// RunAdmission is what applying an automation's mode did when a run was
+// asked for: Run is the started run, or the skipped one.
+type RunAdmission struct {
+	Run       Run
+	Cancelled []int
 }
 
 type RunState struct {

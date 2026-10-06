@@ -64,6 +64,23 @@ export function useSetAutomationEnabled() {
   });
 }
 
+export function useRunAutomation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => unwrap(apiClient.POST('/automations/{id}/run', { params: { path: { id } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.all }),
+  });
+}
+
+export function useCancelAutomationRun() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, runId }: { id: number; runId: number }) =>
+      unwrap(apiClient.POST('/automations/{id}/runs/{runId}/cancel', { params: { path: { id, runId } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.all }),
+  });
+}
+
 export function useDeleteAutomation() {
   const queryClient = useQueryClient();
   return useMutation({

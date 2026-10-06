@@ -82,6 +82,10 @@ export function describeRun(run: AutomationRun, zone: string): string {
       return `${count} · all succeeded`;
     case 'failed':
       return run.error ?? `failed on step ${run.current_step} of ${total}`;
+    case 'cancelled':
+      return run.current_step === 0 ? `cancelled before step 1 of ${total}` : `cancelled on step ${run.current_step} of ${total}`;
+    case 'skipped':
+      return 'already running';
   }
 }
 
@@ -98,7 +102,9 @@ export const runStatus: Record<AutomationRun['status'], StatusKey> = {
   waiting: 'info',
   succeeded: 'ok',
   failed: 'bad',
+  cancelled: 'unknown',
   missed: 'unknown',
+  skipped: 'unknown',
 };
 
 const savedLists: Record<string, { name: string; fields: Record<string, string> }> = {

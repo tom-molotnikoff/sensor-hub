@@ -118,11 +118,31 @@ func (e AutomationStatus) Valid() bool {
 	}
 }
 
+// Defines values for AutomationMode.
+const (
+	AutomationModeRestart AutomationMode = "restart"
+	AutomationModeSingle  AutomationMode = "single"
+)
+
+// Valid indicates whether the value is a known member of the AutomationMode enum.
+func (e AutomationMode) Valid() bool {
+	switch e {
+	case AutomationModeRestart:
+		return true
+	case AutomationModeSingle:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AutomationRunStatus.
 const (
+	AutomationRunStatusCancelled AutomationRunStatus = "cancelled"
 	AutomationRunStatusFailed    AutomationRunStatus = "failed"
 	AutomationRunStatusMissed    AutomationRunStatus = "missed"
 	AutomationRunStatusRunning   AutomationRunStatus = "running"
+	AutomationRunStatusSkipped   AutomationRunStatus = "skipped"
 	AutomationRunStatusSucceeded AutomationRunStatus = "succeeded"
 	AutomationRunStatusWaiting   AutomationRunStatus = "waiting"
 )
@@ -130,11 +150,15 @@ const (
 // Valid indicates whether the value is a known member of the AutomationRunStatus enum.
 func (e AutomationRunStatus) Valid() bool {
 	switch e {
+	case AutomationRunStatusCancelled:
+		return true
 	case AutomationRunStatusFailed:
 		return true
 	case AutomationRunStatusMissed:
 		return true
 	case AutomationRunStatusRunning:
+		return true
+	case AutomationRunStatusSkipped:
 		return true
 	case AutomationRunStatusSucceeded:
 		return true
@@ -148,6 +172,7 @@ func (e AutomationRunStatus) Valid() bool {
 // Defines values for AutomationRunTriggerKind.
 const (
 	AutomationRunTriggerKindInterval AutomationRunTriggerKind = "interval"
+	AutomationRunTriggerKindManual   AutomationRunTriggerKind = "manual"
 	AutomationRunTriggerKindSchedule AutomationRunTriggerKind = "schedule"
 )
 
@@ -155,6 +180,8 @@ const (
 func (e AutomationRunTriggerKind) Valid() bool {
 	switch e {
 	case AutomationRunTriggerKindInterval:
+		return true
+	case AutomationRunTriggerKindManual:
 		return true
 	case AutomationRunTriggerKindSchedule:
 		return true
@@ -183,6 +210,7 @@ func (e AutomationRunStepKind) Valid() bool {
 
 // Defines values for AutomationRunStepOutcome.
 const (
+	AutomationRunStepOutcomeCancelled AutomationRunStepOutcome = "cancelled"
 	AutomationRunStepOutcomeFailed    AutomationRunStepOutcome = "failed"
 	AutomationRunStepOutcomeRunning   AutomationRunStepOutcome = "running"
 	AutomationRunStepOutcomeSucceeded AutomationRunStepOutcome = "succeeded"
@@ -191,6 +219,8 @@ const (
 // Valid indicates whether the value is a known member of the AutomationRunStepOutcome enum.
 func (e AutomationRunStepOutcome) Valid() bool {
 	switch e {
+	case AutomationRunStepOutcomeCancelled:
+		return true
 	case AutomationRunStepOutcomeFailed:
 		return true
 	case AutomationRunStepOutcomeRunning:
@@ -687,8 +717,11 @@ type Automation struct {
 	Id          int    `json:"id"`
 
 	// LastRunFailed True from a failed run until the next run that succeeds.
-	LastRunFailed bool   `json:"last_run_failed"`
-	Name          string `json:"name"`
+	LastRunFailed bool `json:"last_run_failed"`
+
+	// Mode What a trigger does while the automation already has a running or waiting run. "single" records a skipped run and lets the active run carry on. "restart" cancels the active run and starts a new one from step 1. Defaults to "single" on create, and to the automation's current mode on update.
+	Mode AutomationMode `json:"mode"`
+	Name string         `json:"name"`
 
 	// NextFireAt When the earliest trigger next comes due, in UTC. Null when the automation is off.
 	NextFireAt *time.Time `json:"next_fire_at,omitempty"`
@@ -709,8 +742,11 @@ type AutomationStatus string
 // AutomationInput An automation as sent on create and update. Any trigger starts a run, and the steps run in order.
 type AutomationInput struct {
 	// Enabled Whether the automation's triggers start runs. Defaults to true on create, and to the automation's current setting on update.
-	Enabled *bool  `json:"enabled,omitempty"`
-	Name    string `json:"name"`
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Mode What a trigger does while the automation already has a running or waiting run. "single" records a skipped run and lets the active run carry on. "restart" cancels the active run and starts a new one from step 1. Defaults to "single" on create, and to the automation's current mode on update.
+	Mode *AutomationMode `json:"mode,omitempty"`
+	Name string          `json:"name"`
 
 	// Steps At least one step, run top to bottom.
 	Steps []AutomationStep `json:"steps"`
@@ -718,6 +754,9 @@ type AutomationInput struct {
 	// Triggers At least one trigger. Any of them starts a run.
 	Triggers []AutomationTrigger `json:"triggers"`
 }
+
+// AutomationMode What a trigger does while the automation already has a running or waiting run. "single" records a skipped run and lets the active run carry on. "restart" cancels the active run and starts a new one from step 1. Defaults to "single" on create, and to the automation's current mode on update.
+type AutomationMode string
 
 // AutomationRun One firing of an automation.
 type AutomationRun struct {
@@ -734,6 +773,9 @@ type AutomationRun struct {
 	FinishedAt *time.Time `json:"finished_at,omitempty"`
 	Id         int        `json:"id"`
 
+	// InitiatedBy The user who pressed Run now, or null for a run a trigger started or when the user has since been deleted.
+	InitiatedBy *CommandHistoryUser `json:"initiated_by,omitempty"`
+
 	// PastGraceSeconds How long after the end of the grace window the hub started, for a missed run.
 	PastGraceSeconds *int `json:"past_grace_seconds,omitempty"`
 
@@ -741,31 +783,35 @@ type AutomationRun struct {
 	ResumeAt  *time.Time `json:"resume_at,omitempty"`
 	StartedAt time.Time  `json:"started_at"`
 
-	// Status "running" or "waiting" while active, then "succeeded" or "failed". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started.
+	// Status "running" or "waiting" while active, then "succeeded", "failed" or "cancelled". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started. "skipped" records a trigger that fired while the automation, in single mode, was already running.
 	Status       AutomationRunStatus `json:"status"`
 	StepOutcomes []AutomationRunStep `json:"step_outcomes"`
 
 	// Steps The automation's steps as they were when the run started.
 	Steps []AutomationStep `json:"steps"`
 
-	// TriggerId The trigger that fired, or null when it has since been deleted by an edit.
-	TriggerId   *int                     `json:"trigger_id,omitempty"`
+	// TriggerId The trigger that fired, or null for a manual run or when the trigger has since been deleted by an edit.
+	TriggerId *int `json:"trigger_id,omitempty"`
+
+	// TriggerKind The kind of trigger that fired, or "manual" for Run now.
 	TriggerKind AutomationRunTriggerKind `json:"trigger_kind"`
 }
 
-// AutomationRunStatus "running" or "waiting" while active, then "succeeded" or "failed". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started.
+// AutomationRunStatus "running" or "waiting" while active, then "succeeded", "failed" or "cancelled". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started. "skipped" records a trigger that fired while the automation, in single mode, was already running.
 type AutomationRunStatus string
 
-// AutomationRunTriggerKind defines model for AutomationRun.TriggerKind.
+// AutomationRunTriggerKind The kind of trigger that fired, or "manual" for Run now.
 type AutomationRunTriggerKind string
 
 // AutomationRunStep The outcome of one step of a run.
 type AutomationRunStep struct {
 	// CommandId The command a set step sent, in the sensor's command history.
-	CommandId  *int                     `json:"command_id,omitempty"`
-	FinishedAt *time.Time               `json:"finished_at,omitempty"`
-	Kind       AutomationRunStepKind    `json:"kind"`
-	Outcome    AutomationRunStepOutcome `json:"outcome"`
+	CommandId  *int                  `json:"command_id,omitempty"`
+	FinishedAt *time.Time            `json:"finished_at,omitempty"`
+	Kind       AutomationRunStepKind `json:"kind"`
+
+	// Outcome "cancelled" when the run was cancelled during the step. A set step cancelled while its command was in flight still records the command.
+	Outcome AutomationRunStepOutcome `json:"outcome"`
 
 	// Position Position of the step, counting from 1.
 	Position  int       `json:"position"`
@@ -775,7 +821,7 @@ type AutomationRunStep struct {
 // AutomationRunStepKind defines model for AutomationRunStep.Kind.
 type AutomationRunStepKind string
 
-// AutomationRunStepOutcome defines model for AutomationRunStep.Outcome.
+// AutomationRunStepOutcome "cancelled" when the run was cancelled during the step. A set step cancelled while its command was in flight still records the command.
 type AutomationRunStepOutcome string
 
 // AutomationStep One step of a run. A "set" step sends a command to a writable capability of a sensor and waits for the device to acknowledge it. A "wait" step pauses the run, and the pause survives a hub restart.
