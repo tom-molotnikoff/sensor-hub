@@ -43,9 +43,8 @@ type executor struct {
 	runsEnded metric.Int64Counter
 }
 
-// execute carries a new run from its first step, and a resumed one from the
-// step it is on. It returns early, leaving the run unfinished, when ctx is
-// cancelled or the run is deleted under it.
+// execute returns early, leaving the run unfinished, when ctx is cancelled or
+// the run is deleted under it.
 func (e *executor) execute(ctx context.Context, automation Automation, run Run) (resumeAt time.Time, waiting bool) {
 	logger := e.logger.With("automation_id", automation.ID, "run_id", run.ID)
 	ctx, span := e.tracer.Start(ctx, "automation.run", trace.WithAttributes(
@@ -124,15 +123,14 @@ func (e *executor) executeStep(ctx context.Context, logger *slog.Logger, run Run
 	return e.finishStep(ctx, logger, span, stepID, position, commandID, reason, interrupted)
 }
 
-// settleInterrupted gives the step a restart interrupted its outcome. Only a
-// set step can be interrupted: a wait step is never left running in a running
-// run, because waiting and resuming each happen in one transaction.
+// Only a set step can be interrupted: a wait step is never left running in a
+// running run, because waiting and resuming each happen in one transaction.
 func (e *executor) settleInterrupted(ctx context.Context, logger *slog.Logger, run Run, last RunStep) (string, bool) {
 	switch last.Outcome {
 	case StepSucceeded:
 		return "", true
 	case StepFailed:
-		return "the hub stopped before the failure was recorded", true
+		return "the hub stopped before the reason was recorded", true
 	}
 
 	step := run.Steps[last.Position-1]
@@ -249,7 +247,6 @@ func (e *executor) await(ctx context.Context, name string, outcome <-chan string
 	}
 }
 
-// verdict is empty for an acknowledged command.
 func verdict(name string, status string) string {
 	switch status {
 	case commandAcknowledged:

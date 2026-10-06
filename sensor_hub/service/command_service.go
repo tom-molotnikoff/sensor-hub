@@ -129,8 +129,7 @@ func (s *CommandService) SendAsSystem(ctx context.Context, sensorID int, propert
 }
 
 // AwaitOutcome gives a command sent before a restart the outcome channel that
-// SendAsSystem would have returned. A command that has already settled sends
-// its status straight away.
+// SendAsSystem would have returned.
 func (s *CommandService) AwaitOutcome(ctx context.Context, commandID int) (<-chan string, error) {
 	if s.lifecycle != nil {
 		if outcome, ok := s.lifecycle.Await(commandID); ok {
