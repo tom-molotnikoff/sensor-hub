@@ -824,7 +824,6 @@ func TestSensorRepository_DeleteSensorByName_Success(t *testing.T) {
 		WithArgs(1).
 		WillReturnResult(sqlmock.NewResult(0, 3))
 
-	// Delete the automations that use the sensor
 	mock.ExpectExec("DELETE FROM automations WHERE id IN").
 		WithArgs(1, 1).
 		WillReturnResult(sqlmock.NewResult(0, 0))

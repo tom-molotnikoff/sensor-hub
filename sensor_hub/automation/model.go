@@ -71,13 +71,12 @@ var (
 )
 
 type Automation struct {
-	ID       int
-	Name     string
-	Enabled  bool
-	Mode     Mode
-	Triggers []Trigger
-	Steps    []Step
-	// BrokenReason is empty unless a set step no longer matches its sensor.
+	ID           int
+	Name         string
+	Enabled      bool
+	Mode         Mode
+	Triggers     []Trigger
+	Steps        []Step
 	BrokenReason string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time

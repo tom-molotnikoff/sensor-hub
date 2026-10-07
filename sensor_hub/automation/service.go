@@ -289,8 +289,6 @@ func (s *Service) SensorDeleted(sensorID int) {
 	}
 }
 
-// recheckLocked returns the automation's broken reason, or the one it had when
-// the sensors could not be looked up. Only becoming broken notifies.
 func (s *Service) recheckLocked(ctx context.Context, automation Automation) string {
 	logger := s.logger.With("automation_id", automation.ID)
 	reason, err := brokenReason(ctx, s.sensors, automation.Steps)
