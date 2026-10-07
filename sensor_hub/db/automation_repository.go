@@ -109,6 +109,28 @@ func (r *AutomationRepository) DeleteAutomation(ctx context.Context, id int) err
 	return err
 }
 
+func (r *AutomationRepository) SetBrokenReason(ctx context.Context, id int, reason string) (string, error) {
+	var previous sql.NullString
+	_, err := r.inTx(ctx, func(tx *sql.Tx) (int, error) {
+		err := tx.QueryRowContext(ctx, "SELECT broken_reason FROM automations WHERE id = ?", id).Scan(&previous)
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, automation.ErrNotFound
+		}
+		if err != nil {
+			return 0, fmt.Errorf("query automation broken reason: %w", err)
+		}
+		if previous.String == reason {
+			return 0, nil
+		}
+		stored := sql.NullString{String: reason, Valid: reason != ""}
+		if _, err := tx.ExecContext(ctx, "UPDATE automations SET broken_reason = ? WHERE id = ?", stored, id); err != nil {
+			return 0, fmt.Errorf("update automation broken reason: %w", err)
+		}
+		return 0, nil
+	})
+	return previous.String, err
+}
+
 func (r *AutomationRepository) RunStates(ctx context.Context) (map[int]automation.RunState, error) {
 	rows, err := r.db.Reader.QueryContext(ctx, `SELECT a.id,
 			EXISTS (SELECT 1 FROM automation_runs r WHERE r.automation_id = a.id AND r.status IN ('running', 'waiting')),
@@ -554,7 +576,7 @@ func insertDefinition(ctx context.Context, tx *sql.Tx, automationID int, a autom
 
 func (r *AutomationRepository) queryAutomations(ctx context.Context, where string, args ...any) ([]automation.Automation, error) {
 	rows, err := r.db.Reader.QueryContext(ctx,
-		"SELECT id, name, enabled, mode, created_at, updated_at FROM automations "+where+" ORDER BY name COLLATE NOCASE, id", args...)
+		"SELECT id, name, enabled, mode, broken_reason, created_at, updated_at FROM automations "+where+" ORDER BY name COLLATE NOCASE, id", args...)
 	if err != nil {
 		return nil, fmt.Errorf("query automations: %w", err)
 	}
@@ -564,10 +586,12 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 	index := make(map[int]int)
 	for rows.Next() {
 		var a automation.Automation
+		var brokenReason sql.NullString
 		var createdAt, updatedAt SQLiteTime
-		if err := rows.Scan(&a.ID, &a.Name, &a.Enabled, &a.Mode, &createdAt, &updatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Name, &a.Enabled, &a.Mode, &brokenReason, &createdAt, &updatedAt); err != nil {
 			return nil, fmt.Errorf("scan automation: %w", err)
 		}
+		a.BrokenReason = brokenReason.String
 		a.CreatedAt, a.UpdatedAt = createdAt.Time, updatedAt.Time
 		index[a.ID] = len(automations)
 		automations = append(automations, a)

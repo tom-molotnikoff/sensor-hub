@@ -682,8 +682,12 @@ paths:
       summary: Delete sensor by name
       description: >-
         **WARNING:** Deletes a sensor and ALL associated historical data.
-        This operation is irreversible. Consider using disable instead.
-        Requires delete_sensors permission (separate from manage_sensors).
+        It also deletes every automation that uses the sensor in a trigger or
+        a step, including any run it has in progress, with that automation's
+        run history. Commands those automations sent to other sensors stay in
+        their command history. This operation is irreversible. Consider using
+        disable instead. Requires delete_sensors permission (separate from
+        manage_sensors).
       operationId: deleteSensorByName
       x-required-permission: delete_sensors
       parameters:
@@ -3602,8 +3606,9 @@ paths:
         user who asked for it. It works on an automation that is off, and
         follows the automation's mode: in "single" mode, an automation that is
         already running records a skipped run instead, and in "restart" mode
-        the active run is cancelled first. Requires both manage_automations and
-        control_sensors permissions.
+        the active run is cancelled first. It is refused on an automation that
+        is broken. Requires both manage_automations and control_sensors
+        permissions.
       operationId: runAutomation
       x-required-permission:
         - manage_automations
@@ -3628,6 +3633,12 @@ paths:
           description: Insufficient permissions
         '404':
           description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The automation is broken
           content:
             application/json:
               schema:
@@ -5444,15 +5455,21 @@ components:
             $ref: '#/components/schemas/AutomationStep'
         status:
           type: string
-          enum: [off, armed, running]
-          x-enum-varnames: [AutomationStatusOff, AutomationStatusArmed, AutomationStatusRunning]
+          enum: [off, armed, running, broken]
+          x-enum-varnames: [AutomationStatusOff, AutomationStatusArmed, AutomationStatusRunning, AutomationStatusBroken]
           description: >-
-            "off" when switched off, "running" while a run is running or
-            waiting, otherwise "armed".
+            "broken" when a set step targets a property that is no longer a
+            writable capability of its sensor, or a sensor that is no longer
+            controllable. A broken automation starts no runs until it is fixed,
+            whether or not it is switched on. Otherwise "off" when switched off,
+            "running" while a run is running or waiting, and "armed".
         status_reason:
           type: string
           nullable: true
-          description: One line explaining the status, when it needs one.
+          description: >-
+            Why the automation is broken, naming the step and the property,
+            such as "step 2: hallway-lamp no longer has color_temp_preset".
+            Null unless the status is "broken".
         last_run_failed:
           type: boolean
           description: True from a failed run until the next run that succeeds.
@@ -5462,7 +5479,8 @@ components:
           nullable: true
           description: >-
             When the earliest schedule or interval trigger next comes due, in
-            UTC. Null when the automation is off or only has reading triggers.
+            UTC. Null when the automation is off or broken, or only has reading
+            triggers.
         hub_timezone:
           type: string
           description: The hub's IANA zone that schedule times are in, for showing next_fire_at locally.

@@ -67,17 +67,38 @@ var (
 	ErrRunNotFound  = errors.New("automation run not found")
 	ErrRunNotActive = errors.New("automation run is not active")
 	ErrActiveRun    = errors.New("automation has an active run")
+	ErrBroken       = errors.New("automation is broken")
 )
 
 type Automation struct {
-	ID        int
-	Name      string
-	Enabled   bool
-	Mode      Mode
-	Triggers  []Trigger
-	Steps     []Step
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID       int
+	Name     string
+	Enabled  bool
+	Mode     Mode
+	Triggers []Trigger
+	Steps    []Step
+	// BrokenReason is empty unless a set step no longer matches its sensor.
+	BrokenReason string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+func (a Automation) armed() bool {
+	return a.Enabled && a.BrokenReason == ""
+}
+
+func (a Automation) uses(sensorID int) bool {
+	for _, trigger := range a.Triggers {
+		if trigger.Reading != nil && trigger.Reading.SensorID == sensorID {
+			return true
+		}
+	}
+	for _, step := range a.Steps {
+		if step.Kind == StepSet && step.SensorID == sensorID {
+			return true
+		}
+	}
+	return false
 }
 
 type Trigger struct {

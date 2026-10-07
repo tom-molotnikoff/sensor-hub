@@ -34,6 +34,16 @@ export function NameAndSummary({ automation, sensorName }: { automation: Automat
 
 export function StatusWithFlag({ automation }: { automation: Automation }) {
   const { key, label } = automationStatus[automation.status];
+  if (automation.status === 'broken') {
+    return (
+      <div>
+        <StatusPill status={key} label={label} />
+        <Typography variant="bodySmall" color="text.secondary" noWrap title={automation.status_reason ?? undefined}>
+          {automation.status_reason}
+        </Typography>
+      </div>
+    );
+  }
   return (
     <Inline>
       <StatusPill status={key} label={label} />

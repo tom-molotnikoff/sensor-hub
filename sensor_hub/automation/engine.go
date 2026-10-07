@@ -115,7 +115,7 @@ func (e *engine) load(runCtx context.Context, zone *time.Location, automations [
 // lastDueBefore returns the latest time before now that the trigger came due
 // while the hub was down.
 func (e *engine) lastDueBefore(automation Automation, trigger Trigger, now time.Time) (time.Time, bool) {
-	if !automation.Enabled || trigger.NextDueAt == nil || trigger.NextDueAt.After(now) {
+	if !automation.armed() || trigger.NextDueAt == nil || trigger.NextDueAt.After(now) {
 		return time.Time{}, false
 	}
 	due := *trigger.NextDueAt
@@ -149,6 +149,33 @@ func (e *engine) forget(automationID int) {
 	e.dropLocked(automationID)
 }
 
+func (e *engine) forgetUsing(sensorID int) []int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	var forgotten []int
+	for id, automation := range e.automations {
+		if automation.uses(sensorID) {
+			e.dropLocked(id)
+			forgotten = append(forgotten, id)
+		}
+	}
+	return forgotten
+}
+
+// setBroken changes only the reason, so that it cannot put back steps an
+// edit saved since the reason was worked out.
+func (e *engine) setBroken(automationID int, reason string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	automation, ok := e.automations[automationID]
+	if !ok {
+		return
+	}
+	automation.BrokenReason = reason
+	e.dropLocked(automationID)
+	e.putLocked(automation)
+}
+
 func (e *engine) setZone(zone *time.Location) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -159,7 +186,7 @@ func (e *engine) setZone(zone *time.Location) {
 	e.zone = zone
 	now := e.now()
 	for _, automation := range e.automations {
-		if !automation.Enabled {
+		if !automation.armed() {
 			continue
 		}
 		for _, trigger := range automation.Triggers {
@@ -180,7 +207,7 @@ func (e *engine) nextFireAt(automationID int) *time.Time {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	automation, ok := e.automations[automationID]
-	if !ok || !automation.Enabled {
+	if !ok || !automation.armed() {
 		return nil
 	}
 	var next *time.Time
@@ -201,7 +228,7 @@ func (e *engine) putLocked(automation Automation) {
 }
 
 func (e *engine) armLocked(automation Automation) {
-	if !automation.Enabled {
+	if !automation.armed() {
 		return
 	}
 	now := e.now()
@@ -268,7 +295,7 @@ func (e *engine) fire(key dueKey, due time.Time) {
 func (e *engine) fireTrigger(triggerID int, due time.Time) {
 	e.mu.Lock()
 	automation, ok := e.automations[e.triggers[triggerID]]
-	if !ok || !automation.Enabled {
+	if !ok || !automation.armed() {
 		e.mu.Unlock()
 		return
 	}
@@ -394,6 +421,9 @@ func (e *engine) runNow(automation Automation, user User) (Run, error) {
 }
 
 func (e *engine) startRun(ctx context.Context, automation Automation, run Run) (RunAdmission, error) {
+	if automation.BrokenReason != "" {
+		return RunAdmission{}, fmt.Errorf("%w: %s", ErrBroken, automation.BrokenReason)
+	}
 	run.AutomationID = automation.ID
 	run.Steps = automation.Steps
 	run.StartedAt = e.now()

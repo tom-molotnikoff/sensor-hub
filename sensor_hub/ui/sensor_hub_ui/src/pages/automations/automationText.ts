@@ -88,7 +88,7 @@ export function formatHubTime(iso: string, zone: string): string {
 }
 
 export function describeNext({ status, next_fire_at, hub_timezone, triggers }: Automation): string {
-  if (status === 'off') return '-';
+  if (status === 'off' || status === 'broken') return '-';
   if (next_fire_at) return formatHubTime(next_fire_at, hub_timezone);
   return triggers.some((trigger) => trigger.type === 'reading') ? 'on reading' : '-';
 }
@@ -116,10 +116,16 @@ export function describeRun(run: AutomationRun, zone: string): string {
 
 export const showsFailedFlag = (automation: Automation) => automation.last_run_failed && automation.status === 'armed';
 
+export function describeStatusDetail(automation: Automation): string {
+  if (automation.status === 'broken') return automation.status_reason ?? '';
+  return showsFailedFlag(automation) ? 'last run failed' : '';
+}
+
 export const automationStatus: Record<Automation['status'], { label: string; key: StatusKey }> = {
   off: { label: 'Off', key: 'unknown' },
   armed: { label: 'Armed', key: 'ok' },
   running: { label: 'Running', key: 'info' },
+  broken: { label: 'Broken', key: 'bad' },
 };
 
 export const runStatus: Record<AutomationRun['status'], StatusKey> = {

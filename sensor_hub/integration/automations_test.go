@@ -480,3 +480,144 @@ func TestAutomation_SuggestsAReArmMarginFromASeriesReadings(t *testing.T) {
 	require.Equal(t, http.StatusOK, status, string(body))
 	assert.JSONEq(t, `{"suggested_margin":0.3,"step":0.3,"p95_change":0.3,"sample_count":100,"confidence":"medium"}`, string(body))
 }
+
+func TestAutomation_ADeviceListWithoutTheStepsPropertyBreaksTheAutomationUntilItComesBack(t *testing.T) {
+	fixture := setupCommandFixture(t, fmt.Sprintf("broken-plug-%d", reserveTCPPort(t)))
+	defer fixture.stop()
+
+	bridge := pahomqtt.NewClient(pahomqtt.NewClientOptions().
+		AddBroker(fmt.Sprintf("tcp://127.0.0.1:%d", fixture.port)).
+		SetClientID(fmt.Sprintf("integration-broken-%d", fixture.port)))
+	token := bridge.Connect()
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	defer bridge.Disconnect(250)
+	publishDevices := func(exposes string) {
+		t.Helper()
+		payload := fmt.Sprintf(`[{"ieee_address":"0x%016x","friendly_name":%q,
+			"definition":{"model":"TS011F","vendor":"Tuya","description":"Smart plug","exposes":%s}}]`,
+			fixture.port, fixture.sensor.Name, exposes)
+		pub := bridge.Publish("zigbee2mqtt/bridge/devices", 0, false, payload)
+		require.True(t, pub.WaitTimeout(5*time.Second))
+		require.NoError(t, pub.Error())
+	}
+	statusOf := func(id int) gen.Automation {
+		automation, status := client.GetAutomation(id)
+		require.Equal(t, http.StatusOK, status)
+		return automation
+	}
+
+	body, status := client.CreateAutomation(gen.AutomationInput{
+		Name:     "Integration broken plug",
+		Triggers: []gen.AutomationTrigger{{Type: gen.AutomationTriggerTypeSchedule, At: ptrStr("03:00"), Days: everyDay()}},
+		Steps:    []gen.AutomationStep{{Type: gen.AutomationStepTypeSet, SensorId: &fixture.sensor.Id, Property: ptrStr("state"), Value: ptrStr("ON")}},
+	})
+	require.Equal(t, http.StatusCreated, status, string(body))
+	var created gen.Automation
+	require.NoError(t, json.Unmarshal(body, &created))
+	defer client.DeleteAutomation(created.Id)
+
+	publishDevices(`[{"type":"binary","property":"child_lock","name":"child_lock","access":7,"value_on":"LOCK","value_off":"UNLOCK"}]`)
+
+	require.Eventually(t, func() bool {
+		return statusOf(created.Id).Status == gen.AutomationStatusBroken
+	}, 5*time.Second, 100*time.Millisecond, "the device list refresh never broke the automation")
+	broken := statusOf(created.Id)
+	assert.Equal(t, ptrStr(fmt.Sprintf("step 1: %s no longer has state", fixture.sensor.Name)), broken.StatusReason)
+	assert.Nil(t, broken.NextFireAt)
+	_, status = client.RunAutomation(created.Id)
+	assert.Equal(t, http.StatusConflict, status)
+	runs, status := client.ListAutomationRuns(created.Id)
+	require.Equal(t, http.StatusOK, status)
+	assert.Empty(t, runs)
+
+	publishDevices(`[{"type":"binary","property":"state","name":"state","access":7,"value_on":"ON","value_off":"OFF"}]`)
+
+	require.Eventually(t, func() bool {
+		return statusOf(created.Id).Status == gen.AutomationStatusArmed
+	}, 5*time.Second, 100*time.Millisecond, "the automation stayed broken after the property came back")
+	assert.NotNil(t, statusOf(created.Id).NextFireAt)
+}
+
+func TestAutomation_DeletingASensorDeletesTheAutomationsThatUseItWithTheirActiveRun(t *testing.T) {
+	fixture := setupCommandFixture(t, fmt.Sprintf("kept-plug-%d", reserveTCPPort(t)))
+	defer fixture.stop()
+	ctx := context.Background()
+	doomedName := fmt.Sprintf("doomed-lamp-%d", fixture.port)
+	metadata := map[string]interface{}{"exposes": []interface{}{map[string]interface{}{
+		"type": "binary", "property": "state", "access": float64(7), "value_on": "ON", "value_off": "OFF",
+	}}}
+	sensorRepo := database.NewSensorRepository(env.DB, slog.Default())
+	require.NoError(t, sensorRepo.AddSensor(ctx, gen.Sensor{Name: doomedName, SensorDriver: "mqtt-zigbee2mqtt",
+		Status: gen.SensorStatusActive, Config: map[string]string{}, Metadata: &metadata}))
+	defer func() { _ = database.NewSensorRepository(env.DB, slog.Default()).DeleteSensorByName(ctx, doomedName) }()
+	doomed, err := sensorRepo.GetSensorByName(ctx, doomedName)
+	require.NoError(t, err)
+
+	device := pahomqtt.NewClient(pahomqtt.NewClientOptions().
+		AddBroker(fmt.Sprintf("tcp://127.0.0.1:%d", fixture.port)).
+		SetClientID(fmt.Sprintf("integration-doomed-%d", fixture.port)))
+	token := device.Connect()
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	defer device.Disconnect(250)
+	token = device.Subscribe(fmt.Sprintf("zigbee2mqtt/%s/set", fixture.sensor.Name), 1, func(client pahomqtt.Client, msg pahomqtt.Message) {
+		client.Publish(fmt.Sprintf("zigbee2mqtt/%s", fixture.sensor.Name), 1, false, msg.Payload())
+	})
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	reading := device.Publish(fmt.Sprintf("zigbee2mqtt/%s", doomedName), 1, false, `{"temperature":20}`)
+	require.True(t, reading.WaitTimeout(5*time.Second))
+	require.NoError(t, reading.Error())
+	require.Eventually(t, func() bool {
+		body, status := client.GetMeasurementTypesForSensor(doomed.Id)
+		return status == http.StatusOK && strings.Contains(string(body), `"temperature"`)
+	}, 5*time.Second, 100*time.Millisecond, "the doomed sensor never reported a temperature")
+
+	create := func(input gen.AutomationInput) gen.Automation {
+		t.Helper()
+		body, status := client.CreateAutomation(input)
+		require.Equal(t, http.StatusCreated, status, string(body))
+		var created gen.Automation
+		require.NoError(t, json.Unmarshal(body, &created))
+		return created
+	}
+	setStep := func(sensorID int, value string) gen.AutomationStep {
+		return gen.AutomationStep{Type: gen.AutomationStepTypeSet, SensorId: &sensorID, Property: ptrStr("state"), Value: ptrStr(value)}
+	}
+	schedule := []gen.AutomationTrigger{{Type: gen.AutomationTriggerTypeSchedule, At: ptrStr("03:00"), Days: everyDay()}}
+	hour := 3600
+	stepOnDoomed := create(gen.AutomationInput{Name: "Kept plug, then doomed lamp", Triggers: schedule, Steps: []gen.AutomationStep{
+		setStep(fixture.sensor.Id, "ON"), {Type: gen.AutomationStepTypeWait, Seconds: &hour}, setStep(fixture.sensor.Id, "OFF"), setStep(doomed.Id, "OFF"),
+	}})
+	operator := gen.AutomationTriggerOperatorRisesAbove
+	threshold, margin := 30.0, 0.5
+	triggerOnDoomed := create(gen.AutomationInput{Name: "Kept plug when doomed lamp is hot", Triggers: []gen.AutomationTrigger{{
+		Type: gen.AutomationTriggerTypeReading, SensorId: &doomed.Id, MeasurementType: ptrStr("temperature"),
+		Operator: &operator, Threshold: &threshold, RearmMargin: &margin,
+	}}, Steps: []gen.AutomationStep{setStep(fixture.sensor.Id, "ON")}})
+	unrelated := create(gen.AutomationInput{Name: "Kept plug only", Triggers: schedule, Steps: []gen.AutomationStep{setStep(fixture.sensor.Id, "ON")}})
+	defer client.DeleteAutomation(unrelated.Id)
+
+	_, status := client.RunAutomation(stepOnDoomed.Id)
+	require.Equal(t, http.StatusAccepted, status)
+	require.Eventually(t, func() bool {
+		runs, status := client.ListAutomationRuns(stepOnDoomed.Id)
+		require.Equal(t, http.StatusOK, status)
+		return len(runs) == 1 && runs[0].Status == gen.AutomationRunStatusWaiting
+	}, 10*time.Second, 100*time.Millisecond, "the run never acknowledged its first step and waited")
+
+	require.Equal(t, http.StatusOK, client.DeleteSensor(doomedName))
+
+	for _, deleted := range []gen.Automation{stepOnDoomed, triggerOnDoomed} {
+		_, status := client.GetAutomation(deleted.Id)
+		assert.Equal(t, http.StatusNotFound, status, "%s was not deleted with its sensor", deleted.Name)
+	}
+	_, status = client.GetAutomation(unrelated.Id)
+	assert.Equal(t, http.StatusOK, status)
+	history, status := client.GetSensorCommandHistory(fixture.sensor.Id)
+	require.Equal(t, http.StatusOK, status)
+	require.Len(t, history, 1)
+	assert.Nil(t, history[0].AutomationRunId)
+	assert.Nil(t, history[0].Automation)
+}

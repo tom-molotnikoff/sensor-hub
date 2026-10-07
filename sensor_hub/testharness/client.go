@@ -333,6 +333,13 @@ func (c *Client) ListAutomations() ([]gen.Automation, int) {
 	return result, status
 }
 
+func (c *Client) GetAutomation(id int) (gen.Automation, int) {
+	var result gen.Automation
+	resp, err := c.gen.GetAutomation(c.ctx(), id)
+	status := c.decodeInto(resp, err, &result)
+	return result, status
+}
+
 func (c *Client) ListAutomationRuns(id int) ([]gen.AutomationRun, int) {
 	var result []gen.AutomationRun
 	resp, err := c.gen.ListAutomationRuns(c.ctx(), id)

@@ -174,6 +174,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to recover pending commands: %w", err)
 	}
 	automationService := automation.NewService(database.NewAutomationRepository(db, logger), sensorService, commandService, notificationService, automationReadings, readingsRepo, logger)
+	sensorService.SetSensorObserver(automationService)
 
 	middleware.InitAuthMiddleware(authService)
 	middleware.InitApiKeyMiddleware(apiKeyService)

@@ -35,6 +35,13 @@ func (e *AlreadyExistsError) Error() string {
 	return e.Message
 }
 
+// A SensorObserver hears about changes that can break the automations using a
+// sensor, and about the sensor's deletion, which deletes them.
+type SensorObserver interface {
+	SensorChanged(ctx context.Context, sensorID int)
+	SensorDeleted(sensorID int)
+}
+
 type SensorService struct {
 	sensorRepo      database.SensorRepositoryInterface[gen.Sensor]
 	mtRepo          database.MeasurementTypeRepository
@@ -42,6 +49,7 @@ type SensorService struct {
 	liveView        *LiveView
 	notifSvc        NotificationServiceInterface
 	readingsSampler ReadingsSamplerInterface
+	observer        SensorObserver
 	logger          *slog.Logger
 }
 
@@ -55,6 +63,12 @@ func NewSensorService(sensorRepo database.SensorRepositoryInterface[gen.Sensor],
 		readingsSampler: readingsSampler,
 		logger:          logger.With("component", "sensor_service"),
 	}
+}
+
+// SetSensorObserver takes an observer built after the sensor service, because
+// the automations it tells depend on the sensor service.
+func (s *SensorService) SetSensorObserver(observer SensorObserver) {
+	s.observer = observer
 }
 
 func (s *SensorService) notifyConfigEvent(action, sensorName string, metadata map[string]interface{}) {
@@ -113,6 +127,9 @@ func (s *SensorService) ServiceUpdateSensorById(ctx context.Context, sensor gen.
 		return fmt.Errorf("error updating sensor: %w", err)
 	}
 	s.logger.Info("sensor updated", "id", sensor.Id, "name", sensor.Name)
+	if s.observer != nil {
+		s.observer.SensorChanged(ctx, sensor.Id)
+	}
 	s.liveView.AnnounceSensors()
 	s.notifyConfigEvent("updated", sensor.Name, map[string]interface{}{"sensor_name": sensor.Name})
 	return nil
@@ -126,11 +143,18 @@ func (s *SensorService) ServiceDeleteSensorByName(ctx context.Context, name stri
 	if !exists {
 		return fmt.Errorf("sensor with name %s does not exist", name)
 	}
+	sensorID, err := s.sensorRepo.GetSensorIdByName(ctx, name)
+	if err != nil {
+		return fmt.Errorf("error retrieving sensor ID for deletion: %w", err)
+	}
 	err = s.sensorRepo.DeleteSensorByName(ctx, name)
 	if err != nil {
 		return fmt.Errorf("error deleting sensor: %w", err)
 	}
 	s.logger.Info("sensor deleted", "name", name)
+	if s.observer != nil {
+		s.observer.SensorDeleted(sensorID)
+	}
 	s.liveView.AnnounceSensors()
 	s.notifyConfigEvent("removed", name, map[string]interface{}{"sensor_name": name})
 	return nil

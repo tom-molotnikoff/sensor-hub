@@ -44,6 +44,11 @@ const automations = [
   automation(2, 'Pump cycle', { last_run_failed: true }),
   automation(3, 'Christmas lights', { enabled: false, status: 'off', next_fire_at: null, last_run_failed: true }),
   automation(4, 'Evening lights', { status: 'running' }),
+  automation(6, 'Hallway colour', {
+    status: 'broken',
+    status_reason: 'step 2: hallway-lamp no longer has color_temp_preset',
+    next_fire_at: null,
+  }),
   automation(5, 'Lounge heat on', {
     triggers: [{ id: 5, type: 'reading', sensor_id: socket.id, measurement_type: 'temperature', operator: 'falls_below', threshold: 16, rearm_margin: 0.2, hold_seconds: 0 }],
     next_fire_at: null,
@@ -93,6 +98,14 @@ describe('AutomationsPage', () => {
     expect(await rowOf('Evening lights')).toHaveTextContent('Running');
   });
 
+  it('shows Broken with its reason, and a dash for Next', async () => {
+    await renderList(1280);
+
+    const broken = await rowOf('Hallway colour');
+    expect(broken).toHaveTextContent('Brokenstep 2: hallway-lamp no longer has color_temp_preset');
+    expect(within(broken).getAllByRole('gridcell').at(-1)).toHaveTextContent(/^-$/);
+  });
+
   it('shows "on reading" for Next when an automation only has reading triggers', async () => {
     await renderList(1280);
 
@@ -127,5 +140,9 @@ describe('AutomationsPage', () => {
     expect(meta).toHaveTextContent(socket.name);
     expect(meta).toHaveTextContent('last run failed');
     expect(item.querySelector('[data-ui=status-pill]')).toHaveTextContent('Armed');
+
+    const broken = (await screen.findByText('Hallway colour')).closest<HTMLElement>('[data-ui=data-table-row]')!;
+    expect(broken.querySelector('[data-ui=data-table-meta]')).toHaveTextContent('step 2: hallway-lamp no longer has color_temp_preset');
+    expect(broken.querySelector('[data-ui=status-pill]')).toHaveTextContent('Broken');
   });
 });
