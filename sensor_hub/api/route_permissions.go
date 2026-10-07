@@ -29,6 +29,7 @@ var routePermissions = map[string][]string{
 	"DELETE /api/automations/:id":                  {"manage_automations"},
 	"PUT /api/automations/:id/enabled":             {"manage_automations", "control_sensors"},
 	"GET /api/automations/:id/runs":                {"view_automations"},
+	"GET /api/automations/margin-suggestion":       {"view_automations"},
 	"POST /api/automations/:id/run":                {"manage_automations", "control_sensors"},
 	"POST /api/automations/:id/runs/:runId/cancel": {"manage_automations"},
 

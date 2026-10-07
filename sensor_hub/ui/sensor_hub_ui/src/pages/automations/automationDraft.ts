@@ -2,7 +2,11 @@ import type { Automation, AutomationInput, AutomationStep, AutomationTrigger, Ca
 
 type Keyed<T> = T & { key: number };
 
-export type DraftTrigger = Keyed<AutomationTrigger>;
+export type DraftTrigger = Keyed<AutomationTrigger> & {
+  // Set from choosing a numeric series until its suggested margin arrives or a margin is typed.
+  awaitingMargin?: boolean;
+  suggestedMargin?: number;
+};
 export type DraftStep = Keyed<AutomationStep>;
 
 export interface Draft {

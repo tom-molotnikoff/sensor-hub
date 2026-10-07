@@ -146,22 +146,10 @@ func readingTriggerFromInput(ctx context.Context, sensors SensorLookup, i int, t
 	}
 	condition := ReadingCondition{Series: Series{SensorID: *trigger.SensorId}, Operator: Operator(*trigger.Operator)}
 
-	sensor, err := sensors.ServiceGetSensorById(ctx, condition.SensorID)
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && sensor == nil) {
-		return Trigger{}, invalid("triggers[%d].sensor_id: sensor %d does not exist", i, condition.SensorID)
-	}
+	measurementType, err := reportedType(ctx, sensors, fmt.Sprintf("triggers[%d].", i), condition.SensorID, *trigger.MeasurementType)
 	if err != nil {
-		return Trigger{}, fmt.Errorf("look up sensor %d: %w", condition.SensorID, err)
+		return Trigger{}, err
 	}
-	reported, err := sensors.ServiceGetMeasurementTypesForSensor(ctx, condition.SensorID)
-	if err != nil {
-		return Trigger{}, fmt.Errorf("look up measurement types of sensor %d: %w", condition.SensorID, err)
-	}
-	index := slices.IndexFunc(reported, func(each gen.MeasurementType) bool { return each.Name == *trigger.MeasurementType })
-	if index < 0 {
-		return Trigger{}, invalid("triggers[%d].measurement_type: %s does not report %q", i, sensor.Name, *trigger.MeasurementType)
-	}
-	measurementType := reported[index]
 	condition.MeasurementType, condition.MeasurementTypeID = measurementType.Name, measurementType.Id
 
 	if trigger.HoldSeconds != nil {
@@ -196,6 +184,26 @@ func readingTriggerFromInput(ctx context.Context, sensors SensorLookup, i int, t
 	}
 	condition.Threshold, condition.Margin = *trigger.Threshold, *trigger.RearmMargin
 	return Trigger{Kind: TriggerReading, Reading: &condition}, nil
+}
+
+// reportedType names the fields at fault with the given prefix.
+func reportedType(ctx context.Context, sensors SensorLookup, prefix string, sensorID int, name string) (gen.MeasurementType, error) {
+	sensor, err := sensors.ServiceGetSensorById(ctx, sensorID)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && sensor == nil) {
+		return gen.MeasurementType{}, invalid("%ssensor_id: sensor %d does not exist", prefix, sensorID)
+	}
+	if err != nil {
+		return gen.MeasurementType{}, fmt.Errorf("look up sensor %d: %w", sensorID, err)
+	}
+	reported, err := sensors.ServiceGetMeasurementTypesForSensor(ctx, sensorID)
+	if err != nil {
+		return gen.MeasurementType{}, fmt.Errorf("look up measurement types of sensor %d: %w", sensorID, err)
+	}
+	index := slices.IndexFunc(reported, func(each gen.MeasurementType) bool { return each.Name == name })
+	if index < 0 {
+		return gen.MeasurementType{}, invalid("%smeasurement_type: %s does not report %q", prefix, sensor.Name, name)
+	}
+	return reported[index], nil
 }
 
 func stepFromInput(ctx context.Context, sensors SensorLookup, i int, step gen.AutomationStep) (Step, error) {

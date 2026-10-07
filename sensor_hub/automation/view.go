@@ -78,6 +78,10 @@ func triggerView(trigger Trigger) gen.AutomationTrigger {
 		} else {
 			threshold, margin := condition.Threshold, condition.Margin
 			view.Threshold, view.RearmMargin = &threshold, &margin
+			if hint := condition.MarginHint; hint != nil {
+				margin, checkedAt := hint.Margin, hint.CheckedAt.UTC()
+				view.MarginHint, view.MarginHintCheckedAt = &margin, &checkedAt
+			}
 		}
 	}
 	return view

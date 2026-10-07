@@ -35,6 +35,8 @@ type Store interface {
 	RunStates(ctx context.Context) (map[int]RunState, error)
 
 	SetTriggerDue(ctx context.Context, triggerID int, due time.Time) error
+	// SetMarginHint clears the hint when given nil.
+	SetMarginHint(ctx context.Context, triggerID int, hint *MarginHint) error
 
 	CreateRun(ctx context.Context, run Run) (int, error)
 	// AdmitRun records a run as running unless the automation already has an
@@ -91,12 +93,13 @@ type Service struct {
 	store    Store
 	sensors  SensorLookup
 	readings *ReadingConsumer
+	history  ReadingHistory
 	engine   *engine
 	logger   *slog.Logger
 	now      func() time.Time
 }
 
-func NewService(store Store, sensors SensorLookup, commands CommandSender, notifier Notifier, readings *ReadingConsumer, logger *slog.Logger) *Service {
+func NewService(store Store, sensors SensorLookup, commands CommandSender, notifier Notifier, readings *ReadingConsumer, history ReadingHistory, logger *slog.Logger) *Service {
 	logger = logger.With("component", "automation")
 	now := func() time.Time { return time.Now().UTC() }
 	executor := &executor{
@@ -116,6 +119,7 @@ func NewService(store Store, sensors SensorLookup, commands CommandSender, notif
 		store:    store,
 		sensors:  sensors,
 		readings: readings,
+		history:  history,
 		engine:   newEngine(store, executor, logger, now, lateness),
 		logger:   logger,
 		now:      now,
@@ -145,6 +149,12 @@ func (s *Service) Start(ctx context.Context) error {
 	periodic.Supervise(ctx, "automation-readings", s.logger, func(ctx context.Context, healthy func()) {
 		s.readings.drain(ctx, healthy, s.engine.observe)
 	})
+	periodic.RunTask(ctx, periodic.TaskConfig{
+		Name:           "automation-margin-check",
+		Interval:       func() time.Duration { return marginCheckInterval },
+		Logger:         s.logger,
+		RunImmediately: true,
+	}, s.checkMargins)
 	s.logger.Info("automation scheduler started", "automations", len(automations), "resumed_runs", len(active), "hub_timezone", s.engine.zoneName())
 	return nil
 }

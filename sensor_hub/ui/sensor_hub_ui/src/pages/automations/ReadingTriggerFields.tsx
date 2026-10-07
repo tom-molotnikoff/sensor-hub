@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { MenuItem, TextField } from '@mui/material';
 import type { AutomationTrigger } from '../../gen/aliases';
+import { useMarginSuggestion } from '../../hooks/useAutomations';
 import { useSensorMeasurementTypes } from '../../hooks/useMeasurementTypes';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import DurationField from './DurationField';
@@ -39,16 +41,38 @@ export default function ReadingTriggerFields({ trigger, readOnly, onChange }: Re
   // A new series starts its threshold and margin afresh, so the fields that keep what was typed start again too.
   const series = `${trigger.sensor_id}:${trigger.measurement_type}`;
 
+  const suggestion = useMarginSuggestion(
+    trigger.awaitingMargin ? trigger.sensor_id : undefined,
+    trigger.awaitingMargin ? trigger.measurement_type : undefined,
+  );
+
+  useEffect(() => {
+    if (!trigger.awaitingMargin || !suggestion.isFetched) return;
+    const suggested = suggestion.data?.suggested_margin ?? undefined;
+    if (trigger.rearm_margin !== undefined || suggested === undefined) {
+      onChange({ ...trigger, awaitingMargin: false });
+    } else {
+      onChange({ ...trigger, awaitingMargin: false, rearm_margin: suggested, suggestedMargin: suggested });
+    }
+  }, [trigger, suggestion.isFetched, suggestion.data, onChange]);
+
+  const freshSeries = { threshold: undefined, rearm_margin: undefined, margin_hint: undefined, suggestedMargin: undefined };
   const chooseSensor = (id: number) =>
-    onChange({ ...trigger, sensor_id: id, measurement_type: undefined, operator: 'falls_below', threshold: undefined, rearm_margin: undefined, value: undefined });
+    onChange({ ...trigger, ...freshSeries, sensor_id: id, measurement_type: undefined, operator: 'falls_below', value: undefined, awaitingMargin: false });
   const chooseMeasurementType = (name: string) => {
     const chosen = measurementTypes.find((each) => each.name === name);
     if (chosen?.category === 'binary') {
-      onChange({ ...trigger, measurement_type: name, operator: 'becomes', threshold: undefined, rearm_margin: undefined, value: binaryValues[0] });
+      onChange({ ...trigger, ...freshSeries, measurement_type: name, operator: 'becomes', value: binaryValues[0], awaitingMargin: false });
     } else {
-      onChange({ ...trigger, measurement_type: name, operator: binary ? 'falls_below' : trigger.operator, threshold: undefined, rearm_margin: undefined, value: undefined });
+      onChange({ ...trigger, ...freshSeries, measurement_type: name, operator: binary ? 'falls_below' : trigger.operator, value: undefined, awaitingMargin: true });
     }
   };
+  const marginHelp =
+    trigger.margin_hint != null
+      ? `This sensor is noisier now: suggested ${trigger.margin_hint}${unit ? ` ${unit}` : ''}`
+      : trigger.suggestedMargin !== undefined && trigger.rearm_margin === trigger.suggestedMargin
+        ? 'Suggested from recent readings'
+        : undefined;
 
   return (
     <>
@@ -127,13 +151,14 @@ export default function ReadingTriggerFields({ trigger, readOnly, onChange }: Re
             onChange={(threshold) => onChange({ ...trigger, threshold })}
           />
           <NumberField
-            key={`margin-${series}`}
+            key={`margin-${series}-${trigger.suggestedMargin}`}
             label="Re-arm margin"
             value={trigger.rearm_margin}
             min={0}
             step={0.1}
+            helperText={marginHelp}
             readOnly={readOnly}
-            onChange={(rearm_margin) => onChange({ ...trigger, rearm_margin })}
+            onChange={(rearm_margin) => onChange({ ...trigger, rearm_margin, awaitingMargin: false })}
           />
         </>
       )}

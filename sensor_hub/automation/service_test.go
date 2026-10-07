@@ -27,6 +27,7 @@ type fixture struct {
 	readings *automation.ReadingConsumer
 	stop     context.CancelFunc
 	store    *database.AutomationRepository
+	history  database.ReadingsRepository
 	db       *database.Handles
 	sensors  *fakeSensors
 	commands *fakeCommands
@@ -59,7 +60,9 @@ func newFixture(t *testing.T) *fixture {
 	t.Cleanup(func() { close(stopCommands) })
 	f := &fixture{
 		store: database.NewAutomationRepository(handles, logger),
-		db:    handles,
+		history: database.NewReadingsRepository(handles, database.NewSensorRepository(handles, logger),
+			database.NewMeasurementTypeRepository(handles, logger), logger),
+		db: handles,
 		sensors: &fakeSensors{
 			sensors: map[int]gen.Sensor{int(lampID): lamp(int(lampID)), climate.Id: climate, door.Id: door},
 			types: map[int][]gen.MeasurementType{
@@ -82,7 +85,7 @@ func newFixture(t *testing.T) *fixture {
 func (f *fixture) start(t *testing.T) {
 	t.Helper()
 	f.readings = automation.NewReadingConsumer()
-	f.service = automation.NewService(f.store, f.sensors, f.commands, f.notifier, f.readings, f.logger)
+	f.service = automation.NewService(f.store, f.sensors, f.commands, f.notifier, f.readings, f.history, f.logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	f.stop = cancel

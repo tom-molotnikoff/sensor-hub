@@ -3339,6 +3339,62 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /automations/margin-suggestion:
+    get:
+      tags:
+        - automations
+      summary: Suggest a re-arm margin for a numeric series
+      description: >-
+        Works out a re-arm margin from a sensor's most recent readings of one
+        numeric measurement type: the 95th percentile of the change between
+        consecutive readings, rounded up to a whole multiple of the smallest
+        change the sensor reports, and at least one of it. It uses the latest
+        1000 readings when there are that many ("high" confidence), else the
+        latest 100 ("medium"), else the latest 30 ("low"). With fewer than 30
+        there is no suggestion. Computed on demand, so it follows any change
+        in how the sensor behaves. Requires view_automations permission.
+      operationId: getMarginSuggestion
+      x-required-permission: view_automations
+      parameters:
+        - name: sensor_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: Sensor whose readings to look at
+        - name: measurement_type
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Numeric measurement type the sensor reports, such as "temperature"
+          example: temperature
+      responses:
+        '200':
+          description: Suggested margin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarginSuggestion'
+        '400':
+          description: >-
+            The sensor does not exist, does not report the measurement type, or
+            the measurement type is binary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /automations/{id}:
     get:
       tags:
@@ -5253,6 +5309,23 @@ components:
             trigger fires that long after the reading that met it, unless a
             reading that does not meet it arrives first. Reading triggers only,
             default 0.
+        margin_hint:
+          type: number
+          format: double
+          nullable: true
+          readOnly: true
+          description: >-
+            A larger margin suggested by the daily check, when the saved
+            rearm_margin has fallen below what the sensor's recent readings now
+            need. The saved margin is never changed. Cleared when the
+            automation is saved, or when a later check finds the margin enough.
+          example: 0.4
+        margin_hint_checked_at:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: When the daily check set margin_hint, in UTC.
       required:
         - type
 
@@ -5420,6 +5493,56 @@ components:
           type: boolean
       required:
         - enabled
+
+    MarginSuggestion:
+      type: object
+      description: >-
+        A re-arm margin worked out from a series' most recent readings. Every
+        value is in the measurement type's unit.
+      properties:
+        suggested_margin:
+          type: number
+          format: double
+          nullable: true
+          description: >-
+            p95_change rounded up to a whole multiple of step, and at least one
+            step. 0 when the sample never changes. Null when confidence is "none".
+          example: 0.2
+        step:
+          type: number
+          format: double
+          nullable: true
+          description: >-
+            The smallest non-zero change between consecutive readings in the
+            sample. Null when the sample never changes or confidence is "none".
+          example: 0.1
+        p95_change:
+          type: number
+          format: double
+          nullable: true
+          description: >-
+            The 95th percentile of the absolute change between consecutive
+            readings in the sample. Null when confidence is "none".
+          example: 0.1
+        sample_count:
+          type: integer
+          description: >-
+            How many readings the suggestion used, or how many there are when
+            there are fewer than 30.
+          example: 1000
+        confidence:
+          type: string
+          enum: [high, medium, low, none]
+          x-enum-varnames: [MarginConfidenceHigh, MarginConfidenceMedium, MarginConfidenceLow, MarginConfidenceNone]
+          description: >-
+            "high" from the latest 1000 readings, "medium" from the latest 100,
+            "low" from the latest 30, and "none" when there are fewer than 30.
+      required:
+        - suggested_margin
+        - step
+        - p95_change
+        - sample_count
+        - confidence
 
     AutomationRun:
       type: object

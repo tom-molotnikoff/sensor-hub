@@ -160,6 +160,9 @@ type ClientInterface interface {
 
 	CreateAutomation(ctx context.Context, body CreateAutomationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetMarginSuggestion request
+	GetMarginSuggestion(ctx context.Context, params *GetMarginSuggestionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteAutomation request
 	DeleteAutomation(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -734,6 +737,18 @@ func (c *Client) CreateAutomationWithBody(ctx context.Context, contentType strin
 
 func (c *Client) CreateAutomation(ctx context.Context, body CreateAutomationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateAutomationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMarginSuggestion(ctx context.Context, params *GetMarginSuggestionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMarginSuggestionRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2628,6 +2643,63 @@ func NewCreateAutomationRequestWithBody(server string, contentType string, body 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetMarginSuggestionRequest generates requests for GetMarginSuggestion
+func NewGetMarginSuggestionRequest(server string, params *GetMarginSuggestionParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/automations/margin-suggestion")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sensor_id", params.SensorId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "measurement_type", params.MeasurementType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -5720,6 +5792,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateAutomationWithResponse(ctx context.Context, body CreateAutomationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAutomationResp, error)
 
+	// GetMarginSuggestionWithResponse request
+	GetMarginSuggestionWithResponse(ctx context.Context, params *GetMarginSuggestionParams, reqEditors ...RequestEditorFn) (*GetMarginSuggestionResp, error)
+
 	// DeleteAutomationWithResponse request
 	DeleteAutomationWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*DeleteAutomationResp, error)
 
@@ -6444,6 +6519,30 @@ func (r CreateAutomationResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateAutomationResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetMarginSuggestionResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MarginSuggestion
+	JSON400      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMarginSuggestionResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMarginSuggestionResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -8550,6 +8649,15 @@ func (c *ClientWithResponses) CreateAutomationWithResponse(ctx context.Context, 
 	return ParseCreateAutomationResp(rsp)
 }
 
+// GetMarginSuggestionWithResponse request returning *GetMarginSuggestionResp
+func (c *ClientWithResponses) GetMarginSuggestionWithResponse(ctx context.Context, params *GetMarginSuggestionParams, reqEditors ...RequestEditorFn) (*GetMarginSuggestionResp, error) {
+	rsp, err := c.GetMarginSuggestion(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMarginSuggestionResp(rsp)
+}
+
 // DeleteAutomationWithResponse request returning *DeleteAutomationResp
 func (c *ClientWithResponses) DeleteAutomationWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*DeleteAutomationResp, error) {
 	rsp, err := c.DeleteAutomation(ctx, id, reqEditors...)
@@ -10082,6 +10190,46 @@ func ParseCreateAutomationResp(rsp *http.Response) (*CreateAutomationResp, error
 			return nil, err
 		}
 		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMarginSuggestionResp parses an HTTP response from a GetMarginSuggestionWithResponse call
+func ParseGetMarginSuggestionResp(rsp *http.Response) (*GetMarginSuggestionResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMarginSuggestionResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MarginSuggestion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorResponse

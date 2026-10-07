@@ -215,7 +215,7 @@ func (e *Env) boot(listenAddr string) error {
 		db.Close()
 		return fmt.Errorf("failed to recover pending commands: %w", err)
 	}
-	automationService := automation.NewService(database.NewAutomationRepository(db, logger), sensorService, commandService, notificationService, automationReadings, logger)
+	automationService := automation.NewService(database.NewAutomationRepository(db, logger), sensorService, commandService, notificationService, automationReadings, readingsRepo, logger)
 
 	server := api.NewServer(
 		sensorService,

@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Automation, AutomationRun, MeasurementTypeInfo, Sensor } from '../../gen/aliases';
@@ -250,6 +250,68 @@ describe('AutomationEditorPage', () => {
     expect(savedBody(api.PUT).triggers).toEqual([
       { type: 'reading', sensor_id: climate.id, measurement_type: 'contact', operator: 'becomes', value: 'false', hold_seconds: 0 },
     ]);
+  });
+
+  const chooseTemperature = async () => {
+    fireEvent.mouseDown(await screen.findByRole('combobox', { name: 'Trigger' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Sensor reading' }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Sensor' }));
+    fireEvent.click(screen.getByRole('option', { name: climate.name }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Measurement' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Temperature' }));
+  };
+  const suggestion = { suggested_margin: 0.3, step: 0.1, p95_change: 0.3, sample_count: 1000, confidence: 'high' };
+
+  it('prefills an empty margin with the suggestion for the chosen series, labelled as suggested', async () => {
+    serve(automation());
+    responses['/sensors/by-id/{id}/measurement-types'] = [temperature];
+    responses['/automations/margin-suggestion'] = suggestion;
+    api.PUT.mockResolvedValue({ data: automation(), response: new Response() });
+    await renderEditor('/automations/3');
+
+    await chooseTemperature();
+
+    await waitFor(() => expect(screen.getByRole('spinbutton', { name: 'Re-arm margin' })).toHaveValue(0.3));
+    expect(screen.getByText('Suggested from recent readings')).toBeInTheDocument();
+    expect(api.GET).toHaveBeenCalledWith('/automations/margin-suggestion', { params: { query: { sensor_id: climate.id, measurement_type: 'temperature' } } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Threshold (°C)' }), { target: { value: '16' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.PUT).toHaveBeenCalled());
+    expect(savedBody(api.PUT).triggers[0].rearm_margin).toBe(0.3);
+  });
+
+  it('never overwrites a margin typed before the suggestion arrives', async () => {
+    serve(automation());
+    responses['/sensors/by-id/{id}/measurement-types'] = [temperature];
+    await renderEditor('/automations/3');
+    const served = api.GET.getMockImplementation()!;
+    let release = () => {};
+    api.GET.mockImplementation((path: string, ...rest: unknown[]) =>
+      path === '/automations/margin-suggestion'
+        ? new Promise((resolve) => (release = () => resolve({ data: suggestion, response: new Response() })))
+        : served(path, ...rest),
+    );
+
+    await chooseTemperature();
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Re-arm margin' }), { target: { value: '0.5' } });
+    await waitFor(() => expect(api.GET).toHaveBeenCalledWith('/automations/margin-suggestion', expect.anything()));
+    release();
+
+    // Not waitFor, which would pass before the suggestion lands.
+    for (const deadline = Date.now() + 200; Date.now() < deadline; ) {
+      await act(() => new Promise((tick) => setTimeout(tick, 10)));
+      expect(screen.getByRole('spinbutton', { name: 'Re-arm margin' })).toHaveValue(0.5);
+    }
+    expect(screen.queryByText('Suggested from recent readings')).not.toBeInTheDocument();
+  });
+
+  it('shows the margin hint on the trigger card', async () => {
+    serve(automation({ triggers: [{ id: 1, type: 'reading', sensor_id: climate.id, measurement_type: 'temperature', operator: 'falls_below', threshold: 16, rearm_margin: 0.2, hold_seconds: 0, margin_hint: 0.4, margin_hint_checked_at: '2026-10-06T03:00:00Z' }], next_fire_at: null }));
+    responses['/sensors/by-id/{id}/measurement-types'] = [temperature];
+    await renderEditor('/automations/3');
+
+    expect(await screen.findByText('This sensor is noisier now: suggested 0.4 °C')).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Re-arm margin' })).toHaveValue(0.2);
   });
 
   it('shows "on reading" as Next for an automation with only reading triggers', async () => {

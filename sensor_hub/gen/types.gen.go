@@ -397,6 +397,30 @@ func (e CommandHistoryEntryStatus) Valid() bool {
 	}
 }
 
+// Defines values for MarginSuggestionConfidence.
+const (
+	MarginConfidenceHigh   MarginSuggestionConfidence = "high"
+	MarginConfidenceLow    MarginSuggestionConfidence = "low"
+	MarginConfidenceMedium MarginSuggestionConfidence = "medium"
+	MarginConfidenceNone   MarginSuggestionConfidence = "none"
+)
+
+// Valid indicates whether the value is a known member of the MarginSuggestionConfidence enum.
+func (e MarginSuggestionConfidence) Valid() bool {
+	switch e {
+	case MarginConfidenceHigh:
+		return true
+	case MarginConfidenceLow:
+		return true
+	case MarginConfidenceMedium:
+		return true
+	case MarginConfidenceNone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MeasurementTypeCategory.
 const (
 	MeasurementTypeCategoryBinary  MeasurementTypeCategory = "binary"
@@ -882,6 +906,12 @@ type AutomationTrigger struct {
 	HoldSeconds *int `json:"hold_seconds,omitempty"`
 	Id          *int `json:"id,omitempty"`
 
+	// MarginHint A larger margin suggested by the daily check, when the saved rearm_margin has fallen below what the sensor's recent readings now need. The saved margin is never changed. Cleared when the automation is saved, or when a later check finds the margin enough.
+	MarginHint *float64 `json:"margin_hint,omitempty"`
+
+	// MarginHintCheckedAt When the daily check set margin_hint, in UTC.
+	MarginHintCheckedAt *time.Time `json:"margin_hint_checked_at,omitempty"`
+
 	// MeasurementType Measurement type the sensor reports, such as "temperature". Reading triggers only.
 	MeasurementType *string `json:"measurement_type,omitempty"`
 
@@ -1221,6 +1251,27 @@ type MQTTSubscription struct {
 	TopicPattern string     `json:"topic_pattern"`
 	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
 }
+
+// MarginSuggestion A re-arm margin worked out from a series' most recent readings. Every value is in the measurement type's unit.
+type MarginSuggestion struct {
+	// Confidence "high" from the latest 1000 readings, "medium" from the latest 100, "low" from the latest 30, and "none" when there are fewer than 30.
+	Confidence MarginSuggestionConfidence `json:"confidence"`
+
+	// P95Change The 95th percentile of the absolute change between consecutive readings in the sample. Null when confidence is "none".
+	P95Change *float64 `json:"p95_change"`
+
+	// SampleCount How many readings the suggestion used, or how many there are when there are fewer than 30.
+	SampleCount int `json:"sample_count"`
+
+	// Step The smallest non-zero change between consecutive readings in the sample. Null when the sample never changes or confidence is "none".
+	Step *float64 `json:"step"`
+
+	// SuggestedMargin p95_change rounded up to a whole multiple of step, and at least one step. 0 when the sample never changes. Null when confidence is "none".
+	SuggestedMargin *float64 `json:"suggested_margin"`
+}
+
+// MarginSuggestionConfidence "high" from the latest 1000 readings, "medium" from the latest 100, "low" from the latest 30, and "none" when there are fewer than 30.
+type MarginSuggestionConfidence string
 
 // MeResponse Current user info response
 type MeResponse struct {
@@ -1605,6 +1656,15 @@ type CreateApiKeyJSONBody struct {
 type UpdateApiKeyExpiryJSONBody struct {
 	// ExpiresAt New expiration timestamp, or null to remove expiration.
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+}
+
+// GetMarginSuggestionParams defines parameters for GetMarginSuggestion.
+type GetMarginSuggestionParams struct {
+	// SensorId Sensor whose readings to look at
+	SensorId int `form:"sensor_id" json:"sensor_id"`
+
+	// MeasurementType Numeric measurement type the sensor reports, such as "temperature"
+	MeasurementType string `form:"measurement_type" json:"measurement_type"`
 }
 
 // ListDriversParams defines parameters for ListDrivers.

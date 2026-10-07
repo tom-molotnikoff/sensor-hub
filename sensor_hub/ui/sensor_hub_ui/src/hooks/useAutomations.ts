@@ -10,6 +10,8 @@ const keys = {
   all: ['automations'] as const,
   one: (id: number) => ['automations', id] as const,
   runs: (id: number) => ['automations', id, 'runs'] as const,
+  marginSuggestion: (sensorId: number | undefined, measurementType: string | undefined) =>
+    ['automations', 'margin-suggestion', sensorId, measurementType] as const,
 };
 
 export function useAutomations() {
@@ -35,6 +37,19 @@ export function useAutomationRuns(id: number | undefined) {
     queryFn: () => unwrap(apiClient.GET('/automations/{id}/runs', { params: { path: { id: id! } } })),
     enabled: id !== undefined,
     refetchInterval,
+  });
+}
+
+export function useMarginSuggestion(sensorId: number | undefined, measurementType: string | undefined) {
+  return useQuery({
+    queryKey: keys.marginSuggestion(sensorId, measurementType),
+    queryFn: () =>
+      unwrap(
+        apiClient.GET('/automations/margin-suggestion', {
+          params: { query: { sensor_id: sensorId!, measurement_type: measurementType! } },
+        }),
+      ),
+    enabled: sensorId !== undefined && measurementType !== undefined,
   });
 }
 

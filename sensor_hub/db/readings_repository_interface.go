@@ -24,6 +24,8 @@ type ReadingsRepository interface {
 	Ingest(ctx context.Context, batch ReadingBatch) ([]gen.Reading, error)
 	GetBetweenDates(ctx context.Context, startDate, endDate, sensorName, measurementType string, interval AggregationInterval, aggFunc AggregationFunction) ([]gen.Reading, error)
 	GetLatest(ctx context.Context) ([]gen.Reading, error)
+	// LatestNumericValues returns up to limit of a series' values, newest first.
+	LatestNumericValues(ctx context.Context, sensorID int, measurementTypeID int, limit int) ([]float64, error)
 	CountReadingsPerActiveSensor(ctx context.Context) (map[string]int, error)
 	DeleteReadingsOlderThan(ctx context.Context, cutoffDate time.Time) error
 	DeleteReadingsOlderThanForSensor(ctx context.Context, cutoffDate time.Time, sensorId int) error

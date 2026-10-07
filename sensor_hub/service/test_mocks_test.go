@@ -365,6 +365,14 @@ func (m *MockReadingsRepository) GetLatest(ctx context.Context) ([]gen.Reading, 
 	return args.Get(0).([]gen.Reading), args.Error(1)
 }
 
+func (m *MockReadingsRepository) LatestNumericValues(ctx context.Context, sensorID int, measurementTypeID int, limit int) ([]float64, error) {
+	args := m.Called(ctx, sensorID, measurementTypeID, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]float64), args.Error(1)
+}
+
 func (m *MockReadingsRepository) CountReadingsPerActiveSensor(ctx context.Context) (map[string]int, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {

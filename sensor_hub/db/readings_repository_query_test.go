@@ -80,6 +80,16 @@ func TestRawBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	assertNoReadingsScan(t, plan)
 }
 
+func TestLatestNumericValuesQuery_ReadsOneSeriesNewestFirstByIndex(t *testing.T) {
+	_, db := migratedReadingsRepo(t)
+
+	plan := queryPlan(t, db, latestNumericValuesQuery(), 1, 1, 1000)
+
+	assert.Contains(t, plan, "idx_readings_sensor_type_time", "should use the composite index")
+	assert.NotContains(t, plan, "TEMP B-TREE", "should read in index order, not sort")
+	assertNoReadingsScan(t, plan)
+}
+
 func TestAggregatedBetweenQuery_UsesCompositeIndex(t *testing.T) {
 	repo, db := migratedReadingsRepo(t)
 	ctx := context.Background()

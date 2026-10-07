@@ -393,3 +393,21 @@ func TestAutomation_ATemperatureFallingBelowItsThresholdSwitchesThePlugOnce(t *t
 	case <-time.After(time.Second):
 	}
 }
+
+func TestAutomation_SuggestsAReArmMarginFromASeriesReadings(t *testing.T) {
+	const sensor = "Margin Suggestion Sensor"
+	addSeededSensor(t, sensor)
+	start := time.Now().UTC().Add(-2 * time.Hour)
+	readings := make([]seededReading, 0, 100)
+	for i := range 100 {
+		readings = append(readings, seededReading{at: start.Add(time.Duration(i) * time.Minute), value: 20 + float64(i%2)*0.3})
+	}
+	seedReadings(t, sensor, "temperature", readings)
+	var sensorID int
+	require.NoError(t, env.DB.Reader.QueryRow(`SELECT id FROM sensors WHERE name = ?`, sensor).Scan(&sensorID))
+
+	body, status := client.GetMarginSuggestion(sensorID, "temperature")
+
+	require.Equal(t, http.StatusOK, status, string(body))
+	assert.JSONEq(t, `{"suggested_margin":0.3,"step":0.3,"p95_change":0.3,"sample_count":100,"confidence":"medium"}`, string(body))
+}
