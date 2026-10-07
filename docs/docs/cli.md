@@ -76,3 +76,41 @@ All commands accept `--server`, `--api-key`, and `--insecure` flags, which overr
 ```bash
 sensor-hub sensors list --server https://home.sensor-hub --api-key shk_... --insecure
 ```
+
+## Automations
+
+`sensor-hub automations` manages [automations](automations) with JSON in and out, so a script or an AI assistant can do everything the Automations page does. Every subcommand has `--help`.
+
+| Command | What it does |
+|---|---|
+| `automations list` | Every automation with its status and next fire time |
+| `automations get <id>` | One automation |
+| `automations create --file <path>` | Create an automation from JSON |
+| `automations update <id> --file <path>` | Replace an automation's name, triggers and steps |
+| `automations delete <id>` | Delete an automation with its triggers, steps and runs |
+| `automations enable <id>` / `disable <id>` | Switch an automation on or off |
+| `automations run <id>` | Run an automation now |
+| `automations runs <id>` | Its runs, newest first, with their step outcomes |
+| `automations cancel <id> <runId>` | Cancel a running or waiting run |
+| `automations margin-suggestion --sensor-id <id> --measurement-type <type>` | Suggest a re-arm margin for a numeric reading trigger |
+
+`create` and `update` take the automation in the same shape as the API body, described with examples on the [automations](automations) page. Pass `--file -` to read it from stdin:
+
+```bash
+sensor-hub automations create --file lamp-timer.json
+sensor-hub automations get 3 | jq '.triggers[0].at = "20:00"' | sensor-hub automations update 3 --file -
+```
+
+As with every command, the result is printed as JSON on stdout. A refused request prints the HTTP status and the server's message on stderr and exits with status 1:
+
+- `create` and `update` fail with 400 and a message naming the field, such as `triggers[0].days must hold at least one weekday`.
+- `run` prints the run it started. In `single` mode, an automation that is already running records a skipped run instead, so check that the printed `status` is not `skipped`. It fails with 409 on a broken automation.
+- `cancel` fails with 409 when the run has already ended.
+- `delete` fails with 409 while the automation has a running or waiting run.
+
+The automation properties, such as `hub.timezone`, are read and set like any other:
+
+```bash
+sensor-hub properties get
+sensor-hub properties set --key hub.timezone --value Europe/London
+```

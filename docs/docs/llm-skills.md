@@ -15,6 +15,7 @@ A **skill** is a markdown document that instructs an LLM about available command
 - Query sensor readings and health status
 - Add, enable, or disable sensors
 - Manage alert rules and notifications
+- Create, run and troubleshoot automations, such as a lights timer or a heating pair
 - Create and manage API keys
 - Configure application properties
 
@@ -80,6 +81,18 @@ The assistant will construct the appropriate `sensor-hub readings between` comma
 > "Create an alert if the bedroom temperature goes above 28°C or below 15°C"
 
 The assistant will identify the sensor, create the alert rule with the correct thresholds, and confirm the setup.
+
+**Setting up automations:**
+
+> "Turn the hallway lamp on at 7pm on weekdays and off again four hours later"
+
+The assistant will find the lamp's ID and its capabilities, write the automation as JSON and create it with `sensor-hub automations create --file -`. For a heating pair, such as "heat the lounge below 16°C and stop at 20°C", it creates two reading-triggered automations and takes the re-arm margin from `sensor-hub automations margin-suggestion`.
+
+**Explaining what happened:**
+
+> "Why did the heating come on last night?"
+
+The assistant will check `sensor-hub automations list` for status, then `sensor-hub automations runs <id>` for each run's trigger, steps and any error.
 
 **Investigating issues:**
 
