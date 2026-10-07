@@ -27,7 +27,7 @@ var marginTiers = []marginTier{
 
 // ReadingHistory must read through the reader pool.
 type ReadingHistory interface {
-	// LatestNumericValues returns up to limit of a series' values, newest first.
+	// Newest first.
 	LatestNumericValues(ctx context.Context, sensorID int, measurementTypeID int, limit int) ([]float64, error)
 }
 
@@ -82,7 +82,6 @@ func roundChange(change float64) float64 {
 	return math.Round(change*1e9) / 1e9
 }
 
-// checkMargins writes only margin hints, never a saved margin.
 func (s *Service) checkMargins(ctx context.Context) error {
 	automations, err := s.store.ListAutomations(ctx)
 	if err != nil {

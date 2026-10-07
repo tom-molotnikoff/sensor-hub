@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// series turns changes between consecutive readings into readings from 20.
 func series(changes ...float64) []float64 {
 	values := []float64{20}
 	for _, change := range changes {

@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// storeTemperatures stores readings that alternate by swing, a minute apart
-// and newer than any stored before.
 func (f *fixture) storeTemperatures(t *testing.T, count int, swing float64) {
 	t.Helper()
 	var newest string
