@@ -408,10 +408,6 @@ func TestCleanupService_PerformCleanup_AlertHistoryError_DoesNotFail(t *testing.
 	assert.NoError(t, err)
 }
 
-// ============================================================================
-// Automation run and command history cleanup tests
-// ============================================================================
-
 type mockHistoryPruner struct {
 	mock.Mock
 }
