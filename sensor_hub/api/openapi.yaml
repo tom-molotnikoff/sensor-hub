@@ -3438,8 +3438,9 @@ paths:
       summary: Delete an automation
       description: >-
         Deletes an automation with its triggers, steps and runs. Commands its
-        runs sent stay in command history, no longer linked to a run. Requires
-        manage_automations permission.
+        runs sent stay in command history, no longer linked to a run. An
+        automation with a running or waiting run cannot be deleted until the
+        run is cancelled or finishes. Requires manage_automations permission.
       operationId: deleteAutomation
       x-required-permission: manage_automations
       parameters:
@@ -3462,6 +3463,12 @@ paths:
           description: Insufficient permissions
         '404':
           description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The automation has an active run
           content:
             application/json:
               schema:
@@ -3518,6 +3525,108 @@ paths:
           description: Insufficient permissions
         '404':
           description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /automations/{id}/run:
+    post:
+      tags:
+        - automations
+      summary: Run an automation now
+      description: >-
+        Starts a run straight away, recorded with trigger kind "manual" and the
+        user who asked for it. It works on an automation that is off, and
+        follows the automation's mode: in "single" mode, an automation that is
+        already running records a skipped run instead, and in "restart" mode
+        the active run is cancelled first. Requires both manage_automations and
+        control_sensors permissions.
+      operationId: runAutomation
+      x-required-permission:
+        - manage_automations
+        - control_sensors
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Automation ID
+      responses:
+        '202':
+          description: The run that started, or the skipped run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRun'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /automations/{id}/runs/{runId}/cancel:
+    post:
+      tags:
+        - automations
+      summary: Cancel an active run
+      description: >-
+        Ends a running or waiting run as "cancelled", so none of its later
+        steps run. A command the run already sent carries on, and its outcome
+        is recorded in command history. Requires manage_automations
+        permission.
+      operationId: cancelAutomationRun
+      x-required-permission: manage_automations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Automation ID
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Run ID
+      responses:
+        '200':
+          description: The cancelled run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRun'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: The automation has no such run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The run has already ended
           content:
             application/json:
               schema:
@@ -5124,6 +5233,17 @@ components:
       required:
         - type
 
+    AutomationMode:
+      type: string
+      enum: [single, restart]
+      x-enum-varnames: [AutomationModeSingle, AutomationModeRestart]
+      description: >-
+        What a trigger does while the automation already has a running or
+        waiting run. "single" records a skipped run and lets the active run
+        carry on. "restart" cancels the active run and starts a new one from
+        step 1. Defaults to "single" on create, and to the automation's current
+        mode on update.
+
     AutomationInput:
       type: object
       description: An automation as sent on create and update. Any trigger starts a run, and the steps run in order.
@@ -5135,6 +5255,8 @@ components:
           description: >-
             Whether the automation's triggers start runs. Defaults to true on
             create, and to the automation's current setting on update.
+        mode:
+          $ref: '#/components/schemas/AutomationMode'
         triggers:
           type: array
           description: At least one trigger. Any of them starts a run.
@@ -5152,6 +5274,7 @@ components:
       example:
         name: "Evening lights"
         enabled: true
+        mode: single
         triggers:
           - type: schedule
             at: "19:00"
@@ -5182,6 +5305,8 @@ components:
           type: string
         enabled:
           type: boolean
+        mode:
+          $ref: '#/components/schemas/AutomationMode'
         triggers:
           type: array
           items:
@@ -5225,6 +5350,7 @@ components:
         - id
         - name
         - enabled
+        - mode
         - triggers
         - steps
         - status
@@ -5252,20 +5378,29 @@ components:
         trigger_id:
           type: integer
           nullable: true
-          description: The trigger that fired, or null when it has since been deleted by an edit.
+          description: >-
+            The trigger that fired, or null for a manual run or when the
+            trigger has since been deleted by an edit.
         trigger_kind:
           type: string
-          enum: [schedule, interval]
-          x-enum-varnames: [AutomationRunTriggerKindSchedule, AutomationRunTriggerKindInterval]
+          enum: [schedule, interval, manual]
+          x-enum-varnames: [AutomationRunTriggerKindSchedule, AutomationRunTriggerKindInterval, AutomationRunTriggerKindManual]
+          description: The kind of trigger that fired, or "manual" for Run now.
+        initiated_by:
+          allOf:
+            - $ref: '#/components/schemas/CommandHistoryUser'
+          nullable: true
+          description: The user who pressed Run now, or null for a run a trigger started or when the user has since been deleted.
         status:
           type: string
-          enum: [running, waiting, succeeded, failed, missed]
-          x-enum-varnames: [AutomationRunStatusRunning, AutomationRunStatusWaiting, AutomationRunStatusSucceeded, AutomationRunStatusFailed, AutomationRunStatusMissed]
+          enum: [running, waiting, succeeded, failed, cancelled, missed, skipped]
+          x-enum-varnames: [AutomationRunStatusRunning, AutomationRunStatusWaiting, AutomationRunStatusSucceeded, AutomationRunStatusFailed, AutomationRunStatusCancelled, AutomationRunStatusMissed, AutomationRunStatusSkipped]
           description: >-
-            "running" or "waiting" while active, then "succeeded" or "failed".
-            "missed" records a trigger that came due while the hub was down,
-            longer ago than the automation.missed.grace.minutes property, so no
-            run started.
+            "running" or "waiting" while active, then "succeeded", "failed" or
+            "cancelled". "missed" records a trigger that came due while the hub
+            was down, longer ago than the automation.missed.grace.minutes
+            property, so no run started. "skipped" records a trigger that fired
+            while the automation, in single mode, was already running.
         current_step:
           type: integer
           description: Position of the step the run is on, or ended on, counting from 1. 0 before the first step starts.
@@ -5326,8 +5461,12 @@ components:
           x-enum-varnames: [AutomationRunStepKindSet, AutomationRunStepKindWait]
         outcome:
           type: string
-          enum: [running, succeeded, failed]
-          x-enum-varnames: [AutomationRunStepOutcomeRunning, AutomationRunStepOutcomeSucceeded, AutomationRunStepOutcomeFailed]
+          enum: [running, succeeded, failed, cancelled]
+          x-enum-varnames: [AutomationRunStepOutcomeRunning, AutomationRunStepOutcomeSucceeded, AutomationRunStepOutcomeFailed, AutomationRunStepOutcomeCancelled]
+          description: >-
+            "cancelled" when the run was cancelled during the step. A set step
+            cancelled while its command was in flight still records the
+            command.
         command_id:
           type: integer
           nullable: true

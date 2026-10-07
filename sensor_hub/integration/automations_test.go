@@ -243,3 +243,57 @@ func TestAutomation_ARunWaitingAcrossARestartSendsItsRemainingSteps(t *testing.T
 
 	require.Equal(t, http.StatusOK, client.DeleteAutomation(created.Id))
 }
+
+func TestAutomation_RunNowOnAnAutomationThatIsOffCanBeCancelledAndThenDeleted(t *testing.T) {
+	fixture := setupCommandFixture(t, fmt.Sprintf("run-now-plug-%d", reserveTCPPort(t)))
+	defer fixture.stop()
+
+	device := pahomqtt.NewClient(pahomqtt.NewClientOptions().
+		AddBroker(fmt.Sprintf("tcp://127.0.0.1:%d", fixture.port)).
+		SetClientID(fmt.Sprintf("integration-run-now-%d", fixture.port)))
+	token := device.Connect()
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	defer device.Disconnect(250)
+	token = device.Subscribe(fmt.Sprintf("zigbee2mqtt/%s/set", fixture.sensor.Name), 1, func(client pahomqtt.Client, msg pahomqtt.Message) {
+		client.Publish(fmt.Sprintf("zigbee2mqtt/%s", fixture.sensor.Name), 1, false, msg.Payload())
+	})
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+
+	off := false
+	hour := 3600
+	body, status := client.CreateAutomation(gen.AutomationInput{
+		Name:     "Integration run now",
+		Enabled:  &off,
+		Triggers: []gen.AutomationTrigger{{Type: gen.AutomationTriggerTypeSchedule, At: ptrStr("03:00"), Days: everyDay()}},
+		Steps: []gen.AutomationStep{
+			{Type: gen.AutomationStepTypeSet, SensorId: &fixture.sensor.Id, Property: ptrStr("state"), Value: ptrStr("ON")},
+			{Type: gen.AutomationStepTypeWait, Seconds: &hour},
+			{Type: gen.AutomationStepTypeSet, SensorId: &fixture.sensor.Id, Property: ptrStr("state"), Value: ptrStr("OFF")},
+		},
+	})
+	require.Equal(t, http.StatusCreated, status, string(body))
+	var created gen.Automation
+	require.NoError(t, json.Unmarshal(body, &created))
+
+	started, status := client.RunAutomation(created.Id)
+	require.Equal(t, http.StatusAccepted, status)
+	assert.Equal(t, gen.AutomationRunTriggerKindManual, started.TriggerKind)
+	require.NotNil(t, started.InitiatedBy)
+	require.Eventually(t, func() bool {
+		runs, status := client.ListAutomationRuns(created.Id)
+		require.Equal(t, http.StatusOK, status)
+		return len(runs) == 1 && runs[0].Status == gen.AutomationRunStatusWaiting
+	}, 10*time.Second, 100*time.Millisecond, "the run never acknowledged its first step and waited")
+
+	assert.Equal(t, http.StatusConflict, client.DeleteAutomation(created.Id))
+
+	cancelled, status := client.CancelAutomationRun(created.Id, started.Id)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, gen.AutomationRunStatusCancelled, cancelled.Status)
+	_, status = client.CancelAutomationRun(created.Id, started.Id)
+	assert.Equal(t, http.StatusConflict, status)
+
+	require.Equal(t, http.StatusOK, client.DeleteAutomation(created.Id))
+}

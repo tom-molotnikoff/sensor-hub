@@ -11,11 +11,12 @@ import {
   IconButton,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import type { Automation } from '../../gen/aliases';
-import { useAutomation, useDeleteAutomation, useSaveAutomation } from '../../hooks/useAutomations';
+import { useAutomation, useDeleteAutomation, useRunAutomation, useSaveAutomation } from '../../hooks/useAutomations';
 import { useAuth } from '../../providers/AuthContext';
 import { hasPerm } from '../../tools/Utils';
 import Card from '../../ui/Card';
@@ -91,11 +92,17 @@ function AutomationEditor({ saved, canEdit, canDelete }: AutomationEditorProps) 
   const navigate = useNavigate();
   const wide = useTier() === 'wide';
   const [draft, setDraft] = useState(() => draftOf(saved));
+  const [revision, setRevision] = useState({ edited: 0, saved: 0 });
+  const unsaved = revision.edited !== revision.saved;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const save = useSaveAutomation();
+  const runNow = useRunAutomation();
   const remove = useDeleteAutomation();
 
-  const update = (changes: Partial<Draft>) => setDraft((current) => ({ ...current, ...changes }));
+  const update = (changes: Partial<Draft>) => {
+    setDraft((current) => ({ ...current, ...changes }));
+    setRevision((current) => ({ ...current, edited: current.edited + 1 }));
+  };
   const title = draft.name || (saved ? saved.name : 'New automation');
   const back = (
     <IconButton aria-label="Back to automations" edge="start" onClick={() => navigate('/automations')}>
@@ -113,16 +120,31 @@ function AutomationEditor({ saved, canEdit, canDelete }: AutomationEditorProps) 
       Delete
     </Button>
   );
+  const runNowButton = canEdit && saved && (
+    <Tooltip title={unsaved ? 'Save first' : ''}>
+      <span>
+        <Button disabled={unsaved || runNow.isPending} onClick={() => runNow.mutate(saved.id)}>
+          Run now
+        </Button>
+      </span>
+    </Tooltip>
+  );
   const saveButton = canEdit && (
     <Button
       variant="contained"
       disabled={save.isPending}
-      onClick={() =>
+      onClick={() => {
+        const edited = revision.edited;
         save.mutate(
           { id: saved?.id, input: inputOf(draft) },
-          { onSuccess: (automation) => !saved && navigate(`/automations/${automation.id}`, { replace: true }) },
-        )
-      }
+          {
+            onSuccess: (automation) => {
+              setRevision((current) => ({ ...current, saved: edited }));
+              if (!saved) navigate(`/automations/${automation.id}`, { replace: true });
+            },
+          },
+        );
+      }}
     >
       Save
     </Button>
@@ -132,9 +154,17 @@ function AutomationEditor({ saved, canEdit, canDelete }: AutomationEditorProps) 
   );
 
   const plainWords = <PlainWordsCard draft={draft} saved={saved} />;
-  const when = <WhenCard triggers={draft.triggers} readOnly={!canEdit} onChange={(triggers) => update({ triggers })} />;
+  const when = (
+    <WhenCard
+      triggers={draft.triggers}
+      mode={draft.mode}
+      readOnly={!canEdit}
+      onChange={(triggers) => update({ triggers })}
+      onModeChange={(mode) => update({ mode })}
+    />
+  );
   const then = <ThenCard steps={draft.steps} readOnly={!canEdit} onChange={(steps) => update({ steps })} />;
-  const runs = <RecentRunsCard automationId={saved?.id} zone={saved?.hub_timezone ?? 'UTC'} />;
+  const runs = <RecentRunsCard automationId={saved?.id} zone={saved?.hub_timezone ?? 'UTC'} canCancel={canDelete} />;
 
   return (
     <Page
@@ -144,6 +174,7 @@ function AutomationEditor({ saved, canEdit, canDelete }: AutomationEditorProps) 
         <>
           {enabledSwitch}
           {deleteButton}
+          {runNowButton}
           {saveButton}
         </>
       }
@@ -155,6 +186,7 @@ function AutomationEditor({ saved, canEdit, canDelete }: AutomationEditorProps) 
         </Inline>
       )}
       {save.error && <Alert severity="error">{readableSaveError(save.error.message)}</Alert>}
+      {runNow.error && <Alert severity="error">{runNow.error.message}</Alert>}
       {wide ? (
         <PageGrid>
           <PageGrid.Item span={{ wide: 8 }}>
@@ -183,6 +215,7 @@ function AutomationEditor({ saved, canEdit, canDelete }: AutomationEditorProps) 
       {!wide && (deleteButton || saveButton) && (
         <StickyFooter>
           {deleteButton}
+          {runNowButton}
           {saveButton}
         </StickyFooter>
       )}

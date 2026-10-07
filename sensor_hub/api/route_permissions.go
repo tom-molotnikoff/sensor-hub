@@ -22,13 +22,15 @@ var routePermissions = map[string][]string{
 	"DELETE /api/alerts/:id":                   {"manage_alerts"},
 
 	// Automations
-	"GET /api/automations":             {"view_automations"},
-	"POST /api/automations":            {"manage_automations", "control_sensors"},
-	"GET /api/automations/:id":         {"view_automations"},
-	"PUT /api/automations/:id":         {"manage_automations", "control_sensors"},
-	"DELETE /api/automations/:id":      {"manage_automations"},
-	"PUT /api/automations/:id/enabled": {"manage_automations", "control_sensors"},
-	"GET /api/automations/:id/runs":    {"view_automations"},
+	"GET /api/automations":                         {"view_automations"},
+	"POST /api/automations":                        {"manage_automations", "control_sensors"},
+	"GET /api/automations/:id":                     {"view_automations"},
+	"PUT /api/automations/:id":                     {"manage_automations", "control_sensors"},
+	"DELETE /api/automations/:id":                  {"manage_automations"},
+	"PUT /api/automations/:id/enabled":             {"manage_automations", "control_sensors"},
+	"GET /api/automations/:id/runs":                {"view_automations"},
+	"POST /api/automations/:id/run":                {"manage_automations", "control_sensors"},
+	"POST /api/automations/:id/runs/:runId/cancel": {"manage_automations"},
 
 	// API Keys
 	"GET /api/api-keys":              {"manage_api_keys"},

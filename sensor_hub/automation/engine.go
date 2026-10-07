@@ -78,7 +78,19 @@ func (e *engine) load(runCtx context.Context, zone *time.Location, automations [
 	for _, overdue := range missed {
 		e.executor.recordMissed(runCtx, overdue.automation, overdue.trigger, overdue.due, now.Sub(overdue.due)-grace)
 	}
+	// A caught-up run is admitted like any other, so in restart mode it
+	// cancels a run that would otherwise resume below.
+	cancelled := make(map[int]bool)
+	for _, overdue := range catchUp {
+		e.lateness.Record(runCtx, float64(now.Sub(overdue.due).Milliseconds()))
+		for _, runID := range e.startTriggeredRun(runCtx, overdue.automation, overdue.trigger, overdue.due).Cancelled {
+			cancelled[runID] = true
+		}
+	}
 	for _, run := range active {
+		if cancelled[run.ID] {
+			continue
+		}
 		if run.Status == RunWaiting && run.ResumeAt != nil && run.ResumeAt.After(now) {
 			e.scheduler.set(resumeKey(run.ID), *run.ResumeAt)
 			continue
@@ -88,10 +100,6 @@ func (e *engine) load(runCtx context.Context, zone *time.Location, automations [
 			continue
 		}
 		go e.run(runCtx, e.automationOf(run), run)
-	}
-	for _, overdue := range catchUp {
-		e.lateness.Record(runCtx, float64(now.Sub(overdue.due).Milliseconds()))
-		e.startRun(runCtx, overdue.automation, overdue.trigger, overdue.due)
 	}
 }
 
@@ -257,7 +265,7 @@ func (e *engine) fireTrigger(triggerID int, due time.Time) {
 		return
 	}
 	e.lateness.Record(runCtx, float64(e.now().Sub(due).Milliseconds()))
-	e.startRun(runCtx, automation, trigger, due)
+	e.startTriggeredRun(runCtx, automation, trigger, due)
 }
 
 // An interval trigger keeps the phase of from, a time it came due or the
@@ -279,29 +287,70 @@ func later(a, b time.Time) time.Time {
 	return a
 }
 
-func (e *engine) startRun(ctx context.Context, automation Automation, trigger Trigger, due time.Time) {
+func (e *engine) startTriggeredRun(ctx context.Context, automation Automation, trigger Trigger, due time.Time) RunAdmission {
 	triggerID := trigger.ID
-	run := Run{
-		AutomationID: automation.ID,
-		TriggerID:    &triggerID,
-		TriggerKind:  trigger.Kind,
-		Status:       RunRunning,
-		Steps:        automation.Steps,
-		StartedAt:    e.now(),
-	}
-	id, err := e.store.CreateRun(ctx, run)
+	admission, err := e.startRun(ctx, automation, Run{TriggerID: &triggerID, TriggerKind: trigger.Kind})
 	if err != nil {
 		e.logger.Error("could not start automation run", "automation_id", automation.ID, "trigger_id", triggerID, "due", due, "error", err)
-		return
 	}
-	run.ID = id
-	go e.run(ctx, automation, run)
+	return admission
+}
+
+// runNow starts a run whether or not the automation is enabled.
+func (e *engine) runNow(automation Automation, user User) (Run, error) {
+	e.mu.Lock()
+	runCtx := e.runCtx
+	e.mu.Unlock()
+	admission, err := e.startRun(runCtx, automation, Run{TriggerKind: TriggerManual, InitiatedBy: &user})
+	if err != nil {
+		return Run{}, err
+	}
+	return admission.Run, nil
+}
+
+func (e *engine) startRun(ctx context.Context, automation Automation, run Run) (RunAdmission, error) {
+	run.AutomationID = automation.ID
+	run.Steps = automation.Steps
+	run.StartedAt = e.now()
+	admission, err := e.store.AdmitRun(ctx, run, automation.Mode)
+	if err != nil {
+		return RunAdmission{}, err
+	}
+	logger := e.logger.With("automation_id", automation.ID, "run_id", admission.Run.ID)
+	for _, cancelled := range admission.Cancelled {
+		e.dropCancelled(ctx, cancelled)
+		logger.Info("automation run cancelled to start over", "cancelled_run_id", cancelled)
+	}
+	if admission.Run.Status == RunSkipped {
+		e.executor.countEnded(ctx, RunSkipped)
+		logger.Info("automation already running; run skipped", "trigger_kind", run.TriggerKind)
+		return admission, nil
+	}
+	go e.run(ctx, automation, admission.Run)
+	return admission, nil
+}
+
+func (e *engine) cancel(ctx context.Context, automationID int, runID int) (Run, error) {
+	run, err := e.store.CancelRun(ctx, automationID, runID, e.now())
+	if err != nil {
+		return Run{}, err
+	}
+	e.dropCancelled(ctx, runID)
+	e.logger.Info("automation run cancelled", "automation_id", automationID, "run_id", runID)
+	return run, nil
+}
+
+// A cancelled run that was mid-step stops at its next step, when the store
+// refuses to move it on.
+func (e *engine) dropCancelled(ctx context.Context, runID int) {
+	e.scheduler.remove(resumeKey(runID))
+	e.executor.countEnded(ctx, RunCancelled)
 }
 
 func (e *engine) resume(ctx context.Context, runID int) {
 	run, err := e.store.ResumeRun(ctx, runID, e.now())
 	if errors.Is(err, ErrRunGone) {
-		e.logger.Info("waiting automation run was deleted with its automation", "run_id", runID)
+		e.logger.Info("waiting automation run was cancelled or deleted", "run_id", runID)
 		return
 	}
 	if err != nil {

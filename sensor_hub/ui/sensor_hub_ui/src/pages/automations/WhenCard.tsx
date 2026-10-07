@@ -1,6 +1,7 @@
-import { Fragment } from 'react';
+import { Fragment, useId } from 'react';
 import { Button, IconButton, MenuItem, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import type { Automation } from '../../gen/aliases';
 import Card from '../../ui/Card';
 import Inline from '../../ui/Inline';
 import Stack from '../../ui/Stack';
@@ -84,13 +85,43 @@ function TriggerCard({ trigger, position, readOnly, onChange, onRemove }: Trigge
   );
 }
 
-interface WhenCardProps {
-  triggers: DraftTrigger[];
+interface ModeFieldProps {
+  mode: Automation['mode'];
   readOnly: boolean;
-  onChange: (triggers: DraftTrigger[]) => void;
+  onChange: (mode: Automation['mode']) => void;
 }
 
-export default function WhenCard({ triggers, readOnly, onChange }: WhenCardProps) {
+function ModeField({ mode, readOnly, onChange }: ModeFieldProps) {
+  const labelId = useId();
+  return (
+    <Inline>
+      <Typography id={labelId} variant="bodySmall" color="text.secondary">
+        If a trigger fires while already running:
+      </Typography>
+      <TextField
+        select
+        size="small"
+        value={mode}
+        disabled={readOnly}
+        slotProps={{ select: { labelId } }}
+        onChange={(event) => onChange(event.target.value as Automation['mode'])}
+      >
+        <MenuItem value="single">Ignore it (single)</MenuItem>
+        <MenuItem value="restart">Start over (restart)</MenuItem>
+      </TextField>
+    </Inline>
+  );
+}
+
+interface WhenCardProps {
+  triggers: DraftTrigger[];
+  mode: Automation['mode'];
+  readOnly: boolean;
+  onChange: (triggers: DraftTrigger[]) => void;
+  onModeChange: (mode: Automation['mode']) => void;
+}
+
+export default function WhenCard({ triggers, mode, readOnly, onChange, onModeChange }: WhenCardProps) {
   return (
     <Card title="When any of these happens">
       <Stack>
@@ -115,6 +146,7 @@ export default function WhenCard({ triggers, readOnly, onChange }: WhenCardProps
             + Add trigger
           </Button>
         )}
+        <ModeField mode={mode} readOnly={readOnly} onChange={onModeChange} />
       </Stack>
     </Card>
   );

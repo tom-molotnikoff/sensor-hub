@@ -204,3 +204,49 @@ func TestMigration27_DownRemovesAutomationsWithIntervalTriggers(t *testing.T) {
 	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('automation_triggers') WHERE name = 'interval_seconds'").Scan(&columns))
 	assert.Zero(t, columns)
 }
+
+func TestMigration28_ExistingAutomationsRunInSingleMode(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(27))
+	_, err := db.Exec("INSERT INTO automations (name) VALUES ('Lights off')")
+	require.NoError(t, err)
+
+	require.NoError(t, m.Migrate(28))
+
+	var mode string
+	require.NoError(t, db.QueryRow("SELECT mode FROM automations").Scan(&mode))
+	assert.Equal(t, "single", mode)
+	_, err = db.Exec("UPDATE automations SET mode = 'queued'")
+	assert.Error(t, err, "a mode other than single or restart is refused")
+}
+
+func TestMigration28_DownRemovesRunsThePreviousSchemaCannotHold(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(28))
+	_, err := db.Exec("INSERT INTO automations (id, name, mode) VALUES (1, 'Hall light', 'restart')")
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO automation_runs (automation_id, trigger_kind, status, steps_snapshot, started_at) VALUES
+		(1, 'schedule', 'succeeded', '[]', CURRENT_TIMESTAMP),
+		(1, 'schedule', 'cancelled', '[]', CURRENT_TIMESTAMP),
+		(1, 'schedule', 'skipped', '[]', CURRENT_TIMESTAMP),
+		(1, 'manual', 'succeeded', '[]', CURRENT_TIMESTAMP)`)
+	require.NoError(t, err)
+
+	require.NoError(t, m.Migrate(27))
+
+	var statuses []string
+	rows, err := db.Query("SELECT trigger_kind || ' ' || status FROM automation_runs")
+	require.NoError(t, err)
+	for rows.Next() {
+		var status string
+		require.NoError(t, rows.Scan(&status))
+		statuses = append(statuses, status)
+	}
+	require.NoError(t, rows.Close())
+	assert.Equal(t, []string{"schedule succeeded"}, statuses)
+	var columns int
+	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('automations') WHERE name = 'mode'").Scan(&columns))
+	assert.Zero(t, columns)
+}

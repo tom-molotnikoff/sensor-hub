@@ -39,9 +39,17 @@ var weekdayNames = map[gen.AutomationTriggerDays]time.Weekday{
 }
 
 func fromInput(ctx context.Context, sensors SensorLookup, input gen.AutomationInput) (Automation, error) {
-	automation := Automation{Name: strings.TrimSpace(input.Name), Enabled: true}
+	automation := Automation{Name: strings.TrimSpace(input.Name), Enabled: true, Mode: ModeSingle}
 	if input.Enabled != nil {
 		automation.Enabled = *input.Enabled
+	}
+	if input.Mode != nil {
+		switch mode := Mode(*input.Mode); mode {
+		case ModeSingle, ModeRestart:
+			automation.Mode = mode
+		default:
+			return Automation{}, invalid("mode must be %q or %q, got %q", ModeSingle, ModeRestart, mode)
+		}
 	}
 	if automation.Name == "" {
 		return Automation{}, invalid("name is required")

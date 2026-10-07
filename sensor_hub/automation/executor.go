@@ -44,7 +44,7 @@ type executor struct {
 }
 
 // execute returns early, leaving the run unfinished, when ctx is cancelled or
-// the run is deleted under it.
+// the run is cancelled or deleted under it.
 func (e *executor) execute(ctx context.Context, automation Automation, run Run) (resumeAt time.Time, waiting bool) {
 	logger := e.logger.With("automation_id", automation.ID, "run_id", run.ID)
 	ctx, span := e.tracer.Start(ctx, "automation.run", trace.WithAttributes(
@@ -99,8 +99,9 @@ func currentStep(run Run) (RunStep, bool) {
 func (e *executor) fail(ctx context.Context, logger *slog.Logger, span trace.Span, automation Automation, run Run, position int, reason string) {
 	message := fmt.Sprintf("step %d (%s) failed: %s", position, describeStep(ctx, e.sensors, run.Steps[position-1]), reason)
 	span.SetStatus(codes.Error, message)
-	e.finish(ctx, logger, run, RunFailed, &message)
-	e.notifyFailure(ctx, logger, automation, message)
+	if e.finish(ctx, logger, run, RunFailed, &message) {
+		e.notifyFailure(ctx, logger, automation, message)
+	}
 }
 
 // reason is empty on success. finished is false when the run has to stop
@@ -109,9 +110,13 @@ func (e *executor) executeStep(ctx context.Context, logger *slog.Logger, run Run
 	ctx, span := e.startStepSpan(ctx, position, step)
 	defer span.End()
 
+	if e.awaitCancelledRunCommand(ctx, logger, run, step) {
+		logger.Warn("automation run interrupted", "position", position)
+		return "", false
+	}
 	stepID, err := e.store.StartRunStep(ctx, run.ID, position, step.Kind, e.now())
 	if errors.Is(err, ErrRunGone) {
-		logger.Info("automation run deleted with its automation; stopping", "position", position)
+		logger.Info("automation run was cancelled or deleted; stopping", "position", position)
 		return "", false
 	}
 	if err != nil {
@@ -120,6 +125,29 @@ func (e *executor) executeStep(ctx context.Context, logger *slog.Logger, run Run
 	}
 
 	return e.finishStep(ctx, logger, span, RunStep{ID: stepID, Position: position}, e.set(ctx, logger, run, step))
+}
+
+// A cancelled run of the automation can leave a command in flight for this step's
+// property. The step waits for it rather than failing on it, so that restart
+// mode does not strand the device. Waiting before the step starts means a
+// cancel during the wait stops the run before it sends anything.
+func (e *executor) awaitCancelledRunCommand(ctx context.Context, logger *slog.Logger, run Run, step Step) (interrupted bool) {
+	commandID, found, err := e.store.CancelledRunCommand(ctx, run.AutomationID, step)
+	if err != nil {
+		logger.Error("could not look up a command left in flight by a cancelled run; sending the step anyway", "error", err)
+		return false
+	}
+	if !found {
+		return false
+	}
+	outcome, err := e.commands.AwaitOutcome(ctx, commandID)
+	if err != nil {
+		logger.Error("could not follow a command left in flight by a cancelled run; sending the step anyway", "command_id", commandID, "error", err)
+		return false
+	}
+	logger.Info("waiting for the command a cancelled run left in flight", "command_id", commandID)
+	_, interrupted = e.await(ctx, sensorName(ctx, e.sensors, step.SensorID), outcome)
+	return interrupted
 }
 
 // Only a set step can be interrupted: a wait step is never left running in a
@@ -188,7 +216,7 @@ func (e *executor) wait(ctx context.Context, logger *slog.Logger, run Run, posit
 	resumeAt := at.Add(step.Wait())
 	err := e.store.WaitRun(ctx, run.ID, position, at, resumeAt)
 	if errors.Is(err, ErrRunGone) {
-		logger.Info("automation run deleted with its automation; stopping", "position", position)
+		logger.Info("automation run was cancelled or deleted; stopping", "position", position)
 		return time.Time{}, false
 	}
 	if err != nil {
@@ -264,12 +292,22 @@ func verdict(name string, status string) string {
 	}
 }
 
-func (e *executor) finish(ctx context.Context, logger *slog.Logger, run Run, status RunStatus, message *string) {
-	if err := e.store.FinishRun(ctx, run.ID, status, message, e.now()); err != nil {
+func (e *executor) finish(ctx context.Context, logger *slog.Logger, run Run, status RunStatus, message *string) bool {
+	err := e.store.FinishRun(ctx, run.ID, status, message, e.now())
+	if errors.Is(err, ErrRunGone) {
+		logger.Info("automation run was cancelled or deleted before it finished", "status", status)
+		return false
+	}
+	if err != nil {
 		logger.Error("could not record automation run outcome", "status", status, "error", err)
 	}
-	e.runsEnded.Add(ctx, 1, metric.WithAttributes(attribute.String("status", string(status))))
+	e.countEnded(ctx, status)
 	logger.Info("automation run finished", "status", status)
+	return true
+}
+
+func (e *executor) countEnded(ctx context.Context, status RunStatus) {
+	e.runsEnded.Add(ctx, 1, metric.WithAttributes(attribute.String("status", string(status))))
 }
 
 func (e *executor) recordMissed(ctx context.Context, automation Automation, trigger Trigger, due time.Time, pastGrace time.Duration) {
@@ -291,7 +329,7 @@ func (e *executor) recordMissed(ctx context.Context, automation Automation, trig
 		e.logger.Error("could not record missed automation run", "automation_id", automation.ID, "trigger_id", triggerID, "due", due, "error", err)
 		return
 	}
-	e.runsEnded.Add(ctx, 1, metric.WithAttributes(attribute.String("status", string(RunMissed))))
+	e.countEnded(ctx, RunMissed)
 	e.logger.Warn("automation trigger came due while the hub was down, past the grace window; not running it",
 		"automation_id", automation.ID, "run_id", id, "trigger_id", triggerID, "due", due, "past_grace", pastGrace)
 }

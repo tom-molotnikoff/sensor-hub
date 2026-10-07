@@ -31,6 +31,7 @@ function automation(overrides: Partial<Automation> = {}): Automation {
     id: 3,
     name: 'Evening lights',
     enabled: true,
+    mode: 'single',
     triggers: [{ id: 1, type: 'schedule', at: '19:00', days: ['mon', 'tue', 'wed', 'thu', 'fri'] }],
     steps: [
       { type: 'set', sensor_id: lamp.id, property: 'state', value: 'ON' },
@@ -68,6 +69,20 @@ function renderEditor(at: string, permissions = editorPermissions, width = 1280)
 }
 
 const savedBody = (mock: typeof api.PUT) => mock.mock.calls.at(-1)![1].body;
+
+function run(id: number, overrides: Partial<AutomationRun>): AutomationRun {
+  return {
+    id,
+    automation_id: 3,
+    trigger_kind: 'schedule',
+    status: 'succeeded',
+    current_step: 0,
+    steps: [...automation().steps, { type: 'wait', seconds: 14_400 }, { type: 'set', sensor_id: lamp.id, property: 'state', value: 'OFF' }],
+    step_outcomes: [],
+    started_at: new Date(Date.now() - 60_000).toISOString(),
+    ...overrides,
+  };
+}
 
 describe('AutomationEditorPage', () => {
   let restoreWebSocket: () => void;
@@ -188,11 +203,15 @@ describe('AutomationEditorPage', () => {
     expect(api.DELETE).toHaveBeenCalledWith('/automations/{id}', { params: { path: { id: 3 } } });
   });
 
-  it('gives viewers every control read-only, with no Enabled switch, Save or Delete', async () => {
-    serve(automation());
+  it('gives viewers every control read-only, with no Enabled switch, Save, Run now, Cancel run or Delete', async () => {
+    serve(automation({ status: 'running' }), [run(2, { status: 'waiting', current_step: 3, resume_at: '2026-10-06T22:00:00Z' })]);
     await renderEditor('/automations/3', ['view_automations']);
 
     expect(await screen.findByRole('slider', { name: 'Value' })).toBeDisabled();
+    await waitFor(() => expect(document.querySelectorAll('[data-ui=automation-run]')).toHaveLength(1));
+    expect(screen.queryByRole('button', { name: 'Run now' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel run' })).toBeNull();
+    expect(screen.getByRole('combobox', { name: /If a trigger fires while already running/ })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Enabled' })).toBeNull();
@@ -230,17 +249,6 @@ describe('AutomationEditorPage', () => {
   });
 
   it('shows where a waiting run is and how late a missed one was', async () => {
-    const run = (id: number, overrides: Partial<AutomationRun>): AutomationRun => ({
-      id,
-      automation_id: 3,
-      trigger_kind: 'schedule',
-      status: 'succeeded',
-      current_step: 0,
-      steps: [...automation().steps, { type: 'wait', seconds: 14_400 }, { type: 'set', sensor_id: lamp.id, property: 'state', value: 'OFF' }],
-      step_outcomes: [],
-      started_at: new Date(Date.now() - 60_000).toISOString(),
-      ...overrides,
-    });
     serve(automation(), [
       run(2, { status: 'waiting', current_step: 3, resume_at: '2026-10-06T22:00:00Z' }),
       run(1, { status: 'missed', due_at: '2026-10-02T18:00:00Z', past_grace_seconds: 7_200 }),
@@ -256,11 +264,82 @@ describe('AutomationEditorPage', () => {
     expect(missed.lastElementChild).toHaveTextContent('hub was down - 2 h past the grace window');
   });
 
-  it('stacks the summary, When, Then and Recent runs on phones with Save in the bottom bar', async () => {
+  it('saves the choice of what a trigger does while the automation is already running', async () => {
+    serve(automation());
+    api.PUT.mockResolvedValue({ data: automation({ mode: 'restart' }), response: new Response() });
+    await renderEditor('/automations/3');
+
+    const mode = await screen.findByRole('combobox', { name: /If a trigger fires while already running/ });
+    expect(mode).toHaveTextContent('Ignore it (single)');
+    fireEvent.mouseDown(mode);
+    fireEvent.click(screen.getByRole('option', { name: 'Start over (restart)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.PUT).toHaveBeenCalled());
+    expect(savedBody(api.PUT).mode).toBe('restart');
+  });
+
+  it('runs the saved automation now', async () => {
+    serve(automation());
+    api.POST.mockResolvedValue({ data: run(4, { trigger_kind: 'manual', status: 'running' }), response: new Response(null, { status: 202 }) });
+    await renderEditor('/automations/3');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Run now' }));
+
+    await waitFor(() => expect(api.POST).toHaveBeenCalledWith('/automations/{id}/run', { params: { path: { id: 3 } } }));
+  });
+
+  it('keeps Run now off until unsaved changes are saved', async () => {
+    serve(automation());
+    api.PUT.mockResolvedValue({ data: automation({ name: 'Evening lamp' }), response: new Response() });
+    await renderEditor('/automations/3');
+
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Name' }), { target: { value: 'Evening lamp' } });
+    const runNow = screen.getByRole('button', { name: 'Run now' });
+    expect(runNow).toBeDisabled();
+    fireEvent.mouseOver(runNow.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Save first');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Run now' })).toBeEnabled());
+  });
+
+  it('cancels an active run from Recent runs, and offers it only on active runs', async () => {
+    serve(automation({ status: 'running' }), [
+      run(2, { status: 'waiting', current_step: 3, resume_at: '2026-10-06T22:00:00Z' }),
+      run(1, { status: 'succeeded', current_step: 4 }),
+    ]);
+    api.POST.mockResolvedValue({ data: run(2, { status: 'cancelled', current_step: 3 }), response: new Response() });
+    await renderEditor('/automations/3');
+
+    await waitFor(() => expect(document.querySelectorAll('[data-ui=automation-run]')).toHaveLength(2));
+    const [waiting, succeeded] = document.querySelectorAll<HTMLElement>('[data-ui=automation-run]');
+    expect(within(succeeded).queryByRole('button', { name: 'Cancel run' })).toBeNull();
+    fireEvent.click(within(waiting).getByRole('button', { name: 'Cancel run' }));
+
+    await waitFor(() =>
+      expect(api.POST).toHaveBeenCalledWith('/automations/{id}/runs/{runId}/cancel', { params: { path: { id: 3, runId: 2 } } }),
+    );
+  });
+
+  it('shows skipped and cancelled runs with what happened to them', async () => {
+    serve(automation(), [run(2, { status: 'skipped' }), run(1, { status: 'cancelled', current_step: 3 })]);
+    await renderEditor('/automations/3');
+
+    await waitFor(() => expect(document.querySelectorAll('[data-ui=automation-run]')).toHaveLength(2));
+    const [skipped, cancelled] = document.querySelectorAll<HTMLElement>('[data-ui=automation-run]');
+    expect(skipped.querySelector('[data-ui=status-pill]')).toHaveTextContent(/^skipped$/);
+    expect(skipped.lastElementChild).toHaveTextContent('already running');
+    expect(cancelled.querySelector('[data-ui=status-pill]')).toHaveTextContent(/^cancelled$/);
+    expect(cancelled.lastElementChild).toHaveTextContent('cancelled on step 3 of 4');
+  });
+
+  it('stacks the summary, When, Then and Recent runs on phones with Run now and Save in the bottom bar', async () => {
     serve(automation());
     await renderEditor('/automations/3', editorPermissions, 390);
 
     expect((await screen.findByRole('button', { name: 'Save' })).closest('[data-ui=sticky-footer]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Run now' }).closest('[data-ui=sticky-footer]')).not.toBeNull();
     const titles = Array.from(document.querySelectorAll('[data-ui=card-header] h2'), (heading) => heading.textContent);
     expect(titles).toEqual(['In plain words', 'When any of these happens', 'Then in this order', 'Recent runs']);
   });

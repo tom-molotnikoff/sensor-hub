@@ -61,7 +61,7 @@ type CommandTracker struct {
 	mu       sync.Mutex
 	commands map[int]database.PendingCommandRecord
 	cancels  map[int]func()
-	outcomes map[int]chan string
+	outcomes map[int][]chan string
 }
 
 func NewCommandTracker(repo CommandRepository, broadcaster CommandStatusBroadcaster, logger *slog.Logger) *CommandTracker {
@@ -78,7 +78,7 @@ func NewCommandTracker(repo CommandRepository, broadcaster CommandStatusBroadcas
 		schedule: defaultSchedule,
 		commands: make(map[int]database.PendingCommandRecord),
 		cancels:  make(map[int]func()),
-		outcomes: make(map[int]chan string),
+		outcomes: make(map[int][]chan string),
 	}
 }
 
@@ -92,7 +92,7 @@ func (t *CommandTracker) Track(ctx context.Context, command database.PendingComm
 			delete(t.cancels, command.ID)
 		}
 		t.commands[command.ID] = command
-		t.outcomes[command.ID] = outcome
+		t.outcomes[command.ID] = []chan string{outcome}
 		t.mu.Unlock()
 		t.logger.Debug("command already expired during tracking", "command_id", command.ID)
 		t.handleTimeout(ctx, command.ID)
@@ -112,7 +112,7 @@ func (t *CommandTracker) Track(ctx context.Context, command database.PendingComm
 	}
 	t.commands[command.ID] = command
 	t.cancels[command.ID] = cancel
-	t.outcomes[command.ID] = outcome
+	t.outcomes[command.ID] = []chan string{outcome}
 	t.mu.Unlock()
 	close(started)
 	t.logger.Debug("tracking command", "command_id", command.ID, "sensor_id", command.SensorID, "property", command.Property, "timeout_seconds", command.TimeoutSeconds, "delay_ms", delay.Milliseconds())
@@ -190,7 +190,7 @@ func (t *CommandTracker) Await(commandID int) (<-chan string, bool) {
 		return nil, false
 	}
 	outcome := make(chan string, 1)
-	t.outcomes[commandID] = outcome
+	t.outcomes[commandID] = append(t.outcomes[commandID], outcome)
 	return outcome, true
 }
 
@@ -202,7 +202,7 @@ func (t *CommandTracker) Close() {
 	}
 	t.commands = make(map[int]database.PendingCommandRecord)
 	t.cancels = make(map[int]func())
-	t.outcomes = make(map[int]chan string)
+	t.outcomes = make(map[int][]chan string)
 }
 
 func (t *CommandTracker) matchingCommand(sensorID int, property string) (database.PendingCommandRecord, bool) {
@@ -232,10 +232,10 @@ func (t *CommandTracker) settle(command database.PendingCommandRecord) {
 		delete(t.cancels, command.ID)
 	}
 	delete(t.commands, command.ID)
-	if outcome, ok := t.outcomes[command.ID]; ok {
+	for _, outcome := range t.outcomes[command.ID] {
 		outcome <- command.Status
-		delete(t.outcomes, command.ID)
 	}
+	delete(t.outcomes, command.ID)
 }
 
 func (t *CommandTracker) broadcast(command database.PendingCommandRecord) {

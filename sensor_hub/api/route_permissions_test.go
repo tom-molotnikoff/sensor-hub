@@ -187,7 +187,7 @@ func TestRoutePermissions_CoverEveryRoute(t *testing.T) {
 	}
 }
 
-func TestRouteMiddleware_SavingAnAutomationNeedsControlSensorsToo(t *testing.T) {
+func TestRouteMiddleware_SavingOrRunningAnAutomationNeedsControlSensorsToo(t *testing.T) {
 	mockAuth := &MockAuthService{}
 	middleware.InitAuthMiddleware(mockAuth)
 
@@ -205,6 +205,7 @@ func TestRouteMiddleware_SavingAnAutomationNeedsControlSensorsToo(t *testing.T) 
 		{"POST", "/api/automations"},
 		{"PUT", "/api/automations/3"},
 		{"PUT", "/api/automations/3/enabled"},
+		{"POST", "/api/automations/3/run"},
 	} {
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(request.method, request.path, nil)

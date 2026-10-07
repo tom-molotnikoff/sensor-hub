@@ -25,6 +25,7 @@ func automationView(automation Automation, state RunState, nextFireAt *time.Time
 		Id:            automation.ID,
 		Name:          automation.Name,
 		Enabled:       automation.Enabled,
+		Mode:          gen.AutomationMode(automation.Mode),
 		Triggers:      make([]gen.AutomationTrigger, 0, len(automation.Triggers)),
 		Steps:         stepViews(automation.Steps),
 		Status:        gen.AutomationStatusArmed,
@@ -99,6 +100,9 @@ func runView(run Run) gen.AutomationRun {
 		StepOutcomes: make([]gen.AutomationRunStep, 0, len(run.StepOutcomes)),
 		StartedAt:    run.StartedAt.UTC(),
 		Error:        run.Error,
+	}
+	if user := run.InitiatedBy; user != nil {
+		view.InitiatedBy = &gen.CommandHistoryUser{Id: user.ID, Username: user.Username}
 	}
 	view.FinishedAt = utc(run.FinishedAt)
 	view.ResumeAt = utc(run.ResumeAt)

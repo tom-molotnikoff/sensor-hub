@@ -176,8 +176,14 @@ type ClientInterface interface {
 
 	SetAutomationEnabled(ctx context.Context, id int, body SetAutomationEnabledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// RunAutomation request
+	RunAutomation(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListAutomationRuns request
 	ListAutomationRuns(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelAutomationRun request
+	CancelAutomationRun(ctx context.Context, id int, runId int, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDashboards request
 	ListDashboards(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -810,8 +816,32 @@ func (c *Client) SetAutomationEnabled(ctx context.Context, id int, body SetAutom
 	return c.Client.Do(req)
 }
 
+func (c *Client) RunAutomation(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRunAutomationRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListAutomationRuns(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAutomationRunsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CancelAutomationRun(ctx context.Context, id int, runId int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelAutomationRunRequest(c.Server, id, runId)
 	if err != nil {
 		return nil, err
 	}
@@ -2764,6 +2794,40 @@ func NewSetAutomationEnabledRequestWithBody(server string, id int, contentType s
 	return req, nil
 }
 
+// NewRunAutomationRequest generates requests for RunAutomation
+func NewRunAutomationRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/automations/%s/run", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListAutomationRunsRequest generates requests for ListAutomationRuns
 func NewListAutomationRunsRequest(server string, id int) (*http.Request, error) {
 	var err error
@@ -2791,6 +2855,47 @@ func NewListAutomationRunsRequest(server string, id int) (*http.Request, error) 
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCancelAutomationRunRequest generates requests for CancelAutomationRun
+func NewCancelAutomationRunRequest(server string, id int, runId int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "runId", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/automations/%s/runs/%s/cancel", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -5631,8 +5736,14 @@ type ClientWithResponsesInterface interface {
 
 	SetAutomationEnabledWithResponse(ctx context.Context, id int, body SetAutomationEnabledJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAutomationEnabledResp, error)
 
+	// RunAutomationWithResponse request
+	RunAutomationWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*RunAutomationResp, error)
+
 	// ListAutomationRunsWithResponse request
 	ListAutomationRunsWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*ListAutomationRunsResp, error)
+
+	// CancelAutomationRunWithResponse request
+	CancelAutomationRunWithResponse(ctx context.Context, id int, runId int, reqEditors ...RequestEditorFn) (*CancelAutomationRunResp, error)
 
 	// ListDashboardsWithResponse request
 	ListDashboardsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDashboardsResp, error)
@@ -6344,6 +6455,7 @@ type DeleteAutomationResp struct {
 	HTTPResponse *http.Response
 	JSON200      *SuccessMessage
 	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -6437,6 +6549,30 @@ func (r SetAutomationEnabledResp) StatusCode() int {
 	return 0
 }
 
+type RunAutomationResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *AutomationRun
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r RunAutomationResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RunAutomationResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListAutomationRunsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6455,6 +6591,31 @@ func (r ListAutomationRunsResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListAutomationRunsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CancelAutomationRunResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AutomationRun
+	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelAutomationRunResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelAutomationRunResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -8441,6 +8602,15 @@ func (c *ClientWithResponses) SetAutomationEnabledWithResponse(ctx context.Conte
 	return ParseSetAutomationEnabledResp(rsp)
 }
 
+// RunAutomationWithResponse request returning *RunAutomationResp
+func (c *ClientWithResponses) RunAutomationWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*RunAutomationResp, error) {
+	rsp, err := c.RunAutomation(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRunAutomationResp(rsp)
+}
+
 // ListAutomationRunsWithResponse request returning *ListAutomationRunsResp
 func (c *ClientWithResponses) ListAutomationRunsWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*ListAutomationRunsResp, error) {
 	rsp, err := c.ListAutomationRuns(ctx, id, reqEditors...)
@@ -8448,6 +8618,15 @@ func (c *ClientWithResponses) ListAutomationRunsWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseListAutomationRunsResp(rsp)
+}
+
+// CancelAutomationRunWithResponse request returning *CancelAutomationRunResp
+func (c *ClientWithResponses) CancelAutomationRunWithResponse(ctx context.Context, id int, runId int, reqEditors ...RequestEditorFn) (*CancelAutomationRunResp, error) {
+	rsp, err := c.CancelAutomationRun(ctx, id, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelAutomationRunResp(rsp)
 }
 
 // ListDashboardsWithResponse request returning *ListDashboardsResp
@@ -9951,6 +10130,13 @@ func ParseDeleteAutomationResp(rsp *http.Response) (*DeleteAutomationResp, error
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -10097,6 +10283,46 @@ func ParseSetAutomationEnabledResp(rsp *http.Response) (*SetAutomationEnabledRes
 	return response, nil
 }
 
+// ParseRunAutomationResp parses an HTTP response from a RunAutomationWithResponse call
+func ParseRunAutomationResp(rsp *http.Response) (*RunAutomationResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RunAutomationResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest AutomationRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListAutomationRunsResp parses an HTTP response from a ListAutomationRunsWithResponse call
 func ParseListAutomationRunsResp(rsp *http.Response) (*ListAutomationRunsResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10124,6 +10350,53 @@ func ParseListAutomationRunsResp(rsp *http.Response) (*ListAutomationRunsResp, e
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelAutomationRunResp parses an HTTP response from a CancelAutomationRunWithResponse call
+func ParseCancelAutomationRunResp(rsp *http.Response) (*CancelAutomationRunResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelAutomationRunResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AutomationRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

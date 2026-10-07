@@ -29,14 +29,23 @@ type Store interface {
 	CreateAutomation(ctx context.Context, automation Automation) (Automation, error)
 	UpdateAutomation(ctx context.Context, automation Automation) (Automation, error)
 	SetAutomationEnabled(ctx context.Context, id int, enabled bool) (Automation, error)
+	// DeleteAutomation returns ErrActiveRun, and deletes nothing, while the
+	// automation has a running or waiting run.
 	DeleteAutomation(ctx context.Context, id int) error
 	RunStates(ctx context.Context) (map[int]RunState, error)
 
 	SetTriggerDue(ctx context.Context, triggerID int, due time.Time) error
 
 	CreateRun(ctx context.Context, run Run) (int, error)
-	// StartRunStep, WaitRun and ResumeRun return ErrRunGone when the run has
-	// been deleted.
+	// AdmitRun records a run as running unless the automation already has an
+	// active run. Then it records a skipped run in single mode, and in restart
+	// mode cancels the active runs first, in the same transaction.
+	AdmitRun(ctx context.Context, run Run, mode Mode) (RunAdmission, error)
+	// CancelRun returns ErrRunNotFound when the automation has no such run, and
+	// ErrRunNotActive when the run has already ended.
+	CancelRun(ctx context.Context, automationID int, runID int, at time.Time) (Run, error)
+	// StartRunStep, WaitRun, ResumeRun and FinishRun return ErrRunGone when the
+	// run has been cancelled or deleted.
 	StartRunStep(ctx context.Context, runID int, position int, kind StepKind, at time.Time) (int, error)
 	FinishRunStep(ctx context.Context, stepID int, outcome StepOutcome, commandID *int, at time.Time) error
 	// WaitRun records a wait step as started and the run as waiting until
@@ -52,6 +61,10 @@ type Store interface {
 	// LatestRunCommand returns the ID of the newest command the run sent for
 	// the step's sensor and property since a time, and false when there is none.
 	LatestRunCommand(ctx context.Context, runID int, step Step, since time.Time) (int, bool, error)
+	// CancelledRunCommand returns the ID of a command still in flight for the
+	// step's sensor and property that a cancelled run of the automation sent,
+	// and false when there is none.
+	CancelledRunCommand(ctx context.Context, automationID int, step Step) (int, bool, error)
 }
 
 // SensorLookup returns a sensor with its writable capabilities filled in, or
@@ -64,7 +77,8 @@ type SensorLookup interface {
 // error. The channel receives the command's final status once.
 type CommandSender interface {
 	SendAsSystem(ctx context.Context, sensorID int, property string, value string, automationRunID int) (int, <-chan string, error)
-	// AwaitOutcome is the outcome channel of a command sent before a restart.
+	// AwaitOutcome is another channel for a command's final status, for a
+	// command sent before a restart or by another run.
 	AwaitOutcome(ctx context.Context, commandID int) (<-chan string, error)
 }
 
@@ -180,6 +194,9 @@ func (s *Service) Update(ctx context.Context, id int, input gen.AutomationInput)
 	if input.Enabled == nil {
 		automation.Enabled = current.Enabled
 	}
+	if input.Mode == nil {
+		automation.Mode = current.Mode
+	}
 	saved, err := s.store.UpdateAutomation(ctx, automation)
 	if err != nil {
 		return gen.Automation{}, err
@@ -206,6 +223,29 @@ func (s *Service) Delete(ctx context.Context, id int) error {
 	s.engine.forget(id)
 	s.logger.Info("automation deleted", "automation_id", id)
 	return nil
+}
+
+// RunNow applies the automation's mode as a trigger would, so the run it
+// returns can be a skipped one.
+func (s *Service) RunNow(ctx context.Context, id int, userID int) (gen.AutomationRun, error) {
+	automation, err := s.store.GetAutomation(ctx, id)
+	if err != nil {
+		return gen.AutomationRun{}, err
+	}
+	run, err := s.engine.runNow(automation, User{ID: userID})
+	if err != nil {
+		return gen.AutomationRun{}, err
+	}
+	s.logger.Info("automation run requested", "automation_id", id, "run_id", run.ID, "user_id", userID, "status", run.Status)
+	return runView(run), nil
+}
+
+func (s *Service) CancelRun(ctx context.Context, id int, runID int) (gen.AutomationRun, error) {
+	run, err := s.engine.cancel(ctx, id, runID)
+	if err != nil {
+		return gen.AutomationRun{}, err
+	}
+	return runView(run), nil
 }
 
 func (s *Service) Runs(ctx context.Context, id int) ([]gen.AutomationRun, error) {

@@ -344,6 +344,20 @@ func (c *Client) DeleteAutomation(id int) int {
 	return c.statusOnly(c.gen.DeleteAutomation(c.ctx(), id))
 }
 
+func (c *Client) RunAutomation(id int) (gen.AutomationRun, int) {
+	var result gen.AutomationRun
+	resp, err := c.gen.RunAutomation(c.ctx(), id)
+	status := c.decodeInto(resp, err, &result)
+	return result, status
+}
+
+func (c *Client) CancelAutomationRun(id int, runID int) (gen.AutomationRun, int) {
+	var result gen.AutomationRun
+	resp, err := c.gen.CancelAutomationRun(c.ctx(), id, runID)
+	status := c.decodeInto(resp, err, &result)
+	return result, status
+}
+
 // --- Alerts ---
 
 func (c *Client) CreateAlertRule(rule gen.AlertRule) (json.RawMessage, int) {

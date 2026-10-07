@@ -455,12 +455,12 @@ func createLayoutAutomations(ctx context.Context, env *Env) error {
 		automation automation.Automation
 		failed     bool
 	}{
-		{automation.Automation{Name: "Kitchen plug off at night", Enabled: true,
+		{automation.Automation{Name: "Kitchen plug off at night", Enabled: true, Mode: automation.ModeSingle,
 			Triggers: []automation.Trigger{at(23*60+30, everyDay)}, Steps: []automation.Step{set("OFF")}}, false},
-		{automation.Automation{Name: "Kettle on before the school run, with a long name that has to fit", Enabled: true,
+		{automation.Automation{Name: "Kettle on before the school run, with a long name that has to fit", Enabled: true, Mode: automation.ModeSingle,
 			Triggers: []automation.Trigger{at(6*60+45, weekdays), at(8*60, automation.WeekdaysOf(time.Saturday, time.Sunday))},
 			Steps:    []automation.Step{set("ON"), set("OFF")}}, true},
-		{automation.Automation{Name: "Christmas lights", Enabled: false,
+		{automation.Automation{Name: "Christmas lights", Enabled: false, Mode: automation.ModeSingle,
 			Triggers: []automation.Trigger{at(16*60+30, everyDay)}, Steps: []automation.Step{set("ON")}}, false},
 	}
 	for _, entry := range automations {

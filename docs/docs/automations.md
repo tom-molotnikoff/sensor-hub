@@ -85,11 +85,41 @@ While a run waits, its status is `waiting` and `resume_at` says when it carries 
 A set step fails when:
 
 - the command is not acknowledged within `actuator.command.timeout_seconds`, or the command fails
-- the sensor already has a command in flight for that property, for example because someone pressed a toggle a moment earlier. The step is not retried.
+- the sensor already has a command in flight for that property, for example because someone pressed a toggle a moment earlier. The step is not retried. A command left in flight by a cancelled run of the same automation is the exception: the step waits for it (see [When a trigger fires during a run](#when-a-trigger-fires-during-a-run)).
 - the sensor is disabled or not active
 - the value no longer suits the capability
 
 A failed step ends the run as `failed`, and no later steps run. Everyone with the `manage_automations` permission gets an **Automation failures** notification naming the automation, the step and the reason, in the app and by email according to their [notification preferences](alerts-and-notifications#notification-preferences).
+
+## When a trigger fires during a run
+
+An automation has at most one active run. What happens when a trigger fires while a run is going or waiting depends on the automation's `mode`, set in the editor under "If a trigger fires while already running":
+
+| Mode      | In the editor         | What happens                                                                 |
+|-----------|-----------------------|------------------------------------------------------------------------------|
+| `single`  | Ignore it (single)    | The active run carries on, and the trigger is recorded as a `skipped` run.   |
+| `restart` | Start over (restart)  | The active run ends as `cancelled`, and a new run starts from step 1.        |
+
+`single` is the default. `restart` suits a timer that each new trigger should extend, such as "on, wait 5 minutes, off": every trigger starts the 5 minutes again. A cancelled run sends no more steps, but a command it already sent carries on (see [Cancelling a run](#cancelling-a-run)). A step of the new run for the same sensor and property waits for that command's outcome, then sends its own command, so starting over never strands the device. A command in flight from a person or another automation still fails the step.
+
+Two triggers of one automation that come due at the same moment still start one run, and record no `skipped` run.
+
+### Editing or switching off during a run
+
+A run copies the automation's steps when it starts, so an edit never changes a run that is already going:
+
+- Saving an automation during a run lets the run finish with the steps it started with. The next run uses the new steps.
+- Switching an automation off during a run lets the run finish. No trigger fires while it is off, and none is recorded as `skipped`.
+
+This keeps a device from being stranded. Saving "Evening lights" during its four-hour wait still switches the lamp off at the end of it. To stop a run, cancel it.
+
+## Run now
+
+**Run now** in the editor, or `POST /api/automations/{id}/run`, starts a run straight away. The run is recorded with trigger kind `manual` and the user who asked for it, in `initiated_by`. It works on an automation that is switched off, and it follows the automation's mode like any trigger: in `single` mode an automation that is already running records a `skipped` run instead.
+
+## Cancelling a run
+
+**Cancel run**, beside an active run in Recent runs, or `POST /api/automations/{id}/runs/{runId}/cancel`, ends a running or waiting run as `cancelled`. No further steps run, and a waiting run does not resume. A command the run had already sent carries on through its own lifecycle in the sensor's command history. Cancelling a run that has already ended returns `409`.
 
 ## Restarts and the grace window
 
@@ -100,6 +130,7 @@ When the hub starts, before any trigger can fire:
 - A waiting run carries on at its `resume_at`. If that time passed while the hub was down, the run carries on straight away, however late it is.
 - A run that was in the middle of a set step finishes that step from command history. If the step's command was recorded, the step takes that command's outcome, waiting for the acknowledgement if the command is still in flight, and the command is not sent again. If no command was recorded, the step is sent.
 - A schedule or interval trigger that came due while the hub was down is caught up if the hub started within `automation.missed.grace.minutes` of the due time (10 minutes by default, see [Configuration](configuration#missed-trigger-grace-window)). The run starts on startup.
+- A caught-up trigger follows the automation's mode. In `restart` mode it cancels a run that would otherwise resume.
 - A trigger that came due longer ago than that does not run. It is recorded once as a `missed` run, with `due_at` and `past_grace_seconds` saying when it came due and how long after the end of the grace window the hub started. A trigger missed several times in one outage, such as a schedule on several days or an interval many times over, records one `missed` run, for its latest due time. At most one run starts for it on startup.
 
 Catching up only once, and only shortly after the due time, keeps a hub that was down overnight from switching yesterday evening's lights on at breakfast.
@@ -108,9 +139,9 @@ If the hub stops after a command was published but before it was recorded, that 
 
 ## Runs and command history
 
-Every run is recorded with the trigger that fired it, its status, the step it is on, a copy of the steps it started with, its start and finish times and any error. `GET /api/automations/{id}/runs` lists them newest first, with the outcome of each step.
+Every run is recorded with the trigger that fired it, or `manual` and the user for Run now, its status, the step it is on, a copy of the steps it started with, its start and finish times and any error. `GET /api/automations/{id}/runs` lists them newest first, with the outcome of each step.
 
-A run's status is `running` while it goes and `waiting` during a wait step, then `succeeded` or `failed`. A trigger that came due while the hub was down, past the grace window, is recorded as `missed` (see [Restarts and the grace window](#restarts-and-the-grace-window)).
+A run's status is `running` while it goes and `waiting` during a wait step, then `succeeded`, `failed` or `cancelled`. Two statuses record a run that never started: `missed` for a trigger that came due while the hub was down, past the grace window (see [Restarts and the grace window](#restarts-and-the-grace-window)), and `skipped` for a trigger that fired while the automation was already running in `single` mode (see [When a trigger fires during a run](#when-a-trigger-fires-during-a-run)).
 
 Commands sent by a run go out from the hub itself rather than from a user. In a sensor's command history (`GET /api/sensors/by-id/{id}/commands`) they carry the automation's id and name instead of a user, which answers "why did this switch on?".
 
@@ -128,16 +159,16 @@ A separate `last_run_failed` flag is true from a failed run until the next run t
 
 `next_fire_at` is when the earliest schedule or interval trigger next comes due, in UTC, with `hub_timezone` alongside for showing it in local time. It is empty when the automation is off.
 
-Switch an automation on or off with `PUT /api/automations/{id}/enabled`. Deleting an automation deletes its triggers, steps and run history. The commands its runs sent stay in command history, without the link to the run.
+Switch an automation on or off with `PUT /api/automations/{id}/enabled`. Deleting an automation deletes its triggers, steps and run history. The commands its runs sent stay in command history, without the link to the run. An automation with a running or waiting run cannot be deleted: the delete returns `409` until the run is cancelled or finishes.
 
 ## Permissions
 
-| Permission           | Granted to             | Allows                                    |
-|----------------------|------------------------|-------------------------------------------|
-| `view_automations`   | admin, user, viewer    | listing automations and their runs        |
-| `manage_automations` | admin, user            | creating, editing, switching and deleting |
+| Permission           | Granted to             | Allows                                                              |
+|----------------------|------------------------|---------------------------------------------------------------------|
+| `view_automations`   | admin, user, viewer    | listing automations and their runs                                  |
+| `manage_automations` | admin, user            | creating, editing, switching, running, cancelling runs and deleting |
 
-Creating, editing and switching an automation on or off also need `control_sensors`, so an automation cannot be used to control devices you could not control yourself. Once saved, an automation runs as the hub: it keeps working if its author later loses `control_sensors`.
+Creating, editing, switching an automation on or off and Run now also need `control_sensors`, so an automation cannot be used to control devices you could not control yourself. Once saved, an automation runs as the hub: it keeps working if its author later loses `control_sensors`.
 
 ## Example: lamp timer
 
@@ -196,4 +227,4 @@ Run the pond pump for 2 minutes every 30 minutes:
 
 ## Saving an automation
 
-Send an automation with `POST /api/automations`. A new automation is switched on unless the body sets `"enabled": false`. A save the hub refuses comes back as `400` with a message naming the field, such as `triggers[0].days must hold at least one weekday`.
+Send an automation with `POST /api/automations`. A new automation is switched on unless the body sets `"enabled": false`, and is in `single` mode unless it sets `"mode": "restart"`. An update that leaves out `enabled` or `mode` keeps the current setting. A save the hub refuses comes back as `400` with a message naming the field, such as `triggers[0].days must hold at least one weekday`.
