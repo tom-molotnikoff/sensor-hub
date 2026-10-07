@@ -141,6 +141,8 @@ function AutomationEditor({ saved, canEdit, canDelete }: AutomationEditorProps) 
           {
             onSuccess: (automation) => {
               setRevision((current) => ({ ...current, saved: edited }));
+              // Saving clears the triggers' margin hints.
+              setDraft((current) => ({ ...current, triggers: current.triggers.map((trigger) => ({ ...trigger, margin_hint: undefined })) }));
               if (!saved) navigate(`/automations/${automation.id}`, { replace: true });
             },
           },

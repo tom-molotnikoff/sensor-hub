@@ -1533,6 +1533,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/automations/margin-suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest a re-arm margin for a numeric series
+         * @description Works out a re-arm margin from a sensor's most recent readings of one numeric measurement type: the 95th percentile of the change between consecutive readings, rounded up to a whole multiple of the smallest change the sensor reports, and at least one of it. It uses the latest 1000 readings when there are that many ("high" confidence), else the latest 100 ("medium"), else the latest 30 ("low"). With fewer than 30 there is no suggestion. Computed on demand, so it follows any change in how the sensor behaves. Requires view_automations permission.
+         */
+        get: operations["getMarginSuggestion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/automations/{id}": {
         parameters: {
             query?: never;
@@ -2619,6 +2639,17 @@ export interface components {
             value?: string;
             /** @description How long the condition has to hold before the trigger fires. The trigger fires that long after the reading that met it, unless a reading that does not meet it arrives first. Reading triggers only, default 0. */
             hold_seconds?: number;
+            /**
+             * Format: double
+             * @description A larger margin suggested by the daily check, when the saved rearm_margin has fallen below what the sensor's recent readings now need. The saved margin is never changed. Cleared when the automation is saved, or when a later check finds the margin enough.
+             * @example 0.4
+             */
+            readonly margin_hint?: number | null;
+            /**
+             * Format: date-time
+             * @description When the daily check set margin_hint, in UTC.
+             */
+            readonly margin_hint_checked_at?: string | null;
         };
         /** @description One step of a run. A "set" step sends a command to a writable capability of a sensor and waits for the device to acknowledge it. A "wait" step pauses the run, and the pause survives a hub restart. */
         AutomationStep: {
@@ -2730,6 +2761,37 @@ export interface components {
         };
         SetAutomationEnabledRequest: {
             enabled: boolean;
+        };
+        /** @description A re-arm margin worked out from a series' most recent readings. Every value is in the measurement type's unit. */
+        MarginSuggestion: {
+            /**
+             * Format: double
+             * @description p95_change rounded up to a whole multiple of step, and at least one step. 0 when the sample never changes. Null when confidence is "none".
+             * @example 0.2
+             */
+            suggested_margin: number | null;
+            /**
+             * Format: double
+             * @description The smallest non-zero change between consecutive readings in the sample. Null when the sample never changes or confidence is "none".
+             * @example 0.1
+             */
+            step: number | null;
+            /**
+             * Format: double
+             * @description The 95th percentile of the absolute change between consecutive readings in the sample. Null when confidence is "none".
+             * @example 0.1
+             */
+            p95_change: number | null;
+            /**
+             * @description How many readings the suggestion used, or how many there are when there are fewer than 30.
+             * @example 1000
+             */
+            sample_count: number;
+            /**
+             * @description "high" from the latest 1000 readings, "medium" from the latest 100, "low" from the latest 30, and "none" when there are fewer than 30.
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low" | "none";
         };
         /** @description One firing of an automation. */
         AutomationRun: {
@@ -7060,6 +7122,66 @@ export interface operations {
                 };
             };
             /** @description Invalid automation. The message names the field that failed. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMarginSuggestion: {
+        parameters: {
+            query: {
+                /** @description Sensor whose readings to look at */
+                sensor_id: number;
+                /**
+                 * @description Numeric measurement type the sensor reports, such as "temperature"
+                 * @example temperature
+                 */
+                measurement_type: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suggested margin */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarginSuggestion"];
+                };
+            };
+            /** @description The sensor does not exist, does not report the measurement type, or the measurement type is binary. */
             400: {
                 headers: {
                     [name: string]: unknown;

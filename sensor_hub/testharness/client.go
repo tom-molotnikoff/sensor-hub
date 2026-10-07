@@ -340,6 +340,10 @@ func (c *Client) ListAutomationRuns(id int) ([]gen.AutomationRun, int) {
 	return result, status
 }
 
+func (c *Client) GetMarginSuggestion(sensorID int, measurementType string) (json.RawMessage, int) {
+	return c.consume(c.gen.GetMarginSuggestion(c.ctx(), &gen.GetMarginSuggestionParams{SensorId: sensorID, MeasurementType: measurementType}))
+}
+
 func (c *Client) DeleteAutomation(id int) int {
 	return c.statusOnly(c.gen.DeleteAutomation(c.ctx(), id))
 }

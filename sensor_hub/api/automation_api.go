@@ -22,6 +22,7 @@ type AutomationServiceInterface interface {
 	Runs(ctx context.Context, id int) ([]gen.AutomationRun, error)
 	RunNow(ctx context.Context, id int, userID int) (gen.AutomationRun, error)
 	CancelRun(ctx context.Context, id int, runID int) (gen.AutomationRun, error)
+	MarginSuggestion(ctx context.Context, sensorID int, measurementType string) (gen.MarginSuggestion, error)
 }
 
 func (s *Server) ListAutomations(c *gin.Context) {
@@ -118,6 +119,15 @@ func (s *Server) CancelAutomationRun(c *gin.Context, id int, runID int) {
 		return
 	}
 	c.JSON(http.StatusOK, run)
+}
+
+func (s *Server) GetMarginSuggestion(c *gin.Context, params gen.GetMarginSuggestionParams) {
+	suggestion, err := s.automationService.MarginSuggestion(c.Request.Context(), params.SensorId, params.MeasurementType)
+	if err != nil {
+		respondAutomationError(c, "Error suggesting a re-arm margin", err)
+		return
+	}
+	c.JSON(http.StatusOK, suggestion)
 }
 
 func respondAutomationError(c *gin.Context, message string, err error) {

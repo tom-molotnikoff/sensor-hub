@@ -287,6 +287,18 @@ func (r *AutomationRepository) SetTriggerDue(ctx context.Context, triggerID int,
 	return nil
 }
 
+func (r *AutomationRepository) SetMarginHint(ctx context.Context, triggerID int, hint *automation.MarginHint) error {
+	var margin, checkedAt any
+	if hint != nil {
+		margin, checkedAt = hint.Margin, hint.CheckedAt
+	}
+	if _, err := r.db.Writer.ExecContext(ctx, "UPDATE automation_triggers SET margin_hint = ?, margin_hint_checked_at = ? WHERE id = ?",
+		margin, checkedAt, triggerID); err != nil {
+		return fmt.Errorf("save automation trigger margin hint: %w", err)
+	}
+	return nil
+}
+
 func (r *AutomationRepository) WaitRun(ctx context.Context, runID int, position int, at time.Time, resumeAt time.Time) error {
 	_, err := r.inTx(ctx, func(tx *sql.Tx) (int, error) {
 		result, err := tx.ExecContext(ctx, "UPDATE automation_runs SET status = ?, current_step = ?, resume_at = ? WHERE id = ? AND status = ?",
@@ -535,7 +547,7 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 	ofMatching := "WHERE automation_id IN (SELECT id FROM automations " + where + ")"
 	triggerRows, err := r.db.Reader.QueryContext(ctx, `SELECT t.automation_id, t.id, t.kind, t.at_minute_of_day, t.weekdays,
 			t.interval_seconds, t.next_due_at, t.sensor_id, t.measurement_type_id, mt.name, t.operator, t.threshold,
-			t.binary_value, t.rearm_margin, t.hold_seconds
+			t.binary_value, t.rearm_margin, t.hold_seconds, t.margin_hint, t.margin_hint_checked_at
 		FROM automation_triggers t
 		LEFT JOIN measurement_types mt ON mt.id = t.measurement_type_id
 		`+ofMatching+` ORDER BY t.automation_id, t.position`, args...)
@@ -548,10 +560,11 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 		var trigger automation.Trigger
 		var minuteOfDay, weekdays, intervalSeconds, sensorID, measurementTypeID, holdSeconds sql.NullInt64
 		var measurementType, operator, binaryValue sql.NullString
-		var threshold, margin sql.NullFloat64
-		var nextDueAt NullSQLiteTime
+		var threshold, margin, marginHint sql.NullFloat64
+		var nextDueAt, marginHintCheckedAt NullSQLiteTime
 		if err := triggerRows.Scan(&automationID, &trigger.ID, &trigger.Kind, &minuteOfDay, &weekdays, &intervalSeconds, &nextDueAt,
-			&sensorID, &measurementTypeID, &measurementType, &operator, &threshold, &binaryValue, &margin, &holdSeconds); err != nil {
+			&sensorID, &measurementTypeID, &measurementType, &operator, &threshold, &binaryValue, &margin, &holdSeconds,
+			&marginHint, &marginHintCheckedAt); err != nil {
 			return nil, fmt.Errorf("scan automation trigger: %w", err)
 		}
 		switch trigger.Kind {
@@ -568,6 +581,9 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 				Margin:            margin.Float64,
 				Value:             binaryValue.String,
 				Hold:              time.Duration(holdSeconds.Int64) * time.Second,
+			}
+			if marginHint.Valid {
+				trigger.Reading.MarginHint = &automation.MarginHint{Margin: marginHint.Float64, CheckedAt: marginHintCheckedAt.Time}
 			}
 		}
 		trigger.NextDueAt = nullableTime(nextDueAt)

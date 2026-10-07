@@ -93,6 +93,28 @@ A binary trigger fires when the value changes to the one it watches. A door cont
 
 When the hub starts, and when an automation is saved or switched on, its reading triggers start afresh: the first reading that already meets the condition fires the trigger. After a restart in a cold room, the heating still comes on. Readings that arrive while an automation is off are ignored.
 
+### Suggested margin
+
+You don't have to guess how noisy a sensor is. When you choose a numeric series for a reading trigger in the editor, an empty margin is filled in with a suggestion worked out from that series' own recent readings, and labelled "Suggested from recent readings". A margin you have typed is never replaced.
+
+The suggestion is the 95th percentile of the change between consecutive readings, rounded up to a whole multiple of the smallest change the sensor reports (its step), and at least one step. It uses the latest 1000 readings when the series has that many, else the latest 100, else the latest 30. With fewer than 30 readings there is no suggestion. It is worked out each time it is asked for, so a sensor whose settings have changed gets a suggestion that matches.
+
+Scripts and agents get the same suggestion from the API, with `view_automations`:
+
+```
+GET /api/automations/margin-suggestion?sensor_id=3&measurement_type=temperature
+
+{ "suggested_margin": 0.2, "step": 0.1, "p95_change": 0.2, "sample_count": 1000, "confidence": "high" }
+```
+
+`confidence` is `high` from 1000 readings, `medium` from 100, `low` from 30 and `none` below that, when `suggested_margin`, `step` and `p95_change` are null. A binary measurement type returns 400.
+
+### Margin hints
+
+Sensors change: a new battery, a firmware update or a different reporting interval can make a series noisier than it was when you set its margin. Once a day the hub works out a fresh suggestion for every numeric reading trigger. Where the saved margin is below it, and the suggestion comes from at least 100 readings, the trigger gets a **margin hint**. The editor shows it on the trigger card, as "This sensor is noisier now: suggested 0.4 °C", and `GET /api/automations/{id}` returns it on the trigger as `margin_hint`, with `margin_hint_checked_at`.
+
+A hint is advice only. The hub never changes a saved margin, and sends no notification. The hint clears when you save the automation, or when a later check finds the margin at or above the suggestion.
+
 ### For at least
 
 `hold_seconds` makes the condition hold for a while before the trigger fires. With "falls below 16, for at least 5 minutes", a reading of 15.9 at 10:00 starts the clock, and the trigger fires at 10:05:00 if no reading at or above 16 has arrived by then. It does not wait for another reading. A reading of 16.0 at 10:02 stops the clock without firing, and the trigger stays ready for the next drop.

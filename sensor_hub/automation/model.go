@@ -104,6 +104,14 @@ type ReadingCondition struct {
 	Margin            float64
 	Value             string
 	Hold              time.Duration
+	MarginHint        *MarginHint
+}
+
+// A MarginHint is a larger margin the daily check suggests for a trigger. It
+// never replaces the saved one.
+type MarginHint struct {
+	Margin    float64
+	CheckedAt time.Time
 }
 
 // A Step's JSON form is the API body's step shape, which is also how a run

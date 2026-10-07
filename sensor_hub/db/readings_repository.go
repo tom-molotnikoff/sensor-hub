@@ -469,6 +469,34 @@ func (r *ReadingsRepositoryImpl) GetLatest(ctx context.Context) ([]gen.Reading, 
 	return scanReadings(rows)
 }
 
+func latestNumericValuesQuery() string {
+	return fmt.Sprintf(`SELECT numeric_value FROM %s
+		WHERE sensor_id = ? AND measurement_type_id = ? AND numeric_value IS NOT NULL
+		ORDER BY time DESC
+		LIMIT ?`, TableReadings)
+}
+
+func (r *ReadingsRepositoryImpl) LatestNumericValues(ctx context.Context, sensorID int, measurementTypeID int, limit int) ([]float64, error) {
+	rows, err := r.db.Reader.QueryContext(ctx, latestNumericValuesQuery(), sensorID, measurementTypeID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching latest values of sensor %d: %w", sensorID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	values := make([]float64, 0, limit)
+	for rows.Next() {
+		var value float64
+		if err := rows.Scan(&value); err != nil {
+			return nil, fmt.Errorf("error scanning reading value: %w", err)
+		}
+		values = append(values, value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error fetching latest values of sensor %d: %w", sensorID, err)
+	}
+	return values, nil
+}
+
 func countReadingsPerSensorQuery() string {
 	return fmt.Sprintf(`SELECT s.name, COALESCE(counted.total, 0)
 		FROM sensors s

@@ -70,6 +70,9 @@ type ServerInterface interface {
 	// Create an automation
 	// (POST /automations)
 	CreateAutomation(c *gin.Context)
+	// Suggest a re-arm margin for a numeric series
+	// (GET /automations/margin-suggestion)
+	GetMarginSuggestion(c *gin.Context, params GetMarginSuggestionParams)
 	// Delete an automation
 	// (DELETE /automations/{id})
 	DeleteAutomation(c *gin.Context, id int)
@@ -787,6 +790,60 @@ func (siw *ServerInterfaceWrapper) CreateAutomation(c *gin.Context) {
 	}
 
 	siw.Handler.CreateAutomation(c)
+}
+
+// GetMarginSuggestion operation middleware
+func (siw *ServerInterfaceWrapper) GetMarginSuggestion(c *gin.Context) {
+
+	var err error
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetMarginSuggestionParams
+
+	// ------------- Required query parameter "sensor_id" -------------
+
+	if paramValue := c.Query("sensor_id"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Query argument sensor_id is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "sensor_id", c.Request.URL.Query(), &params.SensorId, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter sensor_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "measurement_type" -------------
+
+	if paramValue := c.Query("measurement_type"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Query argument measurement_type is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "measurement_type", c.Request.URL.Query(), &params.MeasurementType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter measurement_type: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMarginSuggestion(c, params)
 }
 
 // DeleteAutomation operation middleware
@@ -2982,6 +3039,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/auth/sessions/:id", wrapper.RevokeSession)
 	router.GET(options.BaseURL+"/automations", wrapper.ListAutomations)
 	router.POST(options.BaseURL+"/automations", wrapper.CreateAutomation)
+	router.GET(options.BaseURL+"/automations/margin-suggestion", wrapper.GetMarginSuggestion)
 	router.DELETE(options.BaseURL+"/automations/:id", wrapper.DeleteAutomation)
 	router.GET(options.BaseURL+"/automations/:id", wrapper.GetAutomation)
 	router.PUT(options.BaseURL+"/automations/:id", wrapper.UpdateAutomation)
