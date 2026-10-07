@@ -7,6 +7,10 @@ updates:
     open-pull-requests-limit: 5
     groups:
       actions:
+        applies-to: version-updates
+        patterns: ["*"]
+      actions-security:
+        applies-to: security-updates
         patterns: ["*"]
 
   - package-ecosystem: "gomod"
@@ -16,7 +20,11 @@ updates:
     open-pull-requests-limit: 5
     groups:
       go-minor-and-patch:
+        applies-to: version-updates
         update-types: ["minor", "patch"]
+      go-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   - package-ecosystem: "npm"
     directory: "/sensor_hub/ui/sensor_hub_ui"
@@ -25,7 +33,11 @@ updates:
     open-pull-requests-limit: 5
     groups:
       npm-minor-and-patch:
+        applies-to: version-updates
         update-types: ["minor", "patch"]
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   - package-ecosystem: "npm"
     directory: "/docs"
@@ -34,7 +46,11 @@ updates:
     open-pull-requests-limit: 5
     groups:
       npm-minor-and-patch:
+        applies-to: version-updates
         update-types: ["minor", "patch"]
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   - package-ecosystem: "pip"
     directory: "/temperature_sensor"
@@ -42,8 +58,16 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
+      # Ahead of pip-minor-and-patch: a dependency goes to the first group it matches.
+      opentelemetry:
+        applies-to: version-updates
+        patterns: ["opentelemetry-*"]
       pip-minor-and-patch:
+        applies-to: version-updates
         update-types: ["minor", "patch"]
+      pip-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   - package-ecosystem: "pip"
     directory: "/sensor_hub/devstack/mocks"
@@ -51,5 +75,12 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
+      opentelemetry:
+        applies-to: version-updates
+        patterns: ["opentelemetry-*"]
       pip-minor-and-patch:
+        applies-to: version-updates
         update-types: ["minor", "patch"]
+      pip-security:
+        applies-to: security-updates
+        patterns: ["*"]
