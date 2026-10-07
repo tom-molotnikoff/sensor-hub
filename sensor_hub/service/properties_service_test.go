@@ -35,6 +35,7 @@ func setupPropertiesServiceTestConfig() func() {
 		DatabaseReaderConnections:     4,
 		MQTTBrokerPort:                1883,
 		HubTimezone:                   "UTC",
+		AutomationLoopMaxChain:        5,
 		ActuatorCommandTimeoutSeconds: 10,
 	})
 

@@ -8,6 +8,7 @@ import (
 
 	"example/sensorHub/automation"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,11 +36,15 @@ func held(trigger gen.AutomationTrigger, seconds int) gen.AutomationTrigger {
 }
 
 func (f *fixture) temperature(values ...float64) {
-	readings := make([]gen.Reading, 0, len(values))
+	f.temperatureCausedBy(nil, values...)
+}
+
+func (f *fixture) temperatureCausedBy(cause *int, values ...float64) {
+	batch := make([]readings.Reading, 0, len(values))
 	for _, value := range values {
-		readings = append(readings, gen.Reading{MeasurementType: "temperature", NumericValue: &value})
+		batch = append(batch, readings.Reading{Reading: gen.Reading{MeasurementType: "temperature", NumericValue: &value}, CauseRunID: cause})
 	}
-	f.readings.Consume(context.Background(), f.climate, readings)
+	f.readings.Consume(context.Background(), f.climate, batch)
 }
 
 func (f *fixture) runCount(t *testing.T, automationID int) int {

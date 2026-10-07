@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,11 +20,11 @@ func TestCountReadingsPerActiveSensor_CountsEverySensorIncludingEmptyOnes(t *tes
 	require.NoError(t, sensorRepo.AddSensor(ctx, gen.Sensor{Name: "Loft", SensorDriver: "sensor-hub-http-temperature"}))
 
 	value := 21.5
-	readings := []gen.Reading{
+	batch := []gen.Reading{
 		{SensorName: "Office", MeasurementType: "temperature", Unit: "°C", NumericValue: &value, Time: "2026-01-16 12:00:00"},
 		{SensorName: "Office", MeasurementType: "temperature", Unit: "°C", NumericValue: &value, Time: "2026-01-16 12:01:00"},
 	}
-	_, err := repo.Ingest(ctx, ReadingBatch{SensorName: "Office", Readings: readings})
+	_, err := repo.Ingest(ctx, readings.ReadingBatch{SensorName: "Office", Readings: batch})
 	require.NoError(t, err)
 
 	counts, err := repo.CountReadingsPerActiveSensor(ctx)

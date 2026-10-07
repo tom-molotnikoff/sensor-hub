@@ -326,3 +326,27 @@ func TestMigration29_DownRemovesAutomationsWithReadingTriggers(t *testing.T) {
 	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('automation_triggers') WHERE name = 'sensor_id'").Scan(&columns))
 	assert.Zero(t, columns)
 }
+
+func TestMigration31_DeletingTheCauseRunLeavesTheRunItCausedWithoutACause(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(31))
+	_, err := db.Exec("INSERT INTO automations (id, name) VALUES (1, 'Heating on'), (2, 'Fan on')")
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO automation_runs (id, automation_id, trigger_kind, status, steps_snapshot, started_at, cause_run_id) VALUES
+		(1, 1, 'schedule', 'succeeded', '[]', CURRENT_TIMESTAMP, NULL),
+		(2, 2, 'reading', 'succeeded', '[]', CURRENT_TIMESTAMP, 1)`)
+	require.NoError(t, err)
+
+	_, err = db.Exec("DELETE FROM automations WHERE id = 1")
+	require.NoError(t, err)
+
+	var cause sql.NullInt64
+	require.NoError(t, db.QueryRow("SELECT cause_run_id FROM automation_runs WHERE id = 2").Scan(&cause))
+	assert.False(t, cause.Valid)
+
+	require.NoError(t, m.Migrate(30))
+	var columns int
+	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('automation_runs') WHERE name = 'cause_run_id'").Scan(&columns))
+	assert.Zero(t, columns)
+}

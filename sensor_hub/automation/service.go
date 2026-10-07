@@ -18,7 +18,10 @@ import (
 
 var ErrNotFound = errors.New("automation not found")
 
-const defaultMissedGrace = 10 * time.Minute
+const (
+	defaultMissedGrace   = 10 * time.Minute
+	defaultMaxCauseChain = 5
+)
 
 // A Store must not hold a transaction across a command round trip.
 type Store interface {
@@ -39,6 +42,9 @@ type Store interface {
 	SetMarginHint(ctx context.Context, triggerID int, hint *MarginHint) error
 
 	CreateRun(ctx context.Context, run Run) (int, error)
+	// CauseChain returns the run and the runs that caused it, newest first,
+	// up to limit of them.
+	CauseChain(ctx context.Context, runID int, limit int) ([]CauseRun, error)
 	// AdmitRun records a run as running unless the automation already has an
 	// active run. Then it records a skipped run in single mode, and in restart
 	// mode cancels the active runs first, in the same transaction.
@@ -296,6 +302,13 @@ func missedGrace() time.Duration {
 		return time.Duration(cfg.AutomationMissedGraceMinutes) * time.Minute
 	}
 	return defaultMissedGrace
+}
+
+func maxCauseChain() int {
+	if cfg := appProps.AppConfig(); cfg != nil && cfg.AutomationLoopMaxChain > 0 {
+		return cfg.AutomationLoopMaxChain
+	}
+	return defaultMaxCauseChain
 }
 
 func hubZone() *time.Location {

@@ -13,6 +13,7 @@ type edge struct {
 	fired     bool
 	holding   bool
 	holdUntil time.Time
+	holdCause *int
 }
 
 type edgeAction int

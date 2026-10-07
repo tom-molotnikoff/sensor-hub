@@ -2806,6 +2806,8 @@ export interface components {
             trigger_kind: "schedule" | "interval" | "reading" | "manual";
             /** @description The user who pressed Run now, or null for a run a trigger started or when the user has since been deleted. */
             initiated_by?: components["schemas"]["CommandHistoryUser"] | null;
+            /** @description The run whose command was acknowledged by the reading that started this run. Null when the reading acknowledged no automation's command, for a run that a reading did not start, or when the cause run has since been deleted. */
+            cause_run?: components["schemas"]["AutomationCauseRun"] | null;
             /**
              * @description "running" or "waiting" while active, then "succeeded", "failed" or "cancelled". "missed" records a trigger that came due while the hub was down, longer ago than the automation.missed.grace.minutes property, so no run started. "skipped" records a trigger that fired while the automation, in single mode, was already running.
              * @enum {string}
@@ -2832,8 +2834,14 @@ export interface components {
             due_at?: string | null;
             /** @description How long after the end of the grace window the hub started, for a missed run. */
             past_grace_seconds?: number | null;
-            /** @description Why the run failed, naming the step. */
+            /** @description Why the run failed, naming the step. A run the loop guard refused never started, and its error starts with "loop guard". */
             error?: string | null;
+        };
+        /** @description A run of another automation, or of the same one, that caused a run. */
+        AutomationCauseRun: {
+            id: number;
+            automation_id: number;
+            automation_name: string;
         };
         /** @description The outcome of one step of a run. */
         AutomationRunStep: {

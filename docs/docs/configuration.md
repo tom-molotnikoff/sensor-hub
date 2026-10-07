@@ -65,6 +65,10 @@ If the page cannot load the property definitions, it still lists and saves every
 
 `automation.missed.grace.minutes` decides what happens to an [automation](automations#restarts-and-the-grace-window) trigger that came due while the hub was down. When the hub starts no more than this many minutes after the trigger's due time, the run starts on startup. A trigger later than that is recorded as a `missed` run and does not run. The default is `10`. A change applies the next time the hub starts.
 
+### Loop guard chain limit
+
+`automation.loop.max.chain` is the longest chain of [automation](automations#loop-guard) runs that can start, where a reading that acknowledges each run's command started the next. The run that would make the chain longer is refused and recorded as `failed`. The default is `5`, and the value must be at least `1`. A change applies straight away.
+
 ### Readings aggregation
 
 Readings aggregation is controlled by the `readings.aggregation.*` properties. Tier values use ISO 8601 durations in `THRESHOLD:INTERVAL` format. The special interval `raw` means no aggregation. Tiers are evaluated in ascending order - the first tier whose threshold is >= the query span is used. Queries exceeding all thresholds fall back to `P1D` buckets. See the [auto-aggregation developer docs](development/auto-aggregation.md) for details.

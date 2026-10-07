@@ -10,6 +10,7 @@ import (
 
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,10 +32,10 @@ func TestAckOnReading_MarksAcknowledged(t *testing.T) {
 	defer tracker.Close()
 
 	outcome := tracker.Track(context.Background(), repo.mustGet(42))
-	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, []gen.Reading{{
+	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, batch(gen.Reading{
 		MeasurementType: "state",
 		TextState:       ptrString("OFF"),
-	}})
+	}))
 
 	assert.Equal(t, CommandStatusAcknowledged, <-outcome)
 	command := repo.mustGet(42)
@@ -97,10 +98,10 @@ func TestAckOnReading_MatchesPropertyOnly(t *testing.T) {
 	defer tracker.Close()
 
 	tracker.Track(context.Background(), repo.mustGet(44))
-	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, []gen.Reading{{
+	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, batch(gen.Reading{
 		MeasurementType: "state",
 		TextState:       ptrString("OFF"),
-	}})
+	}))
 
 	command := repo.mustGet(44)
 	require.Equal(t, CommandStatusAcknowledged, command.Status)
@@ -139,10 +140,10 @@ func TestRecoverPending_TimesOutExpiredCommandsAndTracksRemainingOnes(t *testing
 	expired := repo.mustGet(45)
 	assert.Equal(t, CommandStatusTimedOut, expired.Status)
 
-	tracker.Consume(context.Background(), gen.Sensor{Id: 8}, []gen.Reading{{
+	tracker.Consume(context.Background(), gen.Sensor{Id: 8}, batch(gen.Reading{
 		MeasurementType: "state",
 		TextState:       ptrString("OFF"),
-	}})
+	}))
 
 	recovered := repo.mustGet(46)
 	assert.Equal(t, CommandStatusAcknowledged, recovered.Status)
@@ -168,7 +169,7 @@ func TestAwait_GivesTheOutcomeOfACommandRecoveredAfterARestart(t *testing.T) {
 
 	outcome, ok := tracker.Await(47)
 	require.True(t, ok)
-	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, []gen.Reading{{MeasurementType: "state", TextState: ptrString("ON")}})
+	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, batch(gen.Reading{MeasurementType: "state", TextState: ptrString("ON")}))
 
 	assert.Equal(t, CommandStatusAcknowledged, <-outcome)
 	_, ok = tracker.Await(47)
@@ -192,7 +193,7 @@ func TestAwait_GivesTheOutcomeToTheSenderToo(t *testing.T) {
 	sent := tracker.Track(context.Background(), repo.mustGet(48))
 	awaited, ok := tracker.Await(48)
 	require.True(t, ok)
-	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, []gen.Reading{{MeasurementType: "state", TextState: ptrString("ON")}})
+	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, batch(gen.Reading{MeasurementType: "state", TextState: ptrString("ON")}))
 
 	assert.Equal(t, CommandStatusAcknowledged, <-sent)
 	assert.Equal(t, CommandStatusAcknowledged, <-awaited)
@@ -296,4 +297,38 @@ func (b *fakeCommandStatusBroadcaster) sent() []CommandStatusMessage {
 
 func ptrString(value string) *string {
 	return &value
+}
+
+func batch(stored ...gen.Reading) []readings.Reading {
+	passed := make([]readings.Reading, len(stored))
+	for i, reading := range stored {
+		passed[i] = readings.Reading{Reading: reading}
+	}
+	return passed
+}
+
+func TestAckOnReading_AttachesTheRunThatSentTheCommandToTheReading(t *testing.T) {
+	now := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
+	runID := 12
+	repo := newFakeCommandTrackerRepository(
+		database.PendingCommandRecord{ID: 50, SensorID: 7, AutomationRunID: &runID, Property: "state", Value: "ON", TimeoutSeconds: 10, SentAt: now},
+		database.PendingCommandRecord{ID: 51, SensorID: 7, Property: "brightness", Value: "100", TimeoutSeconds: 10, SentAt: now},
+	)
+	tracker := NewCommandTracker(repo, &fakeCommandStatusBroadcaster{}, slog.Default())
+	tracker.now = func() time.Time { return now }
+	defer tracker.Close()
+	tracker.Track(context.Background(), repo.mustGet(50))
+	tracker.Track(context.Background(), repo.mustGet(51))
+
+	brightness := 100.0
+	consumed := batch(
+		gen.Reading{MeasurementType: "state", TextState: ptrString("ON")},
+		gen.Reading{MeasurementType: "brightness", NumericValue: &brightness},
+		gen.Reading{MeasurementType: "linkquality", NumericValue: &brightness},
+	)
+	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, consumed)
+
+	assert.Equal(t, &runID, consumed[0].CauseRunID)
+	assert.Nil(t, consumed[1].CauseRunID, "a person's command is no automation's")
+	assert.Nil(t, consumed[2].CauseRunID, "the reading acknowledged no command")
 }

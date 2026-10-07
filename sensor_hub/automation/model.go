@@ -134,6 +134,7 @@ type Run struct {
 	TriggerID    *int
 	TriggerKind  TriggerKind
 	InitiatedBy  *User
+	CauseRun     *CauseRun
 	Status       RunStatus
 	CurrentStep  int
 	Steps        []Step
@@ -155,6 +156,14 @@ type RunStep struct {
 	CommandID  *int
 	StartedAt  time.Time
 	FinishedAt *time.Time
+}
+
+// A CauseRun is the run whose command was acknowledged by the reading that
+// started another run.
+type CauseRun struct {
+	ID             int
+	AutomationID   int
+	AutomationName string
 }
 
 type User struct {

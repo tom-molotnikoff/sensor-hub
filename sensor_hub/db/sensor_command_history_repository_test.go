@@ -84,16 +84,17 @@ func TestSensorCommandHistoryRepository_ListPendingCommands_ReturnsRows(t *testi
 	repo := NewSensorCommandHistoryRepository(handles(db), slog.Default())
 	sentAt := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
 
-	mock.ExpectQuery("SELECT id, sensor_id, property, value, status, timeout_seconds, sent_at, acknowledged_at, acknowledged_value").
+	mock.ExpectQuery("SELECT id, sensor_id, automation_run_id, property, value, status, timeout_seconds, sent_at, acknowledged_at, acknowledged_value").
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "sensor_id", "property", "value", "status", "timeout_seconds", "sent_at", "acknowledged_at", "acknowledged_value",
-		}).AddRow(42, 7, "state", "ON", "sent", 10, sentAt, nil, nil))
+			"id", "sensor_id", "automation_run_id", "property", "value", "status", "timeout_seconds", "sent_at", "acknowledged_at", "acknowledged_value",
+		}).AddRow(42, 7, 12, "state", "ON", "sent", 10, sentAt, nil, nil))
 
 	commands, err := repo.ListPendingCommands(context.Background())
 	assert.NoError(t, err)
 	assert.Len(t, commands, 1)
 	assert.Equal(t, 42, commands[0].ID)
 	assert.Equal(t, 7, commands[0].SensorID)
+	assert.Equal(t, 12, *commands[0].AutomationRunID)
 	assert.Equal(t, "state", commands[0].Property)
 	assert.Equal(t, "ON", commands[0].Value)
 	assert.Equal(t, "sent", commands[0].Status)

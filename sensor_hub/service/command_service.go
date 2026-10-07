@@ -198,13 +198,14 @@ func (s *CommandService) send(ctx context.Context, sensor *gen.Sensor, command d
 	}
 
 	commandRecord := database.PendingCommandRecord{
-		ID:             commandID,
-		SensorID:       sensor.Id,
-		Property:       command.Property,
-		Value:          command.Value,
-		Status:         actuation.CommandStatusSent,
-		TimeoutSeconds: command.TimeoutSeconds,
-		SentAt:         command.SentAt,
+		ID:              commandID,
+		SensorID:        sensor.Id,
+		AutomationRunID: command.AutomationRunID,
+		Property:        command.Property,
+		Value:           command.Value,
+		Status:          actuation.CommandStatusSent,
+		TimeoutSeconds:  command.TimeoutSeconds,
+		SentAt:          command.SentAt,
 	}
 	backgroundCtx := context.Background()
 	var outcome <-chan string

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 	"example/sensorHub/utils"
 	"fmt"
 	"log/slog"
@@ -98,7 +99,7 @@ func (r *ReadingsRepositoryImpl) remember(keys []seriesKey) {
 	r.pairMu.Unlock()
 }
 
-func (r *ReadingsRepositoryImpl) Ingest(ctx context.Context, batch ReadingBatch) ([]gen.Reading, error) {
+func (r *ReadingsRepositoryImpl) Ingest(ctx context.Context, batch readings.ReadingBatch) ([]gen.Reading, error) {
 	if len(batch.Readings) == 0 {
 		return nil, nil
 	}

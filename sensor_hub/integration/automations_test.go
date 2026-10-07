@@ -394,6 +394,75 @@ func TestAutomation_ATemperatureFallingBelowItsThresholdSwitchesThePlugOnce(t *t
 	}
 }
 
+func TestAutomation_TwoAutomationsSwitchingAPlugBackAndForthAreStoppedByTheLoopGuard(t *testing.T) {
+	fixture := setupCommandFixture(t, fmt.Sprintf("loop-plug-%d", reserveTCPPort(t)))
+	defer fixture.stop()
+	plugTopic := fmt.Sprintf("zigbee2mqtt/%s", fixture.sensor.Name)
+
+	device := pahomqtt.NewClient(pahomqtt.NewClientOptions().
+		AddBroker(fmt.Sprintf("tcp://127.0.0.1:%d", fixture.port)).
+		SetClientID(fmt.Sprintf("integration-loop-%d", fixture.port)))
+	token := device.Connect()
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	defer device.Disconnect(250)
+	token = device.Subscribe(plugTopic+"/set", 1, func(client pahomqtt.Client, msg pahomqtt.Message) {
+		client.Publish(plugTopic, 1, false, msg.Payload())
+	})
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	token = device.Publish(plugTopic, 1, false, `{"state":"OFF"}`)
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	require.Eventually(t, func() bool {
+		body, status := client.GetMeasurementTypesForSensor(fixture.sensor.Id)
+		return status == http.StatusOK && strings.Contains(string(body), `"state"`)
+	}, 5*time.Second, 100*time.Millisecond, "the plug never reported its state")
+
+	operator := gen.AutomationTriggerOperatorBecomes
+	create := func(name, when, then string) gen.Automation {
+		t.Helper()
+		body, status := client.CreateAutomation(gen.AutomationInput{
+			Name: name,
+			Triggers: []gen.AutomationTrigger{{Type: gen.AutomationTriggerTypeReading, SensorId: &fixture.sensor.Id,
+				MeasurementType: ptrStr("state"), Operator: &operator, Value: ptrStr(when)}},
+			Steps: []gen.AutomationStep{{Type: gen.AutomationStepTypeSet, SensorId: &fixture.sensor.Id, Property: ptrStr("state"), Value: ptrStr(then)}},
+		})
+		require.Equal(t, http.StatusCreated, status, string(body))
+		var created gen.Automation
+		require.NoError(t, json.Unmarshal(body, &created))
+		return created
+	}
+	// The driver reports a binary state as "true" or "false".
+	switchOff := create("Loop plug off", "true", "OFF")
+	defer client.DeleteAutomation(switchOff.Id)
+	switchOn := create("Loop plug on", "false", "ON")
+	defer client.DeleteAutomation(switchOn.Id)
+
+	_, status := client.RunAutomation(switchOn.Id)
+	require.Equal(t, http.StatusAccepted, status)
+
+	var offRuns []gen.AutomationRun
+	require.Eventually(t, func() bool {
+		offRuns, status = client.ListAutomationRuns(switchOff.Id)
+		require.Equal(t, http.StatusOK, status)
+		return len(offRuns) > 0 && offRuns[0].Status == gen.AutomationRunStatusFailed
+	}, 15*time.Second, 100*time.Millisecond, "the loop guard never stopped the automations")
+	time.Sleep(time.Second)
+
+	onRuns, status := client.ListAutomationRuns(switchOn.Id)
+	require.Equal(t, http.StatusOK, status)
+	require.Len(t, onRuns, 3, "the manual run and two runs caused by the other automation")
+	offRuns, _ = client.ListAutomationRuns(switchOff.Id)
+	require.Len(t, offRuns, 3, "a fifth run in the chain was refused and nothing ran after it")
+	refused := offRuns[0]
+	require.NotNil(t, refused.Error)
+	assert.True(t, strings.HasPrefix(*refused.Error, "loop guard"), *refused.Error)
+	assert.Equal(t, &gen.AutomationCauseRun{Id: onRuns[0].Id, AutomationId: switchOn.Id, AutomationName: "Loop plug on"}, refused.CauseRun)
+	assert.Equal(t, &gen.AutomationCauseRun{Id: offRuns[1].Id, AutomationId: switchOff.Id, AutomationName: "Loop plug off"}, onRuns[0].CauseRun)
+	assert.Nil(t, onRuns[2].CauseRun, "Run now has no cause")
+}
+
 func TestAutomation_SuggestsAReArmMarginFromASeriesReadings(t *testing.T) {
 	const sensor = "Margin Suggestion Sensor"
 	addSeededSensor(t, sensor)

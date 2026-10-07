@@ -6,6 +6,7 @@ import (
 
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 	"example/sensorHub/ws"
 )
 
@@ -21,8 +22,12 @@ func NewLiveView(sensorRepo database.SensorRepositoryInterface[gen.Sensor], logg
 	}
 }
 
-func (v *LiveView) Consume(_ context.Context, _ gen.Sensor, readings []gen.Reading) {
-	ws.PublishReadings(readings)
+func (v *LiveView) Consume(_ context.Context, _ gen.Sensor, batch []readings.Reading) {
+	published := make([]gen.Reading, len(batch))
+	for i, reading := range batch {
+		published[i] = reading.Reading
+	}
+	ws.PublishReadings(published)
 	v.AnnounceSensors()
 }
 

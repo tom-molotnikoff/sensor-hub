@@ -766,7 +766,7 @@ func TestSensorService_ServiceCollectFromSensorByName_Success(t *testing.T) {
 	err := service.ServiceCollectFromSensorByName(context.Background(), "test-sensor")
 
 	assert.NoError(t, err)
-	readingsRepo.AssertCalled(t, "Ingest", mock.Anything, mock.MatchedBy(func(batch database.ReadingBatch) bool {
+	readingsRepo.AssertCalled(t, "Ingest", mock.Anything, mock.MatchedBy(func(batch readings.ReadingBatch) bool {
 		return batch.SensorName == "test-sensor" && batch.HealthReason == "successful reading" &&
 			len(batch.Readings) == 1 && batch.Readings[0].NumericValue != nil && *batch.Readings[0].NumericValue == 22.5
 	}))

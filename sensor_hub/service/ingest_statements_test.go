@@ -94,7 +94,7 @@ func TestServiceProcessPushReadings_CostsAtMostTwelveStatementsInOneTransaction(
 func TestIngest_LooksUpNoNamesAndWritesNoSeriesRowForAKnownPair(t *testing.T) {
 	_, readingsRepo, sensor, recorder := countingSensorService(t)
 	ctx := context.Background()
-	batch := database.ReadingBatch{SensorName: sensor.Name, HealthReason: "successful reading", Readings: message()}
+	batch := readings.ReadingBatch{SensorName: sensor.Name, HealthReason: "successful reading", Readings: message()}
 	_, err := readingsRepo.Ingest(ctx, batch)
 	require.NoError(t, err)
 

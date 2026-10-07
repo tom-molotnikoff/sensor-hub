@@ -6,6 +6,7 @@ import (
 
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -347,7 +348,7 @@ type MockReadingsRepository struct {
 	mock.Mock
 }
 
-func (m *MockReadingsRepository) Ingest(ctx context.Context, batch database.ReadingBatch) ([]gen.Reading, error) {
+func (m *MockReadingsRepository) Ingest(ctx context.Context, batch readings.ReadingBatch) ([]gen.Reading, error) {
 	args := m.Called(ctx, batch)
 	if err := args.Error(0); err != nil {
 		return nil, err

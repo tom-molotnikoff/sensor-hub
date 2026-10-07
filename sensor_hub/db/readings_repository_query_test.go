@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -159,11 +160,11 @@ func TestGetBetweenDates_Raw_FiltersBySensorCaseInsensitively(t *testing.T) {
 	}))
 
 	v := 21.0
-	_, err := repo.Ingest(ctx, ReadingBatch{SensorName: "Office", Readings: []gen.Reading{
+	_, err := repo.Ingest(ctx, readings.ReadingBatch{SensorName: "Office", Readings: []gen.Reading{
 		{SensorName: "Office", MeasurementType: "temperature", NumericValue: &v, Time: "2025-01-15 12:00:00"},
 	}})
 	require.NoError(t, err)
-	_, err = repo.Ingest(ctx, ReadingBatch{SensorName: "Attic", Readings: []gen.Reading{
+	_, err = repo.Ingest(ctx, readings.ReadingBatch{SensorName: "Attic", Readings: []gen.Reading{
 		{SensorName: "Attic", MeasurementType: "temperature", NumericValue: &v, Time: "2025-01-15 12:00:00"},
 	}})
 	require.NoError(t, err)
