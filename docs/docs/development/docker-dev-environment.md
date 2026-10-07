@@ -33,7 +33,10 @@ overlays you want. A plain `docker compose up --build --watch` then picks them
 up. `.env` is git-ignored.
 
 - **Grafana** receives logs, traces and metrics from the hub, and traces from
-  the HTTP mocks. Sign in with admin / admin.
+  the HTTP mocks. Sign in with admin / admin. The Sensor Hub Overview
+  dashboard's Ingest and Automations row shows the p95 of reading ingest and of
+  `GET /readings/between`, dropped automation readings, automation runs by
+  final status and scheduler lateness.
 - **Delve** runs the hub under `dlv debug`. Attach your IDE's debugger (DAP or
   the Delve API v2) to `localhost:2345` at any time.
 
@@ -63,6 +66,13 @@ HTTP mocks. Live readings land on those sensors from the first start, and
 The seed also creates range alert rules on `living-room-sensor` temperature and
 `kitchen-sensor` humidity, a status rule on the `front-door` contact, and a few
 notifications, some already read.
+
+It seeds seven automations that switch `office-plug`: two schedules, one of
+them with a two-hour wait, an interval, a heating pair on `bedroom-sensor`
+temperature, one on the `front-door` contact opening in restart mode, and one
+that is Off. The others have a week of finished runs between them covering
+every status, with their commands in the plug's command history. The night-time
+switch-off's last run failed, so the list flags it until it next runs at 23:30.
 
 It lays out three dashboards for admin, which between them use every widget
 type: Home, the default, Climate and Devices. Climate is shared with viewer,
