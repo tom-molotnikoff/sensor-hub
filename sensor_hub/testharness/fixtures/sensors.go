@@ -13,6 +13,7 @@ type Sensor struct {
 	Driver     string
 	ExternalID string
 	Config     map[string]string
+	Metadata   map[string]interface{}
 }
 
 func CreateApprovedSensor(ctx context.Context, sensors service.SensorServiceInterface, sensor Sensor) (int, error) {
@@ -21,6 +22,9 @@ func CreateApprovedSensor(ctx context.Context, sensors service.SensorServiceInte
 		SensorDriver: sensor.Driver,
 		Config:       sensor.Config,
 		Status:       gen.SensorStatusPending,
+	}
+	if sensor.Metadata != nil {
+		pending.Metadata = &sensor.Metadata
 	}
 	if sensor.ExternalID != "" {
 		pending.ExternalId = &sensor.ExternalID

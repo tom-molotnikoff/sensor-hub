@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -34,7 +35,7 @@ var mqttDevices = []device{
 	climateDevice("kitchen-sensor", 23.0, 58.0, 67),
 	contactDevice("front-door", true, 88),
 	contactDevice("back-door", true, 74),
-	plugDevice("office-plug", 40.0, 120.0, 1.2),
+	switchedPlugDevice("office-plug", 40.0, 120.0, 1.2),
 	plugDevice("fridge-plug", 5.0, 150.0, 31.5),
 	motionDevice("hallway-motion", false, 120, 92),
 }
@@ -64,6 +65,17 @@ func contactDevice(name string, closed bool, battery float64) device {
 
 func plugDevice(name string, minPower, maxPower, energy float64) device {
 	return mqttDevice(name, plugDraw{minPower: minPower, maxPower: maxPower, startEnergy: energy})
+}
+
+// The mock publishes the same exposes, but only once the hub is up. Without
+// them in the seed, the hub's startup check would mark every seeded automation
+// that switches the plug Broken.
+const switchedPlugExposes = `[{"type":"switch","features":[{"type":"binary","property":"state","name":"state","access":7,"value_on":"ON","value_off":"OFF"}]}]`
+
+func switchedPlugDevice(name string, minPower, maxPower, energy float64) device {
+	plug := plugDevice(name, minPower, maxPower, energy)
+	plug.Metadata = map[string]interface{}{"exposes": json.RawMessage(switchedPlugExposes)}
+	return plug
 }
 
 func motionDevice(name string, occupied bool, illuminance, battery float64) device {

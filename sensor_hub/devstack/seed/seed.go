@@ -47,6 +47,8 @@ type seeder struct {
 	notifications service.NotificationServiceInterface
 	dashboards    service.DashboardServiceInterface
 	roles         service.RoleServiceInterface
+	automations   *database.AutomationRepository
+	commands      *database.SensorCommandHistoryRepository
 	httpMocks     []httpMock
 	window        time.Duration
 	logger        *slog.Logger
@@ -68,6 +70,8 @@ func seed(ctx context.Context, db *database.Handles, logger *slog.Logger, httpMo
 		notifications: service.NewNotificationService(database.NewNotificationRepository(db, logger), nil, logger),
 		dashboards:    service.NewDashboardService(database.NewDashboardRepository(db, logger), logger),
 		roles:         service.NewRoleService(database.NewRoleRepository(db, logger), logger),
+		automations:   database.NewAutomationRepository(db, logger),
+		commands:      database.NewSensorCommandHistoryRepository(db, logger),
 		httpMocks:     httpMocks,
 		window:        window,
 		logger:        logger,
@@ -147,6 +151,9 @@ func (s *seeder) createEntities(ctx context.Context) (string, error) {
 	}
 	if err := s.createDashboards(ctx, userIDs, sensorIDs); err != nil {
 		return "", &stepError{step: "create the dashboards", err: err}
+	}
+	if err := s.createAutomations(ctx, sensorIDs, userIDs[adminUsername], time.Now().UTC().Truncate(time.Second)); err != nil {
+		return "", &stepError{step: "create the automations", err: err}
 	}
 	if err := s.grantViewerReadAccess(ctx); err != nil {
 		return "", &stepError{step: "grant the viewer read access", err: err}

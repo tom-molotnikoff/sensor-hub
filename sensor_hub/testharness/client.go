@@ -24,7 +24,7 @@ import (
 // here delegates to a typed `gen.Client` operation so the tests exercise the
 // same wire contract used by the production CLI and UI.
 type Client struct {
-	t         *testing.T // nil when used from TestMain
+	t         testing.TB // nil when used from TestMain
 	baseURL   string
 	http      *http.Client
 	gen       *gen.Client
@@ -32,7 +32,7 @@ type Client struct {
 }
 
 // NewClient creates an unauthenticated client pointed at the test server.
-func NewClient(t *testing.T, baseURL string) *Client {
+func NewClient(t testing.TB, baseURL string) *Client {
 	jar, _ := cookiejar.New(nil)
 	httpClient := &http.Client{Jar: jar}
 

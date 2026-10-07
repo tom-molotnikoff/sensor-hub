@@ -41,6 +41,7 @@ type Env struct {
 	AdminPass         string
 	ConfigDir         string
 	DB                *database.Handles
+	Readings          *readings.Pipeline
 	ConnectionManager *mqttpkg.ConnectionManager
 	WSCapture         *RecordingWSNotifier
 	EmailCapture      *RecordingEmailNotifier
@@ -275,6 +276,7 @@ func (e *Env) boot(listenAddr string) error {
 	e.listenAddr = listener.Addr().String()
 	e.ServerURL = serverURL
 	e.DB = db
+	e.Readings = readingPipeline
 	e.ConnectionManager = connManager
 	e.WSCapture = wsCapture
 	e.EmailCapture = emailCapture

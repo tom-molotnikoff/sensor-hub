@@ -88,7 +88,7 @@ func newSensorService(db *database.Handles) *service.SensorService {
 }
 
 type entityCounts struct {
-	users, apiKeys, sensors, subscriptions, alertRules, notifications, dashboards, markers int
+	users, apiKeys, sensors, subscriptions, alertRules, notifications, dashboards, automations, markers int
 }
 
 var fullySeeded = entityCounts{
@@ -99,6 +99,7 @@ var fullySeeded = entityCounts{
 	alertRules:    len(seededRules),
 	notifications: len(seededNotifications),
 	dashboards:    len(seededDashboards) + 1,
+	automations:   len(seededAutomations),
 	markers:       1,
 }
 
@@ -112,6 +113,7 @@ func countEntities(t *testing.T, db *database.Handles) entityCounts {
 	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM sensor_alert_rules").Scan(&counts.alertRules))
 	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM notifications").Scan(&counts.notifications))
 	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM dashboards").Scan(&counts.dashboards))
+	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM automations").Scan(&counts.automations))
 	require.NoError(t, db.Reader.QueryRow("SELECT COUNT(*) FROM devseed_metadata WHERE name = ?", markerSeededAt).Scan(&counts.markers))
 	return counts
 }
