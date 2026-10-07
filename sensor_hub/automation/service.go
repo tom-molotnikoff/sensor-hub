@@ -71,6 +71,7 @@ type Store interface {
 // an error wrapping sql.ErrNoRows when there is no such sensor.
 type SensorLookup interface {
 	ServiceGetSensorById(ctx context.Context, id int) (*gen.Sensor, error)
+	ServiceGetMeasurementTypesForSensor(ctx context.Context, sensorID int) ([]gen.MeasurementType, error)
 }
 
 // The ID is non-zero whenever the command was recorded, even alongside an
@@ -87,14 +88,15 @@ type Notifier interface {
 }
 
 type Service struct {
-	store   Store
-	sensors SensorLookup
-	engine  *engine
-	logger  *slog.Logger
-	now     func() time.Time
+	store    Store
+	sensors  SensorLookup
+	readings *ReadingConsumer
+	engine   *engine
+	logger   *slog.Logger
+	now      func() time.Time
 }
 
-func NewService(store Store, sensors SensorLookup, commands CommandSender, notifier Notifier, logger *slog.Logger) *Service {
+func NewService(store Store, sensors SensorLookup, commands CommandSender, notifier Notifier, readings *ReadingConsumer, logger *slog.Logger) *Service {
 	logger = logger.With("component", "automation")
 	now := func() time.Time { return time.Now().UTC() }
 	executor := &executor{
@@ -111,11 +113,12 @@ func NewService(store Store, sensors SensorLookup, commands CommandSender, notif
 		metric.WithDescription("How long after its due time a scheduled run started"),
 		metric.WithUnit("ms"))
 	return &Service{
-		store:   store,
-		sensors: sensors,
-		engine:  newEngine(store, executor, logger, now, lateness),
-		logger:  logger,
-		now:     now,
+		store:    store,
+		sensors:  sensors,
+		readings: readings,
+		engine:   newEngine(store, executor, logger, now, lateness),
+		logger:   logger,
+		now:      now,
 	}
 }
 
@@ -139,6 +142,9 @@ func (s *Service) Start(ctx context.Context) error {
 	}()
 
 	periodic.Supervise(ctx, "automation-scheduler", s.logger, s.engine.scheduler.run)
+	periodic.Supervise(ctx, "automation-readings", s.logger, func(ctx context.Context, healthy func()) {
+		s.readings.drain(ctx, healthy, s.engine.observe)
+	})
 	s.logger.Info("automation scheduler started", "automations", len(automations), "resumed_runs", len(active), "hub_timezone", s.engine.zoneName())
 	return nil
 }

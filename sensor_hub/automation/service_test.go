@@ -24,6 +24,7 @@ import (
 
 type fixture struct {
 	service  *automation.Service
+	readings *automation.ReadingConsumer
 	stop     context.CancelFunc
 	store    *database.AutomationRepository
 	db       *database.Handles
@@ -32,6 +33,8 @@ type fixture struct {
 	notifier *fakeNotifier
 	logger   *slog.Logger
 	lampID   int
+	climate  gen.Sensor
+	door     gen.Sensor
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -49,17 +52,28 @@ func newFixture(t *testing.T) *fixture {
 	lampID, err := result.LastInsertId()
 	require.NoError(t, err)
 
+	climate := insertSensor(t, handles, "lounge-climate")
+	door := insertSensor(t, handles, "front-door")
+
 	stopCommands := make(chan struct{})
 	t.Cleanup(func() { close(stopCommands) })
 	f := &fixture{
-		store:   database.NewAutomationRepository(handles, logger),
-		db:      handles,
-		sensors: &fakeSensors{sensors: map[int]gen.Sensor{int(lampID): lamp(int(lampID))}},
+		store: database.NewAutomationRepository(handles, logger),
+		db:    handles,
+		sensors: &fakeSensors{
+			sensors: map[int]gen.Sensor{int(lampID): lamp(int(lampID)), climate.Id: climate, door.Id: door},
+			types: map[int][]gen.MeasurementType{
+				climate.Id: {measurementType(t, handles, "temperature"), measurementType(t, handles, "humidity")},
+				door.Id:    {measurementType(t, handles, "contact")},
+			},
+		},
 		commands: &fakeCommands{history: database.NewSensorCommandHistoryRepository(handles, logger),
 			stop: stopCommands, awaited: make(map[int]chan string)},
 		notifier: &fakeNotifier{},
 		logger:   logger,
 		lampID:   int(lampID),
+		climate:  climate,
+		door:     door,
 	}
 	f.start(t)
 	return f
@@ -67,7 +81,8 @@ func newFixture(t *testing.T) *fixture {
 
 func (f *fixture) start(t *testing.T) {
 	t.Helper()
-	f.service = automation.NewService(f.store, f.sensors, f.commands, f.notifier, f.logger)
+	f.readings = automation.NewReadingConsumer()
+	f.service = automation.NewService(f.store, f.sensors, f.commands, f.notifier, f.readings, f.logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	f.stop = cancel
@@ -169,9 +184,33 @@ func (f *fixture) neverMoreCommandsThan(t *testing.T, limit int, message string)
 	}
 }
 
+func insertSensor(t *testing.T, handles *database.Handles, name string) gen.Sensor {
+	t.Helper()
+	result, err := handles.Writer.Exec("INSERT INTO sensors (name, sensor_driver, config) VALUES (?, 'mqtt-zigbee2mqtt', '{}')", name)
+	require.NoError(t, err)
+	id, err := result.LastInsertId()
+	require.NoError(t, err)
+	return gen.Sensor{Id: int(id), Name: name, SensorDriver: "mqtt-zigbee2mqtt", Enabled: true, Status: gen.SensorStatusActive}
+}
+
+func measurementType(t *testing.T, handles *database.Handles, name string) gen.MeasurementType {
+	t.Helper()
+	mt := gen.MeasurementType{Name: name}
+	require.NoError(t, handles.Reader.QueryRow("SELECT id, category, default_unit FROM measurement_types WHERE name = ?", name).
+		Scan(&mt.Id, &mt.Category, &mt.Unit))
+	return mt
+}
+
 type fakeSensors struct {
 	mu      sync.Mutex
 	sensors map[int]gen.Sensor
+	types   map[int][]gen.MeasurementType
+}
+
+func (f *fakeSensors) ServiceGetMeasurementTypesForSensor(_ context.Context, id int) ([]gen.MeasurementType, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.types[id], nil
 }
 
 func (f *fakeSensors) ServiceGetSensorById(_ context.Context, id int) (*gen.Sensor, error) {

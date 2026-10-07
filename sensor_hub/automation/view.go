@@ -68,6 +68,18 @@ func triggerView(trigger Trigger) gen.AutomationTrigger {
 		seconds := int(trigger.Interval / time.Second)
 		view.Seconds = &seconds
 	}
+	if condition := trigger.Reading; condition != nil {
+		sensorID, measurementType, operator := condition.SensorID, condition.MeasurementType, gen.AutomationTriggerOperator(condition.Operator)
+		hold := int(condition.Hold / time.Second)
+		view.SensorId, view.MeasurementType, view.Operator, view.HoldSeconds = &sensorID, &measurementType, &operator, &hold
+		if condition.Operator == Becomes {
+			value := condition.Value
+			view.Value = &value
+		} else {
+			threshold, margin := condition.Threshold, condition.Margin
+			view.Threshold, view.RearmMargin = &threshold, &margin
+		}
+	}
 	return view
 }
 

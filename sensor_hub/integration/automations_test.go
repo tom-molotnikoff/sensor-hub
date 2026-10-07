@@ -3,12 +3,16 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
+	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/testharness"
 
@@ -296,4 +300,96 @@ func TestAutomation_RunNowOnAnAutomationThatIsOffCanBeCancelledAndThenDeleted(t 
 	assert.Equal(t, http.StatusConflict, status)
 
 	require.Equal(t, http.StatusOK, client.DeleteAutomation(created.Id))
+}
+
+func TestAutomation_RejectsAReadingTriggerOnAMeasurementTypeTheSensorDoesNotReport(t *testing.T) {
+	fixture := setupCommandFixture(t, fmt.Sprintf("unreported-plug-%d", reserveTCPPort(t)))
+	defer fixture.stop()
+
+	operator := gen.AutomationTriggerOperatorFallsBelow
+	threshold, margin := 16.0, 0.2
+	body, status := client.CreateAutomation(gen.AutomationInput{
+		Name: "Plug heat on",
+		Triggers: []gen.AutomationTrigger{{Type: gen.AutomationTriggerTypeReading, SensorId: &fixture.sensor.Id,
+			MeasurementType: ptrStr("temperature"), Operator: &operator, Threshold: &threshold, RearmMargin: &margin}},
+		Steps: []gen.AutomationStep{{Type: gen.AutomationStepTypeSet, SensorId: &fixture.sensor.Id, Property: ptrStr("state"), Value: ptrStr("ON")}},
+	})
+
+	assert.Equal(t, http.StatusBadRequest, status)
+	assert.Contains(t, string(body), "triggers[0].measurement_type")
+}
+
+func TestAutomation_ATemperatureFallingBelowItsThresholdSwitchesThePlugOnce(t *testing.T) {
+	fixture := setupCommandFixture(t, fmt.Sprintf("heater-plug-%d", reserveTCPPort(t)))
+	defer fixture.stop()
+	ctx := context.Background()
+	climateName := fmt.Sprintf("lounge-climate-%d", fixture.port)
+	sensorRepo := database.NewSensorRepository(env.DB, slog.Default())
+	require.NoError(t, sensorRepo.AddSensor(ctx, gen.Sensor{Name: climateName, SensorDriver: "mqtt-zigbee2mqtt", Status: gen.SensorStatusActive, Config: map[string]string{}}))
+	defer func() { _ = database.NewSensorRepository(env.DB, slog.Default()).DeleteSensorByName(ctx, climateName) }()
+	climate, err := sensorRepo.GetSensorByName(ctx, climateName)
+	require.NoError(t, err)
+
+	device := pahomqtt.NewClient(pahomqtt.NewClientOptions().
+		AddBroker(fmt.Sprintf("tcp://127.0.0.1:%d", fixture.port)).
+		SetClientID(fmt.Sprintf("integration-reading-%d", fixture.port)))
+	token := device.Connect()
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	defer device.Disconnect(250)
+	published := make(chan time.Time, 10)
+	token = device.Subscribe(fmt.Sprintf("zigbee2mqtt/%s/set", fixture.sensor.Name), 1, func(_ pahomqtt.Client, _ pahomqtt.Message) {
+		published <- time.Now()
+	})
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	publish := func(topic, payload string) time.Time {
+		t.Helper()
+		token := device.Publish(topic, 1, false, payload)
+		require.True(t, token.WaitTimeout(5*time.Second))
+		require.NoError(t, token.Error())
+		return time.Now()
+	}
+	climateTopic := fmt.Sprintf("zigbee2mqtt/%s", climateName)
+
+	publish(climateTopic, `{"temperature":16.5}`)
+	require.Eventually(t, func() bool {
+		body, status := client.GetMeasurementTypesForSensor(climate.Id)
+		return status == http.StatusOK && strings.Contains(string(body), `"temperature"`)
+	}, 5*time.Second, 100*time.Millisecond, "the climate sensor never reported a temperature")
+
+	operator := gen.AutomationTriggerOperatorFallsBelow
+	threshold, margin := 16.0, 0.2
+	body, status := client.CreateAutomation(gen.AutomationInput{
+		Name: "Lounge heat on",
+		Triggers: []gen.AutomationTrigger{{Type: gen.AutomationTriggerTypeReading, SensorId: &climate.Id,
+			MeasurementType: ptrStr("temperature"), Operator: &operator, Threshold: &threshold, RearmMargin: &margin}},
+		Steps: []gen.AutomationStep{{Type: gen.AutomationStepTypeSet, SensorId: &fixture.sensor.Id, Property: ptrStr("state"), Value: ptrStr("ON")}},
+	})
+	require.Equal(t, http.StatusCreated, status, string(body))
+	var created gen.Automation
+	require.NoError(t, json.Unmarshal(body, &created))
+	defer client.DeleteAutomation(created.Id)
+	assert.Nil(t, created.NextFireAt)
+
+	crossed := publish(climateTopic, `{"temperature":15.9}`)
+	select {
+	case at := <-published:
+		assert.Less(t, at.Sub(crossed), time.Second, "the command went out %s after the reading", at.Sub(crossed))
+	case <-time.After(5 * time.Second):
+		t.Fatal("the automation never switched the plug")
+	}
+	publish(fmt.Sprintf("zigbee2mqtt/%s", fixture.sensor.Name), `{"state":"ON"}`)
+	publish(climateTopic, `{"temperature":15.8}`)
+
+	require.Eventually(t, func() bool {
+		runs, status := client.ListAutomationRuns(created.Id)
+		require.Equal(t, http.StatusOK, status)
+		return len(runs) == 1 && runs[0].Status == gen.AutomationRunStatusSucceeded && runs[0].TriggerKind == gen.AutomationRunTriggerKindReading
+	}, 10*time.Second, 100*time.Millisecond)
+	select {
+	case <-published:
+		t.Fatal("a reading still below the threshold switched the plug again")
+	case <-time.After(time.Second):
+	}
 }

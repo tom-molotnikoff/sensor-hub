@@ -250,3 +250,79 @@ func TestMigration28_DownRemovesRunsThePreviousSchemaCannotHold(t *testing.T) {
 	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('automations') WHERE name = 'mode'").Scan(&columns))
 	assert.Zero(t, columns)
 }
+
+func TestMigration29_ReadingTriggerColumnsAreChecked(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(29))
+	sensorID := insertCommandHistorySensor(t, db)
+	_, err := db.Exec("INSERT INTO automations (name) VALUES ('Lounge heat on')")
+	require.NoError(t, err)
+	insert := func(operator string, threshold, value, margin any) error {
+		_, err := db.Exec(`INSERT INTO automation_triggers
+			(automation_id, position, kind, sensor_id, measurement_type_id, operator, threshold, binary_value, rearm_margin, hold_seconds)
+			VALUES (1, 1, 'reading', ?, (SELECT id FROM measurement_types WHERE name = 'temperature'), ?, ?, ?, ?, 0)`,
+			sensorID, operator, threshold, value, margin)
+		return err
+	}
+
+	assert.Error(t, insert("falls_below", 16.0, nil, nil), "a numeric trigger without a margin is refused")
+	assert.Error(t, insert("falls_below", 16.0, nil, -0.1), "a negative margin is refused")
+	assert.Error(t, insert("becomes", nil, "true", 0.2), "a binary trigger with a margin is refused")
+	assert.Error(t, insert("crosses", 16.0, nil, 0.2), "an unknown operator is refused")
+	assert.NoError(t, insert("falls_below", 16.0, nil, 0.2))
+	assert.NoError(t, insert("becomes", nil, "true", nil))
+}
+
+func TestMigration29_DeletingTheSensorDeletesItsReadingTriggers(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(29))
+	sensorID := insertCommandHistorySensor(t, db)
+	_, err := db.Exec("INSERT INTO automations (name) VALUES ('Lounge heat on')")
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO automation_triggers
+		(automation_id, position, kind, sensor_id, measurement_type_id, operator, threshold, rearm_margin, hold_seconds)
+		VALUES (1, 1, 'reading', ?, (SELECT id FROM measurement_types WHERE name = 'temperature'), 'falls_below', 16, 0.2, 0)`, sensorID)
+	require.NoError(t, err)
+	_, err = db.Exec("DELETE FROM sensor_command_history")
+	require.NoError(t, err)
+
+	_, err = db.Exec("DELETE FROM sensors WHERE id = ?", sensorID)
+	require.NoError(t, err)
+
+	var triggers int
+	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM automation_triggers").Scan(&triggers))
+	assert.Zero(t, triggers)
+}
+
+func TestMigration29_DownRemovesAutomationsWithReadingTriggers(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(29))
+	sensorID := insertCommandHistorySensor(t, db)
+	_, err := db.Exec(`INSERT INTO automations (id, name) VALUES (1, 'Lounge heat on'), (2, 'Lights off')`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO automation_triggers
+		(automation_id, position, kind, at_minute_of_day, weekdays, sensor_id, measurement_type_id, operator, threshold, rearm_margin, hold_seconds) VALUES
+		(1, 1, 'reading', NULL, NULL, ?, (SELECT id FROM measurement_types WHERE name = 'temperature'), 'falls_below', 16, 0.2, 0),
+		(2, 1, 'schedule', 1410, 127, NULL, NULL, NULL, NULL, NULL, NULL)`, sensorID)
+	require.NoError(t, err)
+
+	require.NoError(t, m.Migrate(28))
+
+	var names []string
+	rows, err := db.Query("SELECT name FROM automations")
+	require.NoError(t, err)
+	for rows.Next() {
+		var name string
+		require.NoError(t, rows.Scan(&name))
+		names = append(names, name)
+	}
+	require.NoError(t, rows.Close())
+	assert.Equal(t, []string{"Lights off"}, names)
+
+	var columns int
+	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('automation_triggers') WHERE name = 'sensor_id'").Scan(&columns))
+	assert.Zero(t, columns)
+}

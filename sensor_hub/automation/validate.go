@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -59,7 +60,7 @@ func fromInput(ctx context.Context, sensors SensorLookup, input gen.AutomationIn
 		return Automation{}, invalid("triggers must hold at least one trigger")
 	}
 	for i, trigger := range input.Triggers {
-		parsed, err := triggerFromInput(i, trigger)
+		parsed, err := triggerFromInput(ctx, sensors, i, trigger)
 		if err != nil {
 			return Automation{}, err
 		}
@@ -79,14 +80,17 @@ func fromInput(ctx context.Context, sensors SensorLookup, input gen.AutomationIn
 	return automation, nil
 }
 
-func triggerFromInput(i int, trigger gen.AutomationTrigger) (Trigger, error) {
+func triggerFromInput(ctx context.Context, sensors SensorLookup, i int, trigger gen.AutomationTrigger) (Trigger, error) {
 	switch trigger.Type {
 	case gen.AutomationTriggerTypeSchedule:
 		return scheduleTriggerFromInput(i, trigger)
 	case gen.AutomationTriggerTypeInterval:
 		return intervalTriggerFromInput(i, trigger)
+	case gen.AutomationTriggerTypeReading:
+		return readingTriggerFromInput(ctx, sensors, i, trigger)
 	default:
-		return Trigger{}, invalid("triggers[%d].type must be %q or %q, got %q", i, gen.AutomationTriggerTypeSchedule, gen.AutomationTriggerTypeInterval, trigger.Type)
+		return Trigger{}, invalid("triggers[%d].type must be %q, %q or %q, got %q", i,
+			gen.AutomationTriggerTypeSchedule, gen.AutomationTriggerTypeInterval, gen.AutomationTriggerTypeReading, trigger.Type)
 	}
 }
 
@@ -128,6 +132,70 @@ func intervalTriggerFromInput(i int, trigger gen.AutomationTrigger) (Trigger, er
 		return Trigger{}, invalid("triggers[%d].seconds must be at most %d", i, maxIntervalSeconds)
 	}
 	return Trigger{Kind: TriggerInterval, Interval: time.Duration(*trigger.Seconds) * time.Second}, nil
+}
+
+func readingTriggerFromInput(ctx context.Context, sensors SensorLookup, i int, trigger gen.AutomationTrigger) (Trigger, error) {
+	if trigger.SensorId == nil {
+		return Trigger{}, invalid("triggers[%d].sensor_id is required", i)
+	}
+	if trigger.MeasurementType == nil || *trigger.MeasurementType == "" {
+		return Trigger{}, invalid("triggers[%d].measurement_type is required", i)
+	}
+	if trigger.Operator == nil {
+		return Trigger{}, invalid("triggers[%d].operator is required", i)
+	}
+	condition := ReadingCondition{Series: Series{SensorID: *trigger.SensorId}, Operator: Operator(*trigger.Operator)}
+
+	sensor, err := sensors.ServiceGetSensorById(ctx, condition.SensorID)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && sensor == nil) {
+		return Trigger{}, invalid("triggers[%d].sensor_id: sensor %d does not exist", i, condition.SensorID)
+	}
+	if err != nil {
+		return Trigger{}, fmt.Errorf("look up sensor %d: %w", condition.SensorID, err)
+	}
+	reported, err := sensors.ServiceGetMeasurementTypesForSensor(ctx, condition.SensorID)
+	if err != nil {
+		return Trigger{}, fmt.Errorf("look up measurement types of sensor %d: %w", condition.SensorID, err)
+	}
+	index := slices.IndexFunc(reported, func(each gen.MeasurementType) bool { return each.Name == *trigger.MeasurementType })
+	if index < 0 {
+		return Trigger{}, invalid("triggers[%d].measurement_type: %s does not report %q", i, sensor.Name, *trigger.MeasurementType)
+	}
+	measurementType := reported[index]
+	condition.MeasurementType, condition.MeasurementTypeID = measurementType.Name, measurementType.Id
+
+	if trigger.HoldSeconds != nil {
+		if *trigger.HoldSeconds < 0 || int64(*trigger.HoldSeconds) > maxIntervalSeconds {
+			return Trigger{}, invalid("triggers[%d].hold_seconds must be a whole number of seconds from 0 to %d", i, maxIntervalSeconds)
+		}
+		condition.Hold = time.Duration(*trigger.HoldSeconds) * time.Second
+	}
+
+	if measurementType.Category == gen.MeasurementTypeCategoryBinary {
+		if condition.Operator != Becomes {
+			return Trigger{}, invalid("triggers[%d].operator: %s is binary, so the operator must be %q, got %q", i, measurementType.Name, Becomes, condition.Operator)
+		}
+		if trigger.RearmMargin != nil {
+			return Trigger{}, invalid("triggers[%d].rearm_margin: a binary trigger has no margin", i)
+		}
+		if trigger.Value == nil || *trigger.Value == "" {
+			return Trigger{}, invalid("triggers[%d].value is required", i)
+		}
+		condition.Value = *trigger.Value
+		return Trigger{Kind: TriggerReading, Reading: &condition}, nil
+	}
+
+	if condition.Operator != FallsBelow && condition.Operator != RisesAbove {
+		return Trigger{}, invalid("triggers[%d].operator: %s is numeric, so the operator must be %q or %q, got %q", i, measurementType.Name, FallsBelow, RisesAbove, condition.Operator)
+	}
+	if trigger.Threshold == nil {
+		return Trigger{}, invalid("triggers[%d].threshold is required", i)
+	}
+	if trigger.RearmMargin == nil || *trigger.RearmMargin < 0 {
+		return Trigger{}, invalid("triggers[%d].rearm_margin is required, and must be 0 or more", i)
+	}
+	condition.Threshold, condition.Margin = *trigger.Threshold, *trigger.RearmMargin
+	return Trigger{Kind: TriggerReading, Reading: &condition}, nil
 }
 
 func stepFromInput(ctx context.Context, sensors SensorLookup, i int, step gen.AutomationStep) (Step, error) {

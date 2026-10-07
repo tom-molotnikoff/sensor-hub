@@ -19,6 +19,7 @@ const keyed = <T extends object>(item: T): Keyed<T> => ({ ...item, key: nextKey+
 const triggerDefaults: Record<AutomationTrigger['type'], AutomationTrigger> = {
   schedule: { type: 'schedule', at: '19:00', days: ['mon', 'tue', 'wed', 'thu', 'fri'] },
   interval: { type: 'interval', seconds: 1_800 },
+  reading: { type: 'reading', operator: 'falls_below', hold_seconds: 0 },
 };
 
 export const newTrigger = (): DraftTrigger => keyed(triggerDefaults.schedule);
@@ -45,7 +46,19 @@ export function inputOf({ name, enabled, mode, triggers, steps }: Draft): Automa
     name,
     enabled,
     mode,
-    triggers: triggers.map(({ type, at, days, seconds }) => ({ type, at, days, seconds })),
+    triggers: triggers.map(({ type, at, days, seconds, sensor_id, measurement_type, operator, threshold, rearm_margin, value, hold_seconds }) => ({
+      type,
+      at,
+      days,
+      seconds,
+      sensor_id,
+      measurement_type,
+      operator,
+      threshold,
+      rearm_margin,
+      value,
+      hold_seconds,
+    })),
     steps: steps.map(({ type, sensor_id, property, value, seconds }) => ({ type, sensor_id, property, value, seconds })),
   };
 }
@@ -71,3 +84,8 @@ export function defaultValue(capability: Capability | undefined): string | undef
       return undefined;
   }
 }
+
+export const choosePrompt = (prompt: string, display: (value: string) => string = (value) => value) => ({
+  inputLabel: { shrink: true },
+  select: { displayEmpty: true, renderValue: (value: unknown) => (value === '' ? prompt : display(String(value))) },
+});

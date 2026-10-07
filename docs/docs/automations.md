@@ -48,6 +48,57 @@ An interval trigger fires every so many seconds, for example to cycle a pump or 
 - The hub stores when the trigger is next due, so a restart does not move it. Times the hub was down for are handled by the [grace window](#restarts-and-the-grace-window).
 - An interval is a length of time, so a clock change or a change to `hub.timezone` does not move it.
 
+## Sensor reading triggers
+
+A sensor reading trigger fires when a sensor's readings of one measurement type cross a threshold, or when a binary reading becomes a value. Readings reach automations through the same reading pipeline as alerts and the live view, so a reading pushed over MQTT starts a run within a second.
+
+On a numeric measurement type, such as temperature, the operator is `falls_below` or `rises_above`:
+
+```json
+{ "type": "reading", "sensor_id": 3, "measurement_type": "temperature",
+  "operator": "falls_below", "threshold": 16, "rearm_margin": 0.2 }
+```
+
+On a binary measurement type, such as a door contact, the operator is `becomes`:
+
+```json
+{ "type": "reading", "sensor_id": 10, "measurement_type": "contact",
+  "operator": "becomes", "value": "false", "hold_seconds": 5 }
+```
+
+- `measurement_type` must be one the sensor reports. `GET /api/sensors/by-id/{id}/measurement-types` lists them, with whether each is numeric or binary.
+- `falls_below` means the value is below the threshold, and `rises_above` means it is above it. A reading equal to the threshold meets neither.
+- `rearm_margin` is required on a numeric trigger and must be `0` or more. A binary trigger has no margin.
+- `value` is the reading as the sensor reports it. Zigbee2MQTT binary readings are `true` or `false`, so a door contact reads `false` when the door is open. Values are matched without regard to case.
+- `hold_seconds` is optional and defaults to `0`. In the editor it is "for at least", in seconds, minutes or hours.
+
+An automation with only reading triggers has no next fire time. The list shows "on reading" in its Next column.
+
+### Firing once per crossing
+
+A reading trigger fires when its condition becomes true, not on every reading while it stays true. A heating automation sends one command when the room gets cold, not one a minute for as long as it is cold.
+
+A sensor near a threshold jitters across it. A room hovering around 16 °C reads 15.9, 16.0, 15.9, 16.0, and firing on every one of those crossings would switch the heating on and off over and over. The **re-arm margin** stops this. Once a trigger has fired, it cannot fire again until the value has gone back past the threshold by at least the margin:
+
+| Trigger                              | Fires at       | Can fire again once the value reaches |
+|--------------------------------------|----------------|---------------------------------------|
+| `falls_below` 16, margin 0.2         | below 16       | 16.2 or more                          |
+| `rises_above` 20, margin 0.2         | above 20       | 19.8 or less                          |
+
+So with "falls below 16, margin 0.2", readings of 16.2, 15.9, 15.8, 16.1, 15.9 fire once, at the first 15.9: the value never got back to 16.2. A reading of 16.2 followed by 15.9 fires it again.
+
+Choose a margin a little larger than the sensor's usual reading-to-reading jitter. On a temperature sensor that reports in 0.1 °C steps, 0.2 is enough: replaying a week of real readings from four rooms, every threshold produced no crossing that reversed within 15 minutes, where a margin of 0 produced dozens.
+
+A binary trigger fires when the value changes to the one it watches. A door contact that repeats "open" on its hourly heartbeat does not fire again. It fires the next time the door opens after being closed.
+
+When the hub starts, and when an automation is saved or switched on, its reading triggers start afresh: the first reading that already meets the condition fires the trigger. After a restart in a cold room, the heating still comes on. Readings that arrive while an automation is off are ignored.
+
+### For at least
+
+`hold_seconds` makes the condition hold for a while before the trigger fires. With "falls below 16, for at least 5 minutes", a reading of 15.9 at 10:00 starts the clock, and the trigger fires at 10:05:00 if no reading at or above 16 has arrived by then. It does not wait for another reading. A reading of 16.0 at 10:02 stops the clock without firing, and the trigger stays ready for the next drop.
+
+A hold suits a door contact that bounces: "becomes open, for at least 5 seconds" ignores a door that opens and closes again within 3 seconds.
+
 ## Set steps
 
 A set step sends a command to a writable capability of a controllable sensor, the same command you can send from a Sensor Toggle widget or `POST /api/sensors/{id}/command`:
@@ -157,7 +208,7 @@ Each automation reports a status:
 
 A separate `last_run_failed` flag is true from a failed run until the next run that succeeds.
 
-`next_fire_at` is when the earliest schedule or interval trigger next comes due, in UTC, with `hub_timezone` alongside for showing it in local time. It is empty when the automation is off.
+`next_fire_at` is when the earliest schedule or interval trigger next comes due, in UTC, with `hub_timezone` alongside for showing it in local time. It is empty when the automation is off or only has reading triggers.
 
 Switch an automation on or off with `PUT /api/automations/{id}/enabled`. Deleting an automation deletes its triggers, steps and run history. The commands its runs sent stay in command history, without the link to the run. An automation with a running or waiting run cannot be deleted: the delete returns `409` until the run is cancelled or finishes.
 
@@ -206,6 +257,38 @@ Turn the hallway lamp on at 19:00 on weekdays and 18:00 at weekends, at a dimmed
   ]
 }
 ```
+
+## Example: heating pair
+
+A heating loop is two automations, one to switch the heating on and one to switch it off. Here the living room heats below 16 °C and stops above 20 °C:
+
+```json
+{
+  "name": "Lounge heat on",
+  "triggers": [
+    { "type": "reading", "sensor_id": 3, "measurement_type": "temperature",
+      "operator": "falls_below", "threshold": 16, "rearm_margin": 0.2 }
+  ],
+  "steps": [
+    { "type": "set", "sensor_id": 21, "property": "state", "value": "ON" }
+  ]
+}
+```
+
+```json
+{
+  "name": "Lounge heat off",
+  "triggers": [
+    { "type": "reading", "sensor_id": 3, "measurement_type": "temperature",
+      "operator": "rises_above", "threshold": 20, "rearm_margin": 0.2 }
+  ],
+  "steps": [
+    { "type": "set", "sensor_id": 21, "property": "state", "value": "OFF" }
+  ]
+}
+```
+
+Each sends its command once per crossing, and the gap between 16 and 20 keeps the two from fighting. Both start afresh after a restart, so whichever condition holds at the first reading puts the heating in the right state.
 
 ## Example: pump cycle
 

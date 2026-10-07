@@ -6,6 +6,7 @@ import Card from '../../ui/Card';
 import Inline from '../../ui/Inline';
 import Stack from '../../ui/Stack';
 import DurationField from './DurationField';
+import ReadingTriggerFields from './ReadingTriggerFields';
 import { newTrigger, retyped, type DraftTrigger } from './automationDraft';
 import { weekdays, type Weekday } from './automationText';
 
@@ -38,8 +39,11 @@ function TriggerCard({ trigger, position, readOnly, onChange, onRemove }: Trigge
         >
           <MenuItem value="schedule">At a time</MenuItem>
           <MenuItem value="interval">Every…</MenuItem>
+          <MenuItem value="reading">Sensor reading</MenuItem>
         </TextField>
-        {trigger.type === 'interval' ? (
+        {trigger.type === 'reading' ? (
+          <ReadingTriggerFields trigger={trigger} readOnly={readOnly} onChange={onChange} />
+        ) : trigger.type === 'interval' ? (
           <DurationField
             label="Interval"
             seconds={trigger.seconds}

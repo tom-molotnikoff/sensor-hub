@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Automation, AutomationRun, Sensor } from '../../gen/aliases';
+import type { Automation, AutomationRun, MeasurementTypeInfo, Sensor } from '../../gen/aliases';
 import { installFakeWebSocket } from '../../test/fakeWebSocket';
 import AutomationEditorPage from './AutomationEditorPage';
 import { editorPermissions, renderAutomationPages, serveGets } from './automationPageHarness';
@@ -25,6 +25,25 @@ const lamp: Sensor = {
     { property: 'color_temp_preset', type: 'enum', values: ['warm', 'neutral', 'cool'] },
   ],
 };
+
+const climate: Sensor = {
+  id: 21,
+  name: 'lounge-climate',
+  sensor_driver: 'zigbee2mqtt',
+  config: {},
+  health_status: 'good',
+  health_reason: '',
+  enabled: true,
+  status: 'active',
+};
+
+function measurementType(id: number, name: string, category: MeasurementTypeInfo['category'], unit: string): MeasurementTypeInfo {
+  return { id, name, display_name: name.charAt(0).toUpperCase() + name.slice(1), category, unit, default_aggregation_function: 'avg', supported_aggregation_functions: ['avg'] };
+}
+
+const temperature = measurementType(1, 'temperature', 'numeric', '°C');
+const humidity = measurementType(2, 'humidity', 'numeric', '%');
+const contact = measurementType(9, 'contact', 'binary', '');
 
 function automation(overrides: Partial<Automation> = {}): Automation {
   return {
@@ -63,7 +82,7 @@ function renderEditor(at: string, permissions = editorPermissions, width = 1280)
     routes: { '/automations/:id': <AutomationEditorPage />, '/automations': <p>list</p> },
     at,
     width,
-    sensors: [lamp],
+    sensors: [lamp, climate],
     alongside: <Location />,
   });
 }
@@ -175,6 +194,70 @@ describe('AutomationEditorPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(api.PUT).toHaveBeenCalled());
     expect(savedBody(api.PUT).triggers).toEqual([{ type: 'interval', seconds: 7_200 }]);
+  });
+
+  it('turns a trigger into a sensor reading on a numeric series and saves its threshold, margin and hold', async () => {
+    serve(automation());
+    responses['/sensors/by-id/{id}/measurement-types'] = [temperature, humidity];
+    api.PUT.mockResolvedValue({ data: automation(), response: new Response() });
+    await renderEditor('/automations/3');
+
+    fireEvent.mouseDown(await screen.findByRole('combobox', { name: 'Trigger' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Sensor reading' }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Sensor' }));
+    fireEvent.click(screen.getByRole('option', { name: climate.name }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Measurement' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Temperature' }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Condition' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['falls below', 'rises above']);
+    fireEvent.click(screen.getByRole('option', { name: 'falls below' }));
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Threshold (°C)' }), { target: { value: '16' } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Re-arm margin' }), { target: { value: '0.2' } });
+    expect(screen.getByRole('combobox', { name: 'Unit' })).toHaveTextContent('seconds');
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'For at least' }), { target: { value: '5' } });
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Unit' }));
+    fireEvent.click(screen.getByRole('option', { name: 'minutes' }));
+
+    expect(screen.getByText(/^When lounge-climate temperature falls below 16 \(margin 0.2\) for at least 5 min, set hallway-lamp/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.PUT).toHaveBeenCalled());
+    expect(savedBody(api.PUT).triggers).toEqual([
+      { type: 'reading', sensor_id: climate.id, measurement_type: 'temperature', operator: 'falls_below', threshold: 16, rearm_margin: 0.2, hold_seconds: 300 },
+    ]);
+  });
+
+  it('offers only "becomes" and a value on a binary series, with no margin', async () => {
+    serve(automation());
+    responses['/sensors/by-id/{id}/measurement-types'] = [contact];
+    api.PUT.mockResolvedValue({ data: automation(), response: new Response() });
+    await renderEditor('/automations/3');
+
+    fireEvent.mouseDown(await screen.findByRole('combobox', { name: 'Trigger' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Sensor reading' }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Sensor' }));
+    fireEvent.click(screen.getByRole('option', { name: climate.name }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Measurement' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Contact' }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Condition' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['becomes']);
+    fireEvent.click(screen.getByRole('option', { name: 'becomes' }));
+    fireEvent.mouseDown(screen.getAllByRole('combobox', { name: 'Value' })[0]);
+    fireEvent.click(screen.getByRole('option', { name: 'false' }));
+
+    expect(screen.queryByRole('spinbutton', { name: 'Re-arm margin' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.PUT).toHaveBeenCalled());
+    expect(savedBody(api.PUT).triggers).toEqual([
+      { type: 'reading', sensor_id: climate.id, measurement_type: 'contact', operator: 'becomes', value: 'false', hold_seconds: 0 },
+    ]);
+  });
+
+  it('shows "on reading" as Next for an automation with only reading triggers', async () => {
+    serve(automation({ triggers: [{ id: 1, type: 'reading', sensor_id: climate.id, measurement_type: 'temperature', operator: 'falls_below', threshold: 16, rearm_margin: 0.2, hold_seconds: 0 }], next_fire_at: null }));
+    responses['/sensors/by-id/{id}/measurement-types'] = [temperature];
+    await renderEditor('/automations/3');
+
+    expect(await screen.findByText('Next: on reading')).toBeInTheDocument();
   });
 
   it('creates a new automation and opens it', async () => {

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	gen "example/sensorHub/gen"
+
 	"go.opentelemetry.io/otel/metric"
 )
 
@@ -25,6 +27,9 @@ type engine struct {
 	automations map[int]Automation
 	triggers    map[int]int       // trigger ID to automation ID
 	lastDue     map[int]time.Time // automation ID to the due time of its latest scheduled run
+	// Only enabled automations' reading triggers are in series and edges.
+	series map[Series][]Trigger
+	edges  map[int]*edge // trigger ID to edge
 }
 
 func newEngine(store Store, executor *executor, logger *slog.Logger, now func() time.Time, lateness metric.Float64Histogram) *engine {
@@ -39,6 +44,8 @@ func newEngine(store Store, executor *executor, logger *slog.Logger, now func() 
 		automations: make(map[int]Automation),
 		triggers:    make(map[int]int),
 		lastDue:     make(map[int]time.Time),
+		series:      make(map[Series][]Trigger),
+		edges:       make(map[int]*edge),
 	}
 	e.scheduler = newScheduler(e.fire, now)
 	return e
@@ -197,6 +204,11 @@ func (e *engine) armLocked(automation Automation) {
 	}
 	now := e.now()
 	for _, trigger := range automation.Triggers {
+		if trigger.Kind == TriggerReading {
+			e.series[trigger.Reading.Series] = append(e.series[trigger.Reading.Series], trigger)
+			e.edges[trigger.ID] = &edge{}
+			continue
+		}
 		from := now
 		if trigger.NextDueAt != nil {
 			from = *trigger.NextDueAt
@@ -220,7 +232,16 @@ func (e *engine) dropLocked(automationID int) {
 	}
 	for _, trigger := range automation.Triggers {
 		e.scheduler.remove(triggerKey(trigger.ID))
+		e.scheduler.remove(holdKey(trigger.ID))
 		delete(e.triggers, trigger.ID)
+		delete(e.edges, trigger.ID)
+		if trigger.Kind == TriggerReading {
+			series := trigger.Reading.Series
+			e.series[series] = slices.DeleteFunc(e.series[series], func(each Trigger) bool { return each.ID == trigger.ID })
+			if len(e.series[series]) == 0 {
+				delete(e.series, series)
+			}
+		}
 	}
 	delete(e.automations, automationID)
 	delete(e.lastDue, automationID)
@@ -235,6 +256,8 @@ func (e *engine) fire(key dueKey, due time.Time) {
 		runCtx := e.runCtx
 		e.mu.Unlock()
 		go e.resume(runCtx, key.id)
+	case dueHold:
+		e.fireHold(key.id, due)
 	}
 }
 
@@ -247,12 +270,7 @@ func (e *engine) fireTrigger(triggerID int, due time.Time) {
 		e.mu.Unlock()
 		return
 	}
-	var trigger Trigger
-	for _, candidate := range automation.Triggers {
-		if candidate.ID == triggerID {
-			trigger = candidate
-		}
-	}
+	trigger := triggerOf(automation, triggerID)
 	// A scheduler that fell behind, such as on a host that slept, arms the
 	// next time after now, so the times it missed do not all fire at once.
 	e.armTriggerLocked(trigger, due, later(due, e.now()))
@@ -266,6 +284,64 @@ func (e *engine) fireTrigger(triggerID int, due time.Time) {
 	}
 	e.lateness.Record(runCtx, float64(e.now().Sub(due).Milliseconds()))
 	e.startTriggeredRun(runCtx, automation, trigger, due)
+}
+
+func triggerOf(automation Automation, triggerID int) Trigger {
+	for _, trigger := range automation.Triggers {
+		if trigger.ID == triggerID {
+			return trigger
+		}
+	}
+	return Trigger{}
+}
+
+// Readings must arrive one at a time, in the order they were ingested.
+func (e *engine) observe(series Series, reading gen.Reading) {
+	now := e.now()
+	type toStart struct {
+		automation Automation
+		trigger    Trigger
+	}
+	var fired []toStart
+	started := make(map[int]bool)
+	e.mu.Lock()
+	for _, trigger := range e.series[series] {
+		switch e.edges[trigger.ID].observe(*trigger.Reading, reading, now) {
+		case edgeFire:
+			automation := e.automations[e.triggers[trigger.ID]]
+			// Two triggers of one automation met by the same reading start
+			// one run between them.
+			if !started[automation.ID] {
+				started[automation.ID] = true
+				fired = append(fired, toStart{automation, trigger})
+			}
+		case edgeHold:
+			e.scheduler.set(holdKey(trigger.ID), e.edges[trigger.ID].holdUntil)
+		case edgeRelease:
+			e.scheduler.remove(holdKey(trigger.ID))
+		}
+	}
+	runCtx := e.runCtx
+	e.mu.Unlock()
+
+	for _, each := range fired {
+		e.startTriggeredRun(runCtx, each.automation, each.trigger, now)
+	}
+}
+
+func (e *engine) fireHold(triggerID int, due time.Time) {
+	e.mu.Lock()
+	held, ok := e.edges[triggerID]
+	if !ok || !held.holdElapsed(due) {
+		e.mu.Unlock()
+		return
+	}
+	automation := e.automations[e.triggers[triggerID]]
+	runCtx := e.runCtx
+	e.mu.Unlock()
+
+	e.lateness.Record(runCtx, float64(e.now().Sub(due).Milliseconds()))
+	e.startTriggeredRun(runCtx, automation, triggerOf(automation, triggerID), due)
 }
 
 // An interval trigger keeps the phase of from, a time it came due or the
