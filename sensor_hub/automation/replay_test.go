@@ -33,9 +33,6 @@ func generatedWeek(seed uint64) []timedValue {
 	return week
 }
 
-// reversals replays the readings through a "falls below" trigger at every
-// half degree across their range, and counts the firings and re-arms that
-// come within window of the one before.
 func reversals(week []timedValue, margin float64, window time.Duration) int {
 	low, high := week[0].value, week[0].value
 	for _, reading := range week {

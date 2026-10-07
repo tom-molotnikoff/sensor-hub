@@ -23,7 +23,6 @@ func fallsBelow(threshold, margin float64) ReadingCondition {
 	return ReadingCondition{Operator: FallsBelow, Threshold: threshold, Margin: margin}
 }
 
-// fires returns which readings fired the edge, by position.
 func fires(condition ReadingCondition, readings ...gen.Reading) []int {
 	var e edge
 	fired := []int{}

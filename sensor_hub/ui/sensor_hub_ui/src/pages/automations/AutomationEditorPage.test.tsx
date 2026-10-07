@@ -213,6 +213,7 @@ describe('AutomationEditorPage', () => {
     fireEvent.click(screen.getByRole('option', { name: 'falls below' }));
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Threshold (°C)' }), { target: { value: '16' } });
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Re-arm margin' }), { target: { value: '0.2' } });
+    expect(screen.getByRole('combobox', { name: 'Unit' })).toHaveTextContent('seconds');
     fireEvent.change(screen.getByRole('spinbutton', { name: 'For at least' }), { target: { value: '5' } });
     fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Unit' }));
     fireEvent.click(screen.getByRole('option', { name: 'minutes' }));

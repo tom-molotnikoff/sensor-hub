@@ -16,7 +16,7 @@ interface DurationFieldProps {
 }
 
 const largestWholeUnit = (seconds: number | undefined, units: readonly DurationUnit[]) =>
-  [...units].reverse().find((unit) => seconds !== undefined && seconds % unit.seconds === 0)?.seconds ?? units[0].seconds;
+  [...units].reverse().find((unit) => seconds !== undefined && seconds !== 0 && seconds % unit.seconds === 0)?.seconds ?? units[0].seconds;
 
 export default function DurationField({ label, seconds, units, min = 1, readOnly, onChange }: DurationFieldProps) {
   const [unit, setUnit] = useState<number>(() => largestWholeUnit(seconds, units));
