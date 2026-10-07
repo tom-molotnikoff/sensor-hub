@@ -150,7 +150,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	appProps.WatchConfigFiles(ctx, func() {
 		propertiesService.BroadcastProperties(context.Background())
 	})
-	cleanupService := service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, maintenanceRepo, readingsSampler, logger)
+	automationRepo := database.NewAutomationRepository(db, logger)
+	cleanupService := service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, automationRepo, commandHistoryRepo, maintenanceRepo, readingsSampler, logger)
 
 	userService := service.NewUserService(userRepo, notificationService, logger)
 	authService := service.NewAuthService(userRepo, sessionRepo, failedRepo, logger)
@@ -173,7 +174,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if err := commandTracker.RecoverPending(ctx); err != nil {
 		return fmt.Errorf("failed to recover pending commands: %w", err)
 	}
-	automationService := automation.NewService(database.NewAutomationRepository(db, logger), sensorService, commandService, notificationService, automationReadings, readingsRepo, logger)
+	automationService := automation.NewService(automationRepo, sensorService, commandService, notificationService, automationReadings, readingsRepo, logger)
 	sensorService.SetSensorObserver(automationService)
 
 	middleware.InitAuthMiddleware(authService)

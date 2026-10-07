@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	appProps "example/sensorHub/application_properties"
 	"log/slog"
 	"testing"
 	"time"
@@ -64,7 +65,7 @@ func TestCleanupService_PerformCleanup_AllEnabled(t *testing.T) {
 	alertRepo.On("DeleteAlertHistoryOlderThan", mock.Anything, mock.AnythingOfType("time.Time")).Return(int64(5), nil)
 	defaultMaintenanceExpectations(maintenanceRepo)
 
-	err := service.performCleanup(context.Background(), 30, 90, 7, 90)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30, SensorDataRetentionDays: 90, FailedLoginRetentionDays: 7, AlertHistoryRetentionDays: 90})
 
 	assert.NoError(t, err)
 	readingsRepo.AssertExpectations(t)
@@ -80,7 +81,7 @@ func TestCleanupService_PerformCleanup_AllDisabled(t *testing.T) {
 	defaultMaintenanceExpectations(maintenanceRepo)
 
 	// Zero values mean no cleanup should happen
-	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{})
 
 	assert.NoError(t, err)
 }
@@ -92,7 +93,7 @@ func TestCleanupService_PerformCleanup_OnlyTemperature(t *testing.T) {
 	readingsRepo.On("DeleteReadingsOlderThanExcludingSensors", mock.Anything, mock.AnythingOfType("time.Time"), []int{}).Return(nil)
 	defaultMaintenanceExpectations(maintenanceRepo)
 
-	err := service.performCleanup(context.Background(), 0, 30, 0, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{SensorDataRetentionDays: 30})
 
 	assert.NoError(t, err)
 	readingsRepo.AssertExpectations(t)
@@ -105,7 +106,7 @@ func TestCleanupService_PerformCleanup_OnlyHealthHistory(t *testing.T) {
 	sensorRepo.On("DeleteHealthHistoryOlderThan", mock.Anything, mock.AnythingOfType("time.Time")).Return(nil)
 	defaultMaintenanceExpectations(maintenanceRepo)
 
-	err := service.performCleanup(context.Background(), 30, 0, 0, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30})
 
 	assert.NoError(t, err)
 	sensorRepo.AssertExpectations(t)
@@ -117,7 +118,7 @@ func TestCleanupService_PerformCleanup_OnlyFailedLogins(t *testing.T) {
 	failedRepo.On("DeleteAttemptsOlderThan", mock.Anything, mock.AnythingOfType("time.Time")).Return(nil)
 	defaultMaintenanceExpectations(maintenanceRepo)
 
-	err := service.performCleanup(context.Background(), 0, 0, 7, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{FailedLoginRetentionDays: 7})
 
 	assert.NoError(t, err)
 	failedRepo.AssertExpectations(t)
@@ -128,7 +129,7 @@ func TestCleanupService_PerformCleanup_TemperatureError_GetSensors(t *testing.T)
 
 	sensorRepo.On("GetSensorsWithRetention", mock.Anything).Return(nil, errors.New("database error"))
 
-	err := service.performCleanup(context.Background(), 30, 90, 7, 90)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30, SensorDataRetentionDays: 90, FailedLoginRetentionDays: 7, AlertHistoryRetentionDays: 90})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "database error")
@@ -140,7 +141,7 @@ func TestCleanupService_PerformCleanup_TemperatureError_GlobalDelete(t *testing.
 	sensorRepo.On("GetSensorsWithRetention", mock.Anything).Return([]gen.Sensor{}, nil)
 	readingsRepo.On("DeleteReadingsOlderThanExcludingSensors", mock.Anything, mock.AnythingOfType("time.Time"), []int{}).Return(errors.New("database error"))
 
-	err := service.performCleanup(context.Background(), 30, 90, 7, 90)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30, SensorDataRetentionDays: 90, FailedLoginRetentionDays: 7, AlertHistoryRetentionDays: 90})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "database error")
@@ -153,7 +154,7 @@ func TestCleanupService_PerformCleanup_HealthHistoryError(t *testing.T) {
 	readingsRepo.On("DeleteReadingsOlderThanExcludingSensors", mock.Anything, mock.AnythingOfType("time.Time"), []int{}).Return(nil)
 	sensorRepo.On("DeleteHealthHistoryOlderThan", mock.Anything, mock.AnythingOfType("time.Time")).Return(errors.New("health history error"))
 
-	err := service.performCleanup(context.Background(), 30, 90, 7, 90)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30, SensorDataRetentionDays: 90, FailedLoginRetentionDays: 7, AlertHistoryRetentionDays: 90})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "health history error")
@@ -167,7 +168,7 @@ func TestCleanupService_PerformCleanup_FailedLoginError(t *testing.T) {
 	sensorRepo.On("DeleteHealthHistoryOlderThan", mock.Anything, mock.AnythingOfType("time.Time")).Return(nil)
 	failedRepo.On("DeleteAttemptsOlderThan", mock.Anything, mock.AnythingOfType("time.Time")).Return(errors.New("failed login error"))
 
-	err := service.performCleanup(context.Background(), 30, 90, 7, 90)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30, SensorDataRetentionDays: 90, FailedLoginRetentionDays: 7, AlertHistoryRetentionDays: 90})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed login error")
@@ -202,7 +203,7 @@ func TestCleanupService_PerformCleanup_RetentionDaysCalculation(t *testing.T) {
 
 	defaultMaintenanceExpectations(maintenanceRepo)
 
-	err := service.performCleanup(context.Background(), 30, 90, 7, 90)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30, SensorDataRetentionDays: 90, FailedLoginRetentionDays: 7, AlertHistoryRetentionDays: 90})
 
 	assert.NoError(t, err)
 }
@@ -224,7 +225,7 @@ func TestCleanupService_PerformCleanup_PerSensorRetention(t *testing.T) {
 	alertRepo.On("DeleteAlertHistoryOlderThan", mock.Anything, mock.AnythingOfType("time.Time")).Return(int64(0), nil)
 	defaultMaintenanceExpectations(maintenanceRepo)
 
-	err := service.performCleanup(context.Background(), 30, 90, 7, 90)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30, SensorDataRetentionDays: 90, FailedLoginRetentionDays: 7, AlertHistoryRetentionDays: 90})
 
 	assert.NoError(t, err)
 	readingsRepo.AssertCalled(t, "DeleteReadingsOlderThanForSensor", mock.Anything, mock.AnythingOfType("time.Time"), 42)
@@ -240,7 +241,7 @@ func TestCleanupService_PerformCleanup_PerSensorRetentionError(t *testing.T) {
 	sensorRepo.On("GetSensorsWithRetention", mock.Anything).Return([]gen.Sensor{customSensor}, nil)
 	readingsRepo.On("DeleteReadingsOlderThanForSensor", mock.Anything, mock.AnythingOfType("time.Time"), 7).Return(errors.New("per-sensor delete error"))
 
-	err := service.performCleanup(context.Background(), 30, 90, 7, 90)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30, SensorDataRetentionDays: 90, FailedLoginRetentionDays: 7, AlertHistoryRetentionDays: 90})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "per-sensor delete error")
@@ -264,7 +265,7 @@ func TestCleanupService_PerformCleanup_MultipleCustomSensors(t *testing.T) {
 	alertRepo.On("DeleteAlertHistoryOlderThan", mock.Anything, mock.AnythingOfType("time.Time")).Return(int64(0), nil)
 	defaultMaintenanceExpectations(maintenanceRepo)
 
-	err := service.performCleanup(context.Background(), 30, 90, 7, 90)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{HealthHistoryRetentionDays: 30, SensorDataRetentionDays: 90, FailedLoginRetentionDays: 7, AlertHistoryRetentionDays: 90})
 
 	assert.NoError(t, err)
 	readingsRepo.AssertExpectations(t)
@@ -286,7 +287,7 @@ func TestCleanupService_PerformCleanup_ReclaimOptimiseAndCheckpointAreCalled(t *
 	maintenanceRepo.On("Checkpoint", mock.Anything).Return(&database.CheckpointResult{LogPages: 4, CheckpointedPages: 4}, nil)
 	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(statsAfter, nil).Once()
 
-	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{})
 
 	assert.NoError(t, err)
 	maintenanceRepo.AssertExpectations(t)
@@ -305,7 +306,7 @@ func TestCleanupService_PerformCleanup_ReclaimLoopsUntilFreelistIsEmpty(t *testi
 	maintenanceRepo.On("Checkpoint", mock.Anything).Return(&database.CheckpointResult{}, nil)
 	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(statsAfter, nil).Once()
 
-	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{})
 
 	assert.NoError(t, err)
 	maintenanceRepo.AssertNumberOfCalls(t, "ReclaimFreePages", 4)
@@ -318,7 +319,7 @@ func TestCleanupService_PerformCleanup_ReclaimError_DoesNotFail(t *testing.T) {
 	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(stats, nil).Once()
 	maintenanceRepo.On("ReclaimFreePages", mock.Anything, reclaimChunkPages).Return(int64(0), errors.New("reclaim error"))
 
-	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{})
 
 	// Maintenance errors are warned, not returned
 	assert.NoError(t, err)
@@ -333,7 +334,7 @@ func TestCleanupService_PerformCleanup_CheckpointError_DoesNotFail(t *testing.T)
 	maintenanceRepo.On("Optimise", mock.Anything).Return(nil)
 	maintenanceRepo.On("Checkpoint", mock.Anything).Return(nil, errors.New("checkpoint error"))
 
-	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{})
 
 	assert.NoError(t, err)
 }
@@ -343,7 +344,7 @@ func TestCleanupService_PerformCleanup_DatabaseStatsError_DoesNotFail(t *testing
 
 	maintenanceRepo.On("DatabaseStats", mock.Anything).Return(nil, errors.New("stats error"))
 
-	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{})
 
 	// Maintenance errors are warned, not returned
 	assert.NoError(t, err)
@@ -358,7 +359,7 @@ func TestCleanupService_PerformCleanup_OptimiseError_DoesNotFail(t *testing.T) {
 	maintenanceRepo.On("Optimise", mock.Anything).Return(errors.New("optimise error"))
 	maintenanceRepo.On("Checkpoint", mock.Anything).Return(&database.CheckpointResult{}, nil)
 
-	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{})
 
 	assert.NoError(t, err)
 }
@@ -378,7 +379,7 @@ func TestCleanupService_PerformCleanup_AlertHistoryCleanup(t *testing.T) {
 	})).Return(int64(12), nil)
 	defaultMaintenanceExpectations(maintenanceRepo)
 
-	err := service.performCleanup(context.Background(), 0, 0, 0, 45)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{AlertHistoryRetentionDays: 45})
 
 	assert.NoError(t, err)
 	alertRepo.AssertExpectations(t)
@@ -389,7 +390,7 @@ func TestCleanupService_PerformCleanup_AlertHistoryCleanupDisabled(t *testing.T)
 
 	defaultMaintenanceExpectations(maintenanceRepo)
 
-	err := service.performCleanup(context.Background(), 0, 0, 0, 0)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{})
 
 	assert.NoError(t, err)
 	alertRepo.AssertNotCalled(t, "DeleteAlertHistoryOlderThan")
@@ -401,10 +402,63 @@ func TestCleanupService_PerformCleanup_AlertHistoryError_DoesNotFail(t *testing.
 	alertRepo.On("DeleteAlertHistoryOlderThan", mock.Anything, mock.AnythingOfType("time.Time")).Return(int64(0), errors.New("alert history error"))
 	defaultMaintenanceExpectations(maintenanceRepo)
 
-	err := service.performCleanup(context.Background(), 0, 0, 0, 90)
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{AlertHistoryRetentionDays: 90})
 
 	// Alert history errors are warned, not returned
 	assert.NoError(t, err)
+}
+
+// ============================================================================
+// Automation run and command history cleanup tests
+// ============================================================================
+
+type mockHistoryPruner struct {
+	mock.Mock
+}
+
+func (m *mockHistoryPruner) DeleteRunsFinishedBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	args := m.Called(ctx, cutoff)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *mockHistoryPruner) DeleteCommandsSentBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	args := m.Called(ctx, cutoff)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func cutoffDaysAgo(days int) any {
+	expected := time.Now().AddDate(0, 0, -days)
+	return mock.MatchedBy(func(cutoff time.Time) bool { return cutoff.Sub(expected).Abs() < time.Second })
+}
+
+func TestCleanupService_PerformCleanup_PrunesAutomationRunsAndCommandHistory(t *testing.T) {
+	service, _, _, _, _, maintenanceRepo := setupCleanupService()
+	pruner := new(mockHistoryPruner)
+	service.automationRunsRepo = pruner
+	service.commandHistoryRepo = pruner
+
+	pruner.On("DeleteRunsFinishedBefore", mock.Anything, cutoffDaysAgo(30)).Return(int64(3), nil)
+	pruner.On("DeleteCommandsSentBefore", mock.Anything, cutoffDaysAgo(90)).Return(int64(7), nil)
+	defaultMaintenanceExpectations(maintenanceRepo)
+
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{AutomationHistoryRetentionDays: 30, CommandHistoryRetentionDays: 90})
+
+	assert.NoError(t, err)
+	pruner.AssertExpectations(t)
+}
+
+func TestCleanupService_PerformCleanup_ZeroKeepsAutomationRunsAndCommandHistory(t *testing.T) {
+	service, _, _, _, _, maintenanceRepo := setupCleanupService()
+	pruner := new(mockHistoryPruner)
+	service.automationRunsRepo = pruner
+	service.commandHistoryRepo = pruner
+	defaultMaintenanceExpectations(maintenanceRepo)
+
+	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{})
+
+	assert.NoError(t, err)
+	pruner.AssertNotCalled(t, "DeleteRunsFinishedBefore", mock.Anything, mock.Anything)
+	pruner.AssertNotCalled(t, "DeleteCommandsSentBefore", mock.Anything, mock.Anything)
 }
 
 // ============================================================================
@@ -418,7 +472,7 @@ func TestNewCleanupService_ReturnsService(t *testing.T) {
 	alertRepo := new(MockAlertRepository)
 	maintenanceRepo := new(MockMaintenanceRepository)
 
-	service := NewCleanupService(sensorRepo, readingsRepo, failedRepo, nil, alertRepo, maintenanceRepo, new(MockReadingsSampler), slog.Default())
+	service := NewCleanupService(sensorRepo, readingsRepo, failedRepo, nil, alertRepo, nil, nil, maintenanceRepo, new(MockReadingsSampler), slog.Default())
 
 	assert.NotNil(t, service)
 }

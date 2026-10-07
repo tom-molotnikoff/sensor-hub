@@ -190,7 +190,8 @@ func (e *Env) boot(listenAddr string) error {
 	readingsService := service.NewReadingsService(readingsRepo, mtRepo, tiers, appProps.AppConfig().ReadingsAggregationEnabled, logger)
 	propertiesService := service.NewPropertiesService(logger)
 	maintenanceRepo := database.NewMaintenanceRepository(db)
-	_ = service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, maintenanceRepo, readingsSampler, logger)
+	automationRepo := database.NewAutomationRepository(db, logger)
+	_ = service.NewCleanupService(sensorRepo, readingsRepo, failedRepo, notificationRepo, alertRepo, automationRepo, commandHistoryRepo, maintenanceRepo, readingsSampler, logger)
 
 	userService := service.NewUserService(userRepo, notificationService, logger)
 	authService := service.NewAuthService(userRepo, sessionRepo, failedRepo, logger)
@@ -215,7 +216,7 @@ func (e *Env) boot(listenAddr string) error {
 		db.Close()
 		return fmt.Errorf("failed to recover pending commands: %w", err)
 	}
-	automationService := automation.NewService(database.NewAutomationRepository(db, logger), sensorService, commandService, notificationService, automationReadings, readingsRepo, logger)
+	automationService := automation.NewService(automationRepo, sensorService, commandService, notificationService, automationReadings, readingsRepo, logger)
 	sensorService.SetSensorObserver(automationService)
 
 	server := api.NewServer(

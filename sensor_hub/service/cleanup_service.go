@@ -45,29 +45,41 @@ func newSQLiteInstruments() *sqliteInstruments {
 	}
 }
 
-type cleanupService struct {
-	sensorRepo       database.SensorRepositoryInterface[gen.Sensor]
-	readingsRepo     database.ReadingsRepository
-	failedRepo       database.FailedLoginRepository
-	notificationRepo database.NotificationRepository
-	alertRepo        database.AlertRepository
-	maintenanceRepo  database.MaintenanceRepository
-	readingsSampler  ReadingsSamplerInterface
-	logger           *slog.Logger
-	metrics          *sqliteInstruments
+type AutomationRunPruner interface {
+	DeleteRunsFinishedBefore(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
-func NewCleanupService(sensorRepo database.SensorRepositoryInterface[gen.Sensor], readingsRepo database.ReadingsRepository, failedRepo database.FailedLoginRepository, notificationRepo database.NotificationRepository, alertRepo database.AlertRepository, maintenanceRepo database.MaintenanceRepository, readingsSampler ReadingsSamplerInterface, logger *slog.Logger) CleanupServiceInterface {
+type CommandHistoryPruner interface {
+	DeleteCommandsSentBefore(ctx context.Context, cutoff time.Time) (int64, error)
+}
+
+type cleanupService struct {
+	sensorRepo         database.SensorRepositoryInterface[gen.Sensor]
+	readingsRepo       database.ReadingsRepository
+	failedRepo         database.FailedLoginRepository
+	notificationRepo   database.NotificationRepository
+	alertRepo          database.AlertRepository
+	automationRunsRepo AutomationRunPruner
+	commandHistoryRepo CommandHistoryPruner
+	maintenanceRepo    database.MaintenanceRepository
+	readingsSampler    ReadingsSamplerInterface
+	logger             *slog.Logger
+	metrics            *sqliteInstruments
+}
+
+func NewCleanupService(sensorRepo database.SensorRepositoryInterface[gen.Sensor], readingsRepo database.ReadingsRepository, failedRepo database.FailedLoginRepository, notificationRepo database.NotificationRepository, alertRepo database.AlertRepository, automationRunsRepo AutomationRunPruner, commandHistoryRepo CommandHistoryPruner, maintenanceRepo database.MaintenanceRepository, readingsSampler ReadingsSamplerInterface, logger *slog.Logger) CleanupServiceInterface {
 	return &cleanupService{
-		sensorRepo:       sensorRepo,
-		readingsRepo:     readingsRepo,
-		failedRepo:       failedRepo,
-		notificationRepo: notificationRepo,
-		alertRepo:        alertRepo,
-		maintenanceRepo:  maintenanceRepo,
-		readingsSampler:  readingsSampler,
-		logger:           logger.With("component", "cleanup_service"),
-		metrics:          newSQLiteInstruments(),
+		sensorRepo:         sensorRepo,
+		readingsRepo:       readingsRepo,
+		failedRepo:         failedRepo,
+		notificationRepo:   notificationRepo,
+		alertRepo:          alertRepo,
+		automationRunsRepo: automationRunsRepo,
+		commandHistoryRepo: commandHistoryRepo,
+		maintenanceRepo:    maintenanceRepo,
+		readingsSampler:    readingsSampler,
+		logger:             logger.With("component", "cleanup_service"),
+		metrics:            newSQLiteInstruments(),
 	}
 }
 
@@ -81,14 +93,13 @@ func (cs *cleanupService) StartPeriodicCleanup(ctx context.Context) {
 		RunImmediately: true,
 	}, func(ctx context.Context) error {
 		// read at each run so retention changes apply without a restart
-		cfg := appProps.AppConfig()
-		return cs.performCleanup(ctx, cfg.HealthHistoryRetentionDays, cfg.SensorDataRetentionDays, cfg.FailedLoginRetentionDays, cfg.AlertHistoryRetentionDays)
+		return cs.performCleanup(ctx, appProps.AppConfig())
 	})
 }
 
-func (cs *cleanupService) performCleanup(ctx context.Context, healthHistoryRetentionDays int, sensorDataRetentionDays int, failedLoginRetentionDays int, alertHistoryRetentionDays int) error {
-	if sensorDataRetentionDays > 0 {
-		cs.logger.Debug("cleaning up old sensor readings", "retention_days", sensorDataRetentionDays)
+func (cs *cleanupService) performCleanup(ctx context.Context, cfg *appProps.ApplicationConfiguration) error {
+	if cfg.SensorDataRetentionDays > 0 {
+		cs.logger.Debug("cleaning up old sensor readings", "retention_days", cfg.SensorDataRetentionDays)
 
 		// Apply per-sensor retention first, collecting the IDs of sensors that have a custom value.
 		customSensors, err := cs.sensorRepo.GetSensorsWithRetention(ctx)
@@ -109,31 +120,31 @@ func (cs *cleanupService) performCleanup(ctx context.Context, healthHistoryReten
 		}
 
 		// Apply global retention to all remaining sensors (excluding those already handled above).
-		globalCutoff := time.Now().AddDate(0, 0, -sensorDataRetentionDays)
+		globalCutoff := time.Now().AddDate(0, 0, -cfg.SensorDataRetentionDays)
 		if err := cs.readingsRepo.DeleteReadingsOlderThanExcludingSensors(ctx, globalCutoff, customSensorIds); err != nil {
 			return fmt.Errorf("failed global cleanup: %w", err)
 		}
-		cs.logger.Info("deleted old sensor readings", "retention_days", sensorDataRetentionDays, "custom_sensors", len(customSensorIds))
+		cs.logger.Info("deleted old sensor readings", "retention_days", cfg.SensorDataRetentionDays, "custom_sensors", len(customSensorIds))
 	}
 	cs.logger.Info("sensor readings cleanup completed")
 
-	if healthHistoryRetentionDays > 0 {
-		cs.logger.Debug("cleaning up old health history", "retention_days", healthHistoryRetentionDays)
-		err := cs.sensorRepo.DeleteHealthHistoryOlderThan(ctx, time.Now().AddDate(0, 0, -healthHistoryRetentionDays))
+	if cfg.HealthHistoryRetentionDays > 0 {
+		cs.logger.Debug("cleaning up old health history", "retention_days", cfg.HealthHistoryRetentionDays)
+		err := cs.sensorRepo.DeleteHealthHistoryOlderThan(ctx, time.Now().AddDate(0, 0, -cfg.HealthHistoryRetentionDays))
 		if err != nil {
 			return err
 		}
-		cs.logger.Info("deleted old health history records", "retention_days", healthHistoryRetentionDays)
+		cs.logger.Info("deleted old health history records", "retention_days", cfg.HealthHistoryRetentionDays)
 	}
 	cs.logger.Info("health history cleanup completed")
 
-	if failedLoginRetentionDays > 0 {
-		cs.logger.Debug("cleaning up old failed login attempts", "retention_days", failedLoginRetentionDays)
-		threshold := time.Now().AddDate(0, 0, -failedLoginRetentionDays)
+	if cfg.FailedLoginRetentionDays > 0 {
+		cs.logger.Debug("cleaning up old failed login attempts", "retention_days", cfg.FailedLoginRetentionDays)
+		threshold := time.Now().AddDate(0, 0, -cfg.FailedLoginRetentionDays)
 		if err := cs.failedRepo.DeleteAttemptsOlderThan(ctx, threshold); err != nil {
 			return err
 		}
-		cs.logger.Info("deleted old failed login attempts", "retention_days", failedLoginRetentionDays)
+		cs.logger.Info("deleted old failed login attempts", "retention_days", cfg.FailedLoginRetentionDays)
 	}
 
 	// Clean up old notifications (90 days retention for dismissed notifications)
@@ -150,14 +161,32 @@ func (cs *cleanupService) performCleanup(ctx context.Context, healthHistoryReten
 	}
 
 	// Clean up old alert history
-	if cs.alertRepo != nil && alertHistoryRetentionDays > 0 {
-		cs.logger.Debug("cleaning up old alert history", "retention_days", alertHistoryRetentionDays)
-		threshold := time.Now().AddDate(0, 0, -alertHistoryRetentionDays)
+	if cs.alertRepo != nil && cfg.AlertHistoryRetentionDays > 0 {
+		cs.logger.Debug("cleaning up old alert history", "retention_days", cfg.AlertHistoryRetentionDays)
+		threshold := time.Now().AddDate(0, 0, -cfg.AlertHistoryRetentionDays)
 		deleted, err := cs.alertRepo.DeleteAlertHistoryOlderThan(ctx, threshold)
 		if err != nil {
 			cs.logger.Warn("failed to cleanup old alert history", "error", err)
 		} else if deleted > 0 {
-			cs.logger.Info("deleted old alert history", "count", deleted, "retention_days", alertHistoryRetentionDays)
+			cs.logger.Info("deleted old alert history", "count", deleted, "retention_days", cfg.AlertHistoryRetentionDays)
+		}
+	}
+
+	if days := cfg.AutomationHistoryRetentionDays; days > 0 {
+		deleted, err := cs.automationRunsRepo.DeleteRunsFinishedBefore(ctx, time.Now().AddDate(0, 0, -days))
+		if err != nil {
+			cs.logger.Warn("failed to cleanup old automation runs", "error", err)
+		} else if deleted > 0 {
+			cs.logger.Info("deleted old automation runs", "count", deleted, "retention_days", days)
+		}
+	}
+
+	if days := cfg.CommandHistoryRetentionDays; days > 0 {
+		deleted, err := cs.commandHistoryRepo.DeleteCommandsSentBefore(ctx, time.Now().AddDate(0, 0, -days))
+		if err != nil {
+			cs.logger.Warn("failed to cleanup old command history", "error", err)
+		} else if deleted > 0 {
+			cs.logger.Info("deleted old command history", "count", deleted, "retention_days", days)
 		}
 	}
 

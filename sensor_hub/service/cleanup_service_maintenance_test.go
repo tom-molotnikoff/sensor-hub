@@ -51,6 +51,8 @@ func seededCleanupService(t *testing.T, shape seed.Shape) (*cleanupService, *pag
 		database.NewFailedLoginRepository(handles, logger),
 		nil,
 		nil,
+		nil,
+		nil,
 		spy,
 		NewReadingsSampler(readingsRepo, logger),
 		logger,
@@ -76,7 +78,7 @@ func TestCleanupService_PerformCleanup_ReturnsFreedPagesToTheFile(t *testing.T) 
 
 	sizeBefore := fileSize(t, dbPath)
 
-	require.NoError(t, service.performCleanup(context.Background(), 0, 30, 0, 0))
+	require.NoError(t, service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{SensorDataRetentionDays: 30}))
 
 	stats, err := service.maintenanceRepo.DatabaseStats(context.Background())
 	require.NoError(t, err)

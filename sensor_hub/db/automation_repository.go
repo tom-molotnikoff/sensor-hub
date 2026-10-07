@@ -437,6 +437,16 @@ func (r *AutomationRepository) FinishRun(ctx context.Context, runID int, status 
 	return requireRun(result, err, "finish automation run")
 }
 
+func (r *AutomationRepository) DeleteRunsFinishedBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	result, err := r.db.Writer.ExecContext(ctx,
+		"DELETE FROM automation_runs WHERE finished_at < ? AND status NOT IN (?, ?)",
+		cutoff.UTC(), automation.RunRunning, automation.RunWaiting)
+	if err != nil {
+		return 0, fmt.Errorf("delete finished automation runs: %w", err)
+	}
+	return result.RowsAffected()
+}
+
 func (r *AutomationRepository) ListRuns(ctx context.Context, automationID int) ([]automation.Run, error) {
 	return r.queryRuns(ctx, "WHERE automation_id = ?", automationID)
 }

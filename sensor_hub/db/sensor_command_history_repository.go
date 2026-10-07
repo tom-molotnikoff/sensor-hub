@@ -112,6 +112,14 @@ func (r *SensorCommandHistoryRepository) MarkFailed(ctx context.Context, id int)
 	return rowsAffected(result)
 }
 
+func (r *SensorCommandHistoryRepository) DeleteCommandsSentBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	result, err := r.db.Writer.ExecContext(ctx, `DELETE FROM sensor_command_history WHERE sent_at < ?`, cutoff.UTC())
+	if err != nil {
+		return 0, fmt.Errorf("error deleting old sensor command history: %w", err)
+	}
+	return result.RowsAffected()
+}
+
 func (r *SensorCommandHistoryRepository) ListPendingCommands(ctx context.Context) ([]PendingCommandRecord, error) {
 	query := `SELECT id, sensor_id, automation_run_id, property, value, status, timeout_seconds, sent_at, acknowledged_at, acknowledged_value
 		FROM sensor_command_history

@@ -41,6 +41,7 @@ Migrations are forward-only. There is no automated rollback mechanism, which is 
 Some releases change what the hub deletes. Read these before upgrading past the release that brings them.
 
 - **Automations:** deleting a sensor now also deletes every automation that uses it, including any run in progress. See [Deleting a sensor](automations#deleting-a-sensor).
+- **Command history:** command history is now deleted after `command.history.retention.days`, 90 days by default, including commands sent by people. The first cleanup runs as the upgraded hub starts and deletes every command sent more than 90 days ago. To keep all of it, add `command.history.retention.days=0` to `application.properties` before upgrading. The Properties page of the release you are upgrading from does not have this property. See [Command history retention](configuration#command-history-retention).
 
 ## Configuration files
 
