@@ -93,3 +93,9 @@ Per-sensor retention can be configured:
 When a per-sensor retention is set, it always takes precedence over the global default. The cleanup task processes sensors with custom retention first, then applies the global retention to all remaining sensors.
 
 The effective retention for a sensor can be seen via the `GET /sensors/:name` endpoint, which returns an `effective_retention_hours` field showing the retention that will actually be applied during cleanup.
+
+## Deleting sensors
+
+Deleting a sensor deletes it with all of its readings, health history and command history. It cannot be undone. Disable the sensor instead to stop collecting from it and keep its history.
+
+Deleting a sensor also deletes every [automation](../automations#deleting-a-sensor) that uses it, in a trigger or a set step, including any run in progress. An automation that also switches other devices is deleted as a whole, and its run history goes with it.

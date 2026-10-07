@@ -250,6 +250,30 @@ func setStepFromInput(ctx context.Context, sensors SensorLookup, i int, step gen
 	return parsed, nil
 }
 
+// A value that no longer fits its capability does not break an automation: the
+// step fails when it runs.
+func brokenReason(ctx context.Context, sensors SensorLookup, steps []Step) (string, error) {
+	for i, step := range steps {
+		if step.Kind != StepSet {
+			continue
+		}
+		sensor, err := sensors.ServiceGetSensorById(ctx, step.SensorID)
+		if errors.Is(err, sql.ErrNoRows) || (err == nil && sensor == nil) {
+			return fmt.Sprintf("step %d: sensor %d no longer exists", i+1, step.SensorID), nil
+		}
+		if err != nil {
+			return "", fmt.Errorf("look up sensor %d: %w", step.SensorID, err)
+		}
+		if sensor.Capabilities == nil || len(*sensor.Capabilities) == 0 {
+			return fmt.Sprintf("step %d: %s is no longer controllable", i+1, sensor.Name), nil
+		}
+		if _, err := writableCapability(*sensor, step.Property); err != nil {
+			return fmt.Sprintf("step %d: %s no longer has %s", i+1, sensor.Name, step.Property), nil
+		}
+	}
+	return "", nil
+}
+
 // The sensor must come from the sensor service, which fills in capabilities.
 func writableCapability(sensor gen.Sensor, property string) (gen.Capability, error) {
 	if sensor.Capabilities == nil || len(*sensor.Capabilities) == 0 {

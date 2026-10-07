@@ -824,6 +824,10 @@ func TestSensorRepository_DeleteSensorByName_Success(t *testing.T) {
 		WithArgs(1).
 		WillReturnResult(sqlmock.NewResult(0, 3))
 
+	mock.ExpectExec("DELETE FROM automations WHERE id IN").
+		WithArgs(1, 1).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
 	// Purge command history
 	mock.ExpectExec("DELETE FROM sensor_command_history WHERE sensor_id = \\?").
 		WithArgs(1).
@@ -902,6 +906,10 @@ func TestSensorRepository_DeleteSensorByName_NoRowsDeleted(t *testing.T) {
 		WithArgs(1).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
+	mock.ExpectExec("DELETE FROM automations WHERE id IN").
+		WithArgs(1, 1).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
 	mock.ExpectExec("DELETE FROM sensor_command_history WHERE sensor_id = \\?").
 		WithArgs(1).
 		WillReturnResult(sqlmock.NewResult(0, 0))
@@ -910,10 +918,7 @@ func TestSensorRepository_DeleteSensorByName_NoRowsDeleted(t *testing.T) {
 		WithArgs("test-sensor").
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
-	// The implementation returns error but err variable is nil so defer commits
-	// This is a bug in the implementation - it should set err before returning
-	// For now, we expect commit since that's what the code does
-	mock.ExpectCommit()
+	mock.ExpectRollback()
 
 	err := repo.DeleteSensorByName(context.Background(), "test-sensor")
 

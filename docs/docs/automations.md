@@ -198,7 +198,7 @@ This keeps a device from being stranded. Saving "Evening lights" during its four
 
 ## Run now
 
-**Run now** in the editor, or `POST /api/automations/{id}/run`, starts a run straight away. The run is recorded with trigger kind `manual` and the user who asked for it, in `initiated_by`. It works on an automation that is switched off, and it follows the automation's mode like any trigger: in `single` mode an automation that is already running records a `skipped` run instead.
+**Run now** in the editor, or `POST /api/automations/{id}/run`, starts a run straight away. The run is recorded with trigger kind `manual` and the user who asked for it, in `initiated_by`. It works on an automation that is switched off, and it follows the automation's mode like any trigger: in `single` mode an automation that is already running records a `skipped` run instead. It is refused with `409` on an automation that is [broken](#broken).
 
 ## Cancelling a run
 
@@ -232,17 +232,37 @@ Commands sent by a run go out from the hub itself rather than from a user. In a 
 
 Each automation reports a status:
 
-| Status    | Meaning                                         |
-|-----------|-------------------------------------------------|
-| `off`     | switched off; its triggers start nothing        |
-| `armed`   | switched on and waiting for a trigger           |
-| `running` | a run is in progress or waiting                 |
+| Status    | Meaning                                                        |
+|-----------|----------------------------------------------------------------|
+| `off`     | switched off; its triggers start nothing                       |
+| `armed`   | switched on and waiting for a trigger                          |
+| `running` | a run is in progress or waiting                                |
+| `broken`  | a set step no longer matches its device; see [Broken](#broken) |
 
 A separate `last_run_failed` flag is true from a failed run until the next run that succeeds.
 
-`next_fire_at` is when the earliest schedule or interval trigger next comes due, in UTC, with `hub_timezone` alongside for showing it in local time. It is empty when the automation is off or only has reading triggers.
+`next_fire_at` is when the earliest schedule or interval trigger next comes due, in UTC, with `hub_timezone` alongside for showing it in local time. It is empty when the automation is off or broken, or only has reading triggers.
+
+### Broken
+
+An automation is broken when a set step targets a property its device no longer has as a writable capability, or a device that can no longer be controlled. This happens without anything being deleted. A Zigbee device's capabilities come from the `exposes` metadata that Zigbee2MQTT republishes with its device list, so a firmware update or a re-pair can drop a property.
+
+`status_reason` names the step and the property, such as `step 2: hallway-lamp no longer has color_temp_preset`, and the Automations list shows it under the Broken status.
+
+- A broken automation starts no runs and records nothing, however often its triggers come due. Run now is refused with `409`. A run that was already going carries on, and fails at the step that no longer matches.
+- The hub checks again whenever a device's metadata or driver changes: a Zigbee2MQTT device-list refresh, or a sensor update through the API. It also checks every automation when it starts.
+- When an automation becomes broken, holders of `manage_automations` get one `automation_failure` notification naming the automation and the reason. No more are sent while it stays broken, and a restart does not send another.
+- It stops being broken, without a notification, when the property comes back in a later device-list refresh, or when you edit it so that every set step is valid and save it. If it breaks again later, it notifies again.
+
+A value that no longer fits its property, such as a brightness above a new maximum, does not make an automation broken. The step fails when it runs.
 
 Switch an automation on or off with `PUT /api/automations/{id}/enabled`. Deleting an automation deletes its triggers, steps and run history. The commands its runs sent stay in command history, without the link to the run. An automation with a running or waiting run cannot be deleted: the delete returns `409` until the run is cancelled or finishes.
+
+### Deleting a sensor
+
+Deleting a sensor deletes every automation that uses it in a trigger or a set step, including any run in progress. Nothing asks first. An automation that switches the deleted device and then another device is deleted outright, so the other device is not switched by it again, and a run waiting to switch it is dropped. Commands those automations sent to other devices stay in command history, without the link to the run.
+
+To keep an automation, edit it to stop using the sensor before deleting the sensor.
 
 ## Permissions
 

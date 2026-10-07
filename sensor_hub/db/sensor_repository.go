@@ -223,7 +223,7 @@ func (s *SensorRepository) GetSensorHealthHistoryById(ctx context.Context, senso
 	return history, nil
 }
 
-func (s *SensorRepository) DeleteSensorByName(ctx context.Context, name string) error {
+func (s *SensorRepository) DeleteSensorByName(ctx context.Context, name string) (err error) {
 	sensorId, err := s.GetSensorIdByName(ctx, name)
 	if err != nil {
 		return fmt.Errorf("error retrieving sensor ID for deletion: %w", err)
@@ -267,6 +267,15 @@ func (s *SensorRepository) DeleteSensorByName(ctx context.Context, name string) 
 	_, err = txn.Exec(healthHistoryPurgeQuery, sensorId)
 	if err != nil {
 		return fmt.Errorf("error purging sensor health history for sensor ID %d: %w", sensorId, err)
+	}
+	// SQLite cannot cascade from a trigger or step up to its automation.
+	// Deleting the automation cascades to its triggers, steps and runs, and
+	// clears automation_run_id on the commands those runs sent to other sensors.
+	_, err = txn.Exec(`DELETE FROM automations WHERE id IN (
+			SELECT automation_id FROM automation_triggers WHERE sensor_id = ?
+			UNION SELECT automation_id FROM automation_steps WHERE sensor_id = ?)`, sensorId, sensorId)
+	if err != nil {
+		return fmt.Errorf("error deleting automations that use sensor ID %d: %w", sensorId, err)
 	}
 	commandHistoryPurgeQuery := fmt.Sprintf("DELETE FROM %s WHERE sensor_id = ?", TableSensorCommandHistory)
 	_, err = txn.Exec(commandHistoryPurgeQuery, sensorId)

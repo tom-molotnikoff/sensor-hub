@@ -331,6 +331,7 @@ func TestSensorService_ServiceDeleteSensorByName_Success(t *testing.T) {
 	service, sensorRepo, _, _, _ := setupSensorService()
 
 	sensorRepo.On("SensorExists", mock.Anything, "TestSensor").Return(true, nil)
+	sensorRepo.On("GetSensorIdByName", mock.Anything, "TestSensor").Return(1, nil)
 	sensorRepo.On("DeleteSensorByName", mock.Anything, "TestSensor").Return(nil)
 	sensorRepo.On("GetAllSensors", mock.Anything).Return([]gen.Sensor{}, nil).Maybe()
 
@@ -355,6 +356,7 @@ func TestSensorService_ServiceDeleteSensorByName_Error(t *testing.T) {
 	service, sensorRepo, _, _, _ := setupSensorService()
 
 	sensorRepo.On("SensorExists", mock.Anything, "TestSensor").Return(true, nil)
+	sensorRepo.On("GetSensorIdByName", mock.Anything, "TestSensor").Return(1, nil)
 	sensorRepo.On("DeleteSensorByName", mock.Anything, "TestSensor").Return(errors.New("database error"))
 
 	err := service.ServiceDeleteSensorByName(context.Background(), "TestSensor")

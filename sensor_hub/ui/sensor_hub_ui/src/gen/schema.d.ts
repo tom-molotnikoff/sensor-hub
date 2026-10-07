@@ -266,7 +266,7 @@ export interface paths {
         post?: never;
         /**
          * Delete sensor by name
-         * @description **WARNING:** Deletes a sensor and ALL associated historical data. This operation is irreversible. Consider using disable instead. Requires delete_sensors permission (separate from manage_sensors).
+         * @description **WARNING:** Deletes a sensor and ALL associated historical data. It also deletes every automation that uses the sensor in a trigger or a step, including any run it has in progress, with that automation's run history. Commands those automations sent to other sensors stay in their command history. This operation is irreversible. Consider using disable instead. Requires delete_sensors permission (separate from manage_sensors).
          */
         delete: operations["deleteSensorByName"];
         options?: never;
@@ -1612,7 +1612,7 @@ export interface paths {
         put?: never;
         /**
          * Run an automation now
-         * @description Starts a run straight away, recorded with trigger kind "manual" and the user who asked for it. It works on an automation that is off, and follows the automation's mode: in "single" mode, an automation that is already running records a skipped run instead, and in "restart" mode the active run is cancelled first. Requires both manage_automations and control_sensors permissions.
+         * @description Starts a run straight away, recorded with trigger kind "manual" and the user who asked for it. It works on an automation that is off, and follows the automation's mode: in "single" mode, an automation that is already running records a skipped run instead, and in "restart" mode the active run is cancelled first. It is refused on an automation that is broken. Requires both manage_automations and control_sensors permissions.
          */
         post: operations["runAutomation"];
         delete?: never;
@@ -2736,17 +2736,17 @@ export interface components {
             triggers: components["schemas"]["AutomationTrigger"][];
             steps: components["schemas"]["AutomationStep"][];
             /**
-             * @description "off" when switched off, "running" while a run is running or waiting, otherwise "armed".
+             * @description "broken" when a set step targets a property that is no longer a writable capability of its sensor, or a sensor that is no longer controllable. A broken automation starts no runs until it is fixed, whether or not it is switched on. Otherwise "off" when switched off, "running" while a run is running or waiting, and "armed".
              * @enum {string}
              */
-            status: "off" | "armed" | "running";
-            /** @description One line explaining the status, when it needs one. */
+            status: "off" | "armed" | "running" | "broken";
+            /** @description Why the automation is broken, naming the step and the property, such as "step 2: hallway-lamp no longer has color_temp_preset". Null unless the status is "broken". */
             status_reason?: string | null;
             /** @description True from a failed run until the next run that succeeds. */
             last_run_failed: boolean;
             /**
              * Format: date-time
-             * @description When the earliest schedule or interval trigger next comes due, in UTC. Null when the automation is off or only has reading triggers.
+             * @description When the earliest schedule or interval trigger next comes due, in UTC. Null when the automation is off or broken, or only has reading triggers.
              */
             next_fire_at?: string | null;
             /**
@@ -7515,6 +7515,15 @@ export interface operations {
             };
             /** @description Automation not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The automation is broken */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

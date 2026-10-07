@@ -35,6 +35,9 @@ func automationView(automation Automation, state RunState, nextFireAt *time.Time
 		UpdatedAt:     automation.UpdatedAt.UTC(),
 	}
 	switch {
+	case automation.BrokenReason != "":
+		reason := automation.BrokenReason
+		view.Status, view.StatusReason = gen.AutomationStatusBroken, &reason
 	case !automation.Enabled:
 		view.Status = gen.AutomationStatusOff
 	case state.Running:

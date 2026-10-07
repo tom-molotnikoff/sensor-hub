@@ -36,6 +36,12 @@ Embedded migrations run automatically on startup. The migrate library tracks whi
 
 Migrations are forward-only. There is no automated rollback mechanism, which is why backing up the database before upgrading is recommended.
 
+## Changes that delete data
+
+Some releases change what the hub deletes. Read these before upgrading past the release that brings them.
+
+- **Automations:** deleting a sensor now also deletes every automation that uses it, including any run in progress. See [Deleting a sensor](automations#deleting-a-sensor).
+
 ## Configuration files
 
 Configuration files in `/etc/sensor-hub/` are marked as `noreplace` (RPM) or `conffiles` (DEB). Your edits are preserved during upgrades:

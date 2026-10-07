@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	appProps "example/sensorHub/application_properties"
@@ -36,6 +37,9 @@ type Store interface {
 	// automation has a running or waiting run.
 	DeleteAutomation(ctx context.Context, id int) error
 	RunStates(ctx context.Context) (map[int]RunState, error)
+	// SetBrokenReason stores the reason, empty when the automation is not
+	// broken, and returns the reason it replaced.
+	SetBrokenReason(ctx context.Context, id int, reason string) (string, error)
 
 	SetTriggerDue(ctx context.Context, triggerID int, due time.Time) error
 	// SetMarginHint clears the hint when given nil.
@@ -103,6 +107,10 @@ type Service struct {
 	engine   *engine
 	logger   *slog.Logger
 	now      func() time.Time
+	// rechecking keeps two re-checks of one automation from storing their
+	// reasons in the opposite order to the sensor changes they saw, and holds
+	// a re-check off until the engine has loaded what startup found.
+	rechecking sync.Mutex
 }
 
 func NewService(store Store, sensors SensorLookup, commands CommandSender, notifier Notifier, readings *ReadingConsumer, history ReadingHistory, logger *slog.Logger) *Service {
@@ -141,7 +149,14 @@ func (s *Service) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load active automation runs: %w", err)
 	}
+	s.rechecking.Lock()
+	// A sensor can change while the hub is down, or without the re-check
+	// being told.
+	for i := range automations {
+		automations[i].BrokenReason = s.recheckLocked(ctx, automations[i])
+	}
 	s.engine.load(ctx, hubZone(), automations, active, missedGrace())
+	s.rechecking.Unlock()
 
 	stopListening := appProps.OnReload(func(cfg *appProps.ApplicationConfiguration) {
 		s.engine.setZone(cfg.HubLocation())
@@ -225,6 +240,9 @@ func (s *Service) Update(ctx context.Context, id int, input gen.AutomationInput)
 	}
 	s.engine.put(saved)
 	s.logger.Info("automation updated", "automation_id", saved.ID, "name", saved.Name)
+	s.rechecking.Lock()
+	saved.BrokenReason = s.recheckLocked(ctx, saved)
+	s.rechecking.Unlock()
 	return s.viewWithState(ctx, saved)
 }
 
@@ -245,6 +263,59 @@ func (s *Service) Delete(ctx context.Context, id int) error {
 	s.engine.forget(id)
 	s.logger.Info("automation deleted", "automation_id", id)
 	return nil
+}
+
+// SensorChanged must hear about every change to a sensor's metadata or driver.
+func (s *Service) SensorChanged(ctx context.Context, sensorID int) {
+	s.rechecking.Lock()
+	defer s.rechecking.Unlock()
+	automations, err := s.store.ListAutomations(ctx)
+	if err != nil {
+		s.logger.Error("could not load automations to re-check them against a changed sensor", "sensor_id", sensorID, "error", err)
+		return
+	}
+	for _, automation := range automations {
+		if automation.uses(sensorID) {
+			s.recheckLocked(ctx, automation)
+		}
+	}
+}
+
+// SensorDeleted is told about a sensor once it has been deleted along with
+// every automation that used it.
+func (s *Service) SensorDeleted(sensorID int) {
+	for _, id := range s.engine.forgetUsing(sensorID) {
+		s.logger.Info("automation deleted with its sensor", "automation_id", id, "sensor_id", sensorID)
+	}
+}
+
+func (s *Service) recheckLocked(ctx context.Context, automation Automation) string {
+	logger := s.logger.With("automation_id", automation.ID)
+	reason, err := brokenReason(ctx, s.sensors, automation.Steps)
+	if err != nil {
+		logger.Error("could not re-check whether an automation is broken", "error", err)
+		return automation.BrokenReason
+	}
+	previous, err := s.store.SetBrokenReason(ctx, automation.ID, reason)
+	if errors.Is(err, ErrNotFound) {
+		return reason
+	}
+	if err != nil {
+		logger.Error("could not store whether an automation is broken", "error", err)
+		return automation.BrokenReason
+	}
+	if previous == reason {
+		return reason
+	}
+	s.engine.setBroken(automation.ID, reason)
+	switch {
+	case previous == "":
+		logger.Warn("automation broken", "reason", reason)
+		s.engine.executor.notifyBroken(ctx, logger, automation, reason)
+	case reason == "":
+		logger.Info("automation no longer broken")
+	}
+	return reason
 }
 
 // RunNow applies the automation's mode as a trigger would, so the run it

@@ -1,7 +1,7 @@
 import type { Automation } from '../../gen/aliases';
 import type { DataTableColumn } from '../../ui/DataTable';
 import { EnabledSwitch, NameAndSummary, StatusWithFlag, type SensorName, type Toggle } from './AutomationCells';
-import { automationStatus, describeAutomation, describeNext, showsFailedFlag } from './automationText';
+import { automationStatus, describeAutomation, describeNext, describeStatusDetail } from './automationText';
 
 type Column = DataTableColumn<Automation>;
 
@@ -33,12 +33,12 @@ const summaryColumn = (sensorName: SensorName): Column => ({
   valueGetter: (_, row) => describeAutomation(row, sensorName),
 });
 
-const failedColumn: Column = {
-  field: 'last_run_failed',
-  headerName: 'Last run',
+const statusDetailColumn: Column = {
+  field: 'status_reason',
+  headerName: 'Status detail',
   compact: 'meta',
   wide: 'hidden',
-  valueGetter: (_, row) => (showsFailedFlag(row) ? 'last run failed' : ''),
+  valueGetter: (_, row) => describeStatusDetail(row),
 };
 
 const statusColumn: Column = {
@@ -62,5 +62,5 @@ const nextColumn: Column = {
 
 export function automationColumns(sensorName: SensorName, onToggle: Toggle | undefined): Column[] {
   const leading = onToggle ? [enabledColumn(onToggle)] : [];
-  return [...leading, nameColumn(sensorName), summaryColumn(sensorName), failedColumn, statusColumn, nextColumn];
+  return [...leading, nameColumn(sensorName), summaryColumn(sensorName), statusDetailColumn, statusColumn, nextColumn];
 }

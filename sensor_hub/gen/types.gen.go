@@ -100,6 +100,7 @@ func (e AlertRuleAlertType) Valid() bool {
 // Defines values for AutomationStatus.
 const (
 	AutomationStatusArmed   AutomationStatus = "armed"
+	AutomationStatusBroken  AutomationStatus = "broken"
 	AutomationStatusOff     AutomationStatus = "off"
 	AutomationStatusRunning AutomationStatus = "running"
 )
@@ -108,6 +109,8 @@ const (
 func (e AutomationStatus) Valid() bool {
 	switch e {
 	case AutomationStatusArmed:
+		return true
+	case AutomationStatusBroken:
 		return true
 	case AutomationStatusOff:
 		return true
@@ -774,20 +777,20 @@ type Automation struct {
 	Mode AutomationMode `json:"mode"`
 	Name string         `json:"name"`
 
-	// NextFireAt When the earliest schedule or interval trigger next comes due, in UTC. Null when the automation is off or only has reading triggers.
+	// NextFireAt When the earliest schedule or interval trigger next comes due, in UTC. Null when the automation is off or broken, or only has reading triggers.
 	NextFireAt *time.Time `json:"next_fire_at,omitempty"`
 
-	// Status "off" when switched off, "running" while a run is running or waiting, otherwise "armed".
+	// Status "broken" when a set step targets a property that is no longer a writable capability of its sensor, or a sensor that is no longer controllable. A broken automation starts no runs until it is fixed, whether or not it is switched on. Otherwise "off" when switched off, "running" while a run is running or waiting, and "armed".
 	Status AutomationStatus `json:"status"`
 
-	// StatusReason One line explaining the status, when it needs one.
+	// StatusReason Why the automation is broken, naming the step and the property, such as "step 2: hallway-lamp no longer has color_temp_preset". Null unless the status is "broken".
 	StatusReason *string             `json:"status_reason,omitempty"`
 	Steps        []AutomationStep    `json:"steps"`
 	Triggers     []AutomationTrigger `json:"triggers"`
 	UpdatedAt    time.Time           `json:"updated_at"`
 }
 
-// AutomationStatus "off" when switched off, "running" while a run is running or waiting, otherwise "armed".
+// AutomationStatus "broken" when a set step targets a property that is no longer a writable capability of its sensor, or a sensor that is no longer controllable. A broken automation starts no runs until it is fixed, whether or not it is switched on. Otherwise "off" when switched off, "running" while a run is running or waiting, and "armed".
 type AutomationStatus string
 
 // AutomationCauseRun A run of another automation, or of the same one, that caused a run.

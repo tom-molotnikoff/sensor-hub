@@ -141,6 +141,8 @@ func respondAutomationError(c *gin.Context, message string, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Automation run not found"})
 	case errors.Is(err, automation.ErrRunNotActive):
 		c.JSON(http.StatusConflict, gin.H{"message": "The run has already ended"})
+	case errors.Is(err, automation.ErrBroken):
+		c.JSON(http.StatusConflict, gin.H{"message": "The automation is broken. Fix it and save it before running it.", "error": err.Error()})
 	case errors.Is(err, automation.ErrActiveRun):
 		c.JSON(http.StatusConflict, gin.H{"message": "The automation has an active run. Cancel it or wait for it to finish, then delete the automation."})
 	default:

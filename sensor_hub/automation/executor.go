@@ -335,11 +335,20 @@ func (e *executor) recordMissed(ctx context.Context, automation Automation, trig
 }
 
 func (e *executor) notifyFailure(ctx context.Context, logger *slog.Logger, automation Automation, message string) {
+	e.notify(ctx, logger, automation, fmt.Sprintf("Automation failed: %s", automation.Name), fmt.Sprintf("%s: %s", automation.Name, message))
+}
+
+func (e *executor) notifyBroken(ctx context.Context, logger *slog.Logger, automation Automation, reason string) {
+	e.notify(ctx, logger, automation, fmt.Sprintf("Automation broken: %s", automation.Name),
+		fmt.Sprintf("%s will not run until it is fixed: %s", automation.Name, reason))
+}
+
+func (e *executor) notify(ctx context.Context, logger *slog.Logger, automation Automation, title string, message string) {
 	_, err := e.notifier.CreateNotification(ctx, notifications.Notification{
 		Category: notifications.CategoryAutomationFailure,
 		Severity: notifications.SeverityError,
-		Title:    fmt.Sprintf("Automation failed: %s", automation.Name),
-		Message:  fmt.Sprintf("%s: %s", automation.Name, message),
+		Title:    title,
+		Message:  message,
 		Metadata: map[string]interface{}{
 			"automation_id":   automation.ID,
 			"automation_name": automation.Name,
