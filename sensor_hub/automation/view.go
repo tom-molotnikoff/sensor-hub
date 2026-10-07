@@ -120,6 +120,9 @@ func runView(run Run) gen.AutomationRun {
 	if user := run.InitiatedBy; user != nil {
 		view.InitiatedBy = &gen.CommandHistoryUser{Id: user.ID, Username: user.Username}
 	}
+	if cause := run.CauseRun; cause != nil {
+		view.CauseRun = &gen.AutomationCauseRun{Id: cause.ID, AutomationId: cause.AutomationID, AutomationName: cause.AutomationName}
+	}
 	view.FinishedAt = utc(run.FinishedAt)
 	view.ResumeAt = utc(run.ResumeAt)
 	view.DueAt = utc(run.DueAt)

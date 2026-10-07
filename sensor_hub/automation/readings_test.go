@@ -6,6 +6,7 @@ import (
 	"time"
 
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,12 +40,12 @@ func TestReadingConsumer_KeepsTheLatestReadingOfEachSeriesOnceTheBufferIsFull(t 
 	t.Cleanup(func() { otel.SetMeterProvider(previous) })
 	consumer := NewReadingConsumer()
 	lounge, kitchen := gen.Sensor{Id: 1}, gen.Sensor{Id: 2}
-	values := func(values ...float64) []gen.Reading {
-		readings := make([]gen.Reading, 0, len(values))
+	values := func(values ...float64) []readings.Reading {
+		batch := make([]readings.Reading, 0, len(values))
 		for _, value := range values {
-			readings = append(readings, number(value))
+			batch = append(batch, readings.Reading{Reading: number(value)})
 		}
-		return readings
+		return batch
 	}
 	filler := make([]float64, readingBuffer)
 	for i := range filler {
@@ -61,7 +62,7 @@ func TestReadingConsumer_KeepsTheLatestReadingOfEachSeriesOnceTheBufferIsFull(t 
 	defer cancel()
 	var observed []seriesReading
 	done := make(chan struct{})
-	go consumer.drain(ctx, func() {}, func(series Series, reading gen.Reading) {
+	go consumer.drain(ctx, func() {}, func(series Series, reading readings.Reading) {
 		observed = append(observed, seriesReading{series, reading})
 		if len(observed) == readingBuffer+2 {
 			close(done)

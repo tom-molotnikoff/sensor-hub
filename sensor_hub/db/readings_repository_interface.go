@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 	"time"
 )
 
@@ -14,14 +15,8 @@ type MeasurementTypeIDResolver interface {
 	GetIdByName(ctx context.Context, name string) (int, error)
 }
 
-type ReadingBatch struct {
-	SensorName   string
-	HealthReason string
-	Readings     []gen.Reading
-}
-
 type ReadingsRepository interface {
-	Ingest(ctx context.Context, batch ReadingBatch) ([]gen.Reading, error)
+	Ingest(ctx context.Context, batch readings.ReadingBatch) ([]gen.Reading, error)
 	GetBetweenDates(ctx context.Context, startDate, endDate, sensorName, measurementType string, interval AggregationInterval, aggFunc AggregationFunction) ([]gen.Reading, error)
 	GetLatest(ctx context.Context) ([]gen.Reading, error)
 	// Newest first.

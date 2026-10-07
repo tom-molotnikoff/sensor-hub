@@ -790,6 +790,13 @@ type Automation struct {
 // AutomationStatus "off" when switched off, "running" while a run is running or waiting, otherwise "armed".
 type AutomationStatus string
 
+// AutomationCauseRun A run of another automation, or of the same one, that caused a run.
+type AutomationCauseRun struct {
+	AutomationId   int    `json:"automation_id"`
+	AutomationName string `json:"automation_name"`
+	Id             int    `json:"id"`
+}
+
 // AutomationInput An automation as sent on create and update. Any trigger starts a run, and the steps run in order.
 type AutomationInput struct {
 	// Enabled Whether the automation's triggers start runs. Defaults to true on create, and to the automation's current setting on update.
@@ -813,13 +820,16 @@ type AutomationMode string
 type AutomationRun struct {
 	AutomationId int `json:"automation_id"`
 
+	// CauseRun The run whose command was acknowledged by the reading that started this run. Null when the reading acknowledged no automation's command, for a run that a reading did not start, or when the cause run has since been deleted.
+	CauseRun *AutomationCauseRun `json:"cause_run,omitempty"`
+
 	// CurrentStep Position of the step the run is on, or ended on, counting from 1. 0 before the first step starts.
 	CurrentStep int `json:"current_step"`
 
 	// DueAt When the trigger of a missed run came due.
 	DueAt *time.Time `json:"due_at,omitempty"`
 
-	// Error Why the run failed, naming the step.
+	// Error Why the run failed, naming the step. A run the loop guard refused never started, and its error starts with "loop guard".
 	Error      *string    `json:"error,omitempty"`
 	FinishedAt *time.Time `json:"finished_at,omitempty"`
 	Id         int        `json:"id"`

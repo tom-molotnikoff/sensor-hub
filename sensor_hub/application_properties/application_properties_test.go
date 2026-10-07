@@ -33,6 +33,7 @@ func validAppPropsMap() map[string]string {
 		"mqtt.broker.enabled":                  "true",
 		"mqtt.broker.port":                     "1883",
 		"hub.timezone":                         "Europe/London",
+		"automation.loop.max.chain":            "5",
 		"actuator.command.timeout_seconds":     "10",
 	}
 }
@@ -378,6 +379,7 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 		DatabaseReaderConnections:     4,
 		MQTTBrokerPort:                1883,
 		HubTimezone:                   "Europe/London",
+		AutomationLoopMaxChain:        3,
 		ActuatorCommandTimeoutSeconds: 25,
 	}
 

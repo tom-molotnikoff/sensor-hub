@@ -13,6 +13,7 @@ import (
 type PendingCommandRecord struct {
 	ID                int
 	SensorID          int
+	AutomationRunID   *int
 	Property          string
 	Value             string
 	Status            string
@@ -112,7 +113,7 @@ func (r *SensorCommandHistoryRepository) MarkFailed(ctx context.Context, id int)
 }
 
 func (r *SensorCommandHistoryRepository) ListPendingCommands(ctx context.Context) ([]PendingCommandRecord, error) {
-	query := `SELECT id, sensor_id, property, value, status, timeout_seconds, sent_at, acknowledged_at, acknowledged_value
+	query := `SELECT id, sensor_id, automation_run_id, property, value, status, timeout_seconds, sent_at, acknowledged_at, acknowledged_value
 		FROM sensor_command_history
 		WHERE status = 'sent'
 		ORDER BY sent_at ASC, id ASC`
@@ -125,11 +126,13 @@ func (r *SensorCommandHistoryRepository) ListPendingCommands(ctx context.Context
 	commands := make([]PendingCommandRecord, 0)
 	for rows.Next() {
 		var command PendingCommandRecord
+		var automationRunID sql.NullInt64
 		var acknowledgedAt sql.NullTime
 		var acknowledgedValue sql.NullString
 		if err := rows.Scan(
 			&command.ID,
 			&command.SensorID,
+			&automationRunID,
 			&command.Property,
 			&command.Value,
 			&command.Status,
@@ -140,6 +143,7 @@ func (r *SensorCommandHistoryRepository) ListPendingCommands(ctx context.Context
 		); err != nil {
 			return nil, fmt.Errorf("error scanning pending sensor command: %w", err)
 		}
+		command.AutomationRunID = nullableInt(automationRunID)
 		if acknowledgedAt.Valid {
 			command.AcknowledgedAt = &acknowledgedAt.Time
 		}

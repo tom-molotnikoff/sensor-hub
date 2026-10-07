@@ -5568,6 +5568,15 @@ components:
             - $ref: '#/components/schemas/CommandHistoryUser'
           nullable: true
           description: The user who pressed Run now, or null for a run a trigger started or when the user has since been deleted.
+        cause_run:
+          allOf:
+            - $ref: '#/components/schemas/AutomationCauseRun'
+          nullable: true
+          description: >-
+            The run whose command was acknowledged by the reading that started
+            this run. Null when the reading acknowledged no automation's
+            command, for a run that a reading did not start, or when the cause
+            run has since been deleted.
         status:
           type: string
           enum: [running, waiting, succeeded, failed, cancelled, missed, skipped]
@@ -5614,7 +5623,9 @@ components:
         error:
           type: string
           nullable: true
-          description: Why the run failed, naming the step.
+          description: >-
+            Why the run failed, naming the step. A run the loop guard refused
+            never started, and its error starts with "loop guard".
       required:
         - id
         - automation_id
@@ -5624,6 +5635,21 @@ components:
         - steps
         - step_outcomes
         - started_at
+
+    AutomationCauseRun:
+      type: object
+      description: A run of another automation, or of the same one, that caused a run.
+      properties:
+        id:
+          type: integer
+        automation_id:
+          type: integer
+        automation_name:
+          type: string
+      required:
+        - id
+        - automation_id
+        - automation_name
 
     AutomationRunStep:
       type: object

@@ -164,6 +164,16 @@ A set step fails when:
 
 A failed step ends the run as `failed`, and no later steps run. Everyone with the `manage_automations` permission gets an **Automation failures** notification naming the automation, the step and the reason, in the app and by email according to their [notification preferences](alerts-and-notifications#notification-preferences).
 
+## Loop guard
+
+Two automations can keep triggering each other. For example, "Plug off" switches a plug off when it turns on, and "Plug on" switches it on when it turns off. The loop guard stops a chain like this before it can drive a device forever.
+
+A device acknowledges a command by reporting the new value. When that reading starts a run of a reading trigger, the new run records the run that sent the command as its `cause_run`. A run's cause chain is its cause run, that run's cause run, and so on. A run started by a "for at least" hold records the cause of the reading that started the hold.
+
+When a run would start with a cause chain that is already `automation.loop.max.chain` runs long (5 by default, see [Configuration](configuration#loop-guard-chain-limit)), it does not start. Instead a `failed` run is recorded, with an error that starts with "loop guard" and names the automations in the chain. Everyone with the `manage_automations` permission gets an **Automation failures** notification, as for a failed step. The refused run sends nothing, so the chain ends there, and the automations stay switched on for the next reading that is not part of a chain.
+
+Only readings that acknowledge an automation's command carry a cause. A reading that acknowledges a person's command, or no command at all, starts a run with no cause, so ordinary triggers never count towards a chain. The loop guard does not follow loops through the physical world, such as heating that raises a temperature that then switches the heating off. That is how a heating pair is meant to work, and a [re-arm margin](#firing-once-per-crossing) keeps it from switching too often.
+
 ## When a trigger fires during a run
 
 An automation has at most one active run. What happens when a trigger fires while a run is going or waiting depends on the automation's `mode`, set in the editor under "If a trigger fires while already running":
@@ -212,7 +222,7 @@ If the hub stops after a command was published but before it was recorded, that 
 
 ## Runs and command history
 
-Every run is recorded with the trigger that fired it, or `manual` and the user for Run now, its status, the step it is on, a copy of the steps it started with, its start and finish times and any error. `GET /api/automations/{id}/runs` lists them newest first, with the outcome of each step.
+Every run is recorded with the trigger that fired it, or `manual` and the user for Run now, its cause run if another automation's command started it (see [Loop guard](#loop-guard)), its status, the step it is on, a copy of the steps it started with, its start and finish times and any error. `GET /api/automations/{id}/runs` lists them newest first, with the outcome of each step.
 
 A run's status is `running` while it goes and `waiting` during a wait step, then `succeeded`, `failed` or `cancelled`. Two statuses record a run that never started: `missed` for a trigger that came due while the hub was down, past the grace window (see [Restarts and the grace window](#restarts-and-the-grace-window)), and `skipped` for a trigger that fired while the automation was already running in `single` mode (see [When a trigger fires during a run](#when-a-trigger-fires-during-a-run)).
 

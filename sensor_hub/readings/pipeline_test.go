@@ -20,7 +20,7 @@ import (
 type consumerCall struct {
 	name     string
 	sensor   gen.Sensor
-	readings []gen.Reading
+	readings []readings.Reading
 }
 
 type recordingConsumer struct {
@@ -28,8 +28,8 @@ type recordingConsumer struct {
 	calls *[]consumerCall
 }
 
-func (c recordingConsumer) Consume(_ context.Context, sensor gen.Sensor, readings []gen.Reading) {
-	*c.calls = append(*c.calls, consumerCall{name: c.name, sensor: sensor, readings: readings})
+func (c recordingConsumer) Consume(_ context.Context, sensor gen.Sensor, batch []readings.Reading) {
+	*c.calls = append(*c.calls, consumerCall{name: c.name, sensor: sensor, readings: batch})
 }
 
 type storage struct {

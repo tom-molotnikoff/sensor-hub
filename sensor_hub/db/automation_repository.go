@@ -228,14 +228,17 @@ func insertRun(ctx context.Context, tx *sql.Tx, run automation.Run) (int, error)
 		seconds := int64(run.PastGrace.Seconds())
 		pastGrace = &seconds
 	}
-	var initiatedBy *int
+	var initiatedBy, causeRun *int
 	if run.InitiatedBy != nil {
 		initiatedBy = &run.InitiatedBy.ID
 	}
+	if run.CauseRun != nil {
+		causeRun = &run.CauseRun.ID
+	}
 	result, err := tx.ExecContext(ctx, `INSERT INTO automation_runs
-		(automation_id, trigger_id, trigger_kind, initiated_by_user_id, status, current_step, steps_snapshot, started_at, finished_at, due_at, past_grace_seconds)
-		VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
-		run.AutomationID, run.TriggerID, run.TriggerKind, initiatedBy, run.Status, string(snapshot), run.StartedAt, run.FinishedAt, run.DueAt, pastGrace)
+		(automation_id, trigger_id, trigger_kind, initiated_by_user_id, cause_run_id, status, current_step, steps_snapshot, started_at, finished_at, due_at, past_grace_seconds, error)
+		VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
+		run.AutomationID, run.TriggerID, run.TriggerKind, initiatedBy, causeRun, run.Status, string(snapshot), run.StartedAt, run.FinishedAt, run.DueAt, pastGrace, run.Error)
 	if err != nil {
 		return 0, fmt.Errorf("insert automation run: %w", err)
 	}
@@ -244,6 +247,31 @@ func insertRun(ctx context.Context, tx *sql.Tx, run automation.Run) (int, error)
 		return 0, fmt.Errorf("read automation run id: %w", err)
 	}
 	return int(id), nil
+}
+
+func (r *AutomationRepository) CauseChain(ctx context.Context, runID int, limit int) ([]automation.CauseRun, error) {
+	rows, err := r.db.Reader.QueryContext(ctx, `WITH RECURSIVE chain(id, automation_id, cause_run_id, depth) AS (
+			SELECT id, automation_id, cause_run_id, 1 FROM automation_runs WHERE id = ?
+			UNION ALL
+			SELECT run.id, run.automation_id, run.cause_run_id, chain.depth + 1
+			FROM automation_runs run JOIN chain ON run.id = chain.cause_run_id
+			WHERE chain.depth < ?
+		)
+		SELECT chain.id, chain.automation_id, a.name FROM chain JOIN automations a ON a.id = chain.automation_id
+		ORDER BY chain.depth`, runID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query cause chain of automation run %d: %w", runID, err)
+	}
+	defer rows.Close()
+	var chain []automation.CauseRun
+	for rows.Next() {
+		var run automation.CauseRun
+		if err := rows.Scan(&run.ID, &run.AutomationID, &run.AutomationName); err != nil {
+			return nil, fmt.Errorf("scan cause chain of automation run %d: %w", runID, err)
+		}
+		chain = append(chain, run)
+	}
+	return chain, rows.Err()
 }
 
 func (r *AutomationRepository) StartRunStep(ctx context.Context, runID int, position int, kind automation.StepKind, at time.Time) (int, error) {
@@ -393,7 +421,10 @@ func (r *AutomationRepository) ListRuns(ctx context.Context, automationID int) (
 
 func (r *AutomationRepository) queryRuns(ctx context.Context, where string, args ...any) ([]automation.Run, error) {
 	rows, err := r.db.Reader.QueryContext(ctx, `SELECT id, automation_id, trigger_id, trigger_kind,
-			initiated_by_user_id, (SELECT username FROM users WHERE users.id = initiated_by_user_id), status,
+			initiated_by_user_id, (SELECT username FROM users WHERE users.id = initiated_by_user_id),
+			cause_run_id, (SELECT cause.automation_id FROM automation_runs cause WHERE cause.id = automation_runs.cause_run_id),
+			(SELECT a.name FROM automation_runs cause JOIN automations a ON a.id = cause.automation_id WHERE cause.id = automation_runs.cause_run_id),
+			status,
 			current_step, steps_snapshot, started_at, finished_at, resume_at, due_at, past_grace_seconds, error
 		FROM automation_runs `+where+`
 		ORDER BY started_at DESC, id DESC`, args...)
@@ -406,14 +437,15 @@ func (r *AutomationRepository) queryRuns(ctx context.Context, where string, args
 	positions := make(map[int]int)
 	for rows.Next() {
 		var run automation.Run
-		var triggerID, initiatedBy sql.NullInt64
-		var initiatedByName sql.NullString
+		var triggerID, initiatedBy, causeRun, causeAutomation sql.NullInt64
+		var initiatedByName, causeAutomationName sql.NullString
 		var snapshot string
 		var startedAt SQLiteTime
 		var finishedAt, resumeAt, dueAt NullSQLiteTime
 		var pastGrace sql.NullInt64
 		var message sql.NullString
-		if err := rows.Scan(&run.ID, &run.AutomationID, &triggerID, &run.TriggerKind, &initiatedBy, &initiatedByName, &run.Status,
+		if err := rows.Scan(&run.ID, &run.AutomationID, &triggerID, &run.TriggerKind, &initiatedBy, &initiatedByName,
+			&causeRun, &causeAutomation, &causeAutomationName, &run.Status,
 			&run.CurrentStep, &snapshot, &startedAt, &finishedAt, &resumeAt, &dueAt, &pastGrace, &message); err != nil {
 			return nil, fmt.Errorf("scan automation run: %w", err)
 		}
@@ -423,6 +455,9 @@ func (r *AutomationRepository) queryRuns(ctx context.Context, where string, args
 		run.TriggerID = nullableInt(triggerID)
 		if initiatedBy.Valid {
 			run.InitiatedBy = &automation.User{ID: int(initiatedBy.Int64), Username: initiatedByName.String}
+		}
+		if causeRun.Valid {
+			run.CauseRun = &automation.CauseRun{ID: int(causeRun.Int64), AutomationID: int(causeAutomation.Int64), AutomationName: causeAutomationName.String}
 		}
 		run.StartedAt = startedAt.Time
 		run.FinishedAt = nullableTime(finishedAt)

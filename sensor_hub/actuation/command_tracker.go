@@ -9,6 +9,7 @@ import (
 
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 )
 
 const (
@@ -119,13 +120,13 @@ func (t *CommandTracker) Track(ctx context.Context, command database.PendingComm
 	return outcome
 }
 
-func (t *CommandTracker) Consume(ctx context.Context, sensor gen.Sensor, readings []gen.Reading) {
-	for _, reading := range readings {
+func (t *CommandTracker) Consume(ctx context.Context, sensor gen.Sensor, batch []readings.Reading) {
+	for i, reading := range batch {
 		if reading.MeasurementType == "" {
 			continue
 		}
 
-		value := readingValue(reading)
+		value := readingValue(reading.Reading)
 		if value == "" {
 			continue
 		}
@@ -145,6 +146,7 @@ func (t *CommandTracker) Consume(ctx context.Context, sensor gen.Sensor, reading
 			continue
 		}
 
+		batch[i].CauseRunID = command.AutomationRunID
 		command.Status = CommandStatusAcknowledged
 		command.AcknowledgedAt = &acknowledgedAt
 		command.AcknowledgedValue = &value

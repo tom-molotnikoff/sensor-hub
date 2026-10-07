@@ -3,12 +3,14 @@ package automation
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
-	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 
 	"go.opentelemetry.io/otel/metric"
 )
@@ -90,7 +92,7 @@ func (e *engine) load(runCtx context.Context, zone *time.Location, automations [
 	cancelled := make(map[int]bool)
 	for _, overdue := range catchUp {
 		e.lateness.Record(runCtx, float64(now.Sub(overdue.due).Milliseconds()))
-		for _, runID := range e.startTriggeredRun(runCtx, overdue.automation, overdue.trigger, overdue.due).Cancelled {
+		for _, runID := range e.startTriggeredRun(runCtx, overdue.automation, overdue.trigger, overdue.due, nil).Cancelled {
 			cancelled[runID] = true
 		}
 	}
@@ -283,7 +285,7 @@ func (e *engine) fireTrigger(triggerID int, due time.Time) {
 		return
 	}
 	e.lateness.Record(runCtx, float64(e.now().Sub(due).Milliseconds()))
-	e.startTriggeredRun(runCtx, automation, trigger, due)
+	e.startTriggeredRun(runCtx, automation, trigger, due, nil)
 }
 
 func triggerOf(automation Automation, triggerID int) Trigger {
@@ -296,7 +298,7 @@ func triggerOf(automation Automation, triggerID int) Trigger {
 }
 
 // Readings must arrive one at a time, in the order they were ingested.
-func (e *engine) observe(series Series, reading gen.Reading) {
+func (e *engine) observe(series Series, reading readings.Reading) {
 	now := e.now()
 	type toStart struct {
 		automation Automation
@@ -306,7 +308,8 @@ func (e *engine) observe(series Series, reading gen.Reading) {
 	started := make(map[int]bool)
 	e.mu.Lock()
 	for _, trigger := range e.series[series] {
-		switch e.edges[trigger.ID].observe(*trigger.Reading, reading, now) {
+		edge := e.edges[trigger.ID]
+		switch edge.observe(*trigger.Reading, reading.Reading, now) {
 		case edgeFire:
 			automation := e.automations[e.triggers[trigger.ID]]
 			// Two triggers of one automation met by the same reading start
@@ -316,7 +319,8 @@ func (e *engine) observe(series Series, reading gen.Reading) {
 				fired = append(fired, toStart{automation, trigger})
 			}
 		case edgeHold:
-			e.scheduler.set(holdKey(trigger.ID), e.edges[trigger.ID].holdUntil)
+			edge.holdCause = reading.CauseRunID
+			e.scheduler.set(holdKey(trigger.ID), edge.holdUntil)
 		case edgeRelease:
 			e.scheduler.remove(holdKey(trigger.ID))
 		}
@@ -325,7 +329,7 @@ func (e *engine) observe(series Series, reading gen.Reading) {
 	e.mu.Unlock()
 
 	for _, each := range fired {
-		e.startTriggeredRun(runCtx, each.automation, each.trigger, now)
+		e.startTriggeredRun(runCtx, each.automation, each.trigger, now, reading.CauseRunID)
 	}
 }
 
@@ -337,11 +341,12 @@ func (e *engine) fireHold(triggerID int, due time.Time) {
 		return
 	}
 	automation := e.automations[e.triggers[triggerID]]
+	cause := held.holdCause
 	runCtx := e.runCtx
 	e.mu.Unlock()
 
 	e.lateness.Record(runCtx, float64(e.now().Sub(due).Milliseconds()))
-	e.startTriggeredRun(runCtx, automation, triggerOf(automation, triggerID), due)
+	e.startTriggeredRun(runCtx, automation, triggerOf(automation, triggerID), due, cause)
 }
 
 // An interval trigger keeps the phase of from, a time it came due or the
@@ -363,9 +368,13 @@ func later(a, b time.Time) time.Time {
 	return a
 }
 
-func (e *engine) startTriggeredRun(ctx context.Context, automation Automation, trigger Trigger, due time.Time) RunAdmission {
+func (e *engine) startTriggeredRun(ctx context.Context, automation Automation, trigger Trigger, due time.Time, cause *int) RunAdmission {
 	triggerID := trigger.ID
-	admission, err := e.startRun(ctx, automation, Run{TriggerID: &triggerID, TriggerKind: trigger.Kind})
+	run := Run{TriggerID: &triggerID, TriggerKind: trigger.Kind}
+	if cause != nil {
+		run.CauseRun = &CauseRun{ID: *cause}
+	}
+	admission, err := e.startRun(ctx, automation, run)
 	if err != nil {
 		e.logger.Error("could not start automation run", "automation_id", automation.ID, "trigger_id", triggerID, "due", due, "error", err)
 	}
@@ -388,6 +397,13 @@ func (e *engine) startRun(ctx context.Context, automation Automation, run Run) (
 	run.AutomationID = automation.ID
 	run.Steps = automation.Steps
 	run.StartedAt = e.now()
+	refused, loop, err := e.guardLoop(ctx, automation, run)
+	if err != nil {
+		return RunAdmission{}, err
+	}
+	if loop {
+		return RunAdmission{Run: refused}, nil
+	}
 	admission, err := e.store.AdmitRun(ctx, run, automation.Mode)
 	if err != nil {
 		return RunAdmission{}, err
@@ -404,6 +420,48 @@ func (e *engine) startRun(ctx context.Context, automation Automation, run Run) (
 	}
 	go e.run(ctx, automation, admission.Run)
 	return admission, nil
+}
+
+func (e *engine) guardLoop(ctx context.Context, automation Automation, run Run) (Run, bool, error) {
+	if run.CauseRun == nil {
+		return Run{}, false, nil
+	}
+	limit := maxCauseChain()
+	chain, err := e.store.CauseChain(ctx, run.CauseRun.ID, limit)
+	if err != nil {
+		return Run{}, false, err
+	}
+	if len(chain) < limit {
+		return Run{}, false, nil
+	}
+	message := loopMessage(automation, chain)
+	run.Status = RunFailed
+	run.FinishedAt = &run.StartedAt
+	run.Error = &message
+	run.ID, err = e.store.CreateRun(ctx, run)
+	if err != nil {
+		return Run{}, false, err
+	}
+	logger := e.logger.With("automation_id", automation.ID, "run_id", run.ID)
+	e.executor.countEnded(ctx, RunFailed)
+	logger.Warn("automation run refused by the loop guard", "cause_run_id", run.CauseRun.ID, "chain", len(chain))
+	e.executor.notifyFailure(ctx, logger, automation, message)
+	return run, true, nil
+}
+
+func loopMessage(automation Automation, chain []CauseRun) string {
+	var names []string
+	for i := len(chain) - 1; i >= 0; i-- {
+		if !slices.Contains(names, chain[i].AutomationName) {
+			names = append(names, chain[i].AutomationName)
+		}
+	}
+	if !slices.Contains(names, automation.Name) {
+		names = append(names, automation.Name)
+	}
+	return fmt.Sprintf("loop guard: %d automation runs in a row were each started by a reading acknowledging the previous one's command, through %s. "+
+		"Change these automations so that what one sets does not trigger another, or raise automation.loop.max.chain if the chain is intended.",
+		len(chain), strings.Join(names, ", "))
 }
 
 func (e *engine) cancel(ctx context.Context, automationID int, runID int) (Run, error) {

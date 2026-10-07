@@ -47,6 +47,7 @@ type ApplicationConfiguration struct {
 
 	HubTimezone                  string `prop:"hub.timezone" default:"" file:"application" validate:"timezone" label:"Hub timezone" desc:"IANA zone name, such as Europe/London, that automation schedules run in. Defaults to the server's zone." group:"automations"`
 	AutomationMissedGraceMinutes int    `prop:"automation.missed.grace.minutes" default:"10" file:"application" validate:"non_negative" label:"Missed trigger grace window" desc:"How late a trigger that came due while the hub was down can be and still run on startup. Later ones are recorded as missed." group:"automations" unit:"minutes" apply:"action:service-restart"`
+	AutomationLoopMaxChain       int    `prop:"automation.loop.max.chain" default:"5" file:"application" validate:"positive" label:"Loop guard chain limit" desc:"How many automation runs in a row can each be started by a reading acknowledging the previous one's command. The next one is refused and recorded as failed." group:"automations"`
 
 	ActuatorCommandTimeoutSeconds int `prop:"actuator.command.timeout_seconds" default:"10" file:"application" validate:"positive" label:"Actuator command timeout" desc:"How long to wait for a device to acknowledge a command." group:"advanced" unit:"seconds"`
 

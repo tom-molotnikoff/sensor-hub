@@ -8,6 +8,7 @@ import (
 
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -158,7 +159,7 @@ func TestHistory_FirstRunFillsTheWindow(t *testing.T) {
 		live := database.NewReadingsRepository(db, sensors, database.NewMeasurementTypeRepository(db, logger), logger)
 		for name := range ids {
 			reading := 1.0
-			_, err := live.Ingest(context.Background(), database.ReadingBatch{
+			_, err := live.Ingest(context.Background(), readings.ReadingBatch{
 				SensorName: name,
 				Readings:   []gen.Reading{{MeasurementType: "battery", NumericValue: &reading, Time: time.Now().UTC().Format(time.RFC3339)}},
 			})

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +39,7 @@ func TestIngest_RecordsASeriesOnFirstSightOnly(t *testing.T) {
 	ctx := context.Background()
 	require.Equal(t, 0, seriesCount(t, repo, "Office", "temperature"), "the pair starts unknown")
 
-	_, err := repo.Ingest(ctx, ReadingBatch{
+	_, err := repo.Ingest(ctx, readings.ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 21.0), reading("temperature", 21.5)},
 	})
@@ -48,7 +49,7 @@ func TestIngest_RecordsASeriesOnFirstSightOnly(t *testing.T) {
 	_, err = db.Exec("DELETE FROM sensor_measurement_types")
 	require.NoError(t, err)
 
-	_, err = repo.Ingest(ctx, ReadingBatch{
+	_, err = repo.Ingest(ctx, readings.ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 22.0)},
 	})
@@ -63,7 +64,7 @@ func TestIngest_RollsBackTheWholeBatchWhenAReadingFails(t *testing.T) {
 		WHEN NEW.numeric_value > 100 BEGIN SELECT RAISE(ABORT, 'rejected'); END`)
 	require.NoError(t, err)
 
-	_, err = repo.Ingest(ctx, ReadingBatch{
+	_, err = repo.Ingest(ctx, readings.ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 21.0), reading("temperature", 999.0)},
 	})
@@ -79,7 +80,7 @@ func TestIngest_ResolvesARenamedSensorAndForgetsTheOldName(t *testing.T) {
 	sensorRepo := NewSensorRepository(handles(db), slog.Default())
 	renamedRepo := NewReadingsRepository(handles(db), sensorRepo, NewMeasurementTypeRepository(handles(db), slog.Default()), slog.Default())
 
-	_, err := renamedRepo.Ingest(ctx, ReadingBatch{
+	_, err := renamedRepo.Ingest(ctx, readings.ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 21.0)},
 	})
@@ -94,14 +95,14 @@ func TestIngest_ResolvesARenamedSensorAndForgetsTheOldName(t *testing.T) {
 		Config:       map[string]string{},
 	}, false))
 
-	_, err = renamedRepo.Ingest(ctx, ReadingBatch{
+	_, err = renamedRepo.Ingest(ctx, readings.ReadingBatch{
 		SensorName: "Study",
 		Readings:   []gen.Reading{reading("temperature", 22.0)},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 2, readingCount(t, repo), "the new name resolves to the same sensor")
 
-	_, err = renamedRepo.Ingest(ctx, ReadingBatch{
+	_, err = renamedRepo.Ingest(ctx, readings.ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 23.0)},
 	})
@@ -116,7 +117,7 @@ func TestIngest_ResolvesASensorWhoseNameIsNotASCII(t *testing.T) {
 	unicodeRepo := NewReadingsRepository(handles(db), sensorRepo, NewMeasurementTypeRepository(handles(db), slog.Default()), slog.Default())
 
 	for range 2 {
-		_, err := unicodeRepo.Ingest(ctx, ReadingBatch{
+		_, err := unicodeRepo.Ingest(ctx, readings.ReadingBatch{
 			SensorName: "\u00d6lkessel",
 			Readings:   []gen.Reading{reading("temperature", 60.0)},
 		})
@@ -129,7 +130,7 @@ func TestIngest_ResolvesASensorWhoseNameIsNotASCII(t *testing.T) {
 func TestIngest_ReturnsOnlyTheReadingsOfKnownMeasurementTypes(t *testing.T) {
 	repo, _ := migratedReadingsRepo(t)
 
-	stored, err := repo.Ingest(context.Background(), ReadingBatch{
+	stored, err := repo.Ingest(context.Background(), readings.ReadingBatch{
 		SensorName: "Office",
 		Readings:   []gen.Reading{reading("temperature", 21.0), reading("not_a_type", 1.0)},
 	})

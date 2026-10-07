@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	gen "example/sensorHub/gen"
+	"example/sensorHub/readings"
 	"example/sensorHub/telemetry"
 
 	"go.opentelemetry.io/otel/metric"
@@ -14,7 +15,7 @@ const readingBuffer = 1024
 
 type seriesReading struct {
 	series  Series
-	reading gen.Reading
+	reading readings.Reading
 }
 
 // ReadingConsumer is the automation consumer on the reading pipeline. It never
@@ -28,7 +29,7 @@ type ReadingConsumer struct {
 	dropped metric.Int64Counter
 
 	mu       sync.Mutex
-	overflow map[Series]gen.Reading
+	overflow map[Series]readings.Reading
 	order    []Series
 }
 
@@ -39,14 +40,14 @@ func NewReadingConsumer() *ReadingConsumer {
 	return &ReadingConsumer{
 		buffer:   make(chan seriesReading, readingBuffer),
 		dropped:  dropped,
-		overflow: make(map[Series]gen.Reading),
+		overflow: make(map[Series]readings.Reading),
 	}
 }
 
-func (c *ReadingConsumer) Consume(ctx context.Context, sensor gen.Sensor, readings []gen.Reading) {
+func (c *ReadingConsumer) Consume(ctx context.Context, sensor gen.Sensor, batch []readings.Reading) {
 	c.mu.Lock()
 	replaced := 0
-	for _, reading := range readings {
+	for _, reading := range batch {
 		series := Series{SensorID: sensor.Id, MeasurementType: reading.MeasurementType}
 		if len(c.order) == 0 {
 			select {
@@ -68,7 +69,7 @@ func (c *ReadingConsumer) Consume(ctx context.Context, sensor gen.Sensor, readin
 	}
 }
 
-func (c *ReadingConsumer) drain(ctx context.Context, healthy func(), observe func(Series, gen.Reading)) {
+func (c *ReadingConsumer) drain(ctx context.Context, healthy func(), observe func(Series, readings.Reading)) {
 	for {
 		select {
 		case <-ctx.Done():

@@ -10,6 +10,7 @@ import (
 
 	gen "example/sensorHub/gen"
 	"example/sensorHub/notifications"
+	"example/sensorHub/readings"
 )
 
 // AlertRepository is the subset of db.AlertRepository needed by ThresholdAlertProcessor.
@@ -124,8 +125,8 @@ func ruleForMeasurementType(rules []AlertRule, measurementType string) *AlertRul
 	return nil
 }
 
-func (p *ThresholdAlertProcessor) Consume(ctx context.Context, sensor gen.Sensor, readings []gen.Reading) {
-	for _, reading := range readings {
+func (p *ThresholdAlertProcessor) Consume(ctx context.Context, sensor gen.Sensor, batch []readings.Reading) {
+	for _, reading := range batch {
 		alert := ReadingAlert{SensorID: sensor.Id, SensorName: sensor.Name, MeasurementType: reading.MeasurementType}
 		if reading.NumericValue != nil {
 			alert.NumericValue = *reading.NumericValue
