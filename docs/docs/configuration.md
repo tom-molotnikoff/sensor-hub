@@ -67,7 +67,7 @@ If the page cannot load the property definitions, it still lists and saves every
 
 ### Loop guard chain limit
 
-`automation.loop.max.chain` is how many [automation](automations#loop-guard) runs in a row can each be started by a reading that acknowledges the previous run's command. The next run in the chain is refused and recorded as `failed`. The default is `5`, and the value must be at least `1`. A change applies straight away.
+`automation.loop.max.chain` is the longest chain of [automation](automations#loop-guard) runs that can start, where a reading that acknowledges each run's command started the next. The run that would make the chain longer is refused and recorded as `failed`. The default is `5`, and the value must be at least `1`. A change applies straight away.
 
 ### Readings aggregation
 

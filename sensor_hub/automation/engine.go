@@ -459,7 +459,7 @@ func loopMessage(automation Automation, chain []CauseRun) string {
 	if !slices.Contains(names, automation.Name) {
 		names = append(names, automation.Name)
 	}
-	return fmt.Sprintf("loop guard: %d automation runs in a row were each started by a reading acknowledging the previous one's command, through %s. "+
+	return fmt.Sprintf("loop guard: %d automation runs in a row each started the next one through a reading acknowledging its command, in %s. "+
 		"Change these automations so that what one sets does not trigger another, or raise automation.loop.max.chain if the chain is intended.",
 		len(chain), strings.Join(names, ", "))
 }

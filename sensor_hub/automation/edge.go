@@ -13,7 +13,6 @@ type edge struct {
 	fired     bool
 	holding   bool
 	holdUntil time.Time
-	// holdCause is the cause run of the reading that started the hold.
 	holdCause *int
 }
 
