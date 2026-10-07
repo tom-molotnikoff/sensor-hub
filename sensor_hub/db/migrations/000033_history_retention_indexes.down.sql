@@ -1,0 +1,2 @@
+DROP INDEX idx_sensor_command_history_sent_at;
+DROP INDEX idx_automation_runs_finished;

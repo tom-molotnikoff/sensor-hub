@@ -4253,7 +4253,7 @@ components:
           allOf:
             - $ref: '#/components/schemas/CommandHistoryAutomation'
           nullable: true
-          description: The automation whose run sent the command, or null when a user sent it.
+          description: The automation whose run sent the command, or null when a user sent it or the automation has since been deleted. It stays after the run is deleted.
       required:
         - id
         - property

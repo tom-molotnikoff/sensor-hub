@@ -226,7 +226,7 @@ Every run is recorded with the trigger that fired it, or `manual` and the user f
 
 A run's status is `running` while it goes and `waiting` during a wait step, then `succeeded`, `failed` or `cancelled`. Two statuses record a run that never started: `missed` for a trigger that came due while the hub was down, past the grace window (see [Restarts and the grace window](#restarts-and-the-grace-window)), and `skipped` for a trigger that fired while the automation was already running in `single` mode (see [When a trigger fires during a run](#when-a-trigger-fires-during-a-run)).
 
-Commands sent by a run go out from the hub itself rather than from a user. In a sensor's command history (`GET /api/sensors/by-id/{id}/commands`) they carry the automation's id and name instead of a user, which answers "why did this switch on?".
+Commands sent by a run go out from the hub itself rather than from a user. In a sensor's command history (`GET /api/sensors/by-id/{id}/commands`) they carry the automation's id and name instead of a user, which answers "why did this switch on?". A command keeps its automation after its run is deleted by [run history retention](configuration#automation-run-history-retention), which keeps runs for less time than command history by default.
 
 ## Status
 
@@ -256,11 +256,11 @@ An automation is broken when a set step targets a property its device no longer 
 
 A value that no longer fits its property, such as a brightness above a new maximum, does not make an automation broken. The step fails when it runs.
 
-Switch an automation on or off with `PUT /api/automations/{id}/enabled`. Deleting an automation deletes its triggers, steps and run history. The commands its runs sent stay in command history, without the link to the run. An automation with a running or waiting run cannot be deleted: the delete returns `409` until the run is cancelled or finishes.
+Switch an automation on or off with `PUT /api/automations/{id}/enabled`. Deleting an automation deletes its triggers, steps and run history. The commands its runs sent stay in command history, without the link to the run or the automation. An automation with a running or waiting run cannot be deleted: the delete returns `409` until the run is cancelled or finishes.
 
 ### Deleting a sensor
 
-Deleting a sensor deletes every automation that uses it in a trigger or a set step, including any run in progress. Nothing asks first. An automation that switches the deleted device and then another device is deleted outright, so the other device is not switched by it again, and a run waiting to switch it is dropped. Commands those automations sent to other devices stay in command history, without the link to the run.
+Deleting a sensor deletes every automation that uses it in a trigger or a set step, including any run in progress. Nothing asks first. An automation that switches the deleted device and then another device is deleted outright, so the other device is not switched by it again, and a run waiting to switch it is dropped. Commands those automations sent to other devices stay in command history, without the link to the run or the automation.
 
 To keep an automation, edit it to stop using the sensor before deleting the sensor.
 

@@ -93,7 +93,7 @@ func (r *AutomationRepository) SetAutomationEnabled(ctx context.Context, id int,
 }
 
 // The schema cascades the delete to triggers, steps, runs and run steps, and
-// clears automation_run_id on the commands its runs sent.
+// clears automation_run_id and automation_id on the commands its runs sent.
 func (r *AutomationRepository) DeleteAutomation(ctx context.Context, id int) error {
 	_, err := r.inTx(ctx, func(tx *sql.Tx) (int, error) {
 		active, err := activeRuns(ctx, tx, id)
@@ -435,6 +435,16 @@ func (r *AutomationRepository) FinishRun(ctx context.Context, runID int, status 
 		"UPDATE automation_runs SET status = ?, error = ?, finished_at = ? WHERE id = ? AND status = ?",
 		status, message, at, runID, automation.RunRunning)
 	return requireRun(result, err, "finish automation run")
+}
+
+func (r *AutomationRepository) DeleteRunsFinishedBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	result, err := r.db.Writer.ExecContext(ctx,
+		"DELETE FROM automation_runs WHERE finished_at < ? AND status NOT IN (?, ?)",
+		cutoff.UTC(), automation.RunRunning, automation.RunWaiting)
+	if err != nil {
+		return 0, fmt.Errorf("delete finished automation runs: %w", err)
+	}
+	return result.RowsAffected()
 }
 
 func (r *AutomationRepository) ListRuns(ctx context.Context, automationID int) ([]automation.Run, error) {

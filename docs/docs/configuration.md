@@ -69,6 +69,14 @@ If the page cannot load the property definitions, it still lists and saves every
 
 `automation.loop.max.chain` is the longest chain of [automation](automations#loop-guard) runs that can start, where a reading that acknowledges each run's command started the next. The run that would make the chain longer is refused and recorded as `failed`. The default is `5`, and the value must be at least `1`. A change applies straight away.
 
+### Automation run history retention
+
+`automation.history.retention.days` is how long finished [automation](automations#runs-and-command-history) runs are kept, counted from when they finished. The cleanup task deletes older runs with their step outcomes. Running and waiting runs are never deleted. The default is `30`, and `0` keeps runs forever. A change applies from the next cleanup run, set by `data.cleanup.interval.hours`.
+
+### Command history retention
+
+`command.history.retention.days` is how long a sensor's command history is kept, counted from when each command was sent. It covers commands sent by people as well as by automations. The default is `90`, and `0` keeps command history forever. A change applies from the next cleanup run, set by `data.cleanup.interval.hours`.
+
 ### Readings aggregation
 
 Readings aggregation is controlled by the `readings.aggregation.*` properties. Tier values use ISO 8601 durations in `THRESHOLD:INTERVAL` format. The special interval `raw` means no aggregation. Tiers are evaluated in ascending order - the first tier whose threshold is >= the query span is used. Queries exceeding all thresholds fall back to `P1D` buckets. See the [auto-aggregation developer docs](development/auto-aggregation.md) for details.

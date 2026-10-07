@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	appProps "example/sensorHub/application_properties"
 	"fmt"
 	"sync"
 	"testing"
@@ -70,7 +71,7 @@ func TestCleanupService_PerformCleanup_DoesNotStallConcurrentReads(t *testing.T)
 		}()
 	}
 
-	require.NoError(t, service.performCleanup(context.Background(), 0, seed.Default.Days/2, 0, 0))
+	require.NoError(t, service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{SensorDataRetentionDays: seed.Default.Days / 2}))
 	close(done)
 	wg.Wait()
 

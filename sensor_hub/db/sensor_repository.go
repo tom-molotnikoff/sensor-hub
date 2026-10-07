@@ -270,7 +270,8 @@ func (s *SensorRepository) DeleteSensorByName(ctx context.Context, name string) 
 	}
 	// SQLite cannot cascade from a trigger or step up to its automation.
 	// Deleting the automation cascades to its triggers, steps and runs, and
-	// clears automation_run_id on the commands those runs sent to other sensors.
+	// clears automation_run_id and automation_id on the commands those runs sent
+	// to other sensors.
 	_, err = txn.Exec(`DELETE FROM automations WHERE id IN (
 			SELECT automation_id FROM automation_triggers WHERE sensor_id = ?
 			UNION SELECT automation_id FROM automation_steps WHERE sensor_id = ?)`, sensorId, sensorId)

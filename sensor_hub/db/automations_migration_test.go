@@ -350,3 +350,36 @@ func TestMigration31_DeletingTheCauseRunLeavesTheRunItCausedWithoutACause(t *tes
 	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('automation_runs') WHERE name = 'cause_run_id'").Scan(&columns))
 	assert.Zero(t, columns)
 }
+
+func TestMigration34_ExistingCommandsTakeTheAutomationOfTheirRun(t *testing.T) {
+	db := newTempFileDB(t)
+	m := newTestMigrator(t, db)
+	require.NoError(t, m.Migrate(33))
+	sensorID := insertCommandHistorySensor(t, db)
+	_, err := db.Exec("INSERT INTO automations (id, name) VALUES (1, 'Evening lights')")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO automation_runs (id, automation_id, trigger_kind, status, steps_snapshot, started_at) VALUES (1, 1, 'schedule', 'succeeded', '[]', CURRENT_TIMESTAMP)")
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO sensor_command_history (sensor_id, automation_run_id, property, value, mqtt_topic, mqtt_payload)
+		VALUES (?, 1, 'state', 'OFF', 'zigbee2mqtt/office-plug/set', '{"state":"OFF"}')`, sensorID)
+	require.NoError(t, err)
+
+	require.NoError(t, m.Migrate(34))
+
+	rows, err := db.Query("SELECT automation_id FROM sensor_command_history ORDER BY id")
+	require.NoError(t, err)
+	defer rows.Close()
+	var automationIDs []sql.NullInt64
+	for rows.Next() {
+		var id sql.NullInt64
+		require.NoError(t, rows.Scan(&id))
+		automationIDs = append(automationIDs, id)
+	}
+	require.NoError(t, rows.Err())
+	assert.Equal(t, []sql.NullInt64{{}, {Int64: 1, Valid: true}}, automationIDs, "a command no run sent has no automation, and the run's command takes the run's automation")
+
+	require.NoError(t, m.Migrate(33))
+	var columns int
+	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('sensor_command_history') WHERE name = 'automation_id'").Scan(&columns))
+	assert.Zero(t, columns)
+}
