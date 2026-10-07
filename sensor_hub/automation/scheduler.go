@@ -20,11 +20,14 @@ type dueKind int
 const (
 	dueTrigger dueKind = iota
 	dueResume
+	dueHold
 )
 
 func triggerKey(triggerID int) dueKey { return dueKey{kind: dueTrigger, id: triggerID} }
 
 func resumeKey(runID int) dueKey { return dueKey{kind: dueResume, id: runID} }
+
+func holdKey(triggerID int) dueKey { return dueKey{kind: dueHold, id: triggerID} }
 
 type scheduler struct {
 	fire func(key dueKey, due time.Time)

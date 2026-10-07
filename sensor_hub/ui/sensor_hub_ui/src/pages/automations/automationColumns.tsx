@@ -1,7 +1,7 @@
 import type { Automation } from '../../gen/aliases';
 import type { DataTableColumn } from '../../ui/DataTable';
 import { EnabledSwitch, NameAndSummary, StatusWithFlag, type SensorName, type Toggle } from './AutomationCells';
-import { automationStatus, describeAutomation, formatHubTime, showsFailedFlag } from './automationText';
+import { automationStatus, describeAutomation, describeNext, showsFailedFlag } from './automationText';
 
 type Column = DataTableColumn<Automation>;
 
@@ -57,7 +57,7 @@ const nextColumn: Column = {
   headerName: 'Next',
   width: 160,
   compact: 'hidden',
-  valueGetter: (_, row) => (row.status !== 'off' && row.next_fire_at ? formatHubTime(row.next_fire_at, row.hub_timezone) : '-'),
+  valueGetter: (_, row) => describeNext(row),
 };
 
 export function automationColumns(sensorName: SensorName, onToggle: Toggle | undefined): Column[] {

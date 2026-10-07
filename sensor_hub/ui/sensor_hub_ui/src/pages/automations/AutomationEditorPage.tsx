@@ -28,7 +28,7 @@ import Stack from '../../ui/Stack';
 import { StickyFooter } from '../../ui/Sticky';
 import { useTier } from '../../ui/tiers';
 import { draftOf, inputOf, type Draft } from './automationDraft';
-import { automationStatus, describeAutomation, formatHubTime, readableSaveError } from './automationText';
+import { automationStatus, describeAutomation, describeNext, readableSaveError } from './automationText';
 import RecentRunsCard from './RecentRunsCard';
 import ThenCard from './ThenCard';
 import { useSensorName } from './useSensorName';
@@ -44,7 +44,8 @@ function PlainWordsCard({ draft, saved }: { draft: Draft; saved: Automation | un
         <Typography variant="body">{describeAutomation(draft, sensorName)}</Typography>
         {saved && (
           <Typography variant="bodySmall" color="text.secondary">
-            Next: {next && saved.status !== 'off' ? `${formatHubTime(next, saved.hub_timezone)} (${saved.hub_timezone})` : '-'}
+            Next: {describeNext(saved)}
+            {next && saved.status !== 'off' && ` (${saved.hub_timezone})`}
           </Typography>
         )}
       </Stack>

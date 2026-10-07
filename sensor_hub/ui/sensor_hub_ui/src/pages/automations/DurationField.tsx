@@ -10,6 +10,7 @@ interface DurationFieldProps {
   label: string;
   seconds: number | undefined;
   units: readonly DurationUnit[];
+  min?: number;
   readOnly: boolean;
   onChange: (seconds: number | undefined) => void;
 }
@@ -17,7 +18,7 @@ interface DurationFieldProps {
 const largestWholeUnit = (seconds: number | undefined, units: readonly DurationUnit[]) =>
   [...units].reverse().find((unit) => seconds !== undefined && seconds % unit.seconds === 0)?.seconds ?? units[0].seconds;
 
-export default function DurationField({ label, seconds, units, readOnly, onChange }: DurationFieldProps) {
+export default function DurationField({ label, seconds, units, min = 1, readOnly, onChange }: DurationFieldProps) {
   const [unit, setUnit] = useState<number>(() => largestWholeUnit(seconds, units));
   // Kept as typed, so that a partial number such as "1." is not rewritten from the seconds it gives.
   const [amount, setAmount] = useState(() => (seconds === undefined ? '' : String(seconds / unit)));
@@ -31,7 +32,7 @@ export default function DurationField({ label, seconds, units, readOnly, onChang
         label={label}
         value={amount}
         disabled={readOnly}
-        slotProps={{ htmlInput: { min: 1 } }}
+        slotProps={{ htmlInput: { min } }}
         onChange={(event) => {
           setAmount(event.target.value);
           setSeconds(event.target.value, unit);

@@ -9,7 +9,7 @@ import Card from '../../ui/Card';
 import Inline from '../../ui/Inline';
 import Stack from '../../ui/Stack';
 import DurationField from './DurationField';
-import { defaultValue, moved, newSetStep, newWaitStep, writableCapabilities, type DraftStep } from './automationDraft';
+import { choosePrompt, defaultValue, moved, newSetStep, newWaitStep, writableCapabilities, type DraftStep } from './automationDraft';
 import { useSensorName } from './useSensorName';
 
 interface ValueControlProps {
@@ -83,11 +83,6 @@ function ValueControl({ capability, value, readOnly, onChange }: ValueControlPro
       );
   }
 }
-
-const choosePrompt = (prompt: string, display: (value: string) => string = (value) => value) => ({
-  inputLabel: { shrink: true },
-  select: { displayEmpty: true, renderValue: (value: unknown) => (value === '' ? prompt : display(String(value))) },
-});
 
 interface StepShellProps {
   position: number;

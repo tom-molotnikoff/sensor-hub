@@ -44,6 +44,10 @@ const automations = [
   automation(2, 'Pump cycle', { last_run_failed: true }),
   automation(3, 'Christmas lights', { enabled: false, status: 'off', next_fire_at: null, last_run_failed: true }),
   automation(4, 'Evening lights', { status: 'running' }),
+  automation(5, 'Lounge heat on', {
+    triggers: [{ id: 5, type: 'reading', sensor_id: socket.id, measurement_type: 'temperature', operator: 'falls_below', threshold: 16, rearm_margin: 0.2, hold_seconds: 0 }],
+    next_fire_at: null,
+  }),
 ];
 
 function renderList(width: number, permissions = editorPermissions) {
@@ -87,6 +91,12 @@ describe('AutomationsPage', () => {
     expect(off).not.toHaveTextContent('last run failed');
     expect(within(off).getAllByRole('gridcell').at(-1)).toHaveTextContent(/^-$/);
     expect(await rowOf('Evening lights')).toHaveTextContent('Running');
+  });
+
+  it('shows "on reading" for Next when an automation only has reading triggers', async () => {
+    await renderList(1280);
+
+    expect(within(await rowOf('Lounge heat on')).getAllByRole('gridcell').at(-1)).toHaveTextContent('on reading');
   });
 
   it('switches an automation on and off from its row', async () => {

@@ -10,7 +10,16 @@ type TriggerKind string
 const (
 	TriggerSchedule TriggerKind = "schedule"
 	TriggerInterval TriggerKind = "interval"
+	TriggerReading  TriggerKind = "reading"
 	TriggerManual   TriggerKind = "manual"
+)
+
+type Operator string
+
+const (
+	FallsBelow Operator = "falls_below"
+	RisesAbove Operator = "rises_above"
+	Becomes    Operator = "becomes"
 )
 
 // Mode decides what a trigger does while the automation already has an
@@ -77,6 +86,24 @@ type Trigger struct {
 	Schedule  *Schedule
 	Interval  time.Duration
 	NextDueAt *time.Time
+	Reading   *ReadingCondition
+}
+
+type Series struct {
+	SensorID        int
+	MeasurementType string
+}
+
+// A ReadingCondition holds Threshold and Margin on numeric series, and Value
+// on binary ones.
+type ReadingCondition struct {
+	Series
+	MeasurementTypeID int
+	Operator          Operator
+	Threshold         float64
+	Margin            float64
+	Value             string
+	Hold              time.Duration
 }
 
 // A Step's JSON form is the API body's step shape, which is also how a run

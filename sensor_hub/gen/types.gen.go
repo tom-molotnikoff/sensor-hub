@@ -173,6 +173,7 @@ func (e AutomationRunStatus) Valid() bool {
 const (
 	AutomationRunTriggerKindInterval AutomationRunTriggerKind = "interval"
 	AutomationRunTriggerKindManual   AutomationRunTriggerKind = "manual"
+	AutomationRunTriggerKindReading  AutomationRunTriggerKind = "reading"
 	AutomationRunTriggerKindSchedule AutomationRunTriggerKind = "schedule"
 )
 
@@ -182,6 +183,8 @@ func (e AutomationRunTriggerKind) Valid() bool {
 	case AutomationRunTriggerKindInterval:
 		return true
 	case AutomationRunTriggerKindManual:
+		return true
+	case AutomationRunTriggerKindReading:
 		return true
 	case AutomationRunTriggerKindSchedule:
 		return true
@@ -283,9 +286,31 @@ func (e AutomationTriggerDays) Valid() bool {
 	}
 }
 
+// Defines values for AutomationTriggerOperator.
+const (
+	AutomationTriggerOperatorBecomes    AutomationTriggerOperator = "becomes"
+	AutomationTriggerOperatorFallsBelow AutomationTriggerOperator = "falls_below"
+	AutomationTriggerOperatorRisesAbove AutomationTriggerOperator = "rises_above"
+)
+
+// Valid indicates whether the value is a known member of the AutomationTriggerOperator enum.
+func (e AutomationTriggerOperator) Valid() bool {
+	switch e {
+	case AutomationTriggerOperatorBecomes:
+		return true
+	case AutomationTriggerOperatorFallsBelow:
+		return true
+	case AutomationTriggerOperatorRisesAbove:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AutomationTriggerType.
 const (
 	AutomationTriggerTypeInterval AutomationTriggerType = "interval"
+	AutomationTriggerTypeReading  AutomationTriggerType = "reading"
 	AutomationTriggerTypeSchedule AutomationTriggerType = "schedule"
 )
 
@@ -293,6 +318,8 @@ const (
 func (e AutomationTriggerType) Valid() bool {
 	switch e {
 	case AutomationTriggerTypeInterval:
+		return true
+	case AutomationTriggerTypeReading:
 		return true
 	case AutomationTriggerTypeSchedule:
 		return true
@@ -723,7 +750,7 @@ type Automation struct {
 	Mode AutomationMode `json:"mode"`
 	Name string         `json:"name"`
 
-	// NextFireAt When the earliest trigger next comes due, in UTC. Null when the automation is off.
+	// NextFireAt When the earliest schedule or interval trigger next comes due, in UTC. Null when the automation is off or only has reading triggers.
 	NextFireAt *time.Time `json:"next_fire_at,omitempty"`
 
 	// Status "off" when switched off, "running" while a run is running or waiting, otherwise "armed".
@@ -843,22 +870,46 @@ type AutomationStep struct {
 // AutomationStepType defines model for AutomationStep.Type.
 type AutomationStepType string
 
-// AutomationTrigger What starts a run. A "schedule" trigger fires at a time of day on the chosen weekdays, in the hub's timezone (the hub.timezone property). An "interval" trigger fires every so many seconds, counted from when the automation was last saved or switched on.
+// AutomationTrigger What starts a run. A "schedule" trigger fires at a time of day on the chosen weekdays, in the hub's timezone (the hub.timezone property). An "interval" trigger fires every so many seconds, counted from when the automation was last saved or switched on. A "reading" trigger fires when a sensor's readings of one measurement type cross a threshold ("falls_below" or "rises_above", numeric types) or become a value ("becomes", binary types). It fires once per crossing: a numeric trigger fires again only after the value has gone back past the threshold by the re-arm margin, and a binary one only after the value has changed. The first reading after the hub starts, or after the automation is saved or switched on, fires the trigger if it already meets the condition.
 type AutomationTrigger struct {
 	// At Time of day as HH:MM, 00:00 to 23:59. Schedule triggers only.
 	At *string `json:"at,omitempty"`
 
 	// Days Weekdays the trigger fires on, at least one. Schedule triggers only.
 	Days *[]AutomationTriggerDays `json:"days,omitempty"`
-	Id   *int                     `json:"id,omitempty"`
+
+	// HoldSeconds How long the condition has to hold before the trigger fires. The trigger fires that long after the reading that met it, unless a reading that does not meet it arrives first. Reading triggers only, default 0.
+	HoldSeconds *int `json:"hold_seconds,omitempty"`
+	Id          *int `json:"id,omitempty"`
+
+	// MeasurementType Measurement type the sensor reports, such as "temperature". Reading triggers only.
+	MeasurementType *string `json:"measurement_type,omitempty"`
+
+	// Operator "falls_below" (value < threshold) and "rises_above" (value > threshold) apply to numeric measurement types, "becomes" to binary ones. Reading triggers only.
+	Operator *AutomationTriggerOperator `json:"operator,omitempty"`
+
+	// RearmMargin How far back past the threshold the value has to go before the trigger can fire again: "falls_below" re-arms at a value of at least threshold + margin, "rises_above" at a value of at most threshold - margin. Required on numeric reading triggers, and not allowed on binary ones.
+	RearmMargin *float64 `json:"rearm_margin,omitempty"`
 
 	// Seconds How often the trigger fires, at least 60. Interval triggers only.
-	Seconds *int                  `json:"seconds,omitempty"`
-	Type    AutomationTriggerType `json:"type"`
+	Seconds *int `json:"seconds,omitempty"`
+
+	// SensorId Sensor whose readings the trigger watches. Reading triggers only.
+	SensorId *int `json:"sensor_id,omitempty"`
+
+	// Threshold Threshold in the measurement type's unit. Numeric reading triggers only.
+	Threshold *float64              `json:"threshold,omitempty"`
+	Type      AutomationTriggerType `json:"type"`
+
+	// Value Reading value the series has to become, such as "true". Binary reading triggers only.
+	Value *string `json:"value,omitempty"`
 }
 
 // AutomationTriggerDays defines model for AutomationTrigger.Days.
 type AutomationTriggerDays string
+
+// AutomationTriggerOperator "falls_below" (value < threshold) and "rises_above" (value > threshold) apply to numeric measurement types, "becomes" to binary ones. Reading triggers only.
+type AutomationTriggerOperator string
 
 // AutomationTriggerType defines model for AutomationTrigger.Type.
 type AutomationTriggerType string

@@ -177,10 +177,12 @@ func (e *Env) boot(listenAddr string) error {
 	commandHistoryRepo := database.NewSensorCommandHistoryRepository(db, logger)
 	commandTracker := actuation.NewCommandTracker(commandHistoryRepo, ws.NewCommandStatusBroadcaster(logger), logger)
 	liveView := service.NewLiveView(sensorRepo, logger)
+	automationReadings := automation.NewReadingConsumer()
 	readingPipeline := readings.NewPipeline(readingsRepo, liveView, logger,
 		commandTracker,
 		thresholdProcessor,
 		liveView,
+		automationReadings,
 	)
 	sensorService := service.NewSensorService(sensorRepo, mtRepo, readingPipeline, liveView, notificationService, readingsSampler, logger)
 
@@ -213,7 +215,7 @@ func (e *Env) boot(listenAddr string) error {
 		db.Close()
 		return fmt.Errorf("failed to recover pending commands: %w", err)
 	}
-	automationService := automation.NewService(database.NewAutomationRepository(db, logger), sensorService, commandService, notificationService, logger)
+	automationService := automation.NewService(database.NewAutomationRepository(db, logger), sensorService, commandService, notificationService, automationReadings, logger)
 
 	server := api.NewServer(
 		sensorService,

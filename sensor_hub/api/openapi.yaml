@@ -5173,15 +5173,23 @@ components:
         What starts a run. A "schedule" trigger fires at a time of day on the
         chosen weekdays, in the hub's timezone (the hub.timezone property). An
         "interval" trigger fires every so many seconds, counted from when the
-        automation was last saved or switched on.
+        automation was last saved or switched on. A "reading" trigger fires
+        when a sensor's readings of one measurement type cross a threshold
+        ("falls_below" or "rises_above", numeric types) or become a value
+        ("becomes", binary types). It fires once per crossing: a numeric
+        trigger fires again only after the value has gone back past the
+        threshold by the re-arm margin, and a binary one only after the value
+        has changed. The first reading after the hub starts, or after the
+        automation is saved or switched on, fires the trigger if it already
+        meets the condition.
       properties:
         id:
           type: integer
           readOnly: true
         type:
           type: string
-          enum: [schedule, interval]
-          x-enum-varnames: [AutomationTriggerTypeSchedule, AutomationTriggerTypeInterval]
+          enum: [schedule, interval, reading]
+          x-enum-varnames: [AutomationTriggerTypeSchedule, AutomationTriggerTypeInterval, AutomationTriggerTypeReading]
         at:
           type: string
           description: Time of day as HH:MM, 00:00 to 23:59. Schedule triggers only.
@@ -5199,6 +5207,52 @@ components:
           minimum: 60
           description: How often the trigger fires, at least 60. Interval triggers only.
           example: 1800
+        sensor_id:
+          type: integer
+          description: Sensor whose readings the trigger watches. Reading triggers only.
+        measurement_type:
+          type: string
+          description: >-
+            Measurement type the sensor reports, such as "temperature". Reading
+            triggers only.
+          example: temperature
+        operator:
+          type: string
+          enum: [falls_below, rises_above, becomes]
+          x-enum-varnames: [AutomationTriggerOperatorFallsBelow, AutomationTriggerOperatorRisesAbove, AutomationTriggerOperatorBecomes]
+          description: >-
+            "falls_below" (value < threshold) and "rises_above" (value >
+            threshold) apply to numeric measurement types, "becomes" to binary
+            ones. Reading triggers only.
+        threshold:
+          type: number
+          format: double
+          description: Threshold in the measurement type's unit. Numeric reading triggers only.
+          example: 16
+        rearm_margin:
+          type: number
+          format: double
+          minimum: 0
+          description: >-
+            How far back past the threshold the value has to go before the
+            trigger can fire again: "falls_below" re-arms at a value of at
+            least threshold + margin, "rises_above" at a value of at most
+            threshold - margin. Required on numeric reading triggers, and not
+            allowed on binary ones.
+          example: 0.2
+        value:
+          type: string
+          description: >-
+            Reading value the series has to become, such as "true". Binary
+            reading triggers only.
+        hold_seconds:
+          type: integer
+          minimum: 0
+          description: >-
+            How long the condition has to hold before the trigger fires. The
+            trigger fires that long after the reading that met it, unless a
+            reading that does not meet it arrives first. Reading triggers only,
+            default 0.
       required:
         - type
 
@@ -5334,8 +5388,8 @@ components:
           format: date-time
           nullable: true
           description: >-
-            When the earliest trigger next comes due, in UTC. Null when the
-            automation is off.
+            When the earliest schedule or interval trigger next comes due, in
+            UTC. Null when the automation is off or only has reading triggers.
         hub_timezone:
           type: string
           description: The hub's IANA zone that schedule times are in, for showing next_fire_at locally.
@@ -5383,8 +5437,8 @@ components:
             trigger has since been deleted by an edit.
         trigger_kind:
           type: string
-          enum: [schedule, interval, manual]
-          x-enum-varnames: [AutomationRunTriggerKindSchedule, AutomationRunTriggerKindInterval, AutomationRunTriggerKindManual]
+          enum: [schedule, interval, reading, manual]
+          x-enum-varnames: [AutomationRunTriggerKindSchedule, AutomationRunTriggerKindInterval, AutomationRunTriggerKindReading, AutomationRunTriggerKindManual]
           description: The kind of trigger that fired, or "manual" for Run now.
         initiated_by:
           allOf:

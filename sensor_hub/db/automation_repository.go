@@ -463,15 +463,28 @@ func (r *AutomationRepository) queryRuns(ctx context.Context, where string, args
 func insertDefinition(ctx context.Context, tx *sql.Tx, automationID int, a automation.Automation) error {
 	for i, trigger := range a.Triggers {
 		var minuteOfDay, weekdays, intervalSeconds any
+		var sensorID, measurementTypeID, operator, threshold, binaryValue, margin, holdSeconds any
 		switch trigger.Kind {
 		case automation.TriggerSchedule:
 			minuteOfDay, weekdays = trigger.Schedule.MinuteOfDay, int(trigger.Schedule.Days)
 		case automation.TriggerInterval:
 			intervalSeconds = int64(trigger.Interval / time.Second)
+		case automation.TriggerReading:
+			condition := trigger.Reading
+			sensorID, measurementTypeID, operator = condition.SensorID, condition.MeasurementTypeID, condition.Operator
+			holdSeconds = int64(condition.Hold / time.Second)
+			if condition.Operator == automation.Becomes {
+				binaryValue = condition.Value
+			} else {
+				threshold, margin = condition.Threshold, condition.Margin
+			}
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO automation_triggers
-			(automation_id, position, kind, at_minute_of_day, weekdays, interval_seconds) VALUES (?, ?, ?, ?, ?, ?)`,
-			automationID, i+1, trigger.Kind, minuteOfDay, weekdays, intervalSeconds); err != nil {
+			(automation_id, position, kind, at_minute_of_day, weekdays, interval_seconds,
+				sensor_id, measurement_type_id, operator, threshold, binary_value, rearm_margin, hold_seconds)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			automationID, i+1, trigger.Kind, minuteOfDay, weekdays, intervalSeconds,
+			sensorID, measurementTypeID, operator, threshold, binaryValue, margin, holdSeconds); err != nil {
 			return fmt.Errorf("insert automation trigger: %w", err)
 		}
 	}
@@ -520,8 +533,12 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 	}
 
 	ofMatching := "WHERE automation_id IN (SELECT id FROM automations " + where + ")"
-	triggerRows, err := r.db.Reader.QueryContext(ctx, `SELECT automation_id, id, kind, at_minute_of_day, weekdays, interval_seconds, next_due_at
-		FROM automation_triggers `+ofMatching+` ORDER BY automation_id, position`, args...)
+	triggerRows, err := r.db.Reader.QueryContext(ctx, `SELECT t.automation_id, t.id, t.kind, t.at_minute_of_day, t.weekdays,
+			t.interval_seconds, t.next_due_at, t.sensor_id, t.measurement_type_id, mt.name, t.operator, t.threshold,
+			t.binary_value, t.rearm_margin, t.hold_seconds
+		FROM automation_triggers t
+		LEFT JOIN measurement_types mt ON mt.id = t.measurement_type_id
+		`+ofMatching+` ORDER BY t.automation_id, t.position`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query automation triggers: %w", err)
 	}
@@ -529,9 +546,12 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 	for triggerRows.Next() {
 		var automationID int
 		var trigger automation.Trigger
-		var minuteOfDay, weekdays, intervalSeconds sql.NullInt64
+		var minuteOfDay, weekdays, intervalSeconds, sensorID, measurementTypeID, holdSeconds sql.NullInt64
+		var measurementType, operator, binaryValue sql.NullString
+		var threshold, margin sql.NullFloat64
 		var nextDueAt NullSQLiteTime
-		if err := triggerRows.Scan(&automationID, &trigger.ID, &trigger.Kind, &minuteOfDay, &weekdays, &intervalSeconds, &nextDueAt); err != nil {
+		if err := triggerRows.Scan(&automationID, &trigger.ID, &trigger.Kind, &minuteOfDay, &weekdays, &intervalSeconds, &nextDueAt,
+			&sensorID, &measurementTypeID, &measurementType, &operator, &threshold, &binaryValue, &margin, &holdSeconds); err != nil {
 			return nil, fmt.Errorf("scan automation trigger: %w", err)
 		}
 		switch trigger.Kind {
@@ -539,6 +559,16 @@ func (r *AutomationRepository) queryAutomations(ctx context.Context, where strin
 			trigger.Schedule = &automation.Schedule{MinuteOfDay: int(minuteOfDay.Int64), Days: automation.Weekdays(weekdays.Int64)}
 		case automation.TriggerInterval:
 			trigger.Interval = time.Duration(intervalSeconds.Int64) * time.Second
+		case automation.TriggerReading:
+			trigger.Reading = &automation.ReadingCondition{
+				Series:            automation.Series{SensorID: int(sensorID.Int64), MeasurementType: measurementType.String},
+				MeasurementTypeID: int(measurementTypeID.Int64),
+				Operator:          automation.Operator(operator.String),
+				Threshold:         threshold.Float64,
+				Margin:            margin.Float64,
+				Value:             binaryValue.String,
+				Hold:              time.Duration(holdSeconds.Int64) * time.Second,
+			}
 		}
 		trigger.NextDueAt = nullableTime(nextDueAt)
 		if i, ok := index[automationID]; ok {

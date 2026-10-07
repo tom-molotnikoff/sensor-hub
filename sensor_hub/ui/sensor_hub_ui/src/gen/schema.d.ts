@@ -2565,11 +2565,11 @@ export interface components {
                 [key: string]: number;
             };
         };
-        /** @description What starts a run. A "schedule" trigger fires at a time of day on the chosen weekdays, in the hub's timezone (the hub.timezone property). An "interval" trigger fires every so many seconds, counted from when the automation was last saved or switched on. */
+        /** @description What starts a run. A "schedule" trigger fires at a time of day on the chosen weekdays, in the hub's timezone (the hub.timezone property). An "interval" trigger fires every so many seconds, counted from when the automation was last saved or switched on. A "reading" trigger fires when a sensor's readings of one measurement type cross a threshold ("falls_below" or "rises_above", numeric types) or become a value ("becomes", binary types). It fires once per crossing: a numeric trigger fires again only after the value has gone back past the threshold by the re-arm margin, and a binary one only after the value has changed. The first reading after the hub starts, or after the automation is saved or switched on, fires the trigger if it already meets the condition. */
         AutomationTrigger: {
             readonly id?: number;
             /** @enum {string} */
-            type: "schedule" | "interval";
+            type: "schedule" | "interval" | "reading";
             /**
              * @description Time of day as HH:MM, 00:00 to 23:59. Schedule triggers only.
              * @example 19:00
@@ -2591,6 +2591,34 @@ export interface components {
              * @example 1800
              */
             seconds?: number;
+            /** @description Sensor whose readings the trigger watches. Reading triggers only. */
+            sensor_id?: number;
+            /**
+             * @description Measurement type the sensor reports, such as "temperature". Reading triggers only.
+             * @example temperature
+             */
+            measurement_type?: string;
+            /**
+             * @description "falls_below" (value < threshold) and "rises_above" (value > threshold) apply to numeric measurement types, "becomes" to binary ones. Reading triggers only.
+             * @enum {string}
+             */
+            operator?: "falls_below" | "rises_above" | "becomes";
+            /**
+             * Format: double
+             * @description Threshold in the measurement type's unit. Numeric reading triggers only.
+             * @example 16
+             */
+            threshold?: number;
+            /**
+             * Format: double
+             * @description How far back past the threshold the value has to go before the trigger can fire again: "falls_below" re-arms at a value of at least threshold + margin, "rises_above" at a value of at most threshold - margin. Required on numeric reading triggers, and not allowed on binary ones.
+             * @example 0.2
+             */
+            rearm_margin?: number;
+            /** @description Reading value the series has to become, such as "true". Binary reading triggers only. */
+            value?: string;
+            /** @description How long the condition has to hold before the trigger fires. The trigger fires that long after the reading that met it, unless a reading that does not meet it arrives first. Reading triggers only, default 0. */
+            hold_seconds?: number;
         };
         /** @description One step of a run. A "set" step sends a command to a writable capability of a sensor and waits for the device to acknowledge it. A "wait" step pauses the run, and the pause survives a hub restart. */
         AutomationStep: {
@@ -2687,7 +2715,7 @@ export interface components {
             last_run_failed: boolean;
             /**
              * Format: date-time
-             * @description When the earliest trigger next comes due, in UTC. Null when the automation is off.
+             * @description When the earliest schedule or interval trigger next comes due, in UTC. Null when the automation is off or only has reading triggers.
              */
             next_fire_at?: string | null;
             /**
@@ -2713,7 +2741,7 @@ export interface components {
              * @description The kind of trigger that fired, or "manual" for Run now.
              * @enum {string}
              */
-            trigger_kind: "schedule" | "interval" | "manual";
+            trigger_kind: "schedule" | "interval" | "reading" | "manual";
             /** @description The user who pressed Run now, or null for a run a trigger started or when the user has since been deleted. */
             initiated_by?: components["schemas"]["CommandHistoryUser"] | null;
             /**

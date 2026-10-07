@@ -25,8 +25,27 @@ function describeDays(days: readonly Weekday[]): string {
   return `on ${weekdays.filter(({ day }) => days.includes(day)).map(({ name }) => name).join(', ')}`;
 }
 
-function describeTrigger(trigger: AutomationTrigger): string {
+export const operatorNames: Record<NonNullable<AutomationTrigger['operator']>, string> = {
+  falls_below: 'falls below',
+  rises_above: 'rises above',
+  becomes: 'becomes',
+};
+
+function describeReading(
+  { sensor_id, measurement_type, operator, threshold, rearm_margin, value, hold_seconds }: AutomationTrigger,
+  sensorName: (id: number) => string,
+): string {
+  if (sensor_id === undefined) return 'when a sensor reading changes';
+  const series = `${sensorName(sensor_id)}${measurement_type ? ` ${measurement_type}` : ''}`;
+  const condition = operator === 'becomes' ? `becomes ${value ?? '?'}` : `${operatorNames[operator ?? 'falls_below']} ${threshold ?? '?'}`;
+  const margin = operator !== 'becomes' && rearm_margin !== undefined ? ` (margin ${rearm_margin})` : '';
+  const hold = hold_seconds ? ` for at least ${formatDuration(hold_seconds)}` : '';
+  return `when ${series} ${condition}${margin}${hold}`;
+}
+
+function describeTrigger(trigger: AutomationTrigger, sensorName: (id: number) => string): string {
   if (trigger.type === 'interval') return trigger.seconds === undefined ? 'every so often' : `every ${formatDuration(trigger.seconds)}`;
+  if (trigger.type === 'reading') return describeReading(trigger, sensorName);
   return `at ${trigger.at ?? '--:--'} ${describeDays(trigger.days ?? [])}`;
 }
 
@@ -59,13 +78,19 @@ export function describeAutomation(
   { triggers, steps }: { triggers: readonly AutomationTrigger[]; steps: readonly AutomationStep[] },
   sensorName: (id: number) => string,
 ): string {
-  const when = triggers.length > 0 ? triggers.map(describeTrigger).join(' or ') : 'with no trigger';
+  const when = triggers.length > 0 ? triggers.map((trigger) => describeTrigger(trigger, sensorName)).join(' or ') : 'with no trigger';
   const then = steps.length > 0 ? steps.map((step) => describeStep(step, sensorName)).join(', then ') : 'do nothing';
   return `${when.charAt(0).toUpperCase()}${when.slice(1)}, ${then}.`;
 }
 
 export function formatHubTime(iso: string, zone: string): string {
   return DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone).toFormat('ccc d LLL, HH:mm');
+}
+
+export function describeNext({ status, next_fire_at, hub_timezone, triggers }: Automation): string {
+  if (status === 'off') return '-';
+  if (next_fire_at) return formatHubTime(next_fire_at, hub_timezone);
+  return triggers.some((trigger) => trigger.type === 'reading') ? 'on reading' : '-';
 }
 
 export function describeRun(run: AutomationRun, zone: string): string {
@@ -108,7 +133,19 @@ export const runStatus: Record<AutomationRun['status'], StatusKey> = {
 };
 
 const savedLists: Record<string, { name: string; fields: Record<string, string> }> = {
-  triggers: { name: 'Trigger', fields: { at: 'time', days: 'weekdays', seconds: 'interval' } },
+  triggers: {
+    name: 'Trigger',
+    fields: {
+      at: 'time',
+      days: 'weekdays',
+      seconds: 'interval',
+      sensor_id: 'sensor',
+      measurement_type: 'measurement',
+      operator: 'condition',
+      rearm_margin: 're-arm margin',
+      hold_seconds: '"for at least"',
+    },
+  },
   steps: { name: 'Step', fields: { sensor_id: 'device', seconds: 'wait' } },
 };
 
