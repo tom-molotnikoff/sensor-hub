@@ -352,6 +352,22 @@ func (r *AutomationRepository) LatestRunCommand(ctx context.Context, runID int, 
 	return id, true, nil
 }
 
+func (r *AutomationRepository) CancelledRunCommand(ctx context.Context, automationID int, step automation.Step) (int, bool, error) {
+	var id int
+	err := r.db.Reader.QueryRowContext(ctx, `SELECT command.id FROM sensor_command_history command
+		JOIN automation_runs run ON run.id = command.automation_run_id
+		WHERE run.automation_id = ? AND run.status = ? AND command.sensor_id = ? AND command.property = ? AND command.status = 'sent'
+		ORDER BY command.sent_at DESC, command.id DESC LIMIT 1`,
+		automationID, automation.RunCancelled, step.SensorID, step.Property).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("query in-flight command of a cancelled run of automation %d: %w", automationID, err)
+	}
+	return id, true, nil
+}
+
 func (r *AutomationRepository) FinishRun(ctx context.Context, runID int, status automation.RunStatus, message *string, at time.Time) error {
 	result, err := r.db.Writer.ExecContext(ctx,
 		"UPDATE automation_runs SET status = ?, error = ?, finished_at = ? WHERE id = ? AND status = ?",

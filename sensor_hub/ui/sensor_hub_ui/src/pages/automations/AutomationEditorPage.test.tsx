@@ -289,6 +289,21 @@ describe('AutomationEditorPage', () => {
     await waitFor(() => expect(api.POST).toHaveBeenCalledWith('/automations/{id}/run', { params: { path: { id: 3 } } }));
   });
 
+  it('keeps Run now off until unsaved changes are saved', async () => {
+    serve(automation());
+    api.PUT.mockResolvedValue({ data: automation({ name: 'Evening lamp' }), response: new Response() });
+    await renderEditor('/automations/3');
+
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Name' }), { target: { value: 'Evening lamp' } });
+    const runNow = screen.getByRole('button', { name: 'Run now' });
+    expect(runNow).toBeDisabled();
+    fireEvent.mouseOver(runNow.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Save first');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Run now' })).toBeEnabled());
+  });
+
   it('cancels an active run from Recent runs, and offers it only on active runs', async () => {
     serve(automation({ status: 'running' }), [
       run(2, { status: 'waiting', current_step: 3, resume_at: '2026-10-06T22:00:00Z' }),

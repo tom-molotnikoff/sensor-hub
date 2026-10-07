@@ -85,7 +85,7 @@ While a run waits, its status is `waiting` and `resume_at` says when it carries 
 A set step fails when:
 
 - the command is not acknowledged within `actuator.command.timeout_seconds`, or the command fails
-- the sensor already has a command in flight for that property, for example because someone pressed a toggle a moment earlier. The step is not retried.
+- the sensor already has a command in flight for that property, for example because someone pressed a toggle a moment earlier. The step is not retried. A command left in flight by a cancelled run of the same automation is the exception: the step waits for it (see [When a trigger fires during a run](#when-a-trigger-fires-during-a-run)).
 - the sensor is disabled or not active
 - the value no longer suits the capability
 
@@ -100,7 +100,7 @@ An automation has at most one active run. What happens when a trigger fires whil
 | `single`  | Ignore it (single)    | The active run carries on, and the trigger is recorded as a `skipped` run.   |
 | `restart` | Start over (restart)  | The active run ends as `cancelled`, and a new run starts from step 1.        |
 
-`single` is the default. `restart` suits a timer that each new trigger should extend, such as "on, wait 5 minutes, off": every trigger starts the 5 minutes again. A cancelled run sends no more steps, but a command it already sent carries on (see [Cancelling a run](#cancelling-a-run)). A new run's step for the same property then fails like any step that meets a command in flight.
+`single` is the default. `restart` suits a timer that each new trigger should extend, such as "on, wait 5 minutes, off": every trigger starts the 5 minutes again. A cancelled run sends no more steps, but a command it already sent carries on (see [Cancelling a run](#cancelling-a-run)). A step of the new run for the same sensor and property waits for that command's outcome, then sends its own command, so starting over never strands the device. A command in flight from a person or another automation still fails the step.
 
 Two triggers of one automation that come due at the same moment still start one run, and record no `skipped` run.
 

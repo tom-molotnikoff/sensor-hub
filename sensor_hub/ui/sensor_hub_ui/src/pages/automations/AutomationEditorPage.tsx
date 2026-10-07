@@ -11,6 +11,7 @@ import {
   IconButton,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -91,12 +92,17 @@ function AutomationEditor({ saved, canEdit, canDelete }: AutomationEditorProps) 
   const navigate = useNavigate();
   const wide = useTier() === 'wide';
   const [draft, setDraft] = useState(() => draftOf(saved));
+  const [revision, setRevision] = useState({ edited: 0, saved: 0 });
+  const unsaved = revision.edited !== revision.saved;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const save = useSaveAutomation();
   const runNow = useRunAutomation();
   const remove = useDeleteAutomation();
 
-  const update = (changes: Partial<Draft>) => setDraft((current) => ({ ...current, ...changes }));
+  const update = (changes: Partial<Draft>) => {
+    setDraft((current) => ({ ...current, ...changes }));
+    setRevision((current) => ({ ...current, edited: current.edited + 1 }));
+  };
   const title = draft.name || (saved ? saved.name : 'New automation');
   const back = (
     <IconButton aria-label="Back to automations" edge="start" onClick={() => navigate('/automations')}>
@@ -115,20 +121,30 @@ function AutomationEditor({ saved, canEdit, canDelete }: AutomationEditorProps) 
     </Button>
   );
   const runNowButton = canEdit && saved && (
-    <Button disabled={runNow.isPending} onClick={() => runNow.mutate(saved.id)}>
-      Run now
-    </Button>
+    <Tooltip title={unsaved ? 'Save first' : ''}>
+      <span>
+        <Button disabled={unsaved || runNow.isPending} onClick={() => runNow.mutate(saved.id)}>
+          Run now
+        </Button>
+      </span>
+    </Tooltip>
   );
   const saveButton = canEdit && (
     <Button
       variant="contained"
       disabled={save.isPending}
-      onClick={() =>
+      onClick={() => {
+        const edited = revision.edited;
         save.mutate(
           { id: saved?.id, input: inputOf(draft) },
-          { onSuccess: (automation) => !saved && navigate(`/automations/${automation.id}`, { replace: true }) },
-        )
-      }
+          {
+            onSuccess: (automation) => {
+              setRevision((current) => ({ ...current, saved: edited }));
+              if (!saved) navigate(`/automations/${automation.id}`, { replace: true });
+            },
+          },
+        );
+      }}
     >
       Save
     </Button>

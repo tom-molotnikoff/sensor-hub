@@ -61,6 +61,10 @@ type Store interface {
 	// LatestRunCommand returns the ID of the newest command the run sent for
 	// the step's sensor and property since a time, and false when there is none.
 	LatestRunCommand(ctx context.Context, runID int, step Step, since time.Time) (int, bool, error)
+	// CancelledRunCommand returns the ID of a command still in flight for the
+	// step's sensor and property that a cancelled run of the automation sent,
+	// and false when there is none.
+	CancelledRunCommand(ctx context.Context, automationID int, step Step) (int, bool, error)
 }
 
 // SensorLookup returns a sensor with its writable capabilities filled in, or
@@ -73,7 +77,8 @@ type SensorLookup interface {
 // error. The channel receives the command's final status once.
 type CommandSender interface {
 	SendAsSystem(ctx context.Context, sensorID int, property string, value string, automationRunID int) (int, <-chan string, error)
-	// AwaitOutcome is the outcome channel of a command sent before a restart.
+	// AwaitOutcome is another channel for a command's final status, for a
+	// command sent before a restart or by another run.
 	AwaitOutcome(ctx context.Context, commandID int) (<-chan string, error)
 }
 

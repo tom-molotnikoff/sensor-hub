@@ -3,6 +3,7 @@ package actuation
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -43,10 +44,10 @@ func TestAckOnReading_MarksAcknowledged(t *testing.T) {
 	require.NotNil(t, command.AcknowledgedValue)
 	assert.Equal(t, "OFF", *command.AcknowledgedValue)
 
-	require.Len(t, broadcaster.messages, 1)
-	assert.Equal(t, "command_status", broadcaster.messages[0].Type)
-	assert.Equal(t, CommandStatusAcknowledged, broadcaster.messages[0].Status)
-	assert.Equal(t, 42, broadcaster.messages[0].ID)
+	require.Len(t, broadcaster.sent(), 1)
+	assert.Equal(t, "command_status", broadcaster.sent()[0].Type)
+	assert.Equal(t, CommandStatusAcknowledged, broadcaster.sent()[0].Status)
+	assert.Equal(t, 42, broadcaster.sent()[0].ID)
 }
 
 func TestAckTimeout_MarksTimedOut(t *testing.T) {
@@ -71,13 +72,13 @@ func TestAckTimeout_MarksTimedOut(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		command := repo.mustGet(43)
-		return command.Status == CommandStatusTimedOut && len(broadcaster.messages) == 1
+		return command.Status == CommandStatusTimedOut && len(broadcaster.sent()) == 1
 	}, time.Second, 10*time.Millisecond)
 	assert.Equal(t, CommandStatusTimedOut, <-outcome)
 
-	assert.Equal(t, "command_status", broadcaster.messages[0].Type)
-	assert.Equal(t, CommandStatusTimedOut, broadcaster.messages[0].Status)
-	assert.Equal(t, 43, broadcaster.messages[0].ID)
+	assert.Equal(t, "command_status", broadcaster.sent()[0].Type)
+	assert.Equal(t, CommandStatusTimedOut, broadcaster.sent()[0].Status)
+	assert.Equal(t, 43, broadcaster.sent()[0].ID)
 }
 
 func TestAckOnReading_MatchesPropertyOnly(t *testing.T) {
@@ -145,9 +146,9 @@ func TestRecoverPending_TimesOutExpiredCommandsAndTracksRemainingOnes(t *testing
 
 	recovered := repo.mustGet(46)
 	assert.Equal(t, CommandStatusAcknowledged, recovered.Status)
-	require.Len(t, broadcaster.messages, 2)
-	assert.Equal(t, CommandStatusTimedOut, broadcaster.messages[0].Status)
-	assert.Equal(t, CommandStatusAcknowledged, broadcaster.messages[1].Status)
+	require.Len(t, broadcaster.sent(), 2)
+	assert.Equal(t, CommandStatusTimedOut, broadcaster.sent()[0].Status)
+	assert.Equal(t, CommandStatusAcknowledged, broadcaster.sent()[1].Status)
 }
 
 func TestAwait_GivesTheOutcomeOfACommandRecoveredAfterARestart(t *testing.T) {
@@ -172,6 +173,29 @@ func TestAwait_GivesTheOutcomeOfACommandRecoveredAfterARestart(t *testing.T) {
 	assert.Equal(t, CommandStatusAcknowledged, <-outcome)
 	_, ok = tracker.Await(47)
 	assert.False(t, ok, "a settled command is no longer tracked")
+}
+
+func TestAwait_GivesTheOutcomeToTheSenderToo(t *testing.T) {
+	now := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
+	repo := newFakeCommandTrackerRepository(database.PendingCommandRecord{
+		ID:             48,
+		SensorID:       7,
+		Property:       "state",
+		Value:          "ON",
+		TimeoutSeconds: 10,
+		SentAt:         now,
+	})
+	tracker := NewCommandTracker(repo, &fakeCommandStatusBroadcaster{}, slog.Default())
+	tracker.now = func() time.Time { return now }
+	defer tracker.Close()
+
+	sent := tracker.Track(context.Background(), repo.mustGet(48))
+	awaited, ok := tracker.Await(48)
+	require.True(t, ok)
+	tracker.Consume(context.Background(), gen.Sensor{Id: 7}, []gen.Reading{{MeasurementType: "state", TextState: ptrString("ON")}})
+
+	assert.Equal(t, CommandStatusAcknowledged, <-sent)
+	assert.Equal(t, CommandStatusAcknowledged, <-awaited)
 }
 
 type fakeCommandTrackerRepository struct {
@@ -254,11 +278,20 @@ func (r *fakeCommandTrackerRepository) mustGet(id int) database.PendingCommandRe
 }
 
 type fakeCommandStatusBroadcaster struct {
+	mu       sync.Mutex
 	messages []CommandStatusMessage
 }
 
 func (b *fakeCommandStatusBroadcaster) BroadcastCommandStatus(message CommandStatusMessage) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.messages = append(b.messages, message)
+}
+
+func (b *fakeCommandStatusBroadcaster) sent() []CommandStatusMessage {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return slices.Clone(b.messages)
 }
 
 func ptrString(value string) *string {

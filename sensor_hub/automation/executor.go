@@ -110,6 +110,10 @@ func (e *executor) executeStep(ctx context.Context, logger *slog.Logger, run Run
 	ctx, span := e.startStepSpan(ctx, position, step)
 	defer span.End()
 
+	if e.awaitCancelledRunCommand(ctx, logger, run, step) {
+		logger.Warn("automation run interrupted", "position", position)
+		return "", false
+	}
 	stepID, err := e.store.StartRunStep(ctx, run.ID, position, step.Kind, e.now())
 	if errors.Is(err, ErrRunGone) {
 		logger.Info("automation run was cancelled or deleted; stopping", "position", position)
@@ -121,6 +125,29 @@ func (e *executor) executeStep(ctx context.Context, logger *slog.Logger, run Run
 	}
 
 	return e.finishStep(ctx, logger, span, RunStep{ID: stepID, Position: position}, e.set(ctx, logger, run, step))
+}
+
+// A cancelled run of the automation can leave a command in flight for this step's
+// property. The step waits for it rather than failing on it, so that restart
+// mode does not strand the device. Waiting before the step starts means a
+// cancel during the wait stops the run before it sends anything.
+func (e *executor) awaitCancelledRunCommand(ctx context.Context, logger *slog.Logger, run Run, step Step) (interrupted bool) {
+	commandID, found, err := e.store.CancelledRunCommand(ctx, run.AutomationID, step)
+	if err != nil {
+		logger.Error("could not look up a command left in flight by a cancelled run; sending the step anyway", "error", err)
+		return false
+	}
+	if !found {
+		return false
+	}
+	outcome, err := e.commands.AwaitOutcome(ctx, commandID)
+	if err != nil {
+		logger.Error("could not follow a command left in flight by a cancelled run; sending the step anyway", "command_id", commandID, "error", err)
+		return false
+	}
+	logger.Info("waiting for the command a cancelled run left in flight", "command_id", commandID)
+	_, interrupted = e.await(ctx, sensorName(ctx, e.sensors, step.SensorID), outcome)
+	return interrupted
 }
 
 // Only a set step can be interrupted: a wait step is never left running in a

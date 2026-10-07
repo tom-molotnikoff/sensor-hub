@@ -118,6 +118,25 @@ func TestMode_RestartCancelsTheActiveRunAndStartsOverFromStepOne(t *testing.T) {
 	assert.False(t, f.service.ResumeScheduled(waiting.Id))
 }
 
+func TestMode_RestartWaitsForTheCommandTheCancelledRunLeftInFlight(t *testing.T) {
+	f := newFixture(t)
+	created := f.createInMode(t, gen.AutomationModeRestart, setStep(f.lampID, "state", "ON"))
+	f.fire(created)
+	inFlight := f.commands.await(t, 0)
+
+	f.fire(created)
+
+	f.neverMoreCommandsThan(t, 1, "the new run sent step 1 while the cancelled run's command was in flight")
+	inFlight.outcome <- "acknowledged"
+	f.commands.awaitedOutcome(t, inFlight.id) <- "acknowledged"
+	restarted := f.commands.await(t, 1)
+	assert.NotEqual(t, inFlight.runID, restarted.runID)
+	assert.Equal(t, "ON", restarted.value)
+	restarted.outcome <- "acknowledged"
+	assert.Equal(t, restarted.runID, f.latestRun(t, created.Id, gen.AutomationRunStatusSucceeded).Id)
+	assert.Equal(t, gen.AutomationRunStatusCancelled, f.run(t, created.Id, inFlight.runID).Status)
+}
+
 func TestStartup_ATriggerCaughtUpInRestartModeCancelsTheRunThatWouldResume(t *testing.T) {
 	f := newFixture(t)
 	created := f.createInMode(t, gen.AutomationModeRestart, lampTimer(f, 4*60*60)...)

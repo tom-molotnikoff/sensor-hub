@@ -49,11 +49,14 @@ func newFixture(t *testing.T) *fixture {
 	lampID, err := result.LastInsertId()
 	require.NoError(t, err)
 
+	stopCommands := make(chan struct{})
+	t.Cleanup(func() { close(stopCommands) })
 	f := &fixture{
-		store:    database.NewAutomationRepository(handles, logger),
-		db:       handles,
-		sensors:  &fakeSensors{sensors: map[int]gen.Sensor{int(lampID): lamp(int(lampID))}},
-		commands: &fakeCommands{history: database.NewSensorCommandHistoryRepository(handles, logger), awaited: make(map[int]chan string)},
+		store:   database.NewAutomationRepository(handles, logger),
+		db:      handles,
+		sensors: &fakeSensors{sensors: map[int]gen.Sensor{int(lampID): lamp(int(lampID))}},
+		commands: &fakeCommands{history: database.NewSensorCommandHistoryRepository(handles, logger),
+			stop: stopCommands, awaited: make(map[int]chan string)},
 		notifier: &fakeNotifier{},
 		logger:   logger,
 		lampID:   int(lampID),
@@ -200,9 +203,11 @@ type sentCommand struct {
 }
 
 // fakeCommands writes real command history because a run step's
-// command_id has to reference a real row.
+// command_id has to reference a real row, and records each outcome in it as
+// the command tracker does.
 type fakeCommands struct {
 	history *database.SensorCommandHistoryRepository
+	stop    chan struct{}
 	mu      sync.Mutex
 	sent    []sentCommand
 	awaited map[int]chan string
@@ -224,7 +229,7 @@ func (f *fakeCommands) SendAsSystem(ctx context.Context, sensorID int, property,
 	}
 	command := sentCommand{id: id, sensorID: sensorID, property: property, value: value, runID: runID, at: time.Now(), outcome: make(chan string, 1)}
 	f.sent = append(f.sent, command)
-	return id, command.outcome, nil
+	return id, f.follow(id, command.outcome), nil
 }
 
 // A command sent before a restart gets a fresh channel, so that the stopped
@@ -234,7 +239,30 @@ func (f *fakeCommands) AwaitOutcome(_ context.Context, commandID int) (<-chan st
 	defer f.mu.Unlock()
 	outcome := make(chan string, 1)
 	f.awaited[commandID] = outcome
-	return outcome, nil
+	return f.follow(commandID, outcome), nil
+}
+
+// follow passes on the outcome a test gives a command once it is in command
+// history, so that the command is no longer in flight there either.
+func (f *fakeCommands) follow(commandID int, given <-chan string) <-chan string {
+	outcome := make(chan string, 1)
+	go func() {
+		select {
+		case status := <-given:
+			ctx := context.Background()
+			switch status {
+			case "acknowledged":
+				_, _ = f.history.MarkAcknowledged(ctx, commandID, "", time.Now().UTC())
+			case "timed_out":
+				_, _ = f.history.MarkTimedOut(ctx, commandID)
+			default:
+				_, _ = f.history.MarkFailed(ctx, commandID)
+			}
+			outcome <- status
+		case <-f.stop:
+		}
+	}()
+	return outcome
 }
 
 func (f *fakeCommands) awaitedOutcome(t *testing.T, commandID int) chan string {

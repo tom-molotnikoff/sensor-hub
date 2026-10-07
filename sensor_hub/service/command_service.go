@@ -128,8 +128,8 @@ func (s *CommandService) SendAsSystem(ctx context.Context, sensorID int, propert
 	return result.ID, outcome, err
 }
 
-// AwaitOutcome gives a command sent before a restart the outcome channel that
-// SendAsSystem would have returned.
+// AwaitOutcome gives a channel for the final status of a command sent before a
+// restart or by another run.
 func (s *CommandService) AwaitOutcome(ctx context.Context, commandID int) (<-chan string, error) {
 	if s.lifecycle != nil {
 		if outcome, ok := s.lifecycle.Await(commandID); ok {
