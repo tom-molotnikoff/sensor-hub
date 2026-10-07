@@ -93,7 +93,7 @@ func (r *AutomationRepository) SetAutomationEnabled(ctx context.Context, id int,
 }
 
 // The schema cascades the delete to triggers, steps, runs and run steps, and
-// clears automation_run_id on the commands its runs sent.
+// clears automation_run_id and automation_id on the commands its runs sent.
 func (r *AutomationRepository) DeleteAutomation(ctx context.Context, id int) error {
 	_, err := r.inTx(ctx, func(tx *sql.Tx) (int, error) {
 		active, err := activeRuns(ctx, tx, id)

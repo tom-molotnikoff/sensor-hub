@@ -46,9 +46,9 @@ type NewCommand struct {
 
 func (r *SensorCommandHistoryRepository) AddSentCommand(ctx context.Context, command NewCommand) (int, error) {
 	query := `INSERT INTO sensor_command_history
-		(sensor_id, user_id, automation_run_id, property, value, status, mqtt_topic, mqtt_payload, timeout_seconds, sent_at)
-		VALUES (?, ?, ?, ?, ?, 'sent', ?, ?, ?, ?)`
-	result, err := r.db.Writer.ExecContext(ctx, query, command.SensorID, command.UserID, command.AutomationRunID,
+		(sensor_id, user_id, automation_run_id, automation_id, property, value, status, mqtt_topic, mqtt_payload, timeout_seconds, sent_at)
+		VALUES (?, ?, ?, (SELECT automation_id FROM automation_runs WHERE id = ?), ?, ?, 'sent', ?, ?, ?, ?)`
+	result, err := r.db.Writer.ExecContext(ctx, query, command.SensorID, command.UserID, command.AutomationRunID, command.AutomationRunID,
 		command.Property, command.Value, command.MQTTTopic, command.MQTTPayload, command.TimeoutSeconds, command.SentAt)
 	if err != nil {
 		return 0, fmt.Errorf("error inserting sensor command history: %w", err)
@@ -172,8 +172,7 @@ func (r *SensorCommandHistoryRepository) ListBySensorID(ctx context.Context, sen
 			h.timeout_seconds, h.mqtt_topic, h.mqtt_payload, u.id, u.username, h.automation_run_id, a.id, a.name
 		FROM sensor_command_history h
 		LEFT JOIN users u ON u.id = h.user_id
-		LEFT JOIN automation_runs ar ON ar.id = h.automation_run_id
-		LEFT JOIN automations a ON a.id = ar.automation_id
+		LEFT JOIN automations a ON a.id = h.automation_id
 		WHERE h.sensor_id = ?
 		ORDER BY h.sent_at DESC, h.id DESC
 		LIMIT ?`

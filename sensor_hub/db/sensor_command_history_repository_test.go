@@ -20,7 +20,7 @@ func TestSensorCommandHistoryRepository_AddSentCommand_Success(t *testing.T) {
 	sentAt := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
 
 	mock.ExpectExec("INSERT INTO sensor_command_history").
-		WithArgs(7, &userID, nil, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, sentAt).
+		WithArgs(7, &userID, nil, nil, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, sentAt).
 		WillReturnResult(sqlmock.NewResult(42, 1))
 
 	id, err := repo.AddSentCommand(context.Background(), NewCommand{
@@ -52,7 +52,7 @@ func TestSensorCommandHistoryRepository_AddSentCommand_DBError(t *testing.T) {
 
 	runID := 5
 	mock.ExpectExec("INSERT INTO sensor_command_history").
-		WithArgs(7, nil, &runID, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, sqlmock.AnyArg()).
+		WithArgs(7, nil, &runID, &runID, "state", "ON", "zigbee2mqtt/office-plug/set", `{"state":"ON"}`, 10, sqlmock.AnyArg()).
 		WillReturnError(errors.New("write failed"))
 
 	_, err := repo.AddSentCommand(context.Background(), NewCommand{

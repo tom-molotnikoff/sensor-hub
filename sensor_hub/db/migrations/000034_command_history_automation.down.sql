@@ -1,0 +1,2 @@
+DROP INDEX idx_sensor_command_history_automation;
+ALTER TABLE sensor_command_history DROP COLUMN automation_id;

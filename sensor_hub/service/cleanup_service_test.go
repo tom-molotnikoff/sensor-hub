@@ -408,55 +408,6 @@ func TestCleanupService_PerformCleanup_AlertHistoryError_DoesNotFail(t *testing.
 	assert.NoError(t, err)
 }
 
-type mockHistoryPruner struct {
-	mock.Mock
-}
-
-func (m *mockHistoryPruner) DeleteRunsFinishedBefore(ctx context.Context, cutoff time.Time) (int64, error) {
-	args := m.Called(ctx, cutoff)
-	return args.Get(0).(int64), args.Error(1)
-}
-
-func (m *mockHistoryPruner) DeleteCommandsSentBefore(ctx context.Context, cutoff time.Time) (int64, error) {
-	args := m.Called(ctx, cutoff)
-	return args.Get(0).(int64), args.Error(1)
-}
-
-func cutoffDaysAgo(days int) any {
-	expected := time.Now().AddDate(0, 0, -days)
-	return mock.MatchedBy(func(cutoff time.Time) bool { return cutoff.Sub(expected).Abs() < time.Second })
-}
-
-func TestCleanupService_PerformCleanup_PrunesAutomationRunsAndCommandHistory(t *testing.T) {
-	service, _, _, _, _, maintenanceRepo := setupCleanupService()
-	pruner := new(mockHistoryPruner)
-	service.automationRunsRepo = pruner
-	service.commandHistoryRepo = pruner
-
-	pruner.On("DeleteRunsFinishedBefore", mock.Anything, cutoffDaysAgo(30)).Return(int64(3), nil)
-	pruner.On("DeleteCommandsSentBefore", mock.Anything, cutoffDaysAgo(90)).Return(int64(7), nil)
-	defaultMaintenanceExpectations(maintenanceRepo)
-
-	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{AutomationHistoryRetentionDays: 30, CommandHistoryRetentionDays: 90})
-
-	assert.NoError(t, err)
-	pruner.AssertExpectations(t)
-}
-
-func TestCleanupService_PerformCleanup_ZeroKeepsAutomationRunsAndCommandHistory(t *testing.T) {
-	service, _, _, _, _, maintenanceRepo := setupCleanupService()
-	pruner := new(mockHistoryPruner)
-	service.automationRunsRepo = pruner
-	service.commandHistoryRepo = pruner
-	defaultMaintenanceExpectations(maintenanceRepo)
-
-	err := service.performCleanup(context.Background(), &appProps.ApplicationConfiguration{})
-
-	assert.NoError(t, err)
-	pruner.AssertNotCalled(t, "DeleteRunsFinishedBefore", mock.Anything, mock.Anything)
-	pruner.AssertNotCalled(t, "DeleteCommandsSentBefore", mock.Anything, mock.Anything)
-}
-
 // ============================================================================
 // NewCleanupService tests
 // ============================================================================

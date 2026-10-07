@@ -2071,7 +2071,7 @@ export interface components {
             user?: components["schemas"]["CommandHistoryUser"] | null;
             /** @description The automation run that sent the command, or null when a user sent it or the run has since been deleted. */
             automation_run_id?: number | null;
-            /** @description The automation whose run sent the command, or null when a user sent it. */
+            /** @description The automation whose run sent the command, or null when a user sent it or the automation has since been deleted. It stays after the run is deleted. */
             automation?: components["schemas"]["CommandHistoryAutomation"] | null;
         };
         /** @description A controllable property exposed by a driver. This is derived from driver metadata and is never user-configurable. */

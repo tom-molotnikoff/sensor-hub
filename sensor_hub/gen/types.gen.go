@@ -1020,7 +1020,7 @@ type CommandHistoryEntry struct {
 	// AcknowledgedValue Actual value seen on the first echoed reading for the commanded property.
 	AcknowledgedValue *string `json:"acknowledged_value,omitempty"`
 
-	// Automation The automation whose run sent the command, or null when a user sent it.
+	// Automation The automation whose run sent the command, or null when a user sent it or the automation has since been deleted. It stays after the run is deleted.
 	Automation *CommandHistoryAutomation `json:"automation,omitempty"`
 
 	// AutomationRunId The automation run that sent the command, or null when a user sent it or the run has since been deleted.

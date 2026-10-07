@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	gen "example/sensorHub/gen"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -98,4 +100,35 @@ func TestSensorCommandHistoryRepository_DeleteCommandsSentBefore_DeletesOldComma
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), deleted)
 	assert.Equal(t, []int{recent}, remainingIDs(t, h, "SELECT id FROM sensor_command_history"))
+}
+
+func TestSensorCommandHistoryRepository_ListBySensorID_KeepsTheAutomationOfACommandWhoseRunWasPruned(t *testing.T) {
+	h := openHandles(t, 1)
+	result, err := h.Writer.Exec("INSERT INTO sensors (name, sensor_driver, config) VALUES ('office-plug', 'mqtt-zigbee2mqtt', '{}')")
+	require.NoError(t, err)
+	sensorID, err := result.LastInsertId()
+	require.NoError(t, err)
+	result, err = h.Writer.Exec("INSERT INTO automations (name) VALUES ('Evening lights')")
+	require.NoError(t, err)
+	automationID, err := result.LastInsertId()
+	require.NoError(t, err)
+
+	now := time.Now().UTC()
+	longAgo := now.AddDate(0, 0, -40)
+	runID := insertRetentionRun(t, h, int(automationID), "succeeded", longAgo, &longAgo)
+	repo := NewSensorCommandHistoryRepository(h, slog.Default())
+	_, err = repo.AddSentCommand(context.Background(), NewCommand{
+		SensorID: int(sensorID), AutomationRunID: &runID, Property: "state", Value: "ON",
+		MQTTTopic: "zigbee2mqtt/office-plug/set", MQTTPayload: `{"state":"ON"}`, TimeoutSeconds: 10, SentAt: longAgo,
+	})
+	require.NoError(t, err)
+	_, err = NewAutomationRepository(h, slog.Default()).DeleteRunsFinishedBefore(context.Background(), now.AddDate(0, 0, -30))
+	require.NoError(t, err)
+
+	history, err := repo.ListBySensorID(context.Background(), int(sensorID), 10)
+
+	require.NoError(t, err)
+	require.Len(t, history, 1)
+	assert.Nil(t, history[0].AutomationRunId)
+	assert.Equal(t, &gen.CommandHistoryAutomation{Id: int(automationID), Name: "Evening lights"}, history[0].Automation)
 }
