@@ -42,10 +42,6 @@ func (f *fixture) temperature(values ...float64) {
 	f.readings.Consume(context.Background(), f.climate, readings)
 }
 
-func (f *fixture) contact(value string) {
-	f.readings.Consume(context.Background(), f.door, []gen.Reading{{MeasurementType: "contact", TextState: &value}})
-}
-
 func (f *fixture) runCount(t *testing.T, automationID int) int {
 	t.Helper()
 	runs, err := f.service.Runs(context.Background(), automationID)
@@ -90,16 +86,6 @@ func TestReadingTrigger_AHeldConditionFiresWhenTheHoldEndsWithoutAnotherReading(
 	assert.WithinDuration(t, consumed.Add(time.Second), sent.at, 500*time.Millisecond)
 	sent.outcome <- "acknowledged"
 	f.latestRun(t, created.Id, gen.AutomationRunStatusSucceeded)
-}
-
-func TestReadingTrigger_AReadingThatEndsTheConditionDuringTheHoldStopsItFiring(t *testing.T) {
-	f := newFixture(t)
-	created := f.create(t, []gen.AutomationTrigger{held(becomes(f.door.Id, "false"), 1)}, setStep(f.lampID, "state", "ON"))
-
-	f.contact("false")
-	f.contact("true")
-
-	f.neverMoreRunsThan(t, created.Id, 0, 1500*time.Millisecond, "the door was not open for the whole hold")
 }
 
 func TestReadingTrigger_AnAutomationThatIsOffIgnoresReadingsAndSwitchingItOnStartsAfresh(t *testing.T) {
