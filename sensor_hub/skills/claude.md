@@ -43,7 +43,7 @@ sensor-hub sensors add --name X --driver sensor-hub-http-temperature --config ur
 sensor-hub sensors update 1 --name X --config url=Z  # Update by ID
 sensor-hub sensors update 1 --retention-hours 48     # Set per-sensor retention (hours)
 sensor-hub sensors update 1 --retention-hours 0      # Clear per-sensor retention (use global default)
-sensor-hub sensors delete "Living Room"              # Delete by name
+sensor-hub sensors delete "Living Room"              # Delete by name, and every automation that uses it
 sensor-hub sensors enable "Living Room"              # Enable sensor
 sensor-hub sensors disable "Living Room"             # Disable sensor
 sensor-hub sensors health "Living Room"              # Health history
@@ -55,6 +55,8 @@ sensor-hub sensors pending                           # List pending (auto-discov
 sensor-hub sensors approve 5                         # Approve a pending sensor by ID
 sensor-hub sensors dismiss 5                         # Dismiss a pending sensor by ID
 ```
+
+**Deleting a sensor** also deletes every automation that uses it in a trigger or a set step, including a run in progress, without asking. To keep an automation, update it to stop using the sensor first.
 
 **Sensor status.** Every sensor has a `status` field:
 - `active` - an installed sensor that Sensor Hub collects readings from. These are the user's real sensors.
@@ -123,6 +125,94 @@ sensor-hub alerts history 1 --limit 20               # With limit
 
 > Multiple alerts can be created per sensor (one per measurement type + alert type combo). Rate limit is in seconds (e.g. 60 = 1 minute, 3600 = 1 hour).
 
+### Automations
+```bash
+sensor-hub automations list                          # Every automation with status and next fire time
+sensor-hub automations get 3                         # One automation by ID
+sensor-hub automations create --file timer.json      # Create from a JSON file
+cat timer.json | sensor-hub automations create --file -   # Create from stdin
+sensor-hub automations update 3 --file timer.json    # Replace name, triggers and steps
+sensor-hub automations delete 3                      # Delete with its triggers, steps and runs
+sensor-hub automations enable 3                      # Switch on
+sensor-hub automations disable 3                     # Switch off (a run in progress finishes)
+sensor-hub automations run 3                         # Run now, even when switched off
+sensor-hub automations runs 3                        # Runs, newest first, with step outcomes
+sensor-hub automations cancel 3 42                   # Cancel run 42 of automation 3
+sensor-hub automations margin-suggestion --sensor-id 3 --measurement-type temperature
+```
+
+An automation is one or more triggers (any of them starts a run) followed by steps run top to bottom. `create` and `update` take the same JSON as `POST /api/automations`. A new automation is switched on unless the JSON sets `"enabled": false`, and is in `"single"` mode unless it sets `"mode": "restart"`. An update that leaves out `enabled` or `mode` keeps the current setting. A rejected save fails with HTTP 400 and a message naming the field.
+
+**Triggers:**
+- `{"type": "schedule", "at": "19:00", "days": ["mon", "tue", "wed", "thu", "fri"]}` - time of day in the hub's timezone (the `hub.timezone` property), at least one day.
+- `{"type": "interval", "seconds": 1800}` - every so many seconds, at least 60, counted from the last save or enable.
+- `{"type": "reading", "sensor_id": 3, "measurement_type": "temperature", "operator": "falls_below", "threshold": 16, "rearm_margin": 0.2}` - numeric types take `falls_below` or `rises_above` with a required `rearm_margin`. It fires once per crossing, and only again after the value has gone back past the threshold by the margin.
+- `{"type": "reading", "sensor_id": 9, "measurement_type": "contact", "operator": "becomes", "value": "false"}` - binary types take `becomes` with the reading's raw text and no margin. Zigbee2MQTT binary readings are `"true"`/`"false"`, so a contact sensor opening is `"value": "false"`. Matching ignores case.
+- Any reading trigger can add `"hold_seconds": 300` so the condition must hold that long before it fires.
+- A reading trigger only saves once the sensor has sent at least one reading of that measurement type (`sensor-hub measurement-types for-sensor 3`).
+- Use `margin-suggestion` for `rearm_margin`. `suggested_margin` is null when `confidence` is `"none"` (fewer than 30 readings). `get` shows `margin_hint` on a trigger when the daily check found the sensor noisier than its saved margin allows. The margin is never changed for you.
+
+**Steps:**
+- `{"type": "set", "sensor_id": 14, "property": "state", "value": "ON"}` - any writable capability, with the value as a string, as for `sensor-hub sensors command`. See `sensor-hub sensors capabilities 14` for properties and allowed values. The next step waits until the device acknowledges it, and a failed or timed-out command fails the run.
+- `{"type": "wait", "seconds": 14400}` - at least 1 second, no maximum. Waits survive a hub restart.
+
+**Status** (from `list` and `get`): `off`, `armed`, `running` or `broken`, with `last_run_failed`. `broken` means a set step targets a property its device no longer has, and `status_reason` names it, such as `step 2: hallway-lamp no longer has color_temp_preset`. A broken automation starts no runs until it is saved with valid steps or the device gets the property back. `next_fire_at` is UTC, with the zone in `hub_timezone`.
+
+**Runs:** statuses are `running` and `waiting` while active, then `succeeded`, `failed` or `cancelled`, or `missed` and `skipped` for runs that never started. `cause_run` names the run, usually of another automation, whose command acknowledgement started this one. A run refused by the loop guard (`automation.loop.max.chain`) is `failed` with an error starting `loop guard`.
+
+**Run, cancel and delete:**
+- `run` prints a run, but in `single` mode an automation already running records a skipped run instead: check that `status` is not `"skipped"`. In `restart` mode it cancels the active run first. It fails with HTTP 409 on a broken automation.
+- `cancel` fails with HTTP 409 when the run has already ended, and 404 when the run is not that automation's. A command already sent carries on.
+- `delete` fails with HTTP 409 while the automation has a running or waiting run. Cancel it first.
+
+#### Example: lights timer
+
+Lamp on at 19:00 on weekdays, dimmed, and off again 4 hours later:
+
+```json
+{
+  "name": "Lamp timer",
+  "triggers": [
+    { "type": "schedule", "at": "19:00", "days": ["mon", "tue", "wed", "thu", "fri"] }
+  ],
+  "steps": [
+    { "type": "set", "sensor_id": 14, "property": "state", "value": "ON" },
+    { "type": "set", "sensor_id": 14, "property": "brightness", "value": "150" },
+    { "type": "wait", "seconds": 14400 },
+    { "type": "set", "sensor_id": 14, "property": "state", "value": "OFF" }
+  ]
+}
+```
+
+#### Example: heating pair
+
+Two automations: heating plug 21 on below 16 °C and off above 20 °C on sensor 3. Get the margin from `sensor-hub automations margin-suggestion --sensor-id 3 --measurement-type temperature` first.
+
+```bash
+sensor-hub automations create --file - <<'JSON'
+{
+  "name": "Lounge heat on",
+  "triggers": [
+    { "type": "reading", "sensor_id": 3, "measurement_type": "temperature",
+      "operator": "falls_below", "threshold": 16, "rearm_margin": 0.2 }
+  ],
+  "steps": [ { "type": "set", "sensor_id": 21, "property": "state", "value": "ON" } ]
+}
+JSON
+sensor-hub automations create --file - <<'JSON'
+{
+  "name": "Lounge heat off",
+  "triggers": [
+    { "type": "reading", "sensor_id": 3, "measurement_type": "temperature",
+      "operator": "rises_above", "threshold": 20, "rearm_margin": 0.2 }
+  ],
+  "steps": [ { "type": "set", "sensor_id": 21, "property": "state", "value": "OFF" } ]
+}
+JSON
+```
+
+The gap between 16 and 20 stops the two fighting. After a restart, save or enable, the first reading fires whichever trigger it already meets, so the heating ends up in the right state.
+
 ### Notifications
 ```bash
 sensor-hub notifications list                        # List notifications
@@ -185,6 +275,7 @@ sensor-hub oauth reload                              # Reload from disk
 ```bash
 sensor-hub properties get                            # Get all properties
 sensor-hub properties set --key weather.latitude --value 53.3811
+sensor-hub properties set --key hub.timezone --value Europe/London  # Zone automation schedules run in
 ```
 
 ### Dashboards
