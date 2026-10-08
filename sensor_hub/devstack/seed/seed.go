@@ -18,6 +18,10 @@ const (
 	adminAPIKeyName = "devstack seed"
 )
 
+// devMQTTClient is the credential the mock-mqtt service in compose.yaml dials
+// in to the embedded broker with.
+var devMQTTClient = fixtures.MQTTClient{Name: "zigbee2mqtt", TopicPrefix: "zigbee2mqtt/", Password: "devstack-mqtt-password"}
+
 var devUsers = []fixtures.User{
 	{Username: adminUsername, Password: "adminpassword", Role: service.RoleAdmin},
 	{Username: "user", Password: "userpassword", Role: service.RoleUser},
@@ -89,6 +93,10 @@ func seed(ctx context.Context, db *database.Handles, logger *slog.Logger, httpMo
 		logger.Info("entities were seeded before, leaving them as they are")
 	} else if apiKey, err = s.createEntities(ctx); err != nil {
 		return "", err
+	}
+	// Outside the marker, so a devstack seeded before MQTT clients existed gains one.
+	if err := fixtures.EnsureMQTTClient(ctx, database.NewMQTTClientRepository(db, logger), devMQTTClient); err != nil {
+		return "", &stepError{step: "create the MQTT client", err: err}
 	}
 	if err := s.topUpHistory(ctx, time.Now().UTC().Truncate(time.Second)); err != nil {
 		return "", &stepError{step: "top up the history", err: err}

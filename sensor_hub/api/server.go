@@ -23,6 +23,7 @@ type Server struct {
 	dashboardService    service.DashboardServiceInterface
 	propertiesService   service.PropertiesServiceInterface
 	mqttService         service.MQTTServiceInterface
+	mqttClientService   service.MQTTClientServiceInterface
 	oauthService        OAuthAPIServiceInterface
 	mqttStatsProvider   MQTTStatsProvider
 	automationService   AutomationServiceInterface
@@ -42,6 +43,7 @@ func NewServer(
 	dashboardService service.DashboardServiceInterface,
 	propertiesService service.PropertiesServiceInterface,
 	mqttService service.MQTTServiceInterface,
+	mqttClientService service.MQTTClientServiceInterface,
 	oauthService OAuthAPIServiceInterface,
 	mqttStatsProvider MQTTStatsProvider,
 	automationService AutomationServiceInterface,
@@ -59,6 +61,7 @@ func NewServer(
 		dashboardService:    dashboardService,
 		propertiesService:   propertiesService,
 		mqttService:         mqttService,
+		mqttClientService:   mqttClientService,
 		oauthService:        oauthService,
 		mqttStatsProvider:   mqttStatsProvider,
 		automationService:   automationService,

@@ -18,6 +18,7 @@ import (
 	mqttpkg "example/sensorHub/mqtt"
 	"example/sensorHub/readings"
 	"example/sensorHub/service"
+	"example/sensorHub/testharness"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/assert"
@@ -26,8 +27,7 @@ import (
 
 var (
 	zigbee2MQTTBridgeBrokerOnce sync.Once
-	zigbee2MQTTBridgeBroker     *mqttpkg.EmbeddedBroker
-	zigbee2MQTTBridgeBrokerPort int
+	zigbee2MQTTBridgeBroker     *testharness.ExternalBroker
 	zigbee2MQTTBridgeBrokerErr  error
 )
 
@@ -58,13 +58,13 @@ func setupZigbee2MQTTBridgeFixture(t *testing.T, brokerName string, cleanupSenso
 	liveView := service.NewLiveView(sensorRepo, logger)
 	pipeline := readings.NewPipeline(readingsRepo, liveView, logger)
 	sensorService := service.NewSensorService(sensorRepo, mtRepo, pipeline, liveView, nil, service.NewReadingsSampler(readingsRepo, logger), logger)
-	connManager := mqttpkg.NewConnectionManager(sensorService, subRepo, brokerRepo, logger)
+	connManager := mqttpkg.NewConnectionManager(sensorService, subRepo, brokerRepo, nil, logger)
 
 	resolvedBrokerName := fmt.Sprintf("%s-%d", brokerName, time.Now().UnixNano())
 	brokerID, err := brokerRepo.Add(ctx, gen.MQTTBroker{
 		Name:    resolvedBrokerName,
-		Host:    "127.0.0.1",
-		Port:    port,
+		Host:    ptrStr("127.0.0.1"),
+		Port:    &port,
 		Type:    "external",
 		Enabled: true,
 	})
@@ -81,8 +81,8 @@ func setupZigbee2MQTTBridgeFixture(t *testing.T, brokerName string, cleanupSenso
 	require.NoError(t, connManager.ConnectBroker(ctx, gen.MQTTBroker{
 		Id:      &brokerID,
 		Name:    resolvedBrokerName,
-		Host:    "127.0.0.1",
-		Port:    port,
+		Host:    ptrStr("127.0.0.1"),
+		Port:    &port,
 		Type:    "external",
 		Enabled: true,
 	}))
@@ -132,19 +132,11 @@ func sharedZigbee2MQTTBridgeBrokerPort(t *testing.T) int {
 	t.Helper()
 
 	zigbee2MQTTBridgeBrokerOnce.Do(func() {
-		zigbee2MQTTBridgeBrokerPort, zigbee2MQTTBridgeBrokerErr = reserveTCPPortNumber()
-		if zigbee2MQTTBridgeBrokerErr != nil {
-			return
-		}
-
-		zigbee2MQTTBridgeBroker = mqttpkg.NewEmbeddedBroker(mqttpkg.BrokerConfig{
-			TCPAddress: fmt.Sprintf(":%d", zigbee2MQTTBridgeBrokerPort),
-		}, slog.Default())
-		zigbee2MQTTBridgeBrokerErr = zigbee2MQTTBridgeBroker.Start()
+		zigbee2MQTTBridgeBroker, zigbee2MQTTBridgeBrokerErr = testharness.StartExternalBroker()
 	})
 
 	require.NoError(t, zigbee2MQTTBridgeBrokerErr)
-	return zigbee2MQTTBridgeBrokerPort
+	return zigbee2MQTTBridgeBroker.Port
 }
 
 func cleanupSharedZigbee2MQTTBridgeBroker() {

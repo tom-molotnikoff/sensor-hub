@@ -220,7 +220,7 @@ func TestListBrokersHandler_Error(t *testing.T) {
 
 func TestGetBrokerHandler_Success(t *testing.T) {
 	s, svc := newMQTTMock()
-	broker := &gen.MQTTBroker{Id: ptrInt(1), Name: "test-broker", Host: "mqtt.local", Port: 1883}
+	broker := &gen.MQTTBroker{Id: ptrInt(1), Name: "test-broker", Host: ptrStr("mqtt.local"), Port: ptrInt(1883)}
 	svc.On("GetBrokerByID", mock.Anything, 1).Return(broker, nil)
 
 	router := setupMQTTRouter("GET", "/mqtt/brokers/:id", withBrokerID(s, s.GetMqttBroker))
@@ -259,7 +259,7 @@ func TestCreateBrokerHandler_Success(t *testing.T) {
 	s, svc := newMQTTMock()
 	svc.On("AddBroker", mock.Anything, mock.AnythingOfType("gen.MQTTBroker")).Return(1, nil)
 
-	body, _ := json.Marshal(gen.MQTTBroker{Name: "new-broker", Type: "external", Host: "mqtt.local", Port: 1883})
+	body, _ := json.Marshal(gen.MQTTBroker{Name: "new-broker", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(1883)})
 	router := setupMQTTRouter("POST", "/mqtt/brokers", s.CreateMqttBroker)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/mqtt/brokers", bytes.NewReader(body))
@@ -301,7 +301,7 @@ func TestUpdateBrokerHandler_Success(t *testing.T) {
 	s, svc := newMQTTMock()
 	svc.On("UpdateBroker", mock.Anything, mock.AnythingOfType("gen.MQTTBroker")).Return(nil)
 
-	body, _ := json.Marshal(gen.MQTTBroker{Name: "updated", Type: "external", Host: "mqtt.local", Port: 1883})
+	body, _ := json.Marshal(gen.MQTTBroker{Name: "updated", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(1883)})
 	router := setupMQTTRouter("PUT", "/mqtt/brokers/:id", withBrokerID(s, s.UpdateMqttBroker))
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("PUT", "/api/mqtt/brokers/1", bytes.NewReader(body))
@@ -502,3 +502,5 @@ func TestGetMqttStatsHandler_Unavailable(t *testing.T) {
 }
 
 func ptrInt(i int) *int { return &i }
+
+func ptrStr(s string) *string { return &s }

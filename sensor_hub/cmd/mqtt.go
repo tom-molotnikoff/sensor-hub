@@ -13,7 +13,7 @@ import (
 var mqttCmd = &cobra.Command{
 	Use:     "mqtt",
 	GroupID: hubGroupID,
-	Short:   "Manage MQTT brokers, subscriptions, and view stats",
+	Short:   "Manage MQTT brokers, clients, subscriptions, and view stats",
 }
 
 // ----------------------------------------------------------------------------
@@ -77,9 +77,11 @@ var mqttBrokersCreateCmd = &cobra.Command{
 		body := gen.CreateMqttBrokerJSONRequestBody{
 			Name:    name,
 			Type:    brokerType,
-			Host:    host,
-			Port:    port,
 			Enabled: enabled,
+		}
+		if brokerType != "embedded" {
+			body.Host = &host
+			body.Port = &port
 		}
 		if username != "" {
 			body.Username = &username
@@ -326,14 +328,13 @@ var mqttStatsCmd = &cobra.Command{
 func init() {
 	mqttBrokersCreateCmd.Flags().String("name", "", "Broker name")
 	mqttBrokersCreateCmd.Flags().String("type", "external", "Broker type (embedded or external)")
-	mqttBrokersCreateCmd.Flags().String("host", "", "Broker host")
-	mqttBrokersCreateCmd.Flags().Int("port", 1883, "Broker port")
+	mqttBrokersCreateCmd.Flags().String("host", "", "Broker host (external brokers only)")
+	mqttBrokersCreateCmd.Flags().Int("port", 1883, "Broker port (external brokers only)")
 	mqttBrokersCreateCmd.Flags().Bool("enabled", true, "Enable the broker")
 	mqttBrokersCreateCmd.Flags().String("username", "", "Broker username")
 	mqttBrokersCreateCmd.Flags().String("password", "", "Broker password")
 	mqttBrokersCreateCmd.Flags().Bool("tls", false, "(Deprecated; use ca_cert_path/client_cert_path on update --file instead)")
 	_ = mqttBrokersCreateCmd.MarkFlagRequired("name")
-	_ = mqttBrokersCreateCmd.MarkFlagRequired("host")
 
 	mqttBrokersUpdateCmd.Flags().String("file", "", "Path to JSON file with broker data")
 	_ = mqttBrokersUpdateCmd.MarkFlagRequired("file")

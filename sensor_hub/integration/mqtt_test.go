@@ -21,8 +21,8 @@ import (
 func TestMQTTBroker_CreateAndList(t *testing.T) {
 	broker := gen.MQTTBroker{
 		Name:     "test-broker",
-		Host:     "mqtt-test-host.example.com",
-		Port:     1883,
+		Host:     ptrStr("mqtt-test-host.example.com"),
+		Port:     ptrInt(1883),
 		Type:     "external",
 		ClientId: ptrStr("sensor-hub-test"),
 		Enabled:  true,
@@ -39,8 +39,8 @@ func TestMQTTBroker_GetByID(t *testing.T) {
 	// Create a broker to get
 	broker := gen.MQTTBroker{
 		Name:    "get-test-broker",
-		Host:    "192.168.1.100",
-		Port:    1883,
+		Host:    ptrStr("192.168.1.100"),
+		Port:    ptrInt(1883),
 		Type:    "external",
 		Enabled: false,
 	}
@@ -66,8 +66,8 @@ func TestMQTTBroker_GetByID_NotFound(t *testing.T) {
 func TestMQTTBroker_Update(t *testing.T) {
 	broker := gen.MQTTBroker{
 		Name:    "update-test-broker",
-		Host:    "update-host.example.com",
-		Port:    1883,
+		Host:    ptrStr("update-host.example.com"),
+		Port:    ptrInt(1883),
 		Type:    "external",
 		Enabled: true,
 	}
@@ -82,8 +82,8 @@ func TestMQTTBroker_Update(t *testing.T) {
 	updated := gen.MQTTBroker{
 		Id:       &created.ID,
 		Name:     "update-test-broker-renamed",
-		Host:     "10.0.0.1",
-		Port:     8883,
+		Host:     ptrStr("10.0.0.1"),
+		Port:     ptrInt(8883),
 		Type:     "external",
 		Enabled:  false,
 		Username: ptrStr("mqttuser"),
@@ -100,8 +100,8 @@ func TestMQTTBroker_Update(t *testing.T) {
 func TestMQTTBroker_Delete(t *testing.T) {
 	broker := gen.MQTTBroker{
 		Name:    "delete-test-broker",
-		Host:    "delete-host.example.com",
-		Port:    1883,
+		Host:    ptrStr("delete-host.example.com"),
+		Port:    ptrInt(1883),
 		Type:    "external",
 		Enabled: false,
 	}
@@ -128,8 +128,8 @@ func TestMQTTBroker_Delete_NotFound(t *testing.T) {
 func TestMQTTBroker_Create_Validation(t *testing.T) {
 	// Missing name
 	broker := gen.MQTTBroker{
-		Host: "localhost",
-		Port: 1883,
+		Host: ptrStr("localhost"),
+		Port: ptrInt(1883),
 		Type: "external",
 	}
 	_, status := client.CreateMQTTBroker(broker)
@@ -139,8 +139,8 @@ func TestMQTTBroker_Create_Validation(t *testing.T) {
 func TestMQTTBroker_DuplicateName(t *testing.T) {
 	broker := gen.MQTTBroker{
 		Name:    "duplicate-broker",
-		Host:    "dup-host.example.com",
-		Port:    1883,
+		Host:    ptrStr("dup-host.example.com"),
+		Port:    ptrInt(1883),
 		Type:    "external",
 		Enabled: false,
 	}
@@ -160,8 +160,8 @@ func TestMQTTSubscription_CreateAndList(t *testing.T) {
 	// First create a broker to attach subscriptions to
 	broker := gen.MQTTBroker{
 		Name:    "sub-test-broker",
-		Host:    "sub-test-host.example.com",
-		Port:    1883,
+		Host:    ptrStr("sub-test-host.example.com"),
+		Port:    ptrInt(1883),
 		Type:    "external",
 		Enabled: true,
 	}
@@ -190,7 +190,7 @@ func TestMQTTSubscription_CreateAndList(t *testing.T) {
 func TestMQTTSubscription_GetByID(t *testing.T) {
 	// Create broker
 	broker := gen.MQTTBroker{
-		Name: "sub-get-broker", Host: "sub-get-host.example.com", Port: 1883, Type: "external",
+		Name: "sub-get-broker", Host: ptrStr("sub-get-host.example.com"), Port: ptrInt(1883), Type: "external",
 	}
 	bResp, _ := client.CreateMQTTBroker(broker)
 	var b struct {
@@ -219,7 +219,7 @@ func TestMQTTSubscription_GetByID(t *testing.T) {
 
 func TestMQTTSubscription_Update(t *testing.T) {
 	broker := gen.MQTTBroker{
-		Name: "sub-update-broker", Host: "sub-update-host.example.com", Port: 1883, Type: "external",
+		Name: "sub-update-broker", Host: ptrStr("sub-update-host.example.com"), Port: ptrInt(1883), Type: "external",
 	}
 	bResp, _ := client.CreateMQTTBroker(broker)
 	var b struct {
@@ -258,7 +258,7 @@ func TestMQTTSubscription_Update(t *testing.T) {
 
 func TestMQTTSubscription_Delete(t *testing.T) {
 	broker := gen.MQTTBroker{
-		Name: "sub-delete-broker", Host: "sub-delete-host.example.com", Port: 1883, Type: "external",
+		Name: "sub-delete-broker", Host: ptrStr("sub-delete-host.example.com"), Port: ptrInt(1883), Type: "external",
 	}
 	bResp, _ := client.CreateMQTTBroker(broker)
 	var b struct {
@@ -322,7 +322,7 @@ func TestMQTTBroker_ViewerCannotCreate(t *testing.T) {
 	assert.Equal(t, http.StatusOK, listStatus)
 
 	broker := gen.MQTTBroker{
-		Name: "viewer-broker", Host: "viewer-host.example.com", Port: 1883, Type: "external",
+		Name: "viewer-broker", Host: ptrStr("viewer-host.example.com"), Port: ptrInt(1883), Type: "external",
 	}
 	_, createStatus := viewerClient.CreateMQTTBroker(broker)
 	assert.Equal(t, http.StatusForbidden, createStatus)

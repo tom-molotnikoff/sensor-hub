@@ -3,8 +3,9 @@ import { viewports } from './checks';
 import { signIn } from './users';
 
 const lists = [
-  { title: 'MQTT Brokers', row: 'Garage Mosquitto' },
-  { title: 'MQTT Subscriptions', row: 'zigbee2mqtt/attic/+' },
+  { title: 'MQTT Brokers', row: 'Garage Mosquitto', menu: ['Disable', 'Delete'] },
+  { title: 'MQTT Clients', row: 'zigbee2mqtt', menu: ['Rotate password', 'Disable', 'Delete'] },
+  { title: 'MQTT Subscriptions', row: 'zigbee2mqtt/attic/+', menu: ['Disable', 'Delete'] },
 ];
 
 async function openMqtt(page: Page) {
@@ -21,7 +22,7 @@ for (const viewport of viewports) {
   test.describe(`MQTT at ${viewport.width}x${viewport.height}`, () => {
     test.use({ viewport: { width: viewport.width, height: viewport.height } });
 
-    for (const { title, row } of lists) {
+    for (const { title, row, menu } of lists) {
       test(`${title} is a ${viewport.tier === 'compact' ? 'list' : 'DataGrid'} whose rows open the row menu`, async ({ page }) => {
         await openMqtt(page);
         const list = card(page, title);
@@ -33,7 +34,7 @@ for (const viewport of viewports) {
           await expect(list.locator('.MuiDataGrid-root')).toHaveCount(1);
           await list.getByRole('gridcell', { name: row, exact: true }).click();
         }
-        await expect(page.getByRole('menu').getByRole('menuitem')).toHaveText(['Disable', 'Delete']);
+        await expect(page.getByRole('menu').getByRole('menuitem')).toHaveText(menu);
       });
     }
   });

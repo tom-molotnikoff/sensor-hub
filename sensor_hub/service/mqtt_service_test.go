@@ -135,7 +135,7 @@ func setupMQTTService() (*MQTTService, *MockMQTTBrokerRepo, *MockMQTTSubRepo) {
 func TestMQTTService_AddBroker_Success(t *testing.T) {
 	svc, brokerRepo, _ := setupMQTTService()
 
-	broker := gen.MQTTBroker{Name: "test", Type: "external", Host: "mqtt.example.com", Port: 1883, Enabled: true}
+	broker := gen.MQTTBroker{Name: "test", Type: "external", Host: ptrStr("mqtt.example.com"), Port: ptrInt(1883), Enabled: true}
 	brokerRepo.On("GetByName", mock.Anything, "test").Return(nil, nil)
 	brokerRepo.On("GetAll", mock.Anything).Return([]gen.MQTTBroker{}, nil)
 	brokerRepo.On("Add", mock.Anything, broker).Return(1, nil)
@@ -154,10 +154,10 @@ func TestMQTTService_AddBroker_ValidationFails(t *testing.T) {
 		broker gen.MQTTBroker
 		errMsg string
 	}{
-		{"empty name", gen.MQTTBroker{Type: "external", Host: "h", Port: 1883}, "broker name cannot be empty"},
-		{"empty host", gen.MQTTBroker{Name: "n", Type: "external", Port: 1883}, "broker host cannot be empty"},
-		{"invalid port", gen.MQTTBroker{Name: "n", Type: "external", Host: "h", Port: 0}, "broker port must be between"},
-		{"invalid type", gen.MQTTBroker{Name: "n", Type: "invalid", Host: "h", Port: 1883}, "broker type must be"},
+		{"empty name", gen.MQTTBroker{Type: "external", Host: ptrStr("h"), Port: ptrInt(1883)}, "broker name cannot be empty"},
+		{"empty host", gen.MQTTBroker{Name: "n", Type: "external", Port: ptrInt(1883)}, "broker host cannot be empty"},
+		{"invalid port", gen.MQTTBroker{Name: "n", Type: "external", Host: ptrStr("h"), Port: ptrInt(0)}, "broker port must be between"},
+		{"invalid type", gen.MQTTBroker{Name: "n", Type: "invalid", Host: ptrStr("h"), Port: ptrInt(1883)}, "broker type must be"},
 	}
 
 	for _, tt := range tests {
@@ -174,11 +174,11 @@ func TestMQTTService_AddBroker_EmbeddedSuccess(t *testing.T) {
 
 	brokerRepo.On("GetAll", mock.Anything).Return([]gen.MQTTBroker{}, nil)
 	brokerRepo.On("GetByName", mock.Anything, "emb").Return(nil, nil)
-	// normaliseEmbeddedBroker sets host to "localhost"
-	expected := gen.MQTTBroker{Name: "emb", Type: "embedded", Host: "localhost", Port: 1883, Enabled: true}
+	// normaliseEmbeddedBroker drops the address: the hub reaches the embedded broker in-process
+	expected := gen.MQTTBroker{Name: "emb", Type: "embedded", Enabled: true}
 	brokerRepo.On("Add", mock.Anything, expected).Return(1, nil)
 
-	id, err := svc.AddBroker(context.Background(), gen.MQTTBroker{Name: "emb", Type: "embedded", Port: 1883, Enabled: true})
+	id, err := svc.AddBroker(context.Background(), gen.MQTTBroker{Name: "emb", Type: "embedded", Host: ptrStr("localhost"), Port: ptrInt(1883), Enabled: true})
 	assert.NoError(t, err)
 	assert.Equal(t, 1, id)
 	brokerRepo.AssertExpectations(t)
@@ -190,7 +190,7 @@ func TestMQTTService_AddBroker_DuplicateEmbedded(t *testing.T) {
 	existing := []gen.MQTTBroker{{Id: ptrInt(1), Name: "Embedded Broker", Type: "embedded"}}
 	brokerRepo.On("GetAll", mock.Anything).Return(existing, nil)
 
-	_, err := svc.AddBroker(context.Background(), gen.MQTTBroker{Name: "emb2", Type: "embedded", Port: 1883})
+	_, err := svc.AddBroker(context.Background(), gen.MQTTBroker{Name: "emb2", Type: "embedded", Port: ptrInt(1883)})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "an embedded broker already exists")
 }
@@ -209,7 +209,7 @@ func TestMQTTService_GetAllBrokers(t *testing.T) {
 func TestMQTTService_UpdateBroker_Success(t *testing.T) {
 	svc, brokerRepo, _ := setupMQTTService()
 
-	broker := gen.MQTTBroker{Id: ptrInt(1), Name: "updated", Type: "external", Host: "h", Port: 1883}
+	broker := gen.MQTTBroker{Id: ptrInt(1), Name: "updated", Type: "external", Host: ptrStr("h"), Port: ptrInt(1883)}
 	brokerRepo.On("GetByName", mock.Anything, "updated").Return(nil, nil)
 	brokerRepo.On("GetAll", mock.Anything).Return([]gen.MQTTBroker{}, nil)
 	brokerRepo.On("Update", mock.Anything, broker).Return(nil)
@@ -221,7 +221,7 @@ func TestMQTTService_UpdateBroker_Success(t *testing.T) {
 func TestMQTTService_UpdateBroker_InvalidID(t *testing.T) {
 	svc, _, _ := setupMQTTService()
 
-	err := svc.UpdateBroker(context.Background(), gen.MQTTBroker{Name: "x", Type: "external", Host: "h", Port: 1883})
+	err := svc.UpdateBroker(context.Background(), gen.MQTTBroker{Name: "x", Type: "external", Host: ptrStr("h"), Port: ptrInt(1883)})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "broker id must be positive")
 }
@@ -375,12 +375,12 @@ func TestValidateTopicPattern_ExceedsMaxLength(t *testing.T) {
 func TestMQTTService_AddBroker_DuplicateHostPort(t *testing.T) {
 	svc, brokerRepo, _ := setupMQTTService()
 
-	existing := []gen.MQTTBroker{{Id: ptrInt(1), Name: "Broker A", Type: "external", Host: "mqtt.local", Port: 1883}}
+	existing := []gen.MQTTBroker{{Id: ptrInt(1), Name: "Broker A", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(1883)}}
 	brokerRepo.On("GetAll", mock.Anything).Return(existing, nil)
 	brokerRepo.On("GetByName", mock.Anything, "Broker B").Return(nil, nil)
 
 	_, err := svc.AddBroker(context.Background(), gen.MQTTBroker{
-		Name: "Broker B", Type: "external", Host: "mqtt.local", Port: 1883, Enabled: true,
+		Name: "Broker B", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(1883), Enabled: true,
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "broker host:port mqtt.local:1883 is already in use")
@@ -389,12 +389,12 @@ func TestMQTTService_AddBroker_DuplicateHostPort(t *testing.T) {
 func TestMQTTService_AddBroker_DuplicateHostPort_CaseInsensitive(t *testing.T) {
 	svc, brokerRepo, _ := setupMQTTService()
 
-	existing := []gen.MQTTBroker{{Id: ptrInt(1), Name: "Broker A", Type: "external", Host: "MQTT.LOCAL", Port: 1883}}
+	existing := []gen.MQTTBroker{{Id: ptrInt(1), Name: "Broker A", Type: "external", Host: ptrStr("MQTT.LOCAL"), Port: ptrInt(1883)}}
 	brokerRepo.On("GetAll", mock.Anything).Return(existing, nil)
 	brokerRepo.On("GetByName", mock.Anything, "Broker B").Return(nil, nil)
 
 	_, err := svc.AddBroker(context.Background(), gen.MQTTBroker{
-		Name: "Broker B", Type: "external", Host: "mqtt.local", Port: 1883, Enabled: true,
+		Name: "Broker B", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(1883), Enabled: true,
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already in use")
@@ -403,11 +403,11 @@ func TestMQTTService_AddBroker_DuplicateHostPort_CaseInsensitive(t *testing.T) {
 func TestMQTTService_AddBroker_DifferentPortOK(t *testing.T) {
 	svc, brokerRepo, _ := setupMQTTService()
 
-	existing := []gen.MQTTBroker{{Id: ptrInt(1), Name: "Broker A", Type: "external", Host: "mqtt.local", Port: 1883}}
+	existing := []gen.MQTTBroker{{Id: ptrInt(1), Name: "Broker A", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(1883)}}
 	brokerRepo.On("GetAll", mock.Anything).Return(existing, nil)
 	brokerRepo.On("GetByName", mock.Anything, "Broker B").Return(nil, nil)
 
-	broker := gen.MQTTBroker{Name: "Broker B", Type: "external", Host: "mqtt.local", Port: 8883, Enabled: true}
+	broker := gen.MQTTBroker{Name: "Broker B", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(8883), Enabled: true}
 	brokerRepo.On("Add", mock.Anything, broker).Return(2, nil)
 
 	id, err := svc.AddBroker(context.Background(), broker)
@@ -419,15 +419,15 @@ func TestMQTTService_UpdateBroker_DuplicateHostPort(t *testing.T) {
 	svc, brokerRepo, _ := setupMQTTService()
 
 	existing := []gen.MQTTBroker{
-		{Id: ptrInt(1), Name: "Broker A", Type: "external", Host: "mqtt.local", Port: 1883},
-		{Id: ptrInt(2), Name: "Broker B", Type: "external", Host: "other.local", Port: 1883},
+		{Id: ptrInt(1), Name: "Broker A", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(1883)},
+		{Id: ptrInt(2), Name: "Broker B", Type: "external", Host: ptrStr("other.local"), Port: ptrInt(1883)},
 	}
 	brokerRepo.On("GetAll", mock.Anything).Return(existing, nil)
 	brokerRepo.On("GetByName", mock.Anything, "Broker B").Return(&existing[1], nil)
 
 	// Try to update broker 2 to use same host:port as broker 1
 	err := svc.UpdateBroker(context.Background(), gen.MQTTBroker{
-		Id: ptrInt(2), Name: "Broker B", Type: "external", Host: "mqtt.local", Port: 1883,
+		Id: ptrInt(2), Name: "Broker B", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(1883),
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already in use")
@@ -436,14 +436,14 @@ func TestMQTTService_UpdateBroker_DuplicateHostPort(t *testing.T) {
 func TestMQTTService_UpdateBroker_SameHostPortSelf(t *testing.T) {
 	svc, brokerRepo, _ := setupMQTTService()
 
-	existing := []gen.MQTTBroker{{Id: ptrInt(1), Name: "Broker A", Type: "external", Host: "mqtt.local", Port: 1883}}
+	existing := []gen.MQTTBroker{{Id: ptrInt(1), Name: "Broker A", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(1883)}}
 	brokerRepo.On("GetAll", mock.Anything).Return(existing, nil)
 	brokerRepo.On("GetByName", mock.Anything, "Broker A").Return(&existing[0], nil)
 	brokerRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
 
 	// Updating self with same host:port is fine
 	err := svc.UpdateBroker(context.Background(), gen.MQTTBroker{
-		Id: ptrInt(1), Name: "Broker A", Type: "external", Host: "mqtt.local", Port: 1883,
+		Id: ptrInt(1), Name: "Broker A", Type: "external", Host: ptrStr("mqtt.local"), Port: ptrInt(1883),
 	})
 	assert.NoError(t, err)
 }
@@ -459,7 +459,7 @@ func TestMQTTService_AddBroker_DuplicateNameCaseInsensitive(t *testing.T) {
 	brokerRepo.On("GetByName", mock.Anything, "mybroker").Return(&gen.MQTTBroker{Id: ptrInt(1), Name: "MyBroker"}, nil)
 
 	_, err := svc.AddBroker(context.Background(), gen.MQTTBroker{
-		Name: "mybroker", Type: "external", Host: "other.local", Port: 1883, Enabled: true,
+		Name: "mybroker", Type: "external", Host: ptrStr("other.local"), Port: ptrInt(1883), Enabled: true,
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "broker name")
@@ -637,3 +637,5 @@ func TestMQTTService_AddSubscription_NoNotifyWithoutNotifier(t *testing.T) {
 }
 
 func ptrInt(i int) *int { return &i }
+
+func ptrStr(s string) *string { return &s }

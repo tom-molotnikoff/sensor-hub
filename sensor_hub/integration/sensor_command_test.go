@@ -16,7 +16,6 @@ import (
 	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
-	mqttpkg "example/sensorHub/mqtt"
 	"example/sensorHub/testharness"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
@@ -307,12 +306,9 @@ func setupCommandFixture(t *testing.T, sensorName string) commandFixture {
 
 	ctx := context.Background()
 	logger := slog.Default()
-	port := reserveTCPPort(t)
-
-	embeddedBroker := mqttpkg.NewEmbeddedBroker(mqttpkg.BrokerConfig{
-		TCPAddress: fmt.Sprintf(":%d", port),
-	}, logger)
-	require.NoError(t, embeddedBroker.Start())
+	externalBroker, err := testharness.StartExternalBroker()
+	require.NoError(t, err)
+	port := externalBroker.Port
 
 	brokerRepo := database.NewMQTTBrokerRepository(env.DB, logger)
 	subRepo := database.NewMQTTSubscriptionRepository(env.DB, logger)
@@ -320,8 +316,8 @@ func setupCommandFixture(t *testing.T, sensorName string) commandFixture {
 
 	brokerID, err := brokerRepo.Add(ctx, gen.MQTTBroker{
 		Name:    fmt.Sprintf("integration-command-broker-%d", port),
-		Host:    "127.0.0.1",
-		Port:    port,
+		Host:    ptrStr("127.0.0.1"),
+		Port:    &port,
 		Type:    "external",
 		Enabled: true,
 	})
@@ -361,8 +357,8 @@ func setupCommandFixture(t *testing.T, sensorName string) commandFixture {
 	broker := gen.MQTTBroker{
 		Id:      &brokerID,
 		Name:    fmt.Sprintf("integration-command-broker-%d", port),
-		Host:    "127.0.0.1",
-		Port:    port,
+		Host:    ptrStr("127.0.0.1"),
+		Port:    &port,
 		Type:    "external",
 		Enabled: true,
 	}
@@ -378,7 +374,7 @@ func setupCommandFixture(t *testing.T, sensorName string) commandFixture {
 		_ = database.NewSensorRepository(env.DB, logger).DeleteSensorByName(ctx, sensorName)
 		_ = database.NewMQTTSubscriptionRepository(env.DB, logger).Delete(ctx, subID)
 		_ = database.NewMQTTBrokerRepository(env.DB, logger).Delete(ctx, brokerID)
-		require.NoError(t, embeddedBroker.Stop())
+		require.NoError(t, externalBroker.Stop())
 	}
 
 	return commandFixture{

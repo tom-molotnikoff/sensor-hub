@@ -139,6 +139,24 @@ type ServerInterface interface {
 	// Update an MQTT broker
 	// (PUT /mqtt/brokers/{id})
 	UpdateMqttBroker(c *gin.Context, id int)
+	// List MQTT clients
+	// (GET /mqtt/clients)
+	ListMqttClients(c *gin.Context)
+	// Create an MQTT client
+	// (POST /mqtt/clients)
+	CreateMqttClient(c *gin.Context)
+	// Delete an MQTT client
+	// (DELETE /mqtt/clients/{id})
+	DeleteMqttClient(c *gin.Context, id int)
+	// Get an MQTT client by ID
+	// (GET /mqtt/clients/{id})
+	GetMqttClient(c *gin.Context, id int)
+	// Update an MQTT client
+	// (PUT /mqtt/clients/{id})
+	UpdateMqttClient(c *gin.Context, id int)
+	// Rotate an MQTT client's password
+	// (POST /mqtt/clients/{id}/rotate-password)
+	RotateMqttClientPassword(c *gin.Context, id int)
 	// Get live MQTT broker statistics
 	// (GET /mqtt/stats)
 	GetMqttStats(c *gin.Context)
@@ -1450,6 +1468,164 @@ func (siw *ServerInterfaceWrapper) UpdateMqttBroker(c *gin.Context) {
 	}
 
 	siw.Handler.UpdateMqttBroker(c, id)
+}
+
+// ListMqttClients operation middleware
+func (siw *ServerInterfaceWrapper) ListMqttClients(c *gin.Context) {
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListMqttClients(c)
+}
+
+// CreateMqttClient operation middleware
+func (siw *ServerInterfaceWrapper) CreateMqttClient(c *gin.Context) {
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateMqttClient(c)
+}
+
+// DeleteMqttClient operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMqttClient(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteMqttClient(c, id)
+}
+
+// GetMqttClient operation middleware
+func (siw *ServerInterfaceWrapper) GetMqttClient(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMqttClient(c, id)
+}
+
+// UpdateMqttClient operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMqttClient(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateMqttClient(c, id)
+}
+
+// RotateMqttClientPassword operation middleware
+func (siw *ServerInterfaceWrapper) RotateMqttClientPassword(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RotateMqttClientPassword(c, id)
 }
 
 // GetMqttStats operation middleware
@@ -3062,6 +3238,12 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/mqtt/brokers/:id", wrapper.DeleteMqttBroker)
 	router.GET(options.BaseURL+"/mqtt/brokers/:id", wrapper.GetMqttBroker)
 	router.PUT(options.BaseURL+"/mqtt/brokers/:id", wrapper.UpdateMqttBroker)
+	router.GET(options.BaseURL+"/mqtt/clients", wrapper.ListMqttClients)
+	router.POST(options.BaseURL+"/mqtt/clients", wrapper.CreateMqttClient)
+	router.DELETE(options.BaseURL+"/mqtt/clients/:id", wrapper.DeleteMqttClient)
+	router.GET(options.BaseURL+"/mqtt/clients/:id", wrapper.GetMqttClient)
+	router.PUT(options.BaseURL+"/mqtt/clients/:id", wrapper.UpdateMqttClient)
+	router.POST(options.BaseURL+"/mqtt/clients/:id/rotate-password", wrapper.RotateMqttClientPassword)
 	router.GET(options.BaseURL+"/mqtt/stats", wrapper.GetMqttStats)
 	router.GET(options.BaseURL+"/mqtt/subscriptions", wrapper.ListMqttSubscriptions)
 	router.POST(options.BaseURL+"/mqtt/subscriptions", wrapper.CreateMqttSubscription)

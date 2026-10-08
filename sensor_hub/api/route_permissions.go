@@ -56,6 +56,14 @@ var routePermissions = map[string][]string{
 	"PUT /api/mqtt/brokers/:id":    {"manage_mqtt"},
 	"DELETE /api/mqtt/brokers/:id": {"manage_mqtt"},
 
+	// MQTT Clients
+	"GET /api/mqtt/clients":                      {"view_mqtt"},
+	"POST /api/mqtt/clients":                     {"manage_mqtt"},
+	"GET /api/mqtt/clients/:id":                  {"view_mqtt"},
+	"PUT /api/mqtt/clients/:id":                  {"manage_mqtt"},
+	"DELETE /api/mqtt/clients/:id":               {"manage_mqtt"},
+	"POST /api/mqtt/clients/:id/rotate-password": {"manage_mqtt"},
+
 	// MQTT Subscriptions
 	"GET /api/mqtt/subscriptions":        {"view_mqtt"},
 	"POST /api/mqtt/subscriptions":       {"manage_mqtt"},

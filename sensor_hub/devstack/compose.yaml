@@ -104,6 +104,8 @@ services:
     environment:
       MQTT_BROKER_HOST: sensor-hub
       MQTT_BROKER_PORT: "1883"
+      MQTT_USERNAME: zigbee2mqtt
+      MQTT_PASSWORD: devstack-mqtt-password
       PUBLISH_INTERVAL: "5"
     depends_on:
       sensor-hub:
