@@ -406,11 +406,6 @@ func TestAutomation_TwoAutomationsSwitchingAPlugBackAndForthAreStoppedByTheLoopG
 	require.True(t, token.WaitTimeout(5*time.Second))
 	require.NoError(t, token.Error())
 	defer device.Disconnect(250)
-	token = device.Subscribe(plugTopic+"/set", 1, func(client pahomqtt.Client, msg pahomqtt.Message) {
-		client.Publish(plugTopic, 1, false, msg.Payload())
-	})
-	require.True(t, token.WaitTimeout(5*time.Second))
-	require.NoError(t, token.Error())
 	token = device.Publish(plugTopic, 1, false, `{"state":"OFF"}`)
 	require.True(t, token.WaitTimeout(5*time.Second))
 	require.NoError(t, token.Error())
@@ -438,6 +433,34 @@ func TestAutomation_TwoAutomationsSwitchingAPlugBackAndForthAreStoppedByTheLoopG
 	defer client.DeleteAutomation(switchOff.Id)
 	switchOn := create("Loop plug on", "false", "ON")
 	defer client.DeleteAutomation(switchOn.Id)
+
+	// A real plug reports long after the previous run in the chain has recorded
+	// that it finished. Reporting at once can reach that run's automation while
+	// it is still recorded as running, which skips the next run and ends the
+	// chain before the loop guard sees it.
+	othersFinished := func() bool {
+		running := 0
+		for _, id := range []int{switchOff.Id, switchOn.Id} {
+			runs, status := client.ListAutomationRuns(id)
+			if status != http.StatusOK {
+				return false
+			}
+			for _, run := range runs {
+				if run.Status == gen.AutomationRunStatusRunning {
+					running++
+				}
+			}
+		}
+		return running <= 1
+	}
+	token = device.Subscribe(plugTopic+"/set", 1, func(plug pahomqtt.Client, msg pahomqtt.Message) {
+		for deadline := time.Now().Add(5 * time.Second); !othersFinished() && time.Now().Before(deadline); {
+			time.Sleep(20 * time.Millisecond)
+		}
+		plug.Publish(plugTopic, 1, false, msg.Payload())
+	})
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
 
 	_, status := client.RunAutomation(switchOn.Id)
 	require.Equal(t, http.StatusAccepted, status)
