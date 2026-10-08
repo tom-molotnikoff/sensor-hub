@@ -15,7 +15,7 @@ import (
 )
 
 var brokerColumns = []string{
-	"id", "name", "type", "host", "port", "username", "password", "client_id",
+	"id", "name", "type", "host", "port", "username", "client_id",
 	"ca_cert_path", "client_cert_path", "client_key_path", "enabled", "created_at", "updated_at",
 }
 
@@ -33,7 +33,7 @@ func TestMQTTBrokerRepository_Add_Success(t *testing.T) {
 
 	mock.ExpectExec("INSERT INTO mqtt_brokers").
 		WithArgs("test-broker", "external", "mqtt.example.com", 1883,
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(),
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), true).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -73,7 +73,7 @@ func TestMQTTBrokerRepository_GetByID_Success(t *testing.T) {
 		WithArgs(1).
 		WillReturnRows(sqlmock.NewRows(brokerColumns).
 			AddRow(1, "test-broker", "external", "mqtt.example.com", 1883,
-				nil, nil, nil, nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
+				nil, nil, nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
 
 	broker, err := repo.GetByID(context.Background(), 1)
 	assert.NoError(t, err)
@@ -110,14 +110,13 @@ func TestMQTTBrokerRepository_GetByName_Success(t *testing.T) {
 		WithArgs("test-broker").
 		WillReturnRows(sqlmock.NewRows(brokerColumns).
 			AddRow(1, "test-broker", "external", "mqtt.example.com", 1883,
-				"user", "pass", "sensor-hub-1", nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
+				"user", "sensor-hub-1", nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
 
 	broker, err := repo.GetByName(context.Background(), "test-broker")
 	assert.NoError(t, err)
 	require.NotNil(t, broker)
 	assert.Equal(t, "test-broker", broker.Name)
 	assert.Equal(t, "user", *broker.Username)
-	assert.Equal(t, "pass", *broker.Password)
 	assert.Equal(t, "sensor-hub-1", *broker.ClientId)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -133,9 +132,9 @@ func TestMQTTBrokerRepository_GetAll_Success(t *testing.T) {
 	mock.ExpectQuery("SELECT .+ FROM mqtt_brokers ORDER BY name").
 		WillReturnRows(sqlmock.NewRows(brokerColumns).
 			AddRow(1, "broker-a", "embedded", "localhost", 1883,
-				nil, nil, nil, nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00").
+				nil, nil, nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00").
 			AddRow(2, "broker-b", "external", "mqtt.example.com", 8883,
-				"user", "pass", nil, "/ca.crt", "/client.crt", "/client.key", true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
+				"user", nil, "/ca.crt", "/client.crt", "/client.key", true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
 
 	brokers, err := repo.GetAll(context.Background())
 	assert.NoError(t, err)
@@ -169,7 +168,7 @@ func TestMQTTBrokerRepository_Update_Success(t *testing.T) {
 
 	mock.ExpectExec("UPDATE mqtt_brokers SET").
 		WithArgs("updated-broker", "external", "new-host.com", 8883,
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(),
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), true, 1).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -187,7 +186,7 @@ func TestMQTTBrokerRepository_Update_NotFound(t *testing.T) {
 
 	mock.ExpectExec("UPDATE mqtt_brokers SET").
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(),
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 99).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
@@ -202,31 +201,50 @@ func TestMQTTBrokerRepository_Update_NotFound(t *testing.T) {
 // Delete tests
 // ============================================================================
 
-func TestMQTTBrokerRepository_Delete_Success(t *testing.T) {
-	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
+func TestMQTTBrokerRepository_Delete_RemovesTheBrokerAndOnlyItsSecrets(t *testing.T) {
+	h := newMigratedHandles(t)
+	repo := NewMQTTBrokerRepository(h, slog.Default())
+	secrets := NewSecretRepository(h)
+	ctx := context.Background()
 
-	mock.ExpectExec("DELETE FROM mqtt_brokers WHERE id = \\?").
-		WithArgs(1).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	doomed, err := repo.Add(ctx, gen.MQTTBroker{Name: "doomed", Type: "external", Host: ptrStr("a.lan"), Port: ptrInt(1883)})
+	require.NoError(t, err)
+	kept, err := repo.Add(ctx, gen.MQTTBroker{Name: "kept", Type: "external", Host: ptrStr("b.lan"), Port: ptrInt(1883)})
+	require.NoError(t, err)
+	for _, id := range []int{doomed, kept} {
+		require.NoError(t, secrets.Put(ctx, SealedSecret{
+			Owner: BrokerSecretOwner(id), Name: BrokerPasswordSecret, KeyID: 1, Nonce: []byte("n"), Ciphertext: []byte("c"),
+		}))
+	}
 
-	err := repo.Delete(context.Background(), 1)
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, repo.Delete(ctx, doomed))
+
+	gone, err := repo.GetByID(ctx, doomed)
+	require.NoError(t, err)
+	assert.Nil(t, gone)
+	doomedSecret, err := secrets.Get(ctx, BrokerSecretOwner(doomed), BrokerPasswordSecret)
+	require.NoError(t, err)
+	assert.Nil(t, doomedSecret, "the deleted broker's password goes with it")
+	keptSecret, err := secrets.Get(ctx, BrokerSecretOwner(kept), BrokerPasswordSecret)
+	require.NoError(t, err)
+	assert.NotNil(t, keptSecret, "another broker's password stays")
 }
 
-func TestMQTTBrokerRepository_Delete_NotFound(t *testing.T) {
-	db, mock := newMockDB(t)
-	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
+func TestMQTTBrokerRepository_Delete_NotFoundKeepsSecrets(t *testing.T) {
+	h := newMigratedHandles(t)
+	repo := NewMQTTBrokerRepository(h, slog.Default())
+	secrets := NewSecretRepository(h)
+	ctx := context.Background()
+	orphan := SealedSecret{Owner: BrokerSecretOwner(99), Name: BrokerPasswordSecret, KeyID: 1, Nonce: []byte("n"), Ciphertext: []byte("c")}
+	require.NoError(t, secrets.Put(ctx, orphan))
 
-	mock.ExpectExec("DELETE FROM mqtt_brokers WHERE id = \\?").
-		WithArgs(99).
-		WillReturnResult(sqlmock.NewResult(0, 0))
+	err := repo.Delete(ctx, 99)
 
-	err := repo.Delete(context.Background(), 99)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no MQTT broker found with id 99")
-	assert.NoError(t, mock.ExpectationsWereMet())
+	stored, err := secrets.Get(ctx, orphan.Owner, orphan.Name)
+	require.NoError(t, err)
+	assert.NotNil(t, stored, "a failed delete rolls back as one transaction")
 }
 
 // ============================================================================
@@ -240,7 +258,7 @@ func TestMQTTBrokerRepository_GetEnabled_Success(t *testing.T) {
 	mock.ExpectQuery("SELECT .+ FROM mqtt_brokers WHERE enabled = 1").
 		WillReturnRows(sqlmock.NewRows(brokerColumns).
 			AddRow(1, "enabled-broker", "external", "mqtt.example.com", 1883,
-				nil, nil, nil, nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
+				nil, nil, nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
 
 	brokers, err := repo.GetEnabled(context.Background())
 	assert.NoError(t, err)
@@ -259,7 +277,7 @@ func TestMQTTBrokerRepository_Add_DBError(t *testing.T) {
 
 	mock.ExpectExec("INSERT INTO mqtt_brokers").
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(),
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("unique constraint"))
 

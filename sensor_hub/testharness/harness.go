@@ -28,6 +28,7 @@ import (
 	mqttpkg "example/sensorHub/mqtt"
 	"example/sensorHub/notifications"
 	"example/sensorHub/readings"
+	"example/sensorHub/secrets"
 	"example/sensorHub/service"
 	"example/sensorHub/smtp"
 	"example/sensorHub/testharness/fixtures"
@@ -44,6 +45,7 @@ type Env struct {
 	AdminPass         string
 	ConfigDir         string
 	DB                *database.Handles
+	Secrets           *secrets.Store
 	Readings          *readings.Pipeline
 	ConnectionManager *mqttpkg.ConnectionManager
 	WSCapture         *RecordingWSNotifier
@@ -102,15 +104,21 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("failed to create temp dir: %w", err)
 	}
-
-	cleanupDir := func() { os.RemoveAll(tmpDir) }
-
-	dbPath := filepath.Join(tmpDir, "test.db")
-	configDir := filepath.Join(tmpDir, "config")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		cleanupDir()
+	// The configuration lives apart from the database, as on a package
+	// install: the hub refuses a secret-store key inside the database's
+	// directory.
+	configDir, err := os.MkdirTemp("", "sensor-hub-config-*")
+	if err != nil {
+		os.RemoveAll(tmpDir)
 		return nil, func() {}, fmt.Errorf("failed to create config dir: %w", err)
 	}
+
+	cleanupDir := func() {
+		os.RemoveAll(tmpDir)
+		os.RemoveAll(configDir)
+	}
+
+	dbPath := filepath.Join(tmpDir, "test.db")
 
 	if opts.seedPath != "" {
 		if err := copyFile(opts.seedPath, dbPath); err != nil {
@@ -169,9 +177,20 @@ func (e *Env) boot(listenAddr string) error {
 
 	logger := slog.Default()
 
+	// As in cmd/local_serve.go: the key is generated into the configuration
+	// directory on the first boot and read back on a restart.
+	secretsKey, err := secrets.LoadKey(secrets.Locations{ConfigDir: e.ConfigDir}, appProps.AppConfig().DatabasePath, logger)
+	if err != nil {
+		return err
+	}
 	db, err := database.Open(appProps.AppConfig(), logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialise database: %w", err)
+	}
+	secretStore, err := secrets.Open(context.Background(), db, secretsKey, logger)
+	if err != nil {
+		db.Close()
+		return err
 	}
 
 	// As in cmd/local_serve.go, the embedded broker authenticates devices
@@ -251,8 +270,8 @@ func (e *Env) boot(listenAddr string) error {
 
 	mqttBrokerRepo := database.NewMQTTBrokerRepository(db, logger)
 	mqttSubRepo := database.NewMQTTSubscriptionRepository(db, logger)
-	mqttService := service.NewMQTTService(mqttBrokerRepo, mqttSubRepo, logger)
-	connManager := mqttpkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, embeddedBroker, logger)
+	mqttService := service.NewMQTTService(mqttBrokerRepo, mqttSubRepo, secretStore, logger)
+	connManager := mqttpkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, secretStore, embeddedBroker, logger)
 	mqttService.SetSubscriptionNotifier(connManager)
 	commandService := service.NewCommandService(sensorRepo, mqttSubRepo, commandHistoryRepo, connManager, commandTracker, logger)
 	if err := commandTracker.RecoverPending(context.Background()); err != nil {
@@ -327,6 +346,7 @@ func (e *Env) boot(listenAddr string) error {
 	e.listenAddr = listener.Addr().String()
 	e.ServerURL = serverURL
 	e.DB = db
+	e.Secrets = secretStore
 	e.Readings = readingPipeline
 	e.ConnectionManager = connManager
 	e.WSCapture = wsCapture

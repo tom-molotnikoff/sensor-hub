@@ -10,6 +10,7 @@ import (
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/readings"
+	"example/sensorHub/secrets"
 	"example/sensorHub/service"
 	"example/sensorHub/testharness/fixtures"
 )
@@ -65,12 +66,16 @@ func seed(ctx context.Context, db *database.Handles, logger *slog.Logger, httpMo
 	measurementTypes := database.NewMeasurementTypeRepository(db, logger)
 	readingsRepo := database.NewReadingsRepository(db, sensorRepo, measurementTypes, logger)
 	liveView := service.NewLiveView(sensorRepo, logger)
+	brokerSecrets, err := statusOnlySecretStore(db, logger)
+	if err != nil {
+		return "", &stepError{step: "set up the secret store", err: err}
+	}
 	s := &seeder{
 		db:            db,
 		users:         service.NewUserService(userRepo, nil, logger),
 		apiKeys:       service.NewApiKeyService(database.NewApiKeyRepository(db, logger), userRepo, database.NewRoleRepository(db, logger), logger),
 		sensors:       service.NewSensorService(sensorRepo, measurementTypes, readings.NewPipeline(readingsRepo, liveView, logger), liveView, nil, nil, logger),
-		mqtt:          service.NewMQTTService(database.NewMQTTBrokerRepository(db, logger), database.NewMQTTSubscriptionRepository(db, logger), logger),
+		mqtt:          service.NewMQTTService(database.NewMQTTBrokerRepository(db, logger), database.NewMQTTSubscriptionRepository(db, logger), brokerSecrets, logger),
 		alerts:        service.NewAlertManagementService(database.NewAlertRepository(db, logger), nil, logger),
 		notifications: service.NewNotificationService(database.NewNotificationRepository(db, logger), nil, logger),
 		dashboards:    service.NewDashboardService(database.NewDashboardRepository(db, logger), logger),
@@ -111,6 +116,17 @@ func seed(ctx context.Context, db *database.Handles, logger *slog.Logger, httpMo
 		return "", nil
 	}
 	return apiKey, nil
+}
+
+// statusOnlySecretStore gives the MQTT service a secret store to report
+// password statuses from. The seed stores no secrets, so the key it is opened
+// with never seals anything and need not be the hub's.
+func statusOnlySecretStore(db *database.Handles, logger *slog.Logger) (*secrets.Store, error) {
+	key, err := secrets.GenerateKey()
+	if err != nil {
+		return nil, err
+	}
+	return secrets.NewStore(database.NewSecretRepository(db), key, logger)
 }
 
 func (s *seeder) adminKeyIsActive(ctx context.Context, apiKey string) (bool, error) {

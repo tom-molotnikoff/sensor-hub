@@ -400,6 +400,27 @@ func (e CommandHistoryEntryStatus) Valid() bool {
 	}
 }
 
+// Defines values for MQTTBrokerPasswordStatus.
+const (
+	NeedsReentry MQTTBrokerPasswordStatus = "needs_reentry"
+	Set          MQTTBrokerPasswordStatus = "set"
+	Unset        MQTTBrokerPasswordStatus = "unset"
+)
+
+// Valid indicates whether the value is a known member of the MQTTBrokerPasswordStatus enum.
+func (e MQTTBrokerPasswordStatus) Valid() bool {
+	switch e {
+	case NeedsReentry:
+		return true
+	case Set:
+		return true
+	case Unset:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MarginSuggestionConfidence.
 const (
 	MarginConfidenceHigh   MarginSuggestionConfidence = "high"
@@ -1206,8 +1227,11 @@ type MQTTBroker struct {
 	// Name Human-friendly broker name.
 	Name string `json:"name"`
 
-	// Password Optional authentication password.
+	// Password Authentication password, write-only: no response carries it. It is held encrypted in the secret store. On create or update a non-empty value other than "****" sets it, an empty string clears it, and omitting it or sending "****" leaves the stored password unchanged.
 	Password *string `json:"password,omitempty"`
+
+	// PasswordStatus Whether a password is stored. needs_reentry means the stored password does not decrypt under the hub's current key and has to be entered again.
+	PasswordStatus *MQTTBrokerPasswordStatus `json:"password_status,omitempty"`
 
 	// Port Broker port number. Required for an external broker and omitted for the embedded broker.
 	Port *int `json:"port,omitempty"`
@@ -1219,6 +1243,9 @@ type MQTTBroker struct {
 	// Username Optional authentication username.
 	Username *string `json:"username,omitempty"`
 }
+
+// MQTTBrokerPasswordStatus Whether a password is stored. needs_reentry means the stored password does not decrypt under the hub's current key and has to be entered again.
+type MQTTBrokerPasswordStatus string
 
 // MQTTBrokerStats Runtime statistics for a single MQTT broker connection. Stats are tracked in-memory and reset when the server restarts.
 type MQTTBrokerStats struct {

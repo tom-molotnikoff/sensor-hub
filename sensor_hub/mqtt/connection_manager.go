@@ -24,6 +24,7 @@ import (
 	database "example/sensorHub/db"
 	"example/sensorHub/drivers"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/secrets"
 	"example/sensorHub/service"
 	"example/sensorHub/telemetry"
 
@@ -54,11 +55,18 @@ type bridgeDevicesCache struct {
 	deviceMetadata map[bridgeCacheKey]drivers.DeviceMetadata
 }
 
+// PasswordSource hands the connection manager a broker's password at connect
+// time. The secret store is the only one; nothing else reads a password back.
+type PasswordSource interface {
+	Get(ctx context.Context, owner, name string) (string, secrets.Status, error)
+}
+
 // ConnectionManager manages MQTT client connections for all configured brokers.
 type ConnectionManager struct {
 	sensorService service.SensorServiceInterface
 	subRepo       database.MQTTSubscriptionRepositoryInterface
 	brokerRepo    database.MQTTBrokerRepositoryInterface
+	passwords     PasswordSource
 	embedded      *EmbeddedBroker
 	logger        *slog.Logger
 
@@ -72,12 +80,14 @@ type ConnectionManager struct {
 	bridgeDevices *bridgeDevicesCache
 }
 
-// NewConnectionManager creates a new connection manager. embedded is the
-// hub's own broker, reached through its inline client; nil when it is off.
+// NewConnectionManager creates a new connection manager. passwords supplies
+// external brokers' passwords. embedded is the hub's own broker, reached
+// through its inline client; nil when it is off.
 func NewConnectionManager(
 	sensorService service.SensorServiceInterface,
 	subRepo database.MQTTSubscriptionRepositoryInterface,
 	brokerRepo database.MQTTBrokerRepositoryInterface,
+	passwords PasswordSource,
 	embedded *EmbeddedBroker,
 	logger *slog.Logger,
 ) *ConnectionManager {
@@ -85,6 +95,7 @@ func NewConnectionManager(
 		sensorService: sensorService,
 		subRepo:       subRepo,
 		brokerRepo:    brokerRepo,
+		passwords:     passwords,
 		embedded:      embedded,
 		logger:        logger.With("component", "mqtt_connection_manager"),
 		connections:   make(map[int]*brokerConnection),
@@ -170,6 +181,13 @@ func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.
 		return fmt.Errorf("broker %s has no host and port", broker.Name)
 	}
 	host, port := *broker.Host, *broker.Port
+	password, status, err := cm.passwords.Get(ctx, database.BrokerSecretOwner(brokerID), database.BrokerPasswordSecret)
+	if err != nil {
+		return fmt.Errorf("failed to read the password of broker %s: %w", broker.Name, err)
+	}
+	if status == secrets.StatusNeedsReentry {
+		return fmt.Errorf("the stored password of broker %s does not decrypt under the current key; enter it again", broker.Name)
+	}
 	ctx, span := cm.tracer.Start(ctx, "mqtt.connect_broker",
 		trace.WithAttributes(
 			attribute.String("broker.name", broker.Name),
@@ -215,8 +233,8 @@ func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.
 	if broker.Username != nil && *broker.Username != "" {
 		opts.SetUsername(*broker.Username)
 	}
-	if broker.Password != nil && *broker.Password != "" {
-		opts.SetPassword(*broker.Password)
+	if password != "" {
+		opts.SetPassword(password)
 	}
 
 	client := pahomqtt.NewClient(opts)

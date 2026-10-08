@@ -58,7 +58,7 @@ func setupZigbee2MQTTBridgeFixture(t *testing.T, brokerName string, cleanupSenso
 	liveView := service.NewLiveView(sensorRepo, logger)
 	pipeline := readings.NewPipeline(readingsRepo, liveView, logger)
 	sensorService := service.NewSensorService(sensorRepo, mtRepo, pipeline, liveView, nil, service.NewReadingsSampler(readingsRepo, logger), logger)
-	connManager := mqttpkg.NewConnectionManager(sensorService, subRepo, brokerRepo, nil, logger)
+	connManager := mqttpkg.NewConnectionManager(sensorService, subRepo, brokerRepo, env.Secrets, nil, logger)
 
 	resolvedBrokerName := fmt.Sprintf("%s-%d", brokerName, time.Now().UnixNano())
 	brokerID, err := brokerRepo.Add(ctx, gen.MQTTBroker{

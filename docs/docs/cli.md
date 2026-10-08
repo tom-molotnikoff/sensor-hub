@@ -86,8 +86,10 @@ Commands under `sensor-hub local` act on the Sensor Hub install on the machine t
 | `local serve` | Run the server: the HTTP API, the embedded UI and sensor collection |
 | `local admin create <username>` | Create the first admin user directly in the database |
 | `local db backup <path>` | Write a consistent copy of the live database to a new file |
+| `local secrets init-key` | Create the secret-store key |
+| `local secrets show-key` | Print the secret-store key |
 
-Every local command takes `--config-dir`, the directory holding `application.properties` and `database.properties`. It defaults to `/etc/sensor-hub`, where the package installs them. When either file is missing the command exits with an error naming the directory and the file. `local serve` also takes `--log-file`, which defaults to stdout.
+Every local command takes `--config-dir`, the directory holding `application.properties` and `database.properties`. It defaults to `/etc/sensor-hub`, where the package installs them. When either file is missing the command exits with an error naming the directory and the file. `local serve` also takes `--log-file`, which defaults to stdout, and `--secrets-key-file`, a path to the secret-store key (see [Secret-store key](configuration#secret-store-key)).
 
 ### Run the server
 
@@ -124,6 +126,46 @@ sudo sensor-hub local db backup /var/backups/sensor-hub.db
 ```
 
 The copy is taken with SQLite's `VACUUM INTO` while the server keeps running, so it is consistent and includes writes not yet checkpointed out of the `-wal` file. The file is created with mode 0600, and an existing file is never overwritten. Keep the backup together with a copy of `/etc/sensor-hub`.
+
+The backup holds the stored secrets, such as outbound broker passwords, encrypted, and never the key that decrypts them. Restoring it needs the key too, so keep the output of `local secrets show-key` somewhere safe as well.
+
+### The secret-store key
+
+The hub holds the credentials it presents to other systems, such as outbound MQTT broker passwords, encrypted under a key kept outside the database. Where the hub looks for it, and the rules the key file must meet, are in [Secret-store key](configuration#secret-store-key). When there is no key anywhere the hub generates one into its configuration directory as it starts, so these commands are needed to choose the key or seal it before the first start, and to keep a copy of it.
+
+```bash
+sudo sensor-hub local secrets init-key
+```
+
+Generates a key and writes it to `<config-dir>/secrets.key` with mode 0600. Run as root, the file takes the owner of `application.properties`, so the service can read it. With `--from-stdin` it reads a key instead, as one line of standard base64 encoding 32 bytes, the form `show-key` prints:
+
+```bash
+printf '%s\n' "$SECRETS_KEY" | sudo sensor-hub local secrets init-key --from-stdin
+```
+
+With `--seal` the key is sealed with the TPM by `systemd-creds encrypt --with-key=tpm2 --name=secrets.key` into `<config-dir>/secrets.key.cred`, owned by root with mode 0600, and the drop-in `/etc/systemd/system/sensor-hub.service.d/secrets-key.conf` has systemd decrypt it for the hub. It needs root; run `systemctl daemon-reload` and restart the service afterwards. A disk image of a TPM host then carries nothing that decrypts the secrets.
+
+When a key already exists in any form (a key file, a sealed credential, a systemd credential or a Compose secret) `init-key` refuses, names it, and exits non-zero. There is no flag to overwrite a key: secrets stored under it could no longer be decrypted.
+
+```bash
+sudo sensor-hub local secrets show-key
+```
+
+Prints the key the hub uses as one line of base64 on stdout and nothing else, so it can be piped into a password manager. A sealed key is decrypted with `systemd-creds decrypt`, which needs root. If the hub is run with `--secrets-key-file`, pass the same flag to `show-key`.
+
+Keep a copy of the key. Without it the stored secrets cannot be decrypted and have to be entered again.
+
+## MQTT brokers
+
+`sensor-hub mqtt brokers` manages the brokers the hub connects out to. A broker's password is write-only: the hub stores it encrypted and no response carries it, only `password_status` (`unset`, `set` or `needs_reentry`).
+
+`mqtt brokers create` never takes the password as a flag. It asks for one only when `--username` is given: on a terminal it prompts twice, and in a script `--password-stdin` reads one line from stdin:
+
+```bash
+printf '%s\n' "$BROKER_PASSWORD" | sensor-hub mqtt brokers create --name home --host mqtt.home.lan --username hub --password-stdin
+```
+
+In the JSON given to `mqtt brokers update --file`, leaving `password` out or setting it to `"****"` keeps the stored password, a new value replaces it, and `""` removes it. `mqtt brokers enable` and `disable` write the broker back without a password, so its password is kept.
 
 ## Users
 

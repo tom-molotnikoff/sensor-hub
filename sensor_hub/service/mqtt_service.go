@@ -5,6 +5,7 @@ import (
 	database "example/sensorHub/db"
 	"example/sensorHub/drivers"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/secrets"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -13,9 +14,23 @@ import (
 // maxTopicLength is the MQTT specification limit for topic filters (UTF-8 encoded).
 const maxTopicLength = 65535
 
+// keepPassword is the placeholder a client may send back for a password it
+// was never shown. Like an omitted password, it leaves the stored one alone.
+const keepPassword = "****"
+
+// BrokerSecrets is the part of the secret store the MQTT service writes broker
+// passwords through. It never reads a password back.
+type BrokerSecrets interface {
+	Set(ctx context.Context, owner, name, value string) error
+	Delete(ctx context.Context, owner, name string) error
+	Status(owner, name string) secrets.Status
+	Forget(owner string)
+}
+
 type MQTTService struct {
 	brokerRepo database.MQTTBrokerRepositoryInterface
 	subRepo    database.MQTTSubscriptionRepositoryInterface
+	secrets    BrokerSecrets
 	logger     *slog.Logger
 	notifier   SubscriptionNotifier
 }
@@ -23,11 +38,13 @@ type MQTTService struct {
 func NewMQTTService(
 	brokerRepo database.MQTTBrokerRepositoryInterface,
 	subRepo database.MQTTSubscriptionRepositoryInterface,
+	brokerSecrets BrokerSecrets,
 	logger *slog.Logger,
 ) *MQTTService {
 	return &MQTTService{
 		brokerRepo: brokerRepo,
 		subRepo:    subRepo,
+		secrets:    brokerSecrets,
 		logger:     logger.With("component", "mqtt_service"),
 	}
 }
@@ -58,23 +75,73 @@ func (s *MQTTService) AddBroker(ctx context.Context, broker gen.MQTTBroker) (int
 	if err := s.checkBrokerHostPortUnique(ctx, broker, 0); err != nil {
 		return 0, err
 	}
-	return s.brokerRepo.Add(ctx, broker)
+	id, err := s.brokerRepo.Add(ctx, broker)
+	if err != nil {
+		return 0, err
+	}
+	if password, ok := newPassword(broker.Password); ok && password != "" {
+		if err := s.secrets.Set(ctx, database.BrokerSecretOwner(id), database.BrokerPasswordSecret, password); err != nil {
+			// Without its password the broker is not what was asked for.
+			if deleteErr := s.brokerRepo.Delete(ctx, id); deleteErr != nil {
+				s.logger.Error("failed to remove a broker whose password could not be stored", "broker_id", id, "error", deleteErr)
+			}
+			return 0, fmt.Errorf("failed to store the broker password: %w", err)
+		}
+	}
+	return id, nil
 }
 
 func (s *MQTTService) GetBrokerByID(ctx context.Context, id int) (*gen.MQTTBroker, error) {
-	return s.brokerRepo.GetByID(ctx, id)
+	broker, err := s.brokerRepo.GetByID(ctx, id)
+	if broker != nil {
+		s.describePassword(broker)
+	}
+	return broker, err
 }
 
 func (s *MQTTService) GetBrokerByName(ctx context.Context, name string) (*gen.MQTTBroker, error) {
-	return s.brokerRepo.GetByName(ctx, name)
+	broker, err := s.brokerRepo.GetByName(ctx, name)
+	if broker != nil {
+		s.describePassword(broker)
+	}
+	return broker, err
 }
 
 func (s *MQTTService) GetAllBrokers(ctx context.Context) ([]gen.MQTTBroker, error) {
-	return s.brokerRepo.GetAll(ctx)
+	brokers, err := s.brokerRepo.GetAll(ctx)
+	for i := range brokers {
+		s.describePassword(&brokers[i])
+	}
+	return brokers, err
 }
 
 func (s *MQTTService) GetEnabledBrokers(ctx context.Context) ([]gen.MQTTBroker, error) {
-	return s.brokerRepo.GetEnabled(ctx)
+	brokers, err := s.brokerRepo.GetEnabled(ctx)
+	for i := range brokers {
+		s.describePassword(&brokers[i])
+	}
+	return brokers, err
+}
+
+// describePassword gives the broker its password status. The password itself
+// never leaves the secret store this way.
+func (s *MQTTService) describePassword(broker *gen.MQTTBroker) {
+	broker.Password = nil
+	if broker.Id == nil {
+		return
+	}
+	status := gen.MQTTBrokerPasswordStatus(s.secrets.Status(database.BrokerSecretOwner(*broker.Id), database.BrokerPasswordSecret))
+	broker.PasswordStatus = &status
+}
+
+// newPassword reads the password a create or update asks for. ok is false
+// when the stored password is to be left as it is: the field is omitted or
+// holds the "****" placeholder. An empty password asks for none.
+func newPassword(password *string) (string, bool) {
+	if password == nil || *password == keepPassword {
+		return "", false
+	}
+	return *password, true
 }
 
 func (s *MQTTService) UpdateBroker(ctx context.Context, broker gen.MQTTBroker) error {
@@ -91,11 +158,33 @@ func (s *MQTTService) UpdateBroker(ctx context.Context, broker gen.MQTTBroker) e
 	if err := s.checkBrokerHostPortUnique(ctx, broker, *broker.Id); err != nil {
 		return err
 	}
-	return s.brokerRepo.Update(ctx, broker)
+	if err := s.brokerRepo.Update(ctx, broker); err != nil {
+		return err
+	}
+	password, ok := newPassword(broker.Password)
+	if !ok {
+		return nil
+	}
+	owner := database.BrokerSecretOwner(*broker.Id)
+	if password == "" {
+		if err := s.secrets.Delete(ctx, owner, database.BrokerPasswordSecret); err != nil {
+			return fmt.Errorf("failed to clear the broker password: %w", err)
+		}
+		return nil
+	}
+	if err := s.secrets.Set(ctx, owner, database.BrokerPasswordSecret, password); err != nil {
+		return fmt.Errorf("failed to store the broker password: %w", err)
+	}
+	return nil
 }
 
+// DeleteBroker removes the broker and, in the same transaction, its password.
 func (s *MQTTService) DeleteBroker(ctx context.Context, id int) error {
-	return s.brokerRepo.Delete(ctx, id)
+	if err := s.brokerRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+	s.secrets.Forget(database.BrokerSecretOwner(id))
+	return nil
 }
 
 // ============================================================================

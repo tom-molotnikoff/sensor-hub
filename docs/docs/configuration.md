@@ -28,6 +28,8 @@ Additional files in `/etc/sensor-hub/`:
 | `credentials.json`     | Google OAuth credentials (email alerts)           |
 | `token.json`           | Stored OAuth token (created during authorization) |
 | `nginx.conf.example`   | Example nginx reverse proxy configuration         |
+| `secrets.key`          | The secret-store key, unless it is kept elsewhere (see [Secret-store key](#secret-store-key)) |
+| `secrets.key.cred`     | The secret-store key sealed with the TPM, when sealed |
 
 ## CLI flags
 
@@ -38,6 +40,8 @@ The commands under `sensor-hub local` act on this machine's install and read its
 | `local serve` | Run the server |
 | `local admin create <username>` | Create the first admin user |
 | `local db backup <path>` | Write a consistent copy of the live database to a new file |
+| `local secrets init-key` | Create the secret-store key |
+| `local secrets show-key` | Print the secret-store key |
 
 They accept the following flags:
 
@@ -45,10 +49,35 @@ They accept the following flags:
 |----------------|-----------------------|-------------------|-------------|
 | `--config-dir` | every `local` command | `/etc/sensor-hub` | Path to the configuration directory. It must hold `application.properties` and `database.properties` |
 | `--log-file`   | `local serve`         | stdout            | Path to the log file. The packaged systemd unit sets `/var/log/sensor-hub/sensor-hub.log` |
+| `--secrets-key-file` | `local serve`, `local secrets show-key` | none | Path to the secret-store key, read when there is no systemd credential or Compose secret. See [Secret-store key](#secret-store-key) |
+| `--from-stdin` | `local secrets init-key` | off | Read the key from stdin rather than generating one |
+| `--seal`       | `local secrets init-key` | off | Seal the key with the TPM through `systemd-creds` (root only) |
 
 `sensor-hub --version` prints the version and exits.
 
 These flags are useful for running sensor-hub outside the standard package layout (e.g., during development).
+
+## Secret-store key
+
+The credentials the hub presents to other systems, such as outbound MQTT broker passwords, are stored in the database encrypted with AES-256-GCM. The key that decrypts them lives outside the database, so a copy of the database or a backup gives nothing usable on its own. No API response and no command other than `local secrets show-key` reveals a stored secret or the key.
+
+The key is 32 random bytes, held as one line of standard base64. When the hub starts it uses the first key it finds, in this order:
+
+1. `$CREDENTIALS_DIRECTORY/secrets.key`, a systemd credential. A key sealed with `local secrets init-key --seal` reaches the hub this way.
+2. `/run/secrets/sensor-hub-secrets-key`, a Compose secret named `sensor-hub-secrets-key`.
+3. The path given with `--secrets-key-file` to `local serve`. The file must exist; the hub does not fall back to another location when it is missing.
+4. `<config-dir>/secrets.key`, which is `/etc/sensor-hub/secrets.key` on a package install.
+
+When there is no key at any of them, the hub generates one, writes it to `<config-dir>/secrets.key` with mode 0600, logs that it did and where, and carries on. It refuses to do so when a sealed key, `<config-dir>/secrets.key.cred`, exists without systemd passing it in, since secrets stored under a second key would be unreadable under the unit.
+
+A key file given with `--secrets-key-file` or found in the configuration directory must meet two rules, or the hub logs which one it broke and exits with an error:
+
+- It is not readable by others: its mode has no `o+r` bit, so `chmod 600` it.
+- It is not inside the directory that holds `database.path`, at any depth, so that copying the database directory never carries the key along.
+
+A systemd credential and a Compose secret are exempt, because their manager puts them in place.
+
+Keep a copy of the key, from `sudo sensor-hub local secrets show-key`, somewhere other than the hub, such as a password manager. If the key is lost or replaced, the stored secrets cannot be decrypted and have to be entered again.
 
 ## Runtime configuration updates
 

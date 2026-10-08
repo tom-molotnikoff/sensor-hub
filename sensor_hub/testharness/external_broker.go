@@ -25,6 +25,24 @@ func StartExternalBroker() (*ExternalBroker, error) {
 	if err := server.AddHook(new(auth.AllowHook), nil); err != nil {
 		return nil, fmt.Errorf("failed to add allow-all hook: %w", err)
 	}
+	return serveExternalBroker(server)
+}
+
+// StartExternalBrokerWithLogin starts an external broker that accepts only
+// the given username and password, as a Mosquitto with a password file does.
+func StartExternalBrokerWithLogin(username, password string) (*ExternalBroker, error) {
+	server := mochi.New(nil)
+	ledger := &auth.Ledger{
+		Auth: auth.AuthRules{{Username: auth.RString(username), Password: auth.RString(password), Allow: true}},
+		ACL:  auth.ACLRules{{Username: auth.RString(username), Filters: auth.Filters{"#": auth.ReadWrite}}},
+	}
+	if err := server.AddHook(new(auth.Hook), &auth.Options{Ledger: ledger}); err != nil {
+		return nil, fmt.Errorf("failed to add auth hook: %w", err)
+	}
+	return serveExternalBroker(server)
+}
+
+func serveExternalBroker(server *mochi.Server) (*ExternalBroker, error) {
 	tcp := listeners.NewTCP(listeners.Config{ID: "external-broker", Address: "127.0.0.1:0"})
 	if err := server.AddListener(tcp); err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)

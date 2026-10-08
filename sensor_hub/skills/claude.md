@@ -74,12 +74,14 @@ sensor-hub sensors dismiss 5                         # Dismiss a pending sensor 
 sensor-hub mqtt brokers list                         # List all MQTT brokers
 sensor-hub mqtt brokers get 1                        # Get broker by ID
 sensor-hub mqtt brokers create --name "zigbee" --host localhost --port 1883  # Create broker
-sensor-hub mqtt brokers create --name "remote" --host mqtt.example.com --port 8883 --tls --username user --password pass
-sensor-hub mqtt brokers update 1 --file broker.json  # Update from JSON file
+printf '%s\n' "$BROKER_PASSWORD" | sensor-hub mqtt brokers create --name "remote" --host mqtt.example.com --port 8883 --username user --password-stdin
+sensor-hub mqtt brokers update 1 --file broker.json  # Update from JSON file; omit "password" to keep the stored one
 sensor-hub mqtt brokers delete 1                     # Delete by ID
 sensor-hub mqtt brokers enable 1                     # Enable a broker
 sensor-hub mqtt brokers disable 1                    # Disable a broker
 ```
+
+Broker passwords are write-only: responses carry `password_status` (`unset`, `set`, `needs_reentry`) and never the password. A password is never passed as a flag; `create` reads it from `--password-stdin` or a prompt, and only when `--username` is given. In an update body, omitting `password` or sending `"****"` keeps the stored one and `""` clears it.
 
 ### MQTT Subscriptions
 ```bash

@@ -1456,7 +1456,10 @@ export interface paths {
         };
         /** Get an MQTT broker by ID */
         get: operations["getMqttBroker"];
-        /** Update an MQTT broker */
+        /**
+         * Update an MQTT broker
+         * @description Replaces the broker's settings. The password follows the write-only rules on the MQTTBroker schema, so a body without one keeps the stored password.
+         */
         put: operations["updateMqttBroker"];
         post?: never;
         /** Delete an MQTT broker */
@@ -1779,8 +1782,13 @@ export interface components {
             port?: number;
             /** @description Optional authentication username. */
             username?: string;
-            /** @description Optional authentication password. */
+            /** @description Authentication password, write-only: no response carries it. It is held encrypted in the secret store. On create or update a non-empty value other than "****" sets it, an empty string clears it, and omitting it or sending "****" leaves the stored password unchanged. */
             password?: string;
+            /**
+             * @description Whether a password is stored. needs_reentry means the stored password does not decrypt under the hub's current key and has to be entered again.
+             * @enum {string}
+             */
+            readonly password_status?: "unset" | "set" | "needs_reentry";
             /** @description Optional MQTT client ID. Auto-generated as "sensor-hub-{brokerID}" if omitted. */
             client_id?: string;
             /** @description Path to CA certificate for TLS. */
