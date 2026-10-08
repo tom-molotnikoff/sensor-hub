@@ -35,6 +35,7 @@ func newKeyFixture(t *testing.T) keyFixture {
 			ComposeSecret: filepath.Join(root, "run", "secrets", "sensor-hub-secrets-key"),
 			ConfigDir:     configDir,
 			SystemdDropIn: filepath.Join(root, "systemd", "sensor-hub.service.d", "secrets-key.conf"),
+			KeyCheckState: filepath.Join(root, "run", "sensor-hub-key-check"),
 		},
 		databasePath: filepath.Join(dataDir, "sensor_hub.db"),
 		logs:         logs,

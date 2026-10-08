@@ -88,7 +88,7 @@ Commands under `sensor-hub local` act on the Sensor Hub install on the machine t
 | `local db backup <path>` | Write a consistent copy of the live database to a new file |
 | `local secrets init-key` | Create the secret-store key |
 | `local secrets show-key` | Print the secret-store key |
-| `local secrets check-seal` | Replace a sealed key the TPM will not unseal |
+| `local secrets check-seal` | Replace a sealed key that can no longer be unsealed |
 
 Every local command takes `--config-dir`, the directory holding `application.properties` and `database.properties`. It defaults to `/etc/sensor-hub`, where the package installs them. When either file is missing the command exits with an error naming the directory and the file. `local serve` also takes `--log-file`, which defaults to stdout, and `--secrets-key-file`, a path to the secret-store key (see [Secret-store key](configuration#secret-store-key)).
 
@@ -160,9 +160,11 @@ Keep a copy of the key. Without it the stored secrets cannot be decrypted and ha
 sudo sensor-hub local secrets check-seal
 ```
 
-Checks that the key sealed in `<config-dir>/secrets.key.cred` still unseals. systemd will not start a service whose credential cannot be decrypted, so a TPM that refuses the key after a firmware or boot change would otherwise keep the hub from starting at all. When the key cannot be unsealed after a few tries, `check-seal` keeps it as `secrets.key.cred.unsealable-<time>` and seals a new key in its place, with the TPM or, if the TPM will not seal either, with the host's own credential secret. The hub then starts, and every secret stored under the old key needs re-entry (see [Secrets that need re-entry](configuration#secrets-that-need-re-entry)).
+Checks that the key sealed in `<config-dir>/secrets.key.cred` still unseals. systemd will not start a service whose credential cannot be decrypted, so a sealed key that cannot be used would otherwise keep the hub from starting at all. When the TPM works but still refuses the key after a few tries, `check-seal` keeps it as `secrets.key.cred.unsealable-<time>` and seals a new key with the TPM in its place. The hub then starts, and every secret stored under the old key needs re-entry (see [Secrets that need re-entry](configuration#secrets-that-need-re-entry)).
 
-The package runs it as root before every start of the service, through `sensor-hub-key-check.service`, so there is normally no need to run it yourself. It does nothing when the key is not sealed, and changes nothing when `systemd-creds` cannot be run. It needs root.
+When the TPM cannot be used at all, it may only be late or briefly unreachable, so `check-seal` leaves the key alone and exits with an error. The service fails on its credential and restarts, which runs the check again. Once the TPM has stayed unusable for `--tpm-grace` (default `5m`) since the first failure this boot, the key is set aside as above and the new key sealed with the host's own credential secret instead of the TPM. See [If the TPM will not unseal the key](installation#if-the-tpm-will-not-unseal-the-key).
+
+The package runs it as root before every start of the service, through `sensor-hub-key-check.service`, so there is normally no need to run it yourself. It does nothing when the key is not sealed or the service is running, and changes nothing when `systemd-creds` cannot be run. It needs root.
 
 ## MQTT brokers
 

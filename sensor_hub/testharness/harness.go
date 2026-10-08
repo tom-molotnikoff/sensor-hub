@@ -274,7 +274,7 @@ func (e *Env) boot(listenAddr string) error {
 	dashboardService := service.NewDashboardService(dashboardRepo, logger)
 
 	mqttBrokerRepo := database.NewMQTTBrokerRepository(db, logger)
-	if err := service.NotifySecretFailures(context.Background(), secretStore.NeedsReentry(), mqttBrokerRepo, notificationService, logger); err != nil {
+	if err := service.NotifySecretFailures(context.Background(), secretStore.NeedsReentry(), nil, mqttBrokerRepo, notificationService, logger); err != nil {
 		logger.Error("could not tell the admins that stored secrets need re-entry", "error", err)
 	}
 	mqttSubRepo := database.NewMQTTSubscriptionRepository(db, logger)

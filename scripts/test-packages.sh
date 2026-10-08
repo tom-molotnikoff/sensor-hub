@@ -2,8 +2,8 @@
 #
 # Install a server package under a real systemd in a container and check that
 # the hub comes up with no operator step: as an upgrade from a 1.5.x release
-# on a host with and without a TPM, then with a TPM that stops unsealing the
-# key, and as a fresh install.
+# on a host with and without a TPM, then with a TPM that refuses the key and
+# one that cannot be used at all, and as a fresh install.
 #
 # Usage:
 #   scripts/test-packages.sh <package.deb|package.rpm> [--from <version>]
@@ -133,7 +133,8 @@ stop_host() {
 fake_tpm() {
   docker exec -i "$CONTAINER" bash -c 'mv /usr/bin/systemd-creds /usr/bin/systemd-creds.real && cat > /usr/bin/systemd-creds && chmod 0755 /usr/bin/systemd-creds' <<'EOF'
 #!/bin/sh
-[ "$1" = has-tpm2 ] && exit 0
+# /root/fake-tpm-gone stands for a TPM that cannot be used at all.
+if [ "$1" = has-tpm2 ]; then [ -e /root/fake-tpm-gone ] && exit 1; exit 0; fi
 for arg; do
   shift
   [ "$arg" = --with-key=tpm2 ] && arg=--with-key=host
@@ -274,6 +275,11 @@ check_tpm_refusal() {
   # The stand-in TPM seals with systemd's host key, so a new host key is a TPM
   # that no longer unseals what it sealed.
   on_host 'mv /var/lib/systemd/credential.secret /root/credential.secret.before && systemd-creds setup >/dev/null 2>&1'
+  # A start of the check while the hub runs, as "systemctl start sensor-hub"
+  # on a running hub pulls in, leaves the key the hub holds alone.
+  on_host 'systemctl start sensor-hub-key-check.service'
+  check "the check leaves a running hub's key alone" "0" \
+    "$(on_host 'ls /etc/sensor-hub/secrets.key.cred.unsealable-* 2>/dev/null | wc -l')"
   on_host 'systemctl restart sensor-hub'
   wait_healthy || return 1
   login >/dev/null || return 1
@@ -295,6 +301,35 @@ check_tpm_refusal() {
   check "the new key survives a restart" "set" \
     "$(api GET /mqtt/brokers | jq -r '.[] | select(.name == "home") | .password_status')"
   check "the old sealed key is set aside once" "1" "$(on_host 'ls /etc/sensor-hub/secrets.key.cred.unsealable-* | wc -l')"
+}
+
+# A TPM that cannot be used at all. The check leaves the key alone while the
+# TPM may still appear, the hub's unit fails on its credential and restarts,
+# and once the grace period (shortened here) is over the check seals a new key
+# with the host's credential secret and the hub says so.
+check_tpm_gone() {
+  local _ restarts
+  on_host 'mkdir -p /etc/systemd/system/sensor-hub-key-check.service.d && printf "[Service]\nExecStart=\nExecStart=/usr/bin/sensor-hub local secrets check-seal --config-dir=/etc/sensor-hub --tpm-grace=20s\n" > /etc/systemd/system/sensor-hub-key-check.service.d/grace.conf && systemctl daemon-reload'
+  on_host 'touch /root/fake-tpm-gone && mv /var/lib/systemd/credential.secret /root/credential.secret.gone && systemd-creds setup >/dev/null 2>&1'
+  on_host 'systemctl restart sensor-hub' >/dev/null 2>&1 || true
+  # shellcheck disable=SC2016 # expanded on the host under test
+  check "the key is left alone while the TPM may still appear" "1 yes" \
+    "$(on_host 'echo $(ls /etc/sensor-hub/secrets.key.cred.unsealable-* | wc -l) $(test -e /run/sensor-hub-key-check/tpm-unusable-since && echo yes || echo no)')"
+  for _ in $(seq 120); do
+    on_host 'curl -fsS http://127.0.0.1:8080/api/health' >/dev/null 2>&1 && break
+    sleep 1
+  done
+  restarts="$(on_host 'systemctl show -p NRestarts --value sensor-hub')"
+  check "the hub restarted while it waited for the TPM" "yes" "$([[ "$restarts" -gt 0 ]] && echo yes || echo no)"
+  check "the service runs once the grace period is over" "active" "$(on_host 'systemctl is-active sensor-hub')"
+  login >/dev/null || return 1
+  # shellcheck disable=SC2016 # expanded on the host under test
+  check "the new key is sealed with the host's credential secret" "2 host" \
+    "$(on_host 'echo $(ls /etc/sensor-hub/secrets.key.cred.unsealable-* | wc -l) $(sed -n "s/^sealed_with=//p" /run/sensor-hub-key-check/key-replaced)')"
+  check "the notification says the TPM no longer protects the key" "yes" \
+    "$(api GET '/notifications?limit=100' | jq -r '[.[] | select(.notification.category == "secret_failure")] | max_by(.notification.id).notification.message' | grep -qF "protected by this host's credential secret, not the TPM" && echo yes || echo no)"
+  check "the broker password needs re-entry" "needs_reentry" \
+    "$(api GET /mqtt/brokers | jq -r '.[] | select(.name == "home") | .password_status')"
 }
 
 # remove_package removes the package as fully as the package manager can:
@@ -338,7 +373,7 @@ fake_tpm
 on_host "$INSTALL /packages/old.$FORMAT" >/dev/null
 seed_old_install
 upgrade_package
-wait_healthy && check_sealed_key && check_upgraded_install && check_tpm_refusal
+wait_healthy && check_sealed_key && check_upgraded_install && check_tpm_refusal && check_tpm_gone
 remove_package "/etc/sensor-hub/secrets.key.cred /etc/systemd/system/sensor-hub.service.d/secrets-key.conf"
 stop_host
 

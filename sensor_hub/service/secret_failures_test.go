@@ -43,7 +43,7 @@ func TestNotifySecretFailures_RaisesOneNotificationNamingEachOwner(t *testing.T)
 		{Owner: "mqtt_broker:9", Name: "password"}, // deleted, so it has no name
 	}
 
-	err := NotifySecretFailures(context.Background(), failed, namedBrokers{1: "Home Mosquitto", 2: "Garage"}, recorder, slog.Default())
+	err := NotifySecretFailures(context.Background(), failed, nil, namedBrokers{1: "Home Mosquitto", 2: "Garage"}, recorder, slog.Default())
 
 	require.NoError(t, err)
 	require.Len(t, recorder.created, 1)
@@ -59,7 +59,21 @@ func TestNotifySecretFailures_RaisesOneNotificationNamingEachOwner(t *testing.T)
 func TestNotifySecretFailures_RaisesNothingWhenEverySecretDecrypts(t *testing.T) {
 	recorder := &notificationRecorder{}
 
-	require.NoError(t, NotifySecretFailures(context.Background(), nil, namedBrokers{}, recorder, slog.Default()))
+	require.NoError(t, NotifySecretFailures(context.Background(), nil, nil, namedBrokers{}, recorder, slog.Default()))
 
 	assert.Empty(t, recorder.created)
+}
+
+func TestNotifySecretFailures_SaysWhenTheKeyIsNowProtectedByTheHostNotTheTPM(t *testing.T) {
+	recorder := &notificationRecorder{}
+	replaced := &secrets.KeyReplacement{SealedWith: "host", SetAside: "/etc/sensor-hub/secrets.key.cred.unsealable-20261008T215500Z"}
+
+	err := NotifySecretFailures(context.Background(), []secrets.Ref{{Owner: "mqtt_broker:1", Name: "password"}}, replaced,
+		namedBrokers{1: "Home Mosquitto"}, recorder, slog.Default())
+
+	require.NoError(t, err)
+	require.Len(t, recorder.created, 1)
+	message := recorder.created[0].notification.Message
+	assert.Contains(t, message, "kept as /etc/sensor-hub/secrets.key.cred.unsealable-20261008T215500Z")
+	assert.Contains(t, message, "protected by this host's credential secret, not the TPM")
 }

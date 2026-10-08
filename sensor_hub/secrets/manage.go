@@ -74,7 +74,7 @@ func sealKey(l Locations, key Key) error {
 	if !isRoot() {
 		return errors.New("sealing the key with the TPM needs root")
 	}
-	sealed, err := sealWith(key, "tpm2")
+	sealed, err := sealKeyWith(key, "tpm2")
 	if err != nil {
 		return err
 	}
@@ -94,9 +94,9 @@ func sealKey(l Locations, key Key) error {
 	return nil
 }
 
-// sealWith encrypts key as the secrets.key credential with the given
+// sealKeyWith encrypts key as the secrets.key credential with the given
 // systemd-creds key: tpm2, or host for the host's own credential secret.
-func sealWith(key Key, withKey string) ([]byte, error) {
+func sealKeyWith(key Key, withKey string) ([]byte, error) {
 	return runSystemdCreds([]byte(key.Encode()+"\n"), "encrypt", "--with-key="+withKey, "--name="+CredentialName, "-", "-")
 }
 

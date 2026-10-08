@@ -42,7 +42,7 @@ The commands under `sensor-hub local` act on this machine's install and read its
 | `local db backup <path>` | Write a consistent copy of the live database to a new file |
 | `local secrets init-key` | Create the secret-store key |
 | `local secrets show-key` | Print the secret-store key |
-| `local secrets check-seal` | Replace a sealed key the TPM will not unseal |
+| `local secrets check-seal` | Replace a sealed key that can no longer be unsealed |
 
 They accept the following flags:
 
@@ -53,6 +53,7 @@ They accept the following flags:
 | `--secrets-key-file` | `local serve`, `local secrets show-key` | none | Path to the secret-store key, read when there is no systemd credential or Compose secret. See [Secret-store key](#secret-store-key) |
 | `--from-stdin` | `local secrets init-key` | off | Read the key from stdin rather than generating one |
 | `--seal`       | `local secrets init-key` | off | Seal the key with the TPM through `systemd-creds` (root only) |
+| `--tpm-grace`  | `local secrets check-seal` | `5m` | How long to wait for a TPM that cannot be used before replacing the sealed key |
 
 `sensor-hub --version` prints the version and exits.
 

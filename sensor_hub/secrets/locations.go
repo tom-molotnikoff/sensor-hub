@@ -20,6 +20,9 @@ const (
 	// SystemdDropInPath is the drop-in that has systemd decrypt the sealed key
 	// for the packaged unit.
 	SystemdDropInPath = "/etc/systemd/system/sensor-hub.service.d/secrets-key.conf"
+	// KeyCheckStatePath is where the key check keeps what it learnt this boot.
+	// It is under /run, so it starts empty at every boot.
+	KeyCheckStatePath = "/run/sensor-hub-key-check"
 
 	keyFileName    = "secrets.key"
 	sealedFileName = "secrets.key.cred"
@@ -40,6 +43,9 @@ type Locations struct {
 	ConfigDir string
 	// SystemdDropIn is where sealing writes the unit drop-in.
 	SystemdDropIn string
+	// KeyCheckState is where the sealed key check records, for this boot,
+	// when the TPM was first found unusable and any key it replaced.
+	KeyCheckState string
 }
 
 // LocationsFor gives the locations for a hub run with the given configuration
@@ -51,6 +57,7 @@ func LocationsFor(configDir, keyFile string) Locations {
 		KeyFile:        keyFile,
 		ConfigDir:      configDir,
 		SystemdDropIn:  SystemdDropInPath,
+		KeyCheckState:  KeyCheckStatePath,
 	}
 }
 
