@@ -1,9 +1,10 @@
 // Package mqtt provides the MQTT connection manager that maintains per-broker
-// Paho MQTT client connections, manages subscriptions, and routes incoming
-// messages to the appropriate PushDriver for parsing.
+// connections (Paho clients for external brokers, the inline client for the
+// embedded broker), manages subscriptions, and routes incoming messages to the
+// appropriate PushDriver for parsing.
 //
-// The ConnectionManager is the bridge between external MQTT brokers and the
-// Sensor Hub's driver/service layer. It handles:
+// The ConnectionManager is the bridge between MQTT brokers and the Sensor
+// Hub's driver/service layer. It handles:
 //   - Per-broker client lifecycle (connect, reconnect, disconnect)
 //   - Subscription management (subscribe/unsubscribe based on DB config)
 //   - Message routing: topic → subscription → driver → readings
@@ -36,10 +37,10 @@ import (
 // for routing the message through the correct driver and storing results.
 type MessageHandler func(ctx context.Context, brokerID int, topic string, payload []byte)
 
-// BrokerConnection holds the Paho client and metadata for a single broker.
-type BrokerConnection struct {
-	Broker gen.MQTTBroker
-	Client pahomqtt.Client
+// brokerConnection holds the link and metadata for a single broker.
+type brokerConnection struct {
+	broker gen.MQTTBroker
+	link   brokerLink
 }
 
 type bridgeCacheKey struct {
@@ -58,9 +59,10 @@ type ConnectionManager struct {
 	sensorService service.SensorServiceInterface
 	subRepo       database.MQTTSubscriptionRepositoryInterface
 	brokerRepo    database.MQTTBrokerRepositoryInterface
+	embedded      *EmbeddedBroker
 	logger        *slog.Logger
 
-	connections map[int]*BrokerConnection // keyed by broker ID
+	connections map[int]*brokerConnection // keyed by broker ID
 	mu          sync.RWMutex
 
 	instruments *mqttInstruments
@@ -70,19 +72,22 @@ type ConnectionManager struct {
 	bridgeDevices *bridgeDevicesCache
 }
 
-// NewConnectionManager creates a new connection manager.
+// NewConnectionManager creates a new connection manager. embedded is the
+// hub's own broker, reached through its inline client; nil when it is off.
 func NewConnectionManager(
 	sensorService service.SensorServiceInterface,
 	subRepo database.MQTTSubscriptionRepositoryInterface,
 	brokerRepo database.MQTTBrokerRepositoryInterface,
+	embedded *EmbeddedBroker,
 	logger *slog.Logger,
 ) *ConnectionManager {
 	return &ConnectionManager{
 		sensorService: sensorService,
 		subRepo:       subRepo,
 		brokerRepo:    brokerRepo,
+		embedded:      embedded,
 		logger:        logger.With("component", "mqtt_connection_manager"),
-		connections:   make(map[int]*BrokerConnection),
+		connections:   make(map[int]*brokerConnection),
 		instruments:   newMQTTInstruments(),
 		tracer:        telemetry.Tracer("mqtt"),
 		stats:         NewStatsTracker(),
@@ -106,10 +111,6 @@ func (cm *ConnectionManager) Start(ctx context.Context) error {
 			cm.logger.Debug("skipping disabled broker", "broker", broker.Name)
 			continue
 		}
-		if broker.Type == "embedded" {
-			// Embedded broker connections use localhost
-			broker.Host = "localhost"
-		}
 		if err := cm.ConnectBroker(ctx, broker); err != nil {
 			cm.logger.Error("failed to connect to broker", "broker", broker.Name, "error", err)
 			continue
@@ -125,29 +126,60 @@ func (cm *ConnectionManager) Stop() {
 	defer cm.mu.Unlock()
 
 	for id, conn := range cm.connections {
-		cm.logger.Info("disconnecting from broker", "broker", conn.Broker.Name)
-		conn.Client.Disconnect(250)
+		cm.logger.Info("disconnecting from broker", "broker", conn.broker.Name)
+		conn.link.close()
 		delete(cm.connections, id)
 	}
 }
 
 // ConnectBroker establishes a connection to the given broker and subscribes
-// to all enabled subscriptions for that broker.
+// to all enabled subscriptions for that broker. The embedded broker is
+// reached through its inline client rather than over the network.
 func (cm *ConnectionManager) ConnectBroker(ctx context.Context, broker gen.MQTTBroker) error {
-	brokerID := 0
-	if broker.Id != nil {
-		brokerID = *broker.Id
+	if broker.Type == "embedded" {
+		return cm.attachEmbeddedBroker(ctx, broker)
 	}
+	return cm.dialExternalBroker(ctx, broker)
+}
+
+func (cm *ConnectionManager) attachEmbeddedBroker(ctx context.Context, broker gen.MQTTBroker) error {
+	brokerID := brokerIDOf(broker)
+	if cm.embedded == nil || !cm.embedded.IsRunning() {
+		return fmt.Errorf("embedded broker %s is not running", broker.Name)
+	}
+
+	cm.stats.SetBrokerName(brokerID, broker.Name)
+	link := newInlineLink(cm.embedded.Server())
+	cm.mu.Lock()
+	cm.connections[brokerID] = &brokerConnection{broker: broker, link: link}
+	cm.mu.Unlock()
+	cm.instruments.connectionsActive.Add(ctx, 1)
+	cm.stats.RecordConnected(brokerID)
+
+	if err := cm.subscribeAll(ctx, brokerID, link); err != nil {
+		cm.logger.Error("failed to subscribe to topics", "broker", broker.Name, "error", err)
+	}
+
+	cm.logger.Info("attached to embedded MQTT broker", "broker", broker.Name)
+	return nil
+}
+
+func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.MQTTBroker) error {
+	brokerID := brokerIDOf(broker)
+	if broker.Host == nil || broker.Port == nil {
+		return fmt.Errorf("broker %s has no host and port", broker.Name)
+	}
+	host, port := *broker.Host, *broker.Port
 	ctx, span := cm.tracer.Start(ctx, "mqtt.connect_broker",
 		trace.WithAttributes(
 			attribute.String("broker.name", broker.Name),
 			attribute.Int("broker.id", brokerID),
-			attribute.String("broker.host", broker.Host),
-			attribute.Int("broker.port", broker.Port),
+			attribute.String("broker.host", host),
+			attribute.Int("broker.port", port),
 		))
 	defer span.End()
 
-	brokerURL := fmt.Sprintf("tcp://%s:%d", broker.Host, broker.Port)
+	brokerURL := fmt.Sprintf("tcp://%s:%d", host, port)
 
 	clientID := fmt.Sprintf("sensor-hub-%d", brokerID)
 	if broker.ClientId != nil && *broker.ClientId != "" {
@@ -174,7 +206,7 @@ func (cm *ConnectionManager) ConnectBroker(ctx context.Context, broker gen.MQTTB
 			cm.stats.RecordConnected(brokerID)
 			// Re-subscribe on reconnect
 			go func() {
-				if err := cm.subscribeAll(context.Background(), brokerID, client); err != nil {
+				if err := cm.subscribeAll(context.Background(), brokerID, &pahoLink{client: client}); err != nil {
 					cm.logger.Error("failed to re-subscribe after reconnect", "broker", broker.Name, "error", err)
 				}
 			}()
@@ -198,14 +230,12 @@ func (cm *ConnectionManager) ConnectBroker(ctx context.Context, broker gen.MQTTB
 		return fmt.Errorf("failed to connect to broker %s: %w", broker.Name, token.Error())
 	}
 
+	link := &pahoLink{client: client}
 	cm.mu.Lock()
-	cm.connections[brokerID] = &BrokerConnection{
-		Broker: broker,
-		Client: client,
-	}
+	cm.connections[brokerID] = &brokerConnection{broker: broker, link: link}
 	cm.mu.Unlock()
 
-	if err := cm.subscribeAll(ctx, brokerID, client); err != nil {
+	if err := cm.subscribeAll(ctx, brokerID, link); err != nil {
 		cm.logger.Error("failed to subscribe to topics", "broker", broker.Name, "error", err)
 	}
 
@@ -223,15 +253,22 @@ func (cm *ConnectionManager) DisconnectBroker(brokerID int) {
 		return
 	}
 
-	conn.Client.Disconnect(250)
+	conn.link.close()
 	delete(cm.connections, brokerID)
 	cm.instruments.connectionsActive.Add(context.Background(), -1)
 	cm.stats.RecordDisconnected(brokerID)
 	cm.logger.Info("disconnected from broker", "broker_id", brokerID)
 }
 
+func brokerIDOf(broker gen.MQTTBroker) int {
+	if broker.Id == nil {
+		return 0
+	}
+	return *broker.Id
+}
+
 // subscribeAll loads enabled subscriptions for a broker and subscribes to each topic.
-func (cm *ConnectionManager) subscribeAll(ctx context.Context, brokerID int, client pahomqtt.Client) error {
+func (cm *ConnectionManager) subscribeAll(ctx context.Context, brokerID int, link brokerLink) error {
 	subs, err := cm.subRepo.GetEnabledByBrokerID(ctx, brokerID)
 	if err != nil {
 		return fmt.Errorf("failed to load subscriptions for broker %d: %w", brokerID, err)
@@ -241,21 +278,19 @@ func (cm *ConnectionManager) subscribeAll(ctx context.Context, brokerID int, cli
 		if !sub.Enabled {
 			continue
 		}
-		cm.subscribeTopic(client, brokerID, sub)
+		cm.subscribeTopic(link, brokerID, sub)
 	}
 
 	return nil
 }
 
 // subscribeTopic subscribes to a single MQTT topic and routes messages.
-func (cm *ConnectionManager) subscribeTopic(client pahomqtt.Client, brokerID int, sub gen.MQTTSubscription) {
-	handler := func(client pahomqtt.Client, msg pahomqtt.Message) {
-		cm.handleMessage(context.Background(), brokerID, sub.DriverType, msg.Topic(), msg.Payload())
-	}
-
-	token := client.Subscribe(sub.TopicPattern, 0, handler)
-	if token.WaitTimeout(5*time.Second) && token.Error() != nil {
-		cm.logger.Error("failed to subscribe", "topic", sub.TopicPattern, "error", token.Error())
+func (cm *ConnectionManager) subscribeTopic(link brokerLink, brokerID int, sub gen.MQTTSubscription) {
+	err := link.subscribe(sub, func(topic string, payload []byte) {
+		cm.handleMessage(context.Background(), brokerID, sub.DriverType, topic, payload)
+	})
+	if err != nil {
+		cm.logger.Error("failed to subscribe", "topic", sub.TopicPattern, "error", err)
 		return
 	}
 
@@ -550,12 +585,12 @@ func (cm *ConnectionManager) OnSubscriptionAdded(sub gen.MQTTSubscription) {
 	cm.mu.RLock()
 	conn, ok := cm.connections[sub.BrokerId]
 	cm.mu.RUnlock()
-	if !ok || !conn.Client.IsConnected() {
+	if !ok || !conn.link.connected() {
 		cm.logger.Warn("broker not connected, subscription will activate on next connect",
 			"broker_id", sub.BrokerId, "topic", sub.TopicPattern)
 		return
 	}
-	cm.subscribeTopic(conn.Client, sub.BrokerId, sub)
+	cm.subscribeTopic(conn.link, sub.BrokerId, sub)
 }
 
 // OnSubscriptionRemoved unsubscribes from a topic on the live broker client.
@@ -563,12 +598,11 @@ func (cm *ConnectionManager) OnSubscriptionRemoved(sub gen.MQTTSubscription) {
 	cm.mu.RLock()
 	conn, ok := cm.connections[sub.BrokerId]
 	cm.mu.RUnlock()
-	if !ok || !conn.Client.IsConnected() {
+	if !ok || !conn.link.connected() {
 		return
 	}
-	token := conn.Client.Unsubscribe(sub.TopicPattern)
-	if token.WaitTimeout(5*time.Second) && token.Error() != nil {
-		cm.logger.Error("failed to unsubscribe", "topic", sub.TopicPattern, "error", token.Error())
+	if err := conn.link.unsubscribe(sub); err != nil {
+		cm.logger.Error("failed to unsubscribe", "topic", sub.TopicPattern, "error", err)
 		return
 	}
 	cm.logger.Info("unsubscribed from MQTT topic", "topic", sub.TopicPattern)
@@ -578,13 +612,12 @@ func (cm *ConnectionManager) Publish(brokerID int, topic string, payload []byte,
 	cm.mu.RLock()
 	conn, ok := cm.connections[brokerID]
 	cm.mu.RUnlock()
-	if !ok || !conn.Client.IsConnected() {
+	if !ok || !conn.link.connected() {
 		return fmt.Errorf("broker %d is not connected", brokerID)
 	}
 
-	token := conn.Client.Publish(topic, qos, false, payload)
-	if token.WaitTimeout(5*time.Second) && token.Error() != nil {
-		return fmt.Errorf("publish to broker %d failed: %w", brokerID, token.Error())
+	if err := conn.link.publish(topic, payload, qos); err != nil {
+		return fmt.Errorf("publish to broker %d failed: %w", brokerID, err)
 	}
 
 	return nil
@@ -599,7 +632,7 @@ func (cm *ConnectionManager) IsConnected(brokerID int) bool {
 	if !ok {
 		return false
 	}
-	return conn.Client.IsConnected()
+	return conn.link.connected()
 }
 
 // ConnectedBrokerIDs returns the IDs of all currently connected brokers.
@@ -625,9 +658,9 @@ func (cm *ConnectionManager) Stats() map[int]BrokerStats {
 	for id, conn := range cm.connections {
 		bs, ok := snapshot[id]
 		if !ok {
-			bs = BrokerStats{BrokerID: id, BrokerName: conn.Broker.Name}
+			bs = BrokerStats{BrokerID: id, BrokerName: conn.broker.Name}
 		}
-		bs.Connected = conn.Client.IsConnected()
+		bs.Connected = conn.link.connected()
 		snapshot[id] = bs
 	}
 	return snapshot

@@ -3102,6 +3102,199 @@ paths:
         '404':
           description: Broker not found
 
+  # ── MQTT Clients ──────────────────────────────────────────────────────────
+
+  /mqtt/clients:
+    get:
+      tags:
+        - mqtt
+      summary: List MQTT clients
+      description: >-
+        Returns every client that may dial in to the embedded broker, with
+        whether it is connected now.
+      operationId: listMqttClients
+      x-required-permission: view_mqtt
+      responses:
+        '200':
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MQTTClient'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+
+    post:
+      tags:
+        - mqtt
+      summary: Create an MQTT client
+      description: >-
+        Creates a client for the embedded broker and generates its password.
+        The password is in this response only; it cannot be fetched again.
+      operationId: createMqttClient
+      x-required-permission: manage_mqtt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MQTTClientInput'
+      responses:
+        '201':
+          description: Client created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MQTTClientCreated'
+        '400':
+          description: Invalid name or topic prefix
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '409':
+          description: A client with that name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mqtt/clients/{id}:
+    get:
+      tags:
+        - mqtt
+      summary: Get an MQTT client by ID
+      operationId: getMqttClient
+      x-required-permission: view_mqtt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Client details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MQTTClient'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Client not found
+
+    put:
+      tags:
+        - mqtt
+      summary: Update an MQTT client
+      description: >-
+        Changes a client's name, topic prefix or enabled flag. A connected
+        client is disconnected so its next CONNECT is checked against the new
+        settings; a disabled client's next CONNECT is refused.
+      operationId: updateMqttClient
+      x-required-permission: manage_mqtt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MQTTClientInput'
+      responses:
+        '200':
+          description: Client updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MQTTClient'
+        '400':
+          description: Invalid name or topic prefix
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Client not found
+        '409':
+          description: A client with that name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - mqtt
+      summary: Delete an MQTT client
+      description: Disconnects the client if it is connected and removes it.
+      operationId: deleteMqttClient
+      x-required-permission: manage_mqtt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Client deleted
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Client not found
+
+  /mqtt/clients/{id}/rotate-password:
+    post:
+      tags:
+        - mqtt
+      summary: Rotate an MQTT client's password
+      description: >-
+        Generates a new password and returns it once. The old password stops
+        working on the client's next CONNECT.
+      operationId: rotateMqttClientPassword
+      x-required-permission: manage_mqtt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Password rotated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MQTTClientCreated'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Client not found
+
   # ── MQTT Subscriptions ────────────────────────────────────────────────────
 
   /mqtt/subscriptions:
@@ -3773,11 +3966,15 @@ components:
           example: "mosquitto"
         host:
           type: string
-          description: Broker hostname or IP address.
+          description: >-
+            Broker hostname or IP address. Required for an external broker and
+            omitted for the embedded broker, which the hub reaches in-process.
           example: "192.168.1.100"
         port:
           type: integer
-          description: Broker port number.
+          description: >-
+            Broker port number. Required for an external broker and omitted
+            for the embedded broker.
           example: 1883
         username:
           type: string
@@ -3814,11 +4011,90 @@ components:
         - id
         - name
         - type
-        - host
-        - port
         - enabled
         - created_at
         - updated_at
+
+    MQTTClientInput:
+      type: object
+      description: The settings of an MQTT client that dials in to the embedded broker.
+      properties:
+        name:
+          type: string
+          description: The MQTT username the client connects with. Unique.
+          example: "zigbee2mqtt"
+        topic_prefix:
+          type: string
+          description: >-
+            The only topic tree the client may publish to and subscribe to.
+            Must end with "/", must not start with "$", and must not contain
+            "+", "#" or NUL.
+          example: "zigbee2mqtt/"
+        enabled:
+          type: boolean
+          description: >-
+            Whether the client may connect. Defaults to true on create and is
+            left unchanged on update when omitted.
+      required:
+        - name
+        - topic_prefix
+
+    MQTTClient:
+      type: object
+      description: >-
+        An MQTT client that dials in to the embedded broker. Its password is
+        never returned after it is generated.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          description: The MQTT username the client connects with.
+          example: "zigbee2mqtt"
+        topic_prefix:
+          type: string
+          description: The only topic tree the client may publish to and subscribe to.
+          example: "zigbee2mqtt/"
+        enabled:
+          type: boolean
+        connected:
+          type: boolean
+          description: Whether the client is connected to the embedded broker now.
+        last_connected_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the client last connected, or null if it never has.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - topic_prefix
+        - enabled
+        - connected
+        - last_connected_at
+        - created_at
+        - updated_at
+
+    MQTTClientCreated:
+      description: >-
+        An MQTT client with its newly generated password. Returned once, by
+        create and by rotate-password; the password cannot be fetched again.
+      allOf:
+        - $ref: '#/components/schemas/MQTTClient'
+        - type: object
+          properties:
+            password:
+              type: string
+              readOnly: true
+              description: 32 random bytes as 64 hex characters.
+          required:
+            - password
 
     MQTTSubscription:
       type: object

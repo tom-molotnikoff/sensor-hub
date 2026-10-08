@@ -30,6 +30,7 @@ import (
 	"example/sensorHub/readings"
 	"example/sensorHub/service"
 	"example/sensorHub/smtp"
+	"example/sensorHub/testharness/fixtures"
 	"example/sensorHub/web"
 	"example/sensorHub/ws"
 
@@ -48,6 +49,11 @@ type Env struct {
 	WSCapture         *RecordingWSNotifier
 	EmailCapture      *RecordingEmailNotifier
 
+	// MQTTBrokerAddress is where devices reach the hub's embedded broker, and
+	// MQTTClient is a credential it accepts, limited to zigbee2mqtt/.
+	MQTTBrokerAddress string
+	MQTTClient        fixtures.MQTTClient
+
 	ui         fs.FS
 	listenAddr string
 	stop       func()
@@ -57,6 +63,8 @@ const (
 	DefaultAdminUser = "testadmin"
 	DefaultAdminPass = "testpassword123"
 )
+
+var DefaultMQTTClient = fixtures.MQTTClient{Name: "zigbee2mqtt", TopicPrefix: "zigbee2mqtt/", Password: "testmqttpassword"}
 
 // StartServer creates a temp DB, wires up all services, starts the Gin server
 // on a random port, and creates an admin user. Cleanup via t.Cleanup.
@@ -111,14 +119,27 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		}
 	}
 
+	mqttBrokerPort, err := freeTCPPort()
+	if err != nil {
+		cleanupDir()
+		return nil, func() {}, fmt.Errorf("failed to reserve a port for the embedded broker: %w", err)
+	}
+
 	// Write minimal config files
 	appPropsContent := fmt.Sprintf(
-		"sensor.collection.interval=300\ndatabase.path=%s\nlog.level=debug\nauth.bcrypt.cost=4\nmqtt.broker.enabled=false\n", dbPath)
+		"sensor.collection.interval=300\ndatabase.path=%s\nlog.level=debug\nauth.bcrypt.cost=4\nmqtt.broker.enabled=true\nmqtt.broker.port=%d\n", dbPath, mqttBrokerPort)
 	writeFileOrErr(filepath.Join(configDir, "application.properties"), appPropsContent)
 	writeFileOrErr(filepath.Join(configDir, "database.properties"), fmt.Sprintf("database.path=%s\n", dbPath))
 	writeFileOrErr(filepath.Join(configDir, "smtp.properties"), "smtp.user=\n")
 
-	env := &Env{AdminUser: DefaultAdminUser, AdminPass: DefaultAdminPass, ConfigDir: configDir, ui: opts.ui}
+	env := &Env{
+		AdminUser:         DefaultAdminUser,
+		AdminPass:         DefaultAdminPass,
+		ConfigDir:         configDir,
+		MQTTBrokerAddress: fmt.Sprintf("127.0.0.1:%d", mqttBrokerPort),
+		MQTTClient:        DefaultMQTTClient,
+		ui:                opts.ui,
+	}
 	listenAddr := opts.listenAddr
 	if listenAddr == "" {
 		listenAddr = "127.0.0.1:0"
@@ -152,6 +173,23 @@ func (e *Env) boot(listenAddr string) error {
 		return fmt.Errorf("failed to initialise database: %w", err)
 	}
 
+	// As in cmd/local_serve.go, the embedded broker authenticates devices
+	// against the MQTT clients in the database.
+	mqttClientRepo := database.NewMQTTClientRepository(db, logger)
+	if err := fixtures.EnsureMQTTClient(context.Background(), mqttClientRepo, e.MQTTClient); err != nil {
+		db.Close()
+		return err
+	}
+	mqttClientService := service.NewMQTTClientService(mqttClientRepo, logger)
+	embeddedBroker := mqttpkg.NewEmbeddedBroker(mqttpkg.BrokerConfig{
+		TCPAddress: fmt.Sprintf(":%d", appProps.AppConfig().MQTTBrokerPort),
+	}, mqttClientService, logger)
+	mqttClientService.SetSessions(embeddedBroker)
+	if err := embeddedBroker.Start(); err != nil {
+		db.Close()
+		return fmt.Errorf("failed to start embedded MQTT broker: %w", err)
+	}
+
 	// Build the full service graph, mirroring cmd/local_serve.go
 	sensorRepo := database.NewSensorRepository(db, logger)
 	mtRepo := database.NewMeasurementTypeRepository(db, logger)
@@ -174,6 +212,7 @@ func (e *Env) boot(listenAddr string) error {
 	thresholdProcessor := alerting.NewThresholdAlertProcessor(alertRepo, &harnessNotifRepoAdapter{notificationRepo}, wsCapture, emailCapture, logger)
 	readingsSampler := service.NewReadingsSampler(readingsRepo, logger)
 	if err := readingsSampler.Sample(context.Background()); err != nil {
+		_ = embeddedBroker.Stop()
 		db.Close()
 		return fmt.Errorf("failed to sample readings row counts: %w", err)
 	}
@@ -212,10 +251,11 @@ func (e *Env) boot(listenAddr string) error {
 	mqttBrokerRepo := database.NewMQTTBrokerRepository(db, logger)
 	mqttSubRepo := database.NewMQTTSubscriptionRepository(db, logger)
 	mqttService := service.NewMQTTService(mqttBrokerRepo, mqttSubRepo, logger)
-	connManager := mqttpkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, logger)
+	connManager := mqttpkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, embeddedBroker, logger)
 	mqttService.SetSubscriptionNotifier(connManager)
 	commandService := service.NewCommandService(sensorRepo, mqttSubRepo, commandHistoryRepo, connManager, commandTracker, logger)
 	if err := commandTracker.RecoverPending(context.Background()); err != nil {
+		_ = embeddedBroker.Stop()
 		db.Close()
 		return fmt.Errorf("failed to recover pending commands: %w", err)
 	}
@@ -235,6 +275,7 @@ func (e *Env) boot(listenAddr string) error {
 		dashboardService,
 		propertiesService,
 		mqttService,
+		mqttClientService,
 		nil, // no OAuth in tests
 		connManager,
 		automationService,
@@ -250,6 +291,7 @@ func (e *Env) boot(listenAddr string) error {
 
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
+		_ = embeddedBroker.Stop()
 		db.Close()
 		return fmt.Errorf("failed to listen: %w", err)
 	}
@@ -273,6 +315,7 @@ func (e *Env) boot(listenAddr string) error {
 		stopWatcher()
 		connManager.Stop()
 		srv.Shutdown(ctx)
+		_ = embeddedBroker.Stop()
 		db.Close()
 	}
 	e.listenAddr = listener.Addr().String()
@@ -307,6 +350,15 @@ func (e *Env) boot(listenAddr string) error {
 		return fmt.Errorf("failed to start automations: %w", err)
 	}
 	return nil
+}
+
+func freeTCPPort() (int, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer listener.Close()
+	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
 func copyFile(src, dst string) error {

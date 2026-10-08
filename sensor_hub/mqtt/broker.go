@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
-	"github.com/mochi-mqtt/server/v2/hooks/auth"
 	"github.com/mochi-mqtt/server/v2/listeners"
+	"github.com/mochi-mqtt/server/v2/packets"
 )
 
 // BrokerConfig holds the configuration for the embedded MQTT broker.
@@ -19,19 +19,23 @@ type BrokerConfig struct {
 }
 
 // EmbeddedBroker wraps a mochi-mqtt server instance with lifecycle management.
+// Devices connect to it with an MQTT client's credentials; the hub itself
+// uses the inline client and needs none.
 type EmbeddedBroker struct {
-	server  *mqtt.Server
-	config  BrokerConfig
-	logger  *slog.Logger
-	running bool
-	mu      sync.Mutex
+	server        *mqtt.Server
+	config        BrokerConfig
+	authenticator Authenticator
+	logger        *slog.Logger
+	running       bool
+	mu            sync.Mutex
 }
 
 // NewEmbeddedBroker creates a new embedded broker but does not start it.
-func NewEmbeddedBroker(config BrokerConfig, logger *slog.Logger) *EmbeddedBroker {
+func NewEmbeddedBroker(config BrokerConfig, authenticator Authenticator, logger *slog.Logger) *EmbeddedBroker {
 	return &EmbeddedBroker{
-		config: config,
-		logger: logger.With("component", "embedded_broker"),
+		config:        config,
+		authenticator: authenticator,
+		logger:        logger.With("component", "embedded_broker"),
 	}
 }
 
@@ -49,9 +53,7 @@ func (b *EmbeddedBroker) Start() error {
 		InlineClient: true,
 	})
 
-	// Allow anonymous connections — the embedded broker is only reachable
-	// from the local Docker network / localhost, not exposed externally.
-	if err := b.server.AddHook(new(auth.AllowHook), nil); err != nil {
+	if err := b.server.AddHook(newClientAuthHook(b.server, b.authenticator, b.logger), nil); err != nil {
 		return fmt.Errorf("failed to add auth hook: %w", err)
 	}
 
@@ -99,9 +101,50 @@ func (b *EmbeddedBroker) IsRunning() bool {
 	return b.running
 }
 
-// Server returns the underlying mochi-mqtt server instance. This is useful
-// for the connection manager to subscribe to the embedded broker directly
-// via the inline client, bypassing the network.
+// Server returns the underlying mochi-mqtt server instance, through whose
+// inline client the connection manager publishes and subscribes.
 func (b *EmbeddedBroker) Server() *mqtt.Server {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.server
+}
+
+// ConnectedUsernames returns the username of every client connected now.
+func (b *EmbeddedBroker) ConnectedUsernames() map[string]bool {
+	connected := make(map[string]bool)
+	for _, cl := range b.liveClients() {
+		connected[string(cl.Properties.Username)] = true
+	}
+	return connected
+}
+
+// Disconnect closes every live connection made with the username.
+func (b *EmbeddedBroker) Disconnect(username string) {
+	b.mu.Lock()
+	server := b.server
+	b.mu.Unlock()
+	for _, cl := range b.liveClients() {
+		if string(cl.Properties.Username) != username {
+			continue
+		}
+		_ = server.DisconnectClient(cl, packets.ErrAdministrativeAction)
+		b.logger.Info("disconnected MQTT client", "username", username, "remote", cl.Net.Remote)
+	}
+}
+
+// liveClients returns the open connections of authenticated clients, leaving
+// out the inline client and sessions kept for clients that have gone.
+func (b *EmbeddedBroker) liveClients() []*mqtt.Client {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if !b.running {
+		return nil
+	}
+	var clients []*mqtt.Client
+	for _, cl := range b.server.Clients.GetAll() {
+		if !cl.Net.Inline && !cl.Closed() {
+			clients = append(clients, cl)
+		}
+	}
+	return clients
 }

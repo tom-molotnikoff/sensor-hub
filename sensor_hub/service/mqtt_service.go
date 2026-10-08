@@ -55,7 +55,7 @@ func (s *MQTTService) AddBroker(ctx context.Context, broker gen.MQTTBroker) (int
 	if err := s.checkBrokerNameUnique(ctx, broker.Name, 0); err != nil {
 		return 0, err
 	}
-	if err := s.checkBrokerHostPortUnique(ctx, broker.Host, broker.Port, 0); err != nil {
+	if err := s.checkBrokerHostPortUnique(ctx, broker, 0); err != nil {
 		return 0, err
 	}
 	return s.brokerRepo.Add(ctx, broker)
@@ -88,7 +88,7 @@ func (s *MQTTService) UpdateBroker(ctx context.Context, broker gen.MQTTBroker) e
 	if err := s.checkBrokerNameUnique(ctx, broker.Name, *broker.Id); err != nil {
 		return err
 	}
-	if err := s.checkBrokerHostPortUnique(ctx, broker.Host, broker.Port, *broker.Id); err != nil {
+	if err := s.checkBrokerHostPortUnique(ctx, broker, *broker.Id); err != nil {
 		return err
 	}
 	return s.brokerRepo.Update(ctx, broker)
@@ -166,11 +166,12 @@ func (s *MQTTService) DeleteSubscription(ctx context.Context, id int) error {
 // Validation
 // ============================================================================
 
-// normaliseEmbeddedBroker sets host to "localhost" for embedded brokers so
-// callers don't need to supply it — the embedded broker always runs locally.
+// normaliseEmbeddedBroker drops any host and port given for the embedded
+// broker. The hub reaches it in-process, so it has no address.
 func normaliseEmbeddedBroker(broker *gen.MQTTBroker) {
 	if broker.Type == "embedded" {
-		broker.Host = "localhost"
+		broker.Host = nil
+		broker.Port = nil
 	}
 }
 
@@ -178,14 +179,17 @@ func validateBroker(broker gen.MQTTBroker) error {
 	if strings.TrimSpace(broker.Name) == "" {
 		return fmt.Errorf("broker name cannot be empty")
 	}
-	if strings.TrimSpace(broker.Host) == "" {
-		return fmt.Errorf("broker host cannot be empty")
-	}
-	if broker.Port <= 0 || broker.Port > 65535 {
-		return fmt.Errorf("broker port must be between 1 and 65535")
-	}
 	if broker.Type != "embedded" && broker.Type != "external" {
 		return fmt.Errorf("broker type must be 'embedded' or 'external'")
+	}
+	if broker.Type == "embedded" {
+		return nil
+	}
+	if broker.Host == nil || strings.TrimSpace(*broker.Host) == "" {
+		return fmt.Errorf("broker host cannot be empty")
+	}
+	if broker.Port == nil || *broker.Port <= 0 || *broker.Port > 65535 {
+		return fmt.Errorf("broker port must be between 1 and 65535")
 	}
 	return nil
 }
@@ -203,15 +207,22 @@ func (s *MQTTService) checkBrokerNameUnique(ctx context.Context, name string, ex
 	return nil
 }
 
-// checkBrokerHostPortUnique ensures no other broker targets the same host:port.
-// excludeID is the broker being updated (0 for new brokers).
-func (s *MQTTService) checkBrokerHostPortUnique(ctx context.Context, host string, port int, excludeID int) error {
+// checkBrokerHostPortUnique ensures no other external broker targets the same
+// host:port. excludeID is the broker being updated (0 for new brokers).
+func (s *MQTTService) checkBrokerHostPortUnique(ctx context.Context, broker gen.MQTTBroker, excludeID int) error {
+	if broker.Type == "embedded" {
+		return nil
+	}
 	all, err := s.brokerRepo.GetAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check broker host:port uniqueness: %w", err)
 	}
+	host, port := *broker.Host, *broker.Port
 	for _, b := range all {
-		if (b.Id == nil || *b.Id != excludeID) && strings.EqualFold(b.Host, host) && b.Port == port {
+		if b.Type == "embedded" || (b.Id != nil && *b.Id == excludeID) {
+			continue
+		}
+		if strings.EqualFold(*b.Host, host) && *b.Port == port {
 			return fmt.Errorf("broker host:port %s:%d is already in use by broker %q (id=%d)", host, port, b.Name, *b.Id)
 		}
 	}

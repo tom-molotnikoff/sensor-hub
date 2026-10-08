@@ -243,6 +243,28 @@ type ClientInterface interface {
 
 	UpdateMqttBroker(ctx context.Context, id int, body UpdateMqttBrokerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListMqttClients request
+	ListMqttClients(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateMqttClientWithBody request with any body
+	CreateMqttClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateMqttClient(ctx context.Context, body CreateMqttClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteMqttClient request
+	DeleteMqttClient(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMqttClient request
+	GetMqttClient(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateMqttClientWithBody request with any body
+	UpdateMqttClientWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateMqttClient(ctx context.Context, id int, body UpdateMqttClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RotateMqttClientPassword request
+	RotateMqttClientPassword(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetMqttStats request
 	GetMqttStats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1097,6 +1119,102 @@ func (c *Client) UpdateMqttBrokerWithBody(ctx context.Context, id int, contentTy
 
 func (c *Client) UpdateMqttBroker(ctx context.Context, id int, body UpdateMqttBrokerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMqttBrokerRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListMqttClients(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMqttClientsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateMqttClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateMqttClientRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateMqttClient(ctx context.Context, body CreateMqttClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateMqttClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteMqttClient(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteMqttClientRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMqttClient(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMqttClientRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateMqttClientWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateMqttClientRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateMqttClient(ctx context.Context, id int, body UpdateMqttClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateMqttClientRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RotateMqttClientPassword(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateMqttClientPasswordRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3545,6 +3663,222 @@ func NewUpdateMqttBrokerRequestWithBody(server string, id int, contentType strin
 	return req, nil
 }
 
+// NewListMqttClientsRequest generates requests for ListMqttClients
+func NewListMqttClientsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/mqtt/clients")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateMqttClientRequest calls the generic CreateMqttClient builder with application/json body
+func NewCreateMqttClientRequest(server string, body CreateMqttClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateMqttClientRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateMqttClientRequestWithBody generates requests for CreateMqttClient with any type of body
+func NewCreateMqttClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/mqtt/clients")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteMqttClientRequest generates requests for DeleteMqttClient
+func NewDeleteMqttClientRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/mqtt/clients/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMqttClientRequest generates requests for GetMqttClient
+func NewGetMqttClientRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/mqtt/clients/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateMqttClientRequest calls the generic UpdateMqttClient builder with application/json body
+func NewUpdateMqttClientRequest(server string, id int, body UpdateMqttClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateMqttClientRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateMqttClientRequestWithBody generates requests for UpdateMqttClient with any type of body
+func NewUpdateMqttClientRequestWithBody(server string, id int, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/mqtt/clients/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRotateMqttClientPasswordRequest generates requests for RotateMqttClientPassword
+func NewRotateMqttClientPasswordRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/mqtt/clients/%s/rotate-password", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetMqttStatsRequest generates requests for GetMqttStats
 func NewGetMqttStatsRequest(server string) (*http.Request, error) {
 	var err error
@@ -5875,6 +6209,28 @@ type ClientWithResponsesInterface interface {
 
 	UpdateMqttBrokerWithResponse(ctx context.Context, id int, body UpdateMqttBrokerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMqttBrokerResp, error)
 
+	// ListMqttClientsWithResponse request
+	ListMqttClientsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMqttClientsResp, error)
+
+	// CreateMqttClientWithBodyWithResponse request with any body
+	CreateMqttClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMqttClientResp, error)
+
+	CreateMqttClientWithResponse(ctx context.Context, body CreateMqttClientJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMqttClientResp, error)
+
+	// DeleteMqttClientWithResponse request
+	DeleteMqttClientWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*DeleteMqttClientResp, error)
+
+	// GetMqttClientWithResponse request
+	GetMqttClientWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetMqttClientResp, error)
+
+	// UpdateMqttClientWithBodyWithResponse request with any body
+	UpdateMqttClientWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMqttClientResp, error)
+
+	UpdateMqttClientWithResponse(ctx context.Context, id int, body UpdateMqttClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMqttClientResp, error)
+
+	// RotateMqttClientPasswordWithResponse request
+	RotateMqttClientPasswordWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*RotateMqttClientPasswordResp, error)
+
 	// GetMqttStatsWithResponse request
 	GetMqttStatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMqttStatsResp, error)
 
@@ -7056,6 +7412,141 @@ func (r UpdateMqttBrokerResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateMqttBrokerResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListMqttClientsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]MQTTClient
+}
+
+// Status returns HTTPResponse.Status
+func (r ListMqttClientsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListMqttClientsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateMqttClientResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *MQTTClientCreated
+	JSON400      *ErrorResponse
+	JSON409      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateMqttClientResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateMqttClientResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteMqttClientResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteMqttClientResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteMqttClientResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetMqttClientResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MQTTClient
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMqttClientResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMqttClientResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateMqttClientResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MQTTClient
+	JSON400      *ErrorResponse
+	JSON409      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateMqttClientResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateMqttClientResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RotateMqttClientPasswordResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MQTTClientCreated
+}
+
+// Status returns HTTPResponse.Status
+func (r RotateMqttClientPasswordResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RotateMqttClientPasswordResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -8912,6 +9403,76 @@ func (c *ClientWithResponses) UpdateMqttBrokerWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseUpdateMqttBrokerResp(rsp)
+}
+
+// ListMqttClientsWithResponse request returning *ListMqttClientsResp
+func (c *ClientWithResponses) ListMqttClientsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMqttClientsResp, error) {
+	rsp, err := c.ListMqttClients(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListMqttClientsResp(rsp)
+}
+
+// CreateMqttClientWithBodyWithResponse request with arbitrary body returning *CreateMqttClientResp
+func (c *ClientWithResponses) CreateMqttClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMqttClientResp, error) {
+	rsp, err := c.CreateMqttClientWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateMqttClientResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateMqttClientWithResponse(ctx context.Context, body CreateMqttClientJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMqttClientResp, error) {
+	rsp, err := c.CreateMqttClient(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateMqttClientResp(rsp)
+}
+
+// DeleteMqttClientWithResponse request returning *DeleteMqttClientResp
+func (c *ClientWithResponses) DeleteMqttClientWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*DeleteMqttClientResp, error) {
+	rsp, err := c.DeleteMqttClient(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteMqttClientResp(rsp)
+}
+
+// GetMqttClientWithResponse request returning *GetMqttClientResp
+func (c *ClientWithResponses) GetMqttClientWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetMqttClientResp, error) {
+	rsp, err := c.GetMqttClient(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMqttClientResp(rsp)
+}
+
+// UpdateMqttClientWithBodyWithResponse request with arbitrary body returning *UpdateMqttClientResp
+func (c *ClientWithResponses) UpdateMqttClientWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMqttClientResp, error) {
+	rsp, err := c.UpdateMqttClientWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateMqttClientResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateMqttClientWithResponse(ctx context.Context, id int, body UpdateMqttClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMqttClientResp, error) {
+	rsp, err := c.UpdateMqttClient(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateMqttClientResp(rsp)
+}
+
+// RotateMqttClientPasswordWithResponse request returning *RotateMqttClientPasswordResp
+func (c *ClientWithResponses) RotateMqttClientPasswordWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*RotateMqttClientPasswordResp, error) {
+	rsp, err := c.RotateMqttClientPassword(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRotateMqttClientPasswordResp(rsp)
 }
 
 // GetMqttStatsWithResponse request returning *GetMqttStatsResp
@@ -10978,6 +11539,180 @@ func ParseUpdateMqttBrokerResp(rsp *http.Response) (*UpdateMqttBrokerResp, error
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SuccessMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListMqttClientsResp parses an HTTP response from a ListMqttClientsWithResponse call
+func ParseListMqttClientsResp(rsp *http.Response) (*ListMqttClientsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListMqttClientsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []MQTTClient
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateMqttClientResp parses an HTTP response from a CreateMqttClientWithResponse call
+func ParseCreateMqttClientResp(rsp *http.Response) (*CreateMqttClientResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateMqttClientResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest MQTTClientCreated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteMqttClientResp parses an HTTP response from a DeleteMqttClientWithResponse call
+func ParseDeleteMqttClientResp(rsp *http.Response) (*DeleteMqttClientResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteMqttClientResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetMqttClientResp parses an HTTP response from a GetMqttClientWithResponse call
+func ParseGetMqttClientResp(rsp *http.Response) (*GetMqttClientResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMqttClientResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MQTTClient
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateMqttClientResp parses an HTTP response from a UpdateMqttClientWithResponse call
+func ParseUpdateMqttClientResp(rsp *http.Response) (*UpdateMqttClientResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateMqttClientResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MQTTClient
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRotateMqttClientPasswordResp parses an HTTP response from a RotateMqttClientPasswordWithResponse call
+func ParseRotateMqttClientPasswordResp(rsp *http.Response) (*RotateMqttClientPasswordResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RotateMqttClientPasswordResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MQTTClientCreated
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -1199,9 +1199,9 @@ type MQTTBroker struct {
 	// Enabled Whether the broker connection is active.
 	Enabled bool `json:"enabled"`
 
-	// Host Broker hostname or IP address.
-	Host string `json:"host"`
-	Id   *int   `json:"id,omitempty"`
+	// Host Broker hostname or IP address. Required for an external broker and omitted for the embedded broker, which the hub reaches in-process.
+	Host *string `json:"host,omitempty"`
+	Id   *int    `json:"id,omitempty"`
 
 	// Name Human-friendly broker name.
 	Name string `json:"name"`
@@ -1209,8 +1209,8 @@ type MQTTBroker struct {
 	// Password Optional authentication password.
 	Password *string `json:"password,omitempty"`
 
-	// Port Broker port number.
-	Port int `json:"port"`
+	// Port Broker port number. Required for an external broker and omitted for the embedded broker.
+	Port *int `json:"port,omitempty"`
 
 	// Type Broker type (e.g. "mosquitto", "emqx").
 	Type      string     `json:"type"`
@@ -1245,6 +1245,59 @@ type MQTTBrokerStats struct {
 
 	// ProcessingErrors Total message processing errors.
 	ProcessingErrors int64 `json:"processing_errors"`
+}
+
+// MQTTClient An MQTT client that dials in to the embedded broker. Its password is never returned after it is generated.
+type MQTTClient struct {
+	// Connected Whether the client is connected to the embedded broker now.
+	Connected bool      `json:"connected"`
+	CreatedAt time.Time `json:"created_at"`
+	Enabled   bool      `json:"enabled"`
+	Id        int       `json:"id"`
+
+	// LastConnectedAt When the client last connected, or null if it never has.
+	LastConnectedAt *time.Time `json:"last_connected_at"`
+
+	// Name The MQTT username the client connects with.
+	Name string `json:"name"`
+
+	// TopicPrefix The only topic tree the client may publish to and subscribe to.
+	TopicPrefix string    `json:"topic_prefix"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// MQTTClientCreated defines model for MQTTClientCreated.
+type MQTTClientCreated struct {
+	// Connected Whether the client is connected to the embedded broker now.
+	Connected bool      `json:"connected"`
+	CreatedAt time.Time `json:"created_at"`
+	Enabled   bool      `json:"enabled"`
+	Id        int       `json:"id"`
+
+	// LastConnectedAt When the client last connected, or null if it never has.
+	LastConnectedAt *time.Time `json:"last_connected_at"`
+
+	// Name The MQTT username the client connects with.
+	Name string `json:"name"`
+
+	// Password 32 random bytes as 64 hex characters.
+	Password *string `json:"password,omitempty"`
+
+	// TopicPrefix The only topic tree the client may publish to and subscribe to.
+	TopicPrefix string    `json:"topic_prefix"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// MQTTClientInput The settings of an MQTT client that dials in to the embedded broker.
+type MQTTClientInput struct {
+	// Enabled Whether the client may connect. Defaults to true on create and is left unchanged on update when omitted.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Name The MQTT username the client connects with. Unique.
+	Name string `json:"name"`
+
+	// TopicPrefix The only topic tree the client may publish to and subscribe to. Must end with "/", must not start with "$", and must not contain "+", "#" or NUL.
+	TopicPrefix string `json:"topic_prefix"`
 }
 
 // MQTTSubscription An MQTT topic subscription that routes messages to a driver.
@@ -1799,6 +1852,12 @@ type CreateMqttBrokerJSONRequestBody = MQTTBroker
 
 // UpdateMqttBrokerJSONRequestBody defines body for UpdateMqttBroker for application/json ContentType.
 type UpdateMqttBrokerJSONRequestBody = MQTTBroker
+
+// CreateMqttClientJSONRequestBody defines body for CreateMqttClient for application/json ContentType.
+type CreateMqttClientJSONRequestBody = MQTTClientInput
+
+// UpdateMqttClientJSONRequestBody defines body for UpdateMqttClient for application/json ContentType.
+type UpdateMqttClientJSONRequestBody = MQTTClientInput
 
 // CreateMqttSubscriptionJSONRequestBody defines body for CreateMqttSubscription for application/json ContentType.
 type CreateMqttSubscriptionJSONRequestBody = MQTTSubscription

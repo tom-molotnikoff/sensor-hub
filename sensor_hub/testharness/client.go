@@ -559,6 +559,41 @@ func (c *Client) DeleteMQTTSubscription(id int) int {
 	return c.statusOnly(c.gen.DeleteMqttSubscription(c.ctx(), id))
 }
 
+// --- MQTT Clients ---
+
+func (c *Client) ListMQTTClients() ([]gen.MQTTClient, int) {
+	var clients []gen.MQTTClient
+	resp, err := c.gen.ListMqttClients(c.ctx())
+	status := c.decodeInto(resp, err, &clients)
+	return clients, status
+}
+
+func (c *Client) CreateMQTTClient(input gen.MQTTClientInput) (gen.MQTTClientCreated, int) {
+	var created gen.MQTTClientCreated
+	resp, err := c.gen.CreateMqttClient(c.ctx(), input)
+	status := c.decodeInto(resp, err, &created)
+	return created, status
+}
+
+func (c *Client) GetMQTTClientRaw(id int) (json.RawMessage, int) {
+	return c.consume(c.gen.GetMqttClient(c.ctx(), id))
+}
+
+func (c *Client) UpdateMQTTClient(id int, input gen.MQTTClientInput) (json.RawMessage, int) {
+	return c.consume(c.gen.UpdateMqttClient(c.ctx(), id, input))
+}
+
+func (c *Client) RotateMQTTClientPassword(id int) (gen.MQTTClientCreated, int) {
+	var rotated gen.MQTTClientCreated
+	resp, err := c.gen.RotateMqttClientPassword(c.ctx(), id)
+	status := c.decodeInto(resp, err, &rotated)
+	return rotated, status
+}
+
+func (c *Client) DeleteMQTTClient(id int) int {
+	return c.statusOnly(c.gen.DeleteMqttClient(c.ctx(), id))
+}
+
 // --- Sensor Status ---
 
 func (c *Client) GetSensorsByStatus(status string) (json.RawMessage, int) {

@@ -64,11 +64,25 @@ func runServe(cmd *cobra.Command, args []string) error {
 		logger.Warn("SENSOR_HUB_INITIAL_ADMIN is ignored since 2.0; remove it from the environment and create the first admin with 'sensor-hub local admin create'")
 	}
 
-	// Start embedded MQTT broker if enabled
 	bootCfg := appProps.AppConfig()
+	db, err := database.Open(bootCfg, logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialise database: %w", err)
+	}
+
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("error closing database", "error", err)
+		}
+	}()
+
+	// Start the embedded MQTT broker if enabled. Devices authenticate against
+	// the MQTT clients in the database, so it starts once the database is open.
+	mqttClientService := service.NewMQTTClientService(database.NewMQTTClientRepository(db, logger), logger)
 	embeddedBroker := mqttBrokerPkg.NewEmbeddedBroker(mqttBrokerPkg.BrokerConfig{
 		TCPAddress: fmt.Sprintf(":%d", bootCfg.MQTTBrokerPort),
-	}, logger)
+	}, mqttClientService, logger)
+	mqttClientService.SetSessions(embeddedBroker)
 
 	if bootCfg.MQTTBrokerEnabled {
 		if err := embeddedBroker.Start(); err != nil {
@@ -80,17 +94,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 			}
 		}()
 	}
-
-	db, err := database.Open(bootCfg, logger)
-	if err != nil {
-		return fmt.Errorf("failed to initialise database: %w", err)
-	}
-
-	defer func() {
-		if err := db.Close(); err != nil {
-			logger.Error("error closing database", "error", err)
-		}
-	}()
 
 	sensorRepo := database.NewSensorRepository(db, logger)
 	mtRepo := database.NewMeasurementTypeRepository(db, logger)
@@ -170,7 +173,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	mqttSubRepo := database.NewMQTTSubscriptionRepository(db, logger)
 	mqttService := service.NewMQTTService(mqttBrokerRepo, mqttSubRepo, logger)
 
-	connManager := mqttBrokerPkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, logger)
+	connManager := mqttBrokerPkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, embeddedBroker, logger)
 	mqttService.SetSubscriptionNotifier(connManager)
 	commandService := service.NewCommandService(sensorRepo, mqttSubRepo, commandHistoryRepo, connManager, commandTracker, logger)
 	if err := commandTracker.RecoverPending(ctx); err != nil {
@@ -208,6 +211,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		dashboardService,
 		propertiesService,
 		mqttService,
+		mqttClientService,
 		oauthAdapter,
 		connManager,
 		automationService,

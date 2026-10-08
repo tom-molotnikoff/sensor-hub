@@ -11,7 +11,7 @@ import (
 func TestEmbeddedBroker_StartStop(t *testing.T) {
 	broker := NewEmbeddedBroker(BrokerConfig{
 		TCPAddress: ":0", // OS-assigned port
-	}, slog.Default())
+	}, nil, slog.Default())
 
 	require.NoError(t, broker.Start())
 	assert.True(t, broker.IsRunning())
@@ -23,7 +23,7 @@ func TestEmbeddedBroker_StartStop(t *testing.T) {
 func TestEmbeddedBroker_DoubleStart(t *testing.T) {
 	broker := NewEmbeddedBroker(BrokerConfig{
 		TCPAddress: ":0",
-	}, slog.Default())
+	}, nil, slog.Default())
 
 	require.NoError(t, broker.Start())
 	defer broker.Stop()
@@ -36,7 +36,7 @@ func TestEmbeddedBroker_DoubleStart(t *testing.T) {
 func TestEmbeddedBroker_StopWhenNotRunning(t *testing.T) {
 	broker := NewEmbeddedBroker(BrokerConfig{
 		TCPAddress: ":0",
-	}, slog.Default())
+	}, nil, slog.Default())
 
 	assert.NoError(t, broker.Stop())
 }
@@ -44,7 +44,7 @@ func TestEmbeddedBroker_StopWhenNotRunning(t *testing.T) {
 func TestEmbeddedBroker_Server(t *testing.T) {
 	broker := NewEmbeddedBroker(BrokerConfig{
 		TCPAddress: ":0",
-	}, slog.Default())
+	}, nil, slog.Default())
 
 	require.NoError(t, broker.Start())
 	defer broker.Stop()

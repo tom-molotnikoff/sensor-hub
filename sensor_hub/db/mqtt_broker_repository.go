@@ -23,20 +23,23 @@ func (r *MQTTBrokerRepository) Add(ctx context.Context, broker gen.MQTTBroker) (
 	if broker.Name == "" {
 		return 0, fmt.Errorf("broker name cannot be empty")
 	}
-	if broker.Host == "" {
-		return 0, fmt.Errorf("broker host cannot be empty")
-	}
-	if broker.Port <= 0 {
-		broker.Port = 1883
-	}
 	if broker.Type == "" {
 		broker.Type = "external"
+	}
+	if broker.Type == "external" {
+		if broker.Host == nil || *broker.Host == "" {
+			return 0, fmt.Errorf("broker host cannot be empty")
+		}
+		if broker.Port == nil || *broker.Port <= 0 {
+			port := 1883
+			broker.Port = &port
+		}
 	}
 	query := `INSERT INTO mqtt_brokers (name, type, host, port, username, password, client_id,
 		ca_cert_path, client_cert_path, client_key_path, enabled)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	result, err := r.db.Writer.ExecContext(ctx, query,
-		broker.Name, broker.Type, broker.Host, broker.Port,
+		broker.Name, broker.Type, nullStringPtr(broker.Host), broker.Port,
 		nullStringPtr(broker.Username), nullStringPtr(broker.Password), nullStringPtr(broker.ClientId),
 		nullStringPtr(broker.CaCertPath), nullStringPtr(broker.ClientCertPath), nullStringPtr(broker.ClientKeyPath),
 		broker.Enabled,
@@ -109,7 +112,7 @@ func (r *MQTTBrokerRepository) Update(ctx context.Context, broker gen.MQTTBroker
 		ca_cert_path = ?, client_cert_path = ?, client_key_path = ?,
 		enabled = ?, updated_at = datetime('now') WHERE id = ?`
 	result, err := r.db.Writer.ExecContext(ctx, query,
-		broker.Name, broker.Type, broker.Host, broker.Port,
+		broker.Name, broker.Type, nullStringPtr(broker.Host), broker.Port,
 		nullStringPtr(broker.Username), nullStringPtr(broker.Password), nullStringPtr(broker.ClientId),
 		nullStringPtr(broker.CaCertPath), nullStringPtr(broker.ClientCertPath), nullStringPtr(broker.ClientKeyPath),
 		broker.Enabled, *broker.Id,
@@ -185,11 +188,12 @@ func nullStringPtr(s *string) sql.NullString {
 func scanBrokerRow(row scannable) (gen.MQTTBroker, error) {
 	var b gen.MQTTBroker
 	var id int
-	var username, password, clientId sql.NullString
+	var host, username, password, clientId sql.NullString
+	var port sql.NullInt64
 	var caCert, clientCert, clientKey sql.NullString
 	var createdAt, updatedAt NullSQLiteTime
 	err := row.Scan(
-		&id, &b.Name, &b.Type, &b.Host, &b.Port,
+		&id, &b.Name, &b.Type, &host, &port,
 		&username, &password, &clientId,
 		&caCert, &clientCert, &clientKey,
 		&b.Enabled, &createdAt, &updatedAt,
@@ -198,6 +202,10 @@ func scanBrokerRow(row scannable) (gen.MQTTBroker, error) {
 		return b, err
 	}
 	b.Id = &id
+	if host.Valid {
+		b.Host = &host.String
+	}
+	b.Port = nullableInt(port)
 	if username.Valid {
 		b.Username = &username.String
 	}

@@ -11,6 +11,8 @@ import paho.mqtt.client as mqtt
 
 BROKER_HOST = os.environ.get("MQTT_BROKER_HOST", "sensor-hub")
 BROKER_PORT = int(os.environ.get("MQTT_BROKER_PORT", "1883"))
+USERNAME = os.environ.get("MQTT_USERNAME")
+PASSWORD = os.environ.get("MQTT_PASSWORD")
 PUBLISH_INTERVAL = int(os.environ.get("PUBLISH_INTERVAL", "5"))
 
 
@@ -221,6 +223,8 @@ def on_message(client, userdata, msg):
 
 def main():
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="mock-mqtt-sensor")
+    if USERNAME:
+        client.username_pw_set(USERNAME, PASSWORD)
     client.on_connect = on_connect
     client.on_message = on_message
 

@@ -283,7 +283,7 @@ func TestConnectionManager_HandleMessage_KnownSensor(t *testing.T) {
 	mockSub := &MockSubRepo{}
 	mockBroker := &MockBrokerRepo{}
 
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, slog.Default())
 
 	sensor := &gen.Sensor{Id: 1, Name: "mqtt-device-1", SensorDriver: "test-push-driver", Status: gen.SensorStatusActive, Enabled: true}
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, "mqtt-device-1").Return(sensor, nil)
@@ -295,7 +295,7 @@ func TestConnectionManager_HandleMessage_KnownSensor(t *testing.T) {
 }
 
 func TestConnectionManager_Publish_ReturnsErrorWhenBrokerNotConnected(t *testing.T) {
-	cm := NewConnectionManager(&MockSensorService{}, &MockSubRepo{}, &MockBrokerRepo{}, slog.Default())
+	cm := NewConnectionManager(&MockSensorService{}, &MockSubRepo{}, &MockBrokerRepo{}, nil, slog.Default())
 
 	err := cm.Publish(42, "zigbee2mqtt/office-plug/set", []byte(`{"state":"ON"}`), 1)
 
@@ -308,7 +308,7 @@ func TestConnectionManager_HandleMessage_AutoDiscovery(t *testing.T) {
 	mockSub := &MockSubRepo{}
 	mockBroker := &MockBrokerRepo{}
 
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, slog.Default())
 
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, "mqtt-device-1").Return(nil, fmt.Errorf("not found"))
 	mockSensor.On("ServiceGetSensorByName", mock.Anything, "mqtt-device-1").Return(nil, nil)
@@ -328,7 +328,7 @@ func TestConnectionManager_HandleMessage_InactiveSensor(t *testing.T) {
 	mockSub := &MockSubRepo{}
 	mockBroker := &MockBrokerRepo{}
 
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, slog.Default())
 
 	sensor := &gen.Sensor{Id: 2, Name: "mqtt-device-1", Status: gen.SensorStatusPending, Enabled: true}
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, "mqtt-device-1").Return(sensor, nil)
@@ -344,7 +344,7 @@ func TestConnectionManager_HandleMessage_UnknownDriver(t *testing.T) {
 	mockSub := &MockSubRepo{}
 	mockBroker := &MockBrokerRepo{}
 
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, slog.Default())
 
 	cm.handleMessage(context.Background(), 1, "nonexistent-driver", "test/topic", []byte(`{}`))
 
@@ -357,7 +357,7 @@ func TestConnectionManager_HandleMessage_DisabledSensor(t *testing.T) {
 	mockSub := &MockSubRepo{}
 	mockBroker := &MockBrokerRepo{}
 
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, slog.Default())
 
 	sensor := &gen.Sensor{Id: 3, Name: "mqtt-device-1", Status: gen.SensorStatusActive, Enabled: false}
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, "mqtt-device-1").Return(sensor, nil)
@@ -373,7 +373,7 @@ func TestConnectionManager_HandleMessage_SystemMessageBackfillsExistingSensors(t
 	mockSub := &MockSubRepo{}
 	mockBroker := &MockBrokerRepo{}
 
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, slog.Default())
 
 	existing := gen.Sensor{
 		Id:           42,
@@ -419,7 +419,7 @@ func TestConnectionManager_HandleMessage_SystemMessageCacheIsBrokerScoped(t *tes
 	mockSub := &MockSubRepo{}
 	mockBroker := &MockBrokerRepo{}
 
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, slog.Default())
 
 	mockSensor.On("ServiceGetSensorsByDriver", mock.Anything, "test-push-driver").Return([]gen.Sensor{}, nil).Twice()
 
@@ -440,7 +440,7 @@ func TestConnectionManager_HandleMessage_IEEECacheHitRoutesToFriendlySensor(t *t
 	mockSub := &MockSubRepo{}
 	mockBroker := &MockBrokerRepo{}
 
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, slog.Default())
 
 	mockSensor.On("ServiceGetSensorsByDriver", mock.Anything, "test-push-driver").Return([]gen.Sensor{}, nil).Once()
 
@@ -467,7 +467,7 @@ func TestConnectionManager_HandleMessage_IEEECacheMissFallsThroughUnchanged(t *t
 	mockSub := &MockSubRepo{}
 	mockBroker := &MockBrokerRepo{}
 
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, slog.Default())
 
 	ieeeName := "0x00158d00018255df"
 	mockSensor.On("ServiceGetSensorByExternalId", mock.Anything, ieeeName).Return(nil, fmt.Errorf("not found"))
@@ -491,7 +491,7 @@ func TestConnectionManager_HandleMessage_RenamesPhantomIEEESensorInPlace(t *test
 	mockSub := &MockSubRepo{}
 	mockBroker := &MockBrokerRepo{}
 
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, slog.Default())
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, slog.Default())
 
 	mockSensor.On("ServiceGetSensorsByDriver", mock.Anything, "test-push-driver").Return([]gen.Sensor{}, nil).Once()
 
@@ -538,7 +538,7 @@ func TestConnectionManager_HandleMessage_IEEECollisionLogsAndKeepsOriginalSensor
 
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
-	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, logger)
+	cm := NewConnectionManager(mockSensor, mockSub, mockBroker, nil, logger)
 
 	mockSensor.On("ServiceGetSensorsByDriver", mock.Anything, "test-push-driver").Return([]gen.Sensor{}, nil).Once()
 
@@ -575,11 +575,11 @@ func TestConnectionManager_HandleMessage_IEEECollisionLogsAndKeepsOriginalSensor
 }
 
 func TestConnectionManager_IsConnected_NoConnection(t *testing.T) {
-	cm := NewConnectionManager(nil, nil, nil, slog.Default())
+	cm := NewConnectionManager(nil, nil, nil, nil, slog.Default())
 	assert.False(t, cm.IsConnected(999))
 }
 
 func TestConnectionManager_ConnectedBrokerIDs_Empty(t *testing.T) {
-	cm := NewConnectionManager(nil, nil, nil, slog.Default())
+	cm := NewConnectionManager(nil, nil, nil, nil, slog.Default())
 	assert.Empty(t, cm.ConnectedBrokerIDs())
 }

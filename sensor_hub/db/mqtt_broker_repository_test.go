@@ -28,7 +28,7 @@ func TestMQTTBrokerRepository_Add_Success(t *testing.T) {
 	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
 	broker := gen.MQTTBroker{
-		Name: "test-broker", Type: "external", Host: "mqtt.example.com", Port: 1883, Enabled: true,
+		Name: "test-broker", Type: "external", Host: ptrStr("mqtt.example.com"), Port: ptrInt(1883), Enabled: true,
 	}
 
 	mock.ExpectExec("INSERT INTO mqtt_brokers").
@@ -47,7 +47,7 @@ func TestMQTTBrokerRepository_Add_EmptyName(t *testing.T) {
 	db, _ := newMockDB(t)
 	repo := NewMQTTBrokerRepository(handles(db), slog.Default())
 
-	_, err := repo.Add(context.Background(), gen.MQTTBroker{Host: "localhost", Port: 1883})
+	_, err := repo.Add(context.Background(), gen.MQTTBroker{Host: ptrStr("localhost"), Port: ptrInt(1883)})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "broker name cannot be empty")
 }
@@ -79,7 +79,8 @@ func TestMQTTBrokerRepository_GetByID_Success(t *testing.T) {
 	assert.NoError(t, err)
 	require.NotNil(t, broker)
 	assert.Equal(t, "test-broker", broker.Name)
-	assert.Equal(t, "mqtt.example.com", broker.Host)
+	require.NotNil(t, broker.Host)
+	assert.Equal(t, "mqtt.example.com", *broker.Host)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -174,7 +175,7 @@ func TestMQTTBrokerRepository_Update_Success(t *testing.T) {
 
 	id1 := 1
 	err := repo.Update(context.Background(), gen.MQTTBroker{
-		Id: &id1, Name: "updated-broker", Type: "external", Host: "new-host.com", Port: 8883, Enabled: true,
+		Id: &id1, Name: "updated-broker", Type: "external", Host: ptrStr("new-host.com"), Port: ptrInt(8883), Enabled: true,
 	})
 	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -191,7 +192,7 @@ func TestMQTTBrokerRepository_Update_NotFound(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	id99 := 99
-	err := repo.Update(context.Background(), gen.MQTTBroker{Id: &id99, Name: "x", Type: "external", Host: "h", Port: 1883})
+	err := repo.Update(context.Background(), gen.MQTTBroker{Id: &id99, Name: "x", Type: "external", Host: ptrStr("h"), Port: ptrInt(1883)})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no MQTT broker found with id 99")
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -262,8 +263,12 @@ func TestMQTTBrokerRepository_Add_DBError(t *testing.T) {
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("unique constraint"))
 
-	_, err := repo.Add(context.Background(), gen.MQTTBroker{Name: "dup", Type: "external", Host: "h", Port: 1883, Enabled: true})
+	_, err := repo.Add(context.Background(), gen.MQTTBroker{Name: "dup", Type: "external", Host: ptrStr("h"), Port: ptrInt(1883), Enabled: true})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error adding MQTT broker")
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+func ptrStr(s string) *string { return &s }
+
+func ptrInt(i int) *int { return &i }

@@ -1446,6 +1446,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mqtt/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List MQTT clients
+         * @description Returns every client that may dial in to the embedded broker, with whether it is connected now.
+         */
+        get: operations["listMqttClients"];
+        put?: never;
+        /**
+         * Create an MQTT client
+         * @description Creates a client for the embedded broker and generates its password. The password is in this response only; it cannot be fetched again.
+         */
+        post: operations["createMqttClient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mqtt/clients/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an MQTT client by ID */
+        get: operations["getMqttClient"];
+        /**
+         * Update an MQTT client
+         * @description Changes a client's name, topic prefix or enabled flag. A connected client is disconnected so its next CONNECT is checked against the new settings; a disabled client's next CONNECT is refused.
+         */
+        put: operations["updateMqttClient"];
+        post?: never;
+        /**
+         * Delete an MQTT client
+         * @description Disconnects the client if it is connected and removes it.
+         */
+        delete: operations["deleteMqttClient"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mqtt/clients/{id}/rotate-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate an MQTT client's password
+         * @description Generates a new password and returns it once. The old password stops working on the client's next CONNECT.
+         */
+        post: operations["rotateMqttClientPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mqtt/subscriptions": {
         parameters: {
             query?: never;
@@ -1679,15 +1748,15 @@ export interface components {
              */
             type: string;
             /**
-             * @description Broker hostname or IP address.
+             * @description Broker hostname or IP address. Required for an external broker and omitted for the embedded broker, which the hub reaches in-process.
              * @example 192.168.1.100
              */
-            host: string;
+            host?: string;
             /**
-             * @description Broker port number.
+             * @description Broker port number. Required for an external broker and omitted for the embedded broker.
              * @example 1883
              */
-            port: number;
+            port?: number;
             /** @description Optional authentication username. */
             username?: string;
             /** @description Optional authentication password. */
@@ -1706,6 +1775,52 @@ export interface components {
             readonly created_at: string;
             /** Format: date-time */
             readonly updated_at: string;
+        };
+        /** @description The settings of an MQTT client that dials in to the embedded broker. */
+        MQTTClientInput: {
+            /**
+             * @description The MQTT username the client connects with. Unique.
+             * @example zigbee2mqtt
+             */
+            name: string;
+            /**
+             * @description The only topic tree the client may publish to and subscribe to. Must end with "/", must not start with "$", and must not contain "+", "#" or NUL.
+             * @example zigbee2mqtt/
+             */
+            topic_prefix: string;
+            /** @description Whether the client may connect. Defaults to true on create and is left unchanged on update when omitted. */
+            enabled?: boolean;
+        };
+        /** @description An MQTT client that dials in to the embedded broker. Its password is never returned after it is generated. */
+        MQTTClient: {
+            id: number;
+            /**
+             * @description The MQTT username the client connects with.
+             * @example zigbee2mqtt
+             */
+            name: string;
+            /**
+             * @description The only topic tree the client may publish to and subscribe to.
+             * @example zigbee2mqtt/
+             */
+            topic_prefix: string;
+            enabled: boolean;
+            /** @description Whether the client is connected to the embedded broker now. */
+            connected: boolean;
+            /**
+             * Format: date-time
+             * @description When the client last connected, or null if it never has.
+             */
+            last_connected_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description An MQTT client with its newly generated password. Returned once, by create and by rotate-password; the password cannot be fetched again. */
+        MQTTClientCreated: components["schemas"]["MQTTClient"] & {
+            /** @description 32 random bytes as 64 hex characters. */
+            readonly password: string;
         };
         /** @description An MQTT topic subscription that routes messages to a driver. */
         MQTTSubscription: {
@@ -6802,6 +6917,288 @@ export interface operations {
                 content?: never;
             };
             /** @description Broker not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMqttClients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of clients */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MQTTClient"][];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createMqttClient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MQTTClientInput"];
+            };
+        };
+        responses: {
+            /** @description Client created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MQTTClientCreated"];
+                };
+            };
+            /** @description Invalid name or topic prefix */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A client with that name already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMqttClient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Client details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MQTTClient"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Client not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateMqttClient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MQTTClientInput"];
+            };
+        };
+        responses: {
+            /** @description Client updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MQTTClient"];
+                };
+            };
+            /** @description Invalid name or topic prefix */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Client not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A client with that name already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteMqttClient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Client deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Client not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rotateMqttClientPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Password rotated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MQTTClientCreated"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Client not found */
             404: {
                 headers: {
                     [name: string]: unknown;

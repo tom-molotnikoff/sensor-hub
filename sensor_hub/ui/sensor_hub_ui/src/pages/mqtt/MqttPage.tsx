@@ -3,6 +3,7 @@ import PageGrid from '../../ui/PageGrid';
 import { useAuth } from '../../providers/AuthContext';
 import { hasPerm } from '../../tools/Utils';
 import MqttBrokersCard from '../../components/MqttBrokersCard';
+import MqttClientsCard from '../../components/MqttClientsCard';
 import MqttSubscriptionsCard from '../../components/MqttSubscriptionsCard';
 import MqttStatsCard from '../../components/MqttStatsCard';
 import PendingSensorsCard from '../../components/PendingSensorsCard';
@@ -22,6 +23,7 @@ export default function MqttPage() {
         {hasPerm(user, 'view_mqtt') && (
           <>
             <PageGrid.Item><MqttBrokersCard /></PageGrid.Item>
+            <PageGrid.Item><MqttClientsCard /></PageGrid.Item>
             <PageGrid.Item><MqttSubscriptionsCard /></PageGrid.Item>
           </>
         )}
