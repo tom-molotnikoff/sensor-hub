@@ -10,14 +10,6 @@ RPM_STATE_DIR=/run/sensor-hub-package
 # init-key exits with this status when a key already exists in any form.
 KEY_EXISTS=3
 
-is_upgrade() {
-  # RPM: $1=2 on upgrade
-  [ "$1" = "2" ] && return 0
-  # DEB: $1=configure and $2 is the old version
-  [ "$1" = "configure" ] && [ -n "$2" ] && return 0
-  return 1
-}
-
 install_default() {
   install -m 0640 -o sensor-hub -g sensor-hub "$DEFAULTS_DIR/$1" "$CONFIG_DIR/$1"
 }
@@ -96,11 +88,12 @@ ensure_secrets_key
 systemctl daemon-reload
 
 if [ "$1" = "2" ]; then
-  # rpm removes the old package after this script, which on an upgrade from
-  # 1.5.x takes its configuration files with it, so the posttrans script puts
-  # them back and restarts once the transaction is done.
+  # An rpm upgrade. rpm removes the old package after this script, which on an
+  # upgrade from 1.5.x takes its configuration files with it, so the posttrans
+  # script puts them back and restarts once the transaction is done.
   install -d -m 0700 "$RPM_STATE_DIR" && touch "$RPM_STATE_DIR/restart"
-elif is_upgrade "$@"; then
+elif [ "$1" = "configure" ] && [ -n "$2" ]; then
+  # A deb upgrade: dpkg names the version it replaces.
   systemctl restart sensor-hub
 else
   systemctl enable sensor-hub

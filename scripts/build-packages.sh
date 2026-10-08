@@ -63,7 +63,7 @@ detect_arch() {
   machine="$(uname -m)"
   case "$machine" in
     x86_64)  echo "amd64" ;;
-    aarch64) echo "arm64" ;;
+    aarch64|arm64) echo "arm64" ;;
     *) echo "Error: unsupported architecture: $machine" >&2; exit 1 ;;
   esac
 }

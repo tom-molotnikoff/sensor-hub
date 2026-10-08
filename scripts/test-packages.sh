@@ -257,6 +257,26 @@ check_sealed_key() {
     "$(on_host 'sensor-hub local secrets show-key')"
 }
 
+# remove_package removes the package as fully as the package manager can:
+# dpkg --purge, or rpm -e, which has no purge. Purge takes the configuration
+# files the package created; everything else stays, including the key, which
+# goes only with the database it decrypts.
+remove_package() {
+  local key_files="$1" config_after
+  if [[ "$FORMAT" == deb ]]; then
+    on_host 'DEBIAN_FRONTEND=noninteractive dpkg --purge sensor-hub </dev/null' >/dev/null
+    config_after=""
+  else
+    on_host 'rpm -e sensor-hub </dev/null' >/dev/null
+    config_after="application.properties database.properties environment smtp.properties"
+  fi
+  check "the configuration files after removal" "$config_after" \
+    "$(on_host 'cd /etc/sensor-hub && ls application.properties database.properties environment smtp.properties 2>/dev/null | xargs')"
+  check "the key after removal" "$key_files" \
+    "$(on_host 'ls /etc/sensor-hub/secrets.key /etc/sensor-hub/secrets.key.cred /etc/systemd/system/sensor-hub.service.d/secrets-key.conf 2>/dev/null | xargs')"
+  check "the database after removal" "yes" "$(on_host 'test -f /var/lib/sensor-hub/sensor_hub.db && echo yes || echo no')"
+}
+
 # --- Scenarios ---
 scenario() {
   echo ""
@@ -269,6 +289,7 @@ on_host "$INSTALL /packages/old.$FORMAT" >/dev/null
 seed_old_install
 upgrade_package
 wait_healthy && check_key_file && check_upgraded_install
+remove_package /etc/sensor-hub/secrets.key
 stop_host
 
 scenario "Upgrade from $FROM_VERSION on a host with a TPM"
@@ -278,6 +299,7 @@ on_host "$INSTALL /packages/old.$FORMAT" >/dev/null
 seed_old_install
 upgrade_package
 wait_healthy && check_sealed_key && check_upgraded_install
+remove_package "/etc/sensor-hub/secrets.key.cred /etc/systemd/system/sensor-hub.service.d/secrets-key.conf"
 stop_host
 
 scenario "Upgrade from $FROM_VERSION with the configuration as it was installed"
@@ -302,6 +324,7 @@ on_host "$INSTALL /packages/new.$FORMAT"
 check "the service is enabled" "enabled" "$(on_host 'systemctl is-enabled sensor-hub')"
 on_host 'systemctl start sensor-hub'
 wait_healthy && check_key_file
+remove_package /etc/sensor-hub/secrets.key
 stop_host
 
 echo ""
