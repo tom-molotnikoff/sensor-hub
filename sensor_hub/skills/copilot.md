@@ -238,9 +238,9 @@ sensor-hub auth revoke-session abc123                # Revoke session
 ### Users
 ```bash
 sensor-hub users list
-sensor-hub users create --username X --password Y --email Z
+printf '%s\n' "$PASSWORD" | sensor-hub users create --username X --email Z --password-stdin   # Omit --password-stdin to be prompted
 sensor-hub users delete 2
-sensor-hub users change-password --user-id 1 --new-password newpass
+printf '%s\n' "$PASSWORD" | sensor-hub users change-password --user-id 1 --password-stdin
 sensor-hub users set-must-change 1 --must-change
 sensor-hub users set-roles 1 --roles admin,viewer
 sensor-hub users disable 2                           # Sign out and block a user; their API keys stop working

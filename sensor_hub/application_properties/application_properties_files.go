@@ -49,6 +49,7 @@ func ReadApplicationPropertiesFile() (map[string]string, error) {
 	for k, v := range propertiesFromFile {
 		applicationProperties[k] = v
 	}
+	clampToBounds("application", applicationProperties)
 
 	return applicationProperties, nil
 }
@@ -65,6 +66,7 @@ func ReadDatabasePropertiesFile() (map[string]string, error) {
 	for k, v := range propertiesFromFile {
 		databaseProperties[k] = v
 	}
+	clampToBounds("database", databaseProperties)
 
 	return databaseProperties, nil
 }

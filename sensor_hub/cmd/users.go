@@ -50,16 +50,19 @@ var usersListCmd = &cobra.Command{
 var usersCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new user",
+	Long:  "Create a new user, who is asked to change the password at first login.\n\n" + passwordInputHelp,
+	Example: "  sensor-hub users create --username alice\n" +
+		"  printf '%s\\n' \"$PASSWORD\" | sensor-hub users create --username alice --password-stdin",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		username, _ := cmd.Flags().GetString("username")
-		password, _ := cmd.Flags().GetString("password")
 		email, _ := cmd.Flags().GetString("email")
-
-		if username == "" || password == "" {
-			return fmt.Errorf("--username and --password are required")
-		}
+		fromStdin, _ := cmd.Flags().GetBool("password-stdin")
 
 		client, ctx, err := newAPIClient(cmd)
+		if err != nil {
+			return err
+		}
+		password, err := readNewPassword(cmd, fromStdin)
 		if err != nil {
 			return err
 		}
@@ -76,8 +79,9 @@ var usersCreateCmd = &cobra.Command{
 
 func init() {
 	usersCreateCmd.Flags().String("username", "", "Username")
-	usersCreateCmd.Flags().String("password", "", "Password")
+	usersCreateCmd.Flags().Bool("password-stdin", false, "Read the password from stdin instead of prompting for it")
 	usersCreateCmd.Flags().String("email", "", "Email (optional)")
+	_ = usersCreateCmd.MarkFlagRequired("username")
 }
 
 var usersDeleteCmd = &cobra.Command{
@@ -100,11 +104,18 @@ var usersDeleteCmd = &cobra.Command{
 var usersChangePasswordCmd = &cobra.Command{
 	Use:   "change-password",
 	Short: "Change a user's password",
+	Long:  "Set a new password for a user.\n\n" + passwordInputHelp,
+	Example: "  sensor-hub users change-password --user-id 3\n" +
+		"  printf '%s\\n' \"$PASSWORD\" | sensor-hub users change-password --user-id 3 --password-stdin",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		userID, _ := cmd.Flags().GetInt("user-id")
-		newPassword, _ := cmd.Flags().GetString("new-password")
+		fromStdin, _ := cmd.Flags().GetBool("password-stdin")
 
 		client, ctx, err := newAPIClient(cmd)
+		if err != nil {
+			return err
+		}
+		newPassword, err := readNewPassword(cmd, fromStdin)
 		if err != nil {
 			return err
 		}
@@ -120,9 +131,8 @@ var usersChangePasswordCmd = &cobra.Command{
 
 func init() {
 	usersChangePasswordCmd.Flags().Int("user-id", 0, "User ID")
-	usersChangePasswordCmd.Flags().String("new-password", "", "New password")
+	usersChangePasswordCmd.Flags().Bool("password-stdin", false, "Read the new password from stdin instead of prompting for it")
 	_ = usersChangePasswordCmd.MarkFlagRequired("user-id")
-	_ = usersChangePasswordCmd.MarkFlagRequired("new-password")
 }
 
 var usersSetMustChangeCmd = &cobra.Command{

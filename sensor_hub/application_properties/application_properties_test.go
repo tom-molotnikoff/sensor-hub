@@ -8,6 +8,7 @@ import (
 	"example/sensorHub/utils"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // validAppPropsMap returns a complete valid application properties map
@@ -195,6 +196,25 @@ func TestLoadConfigurationFromMaps_InvalidAuthBcryptCost(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
+}
+
+func TestLoadConfigurationFromMaps_BcryptCostOutsideTenToThirtyOneNamesTheKey(t *testing.T) {
+	for value, accepted := range map[string]bool{"4": false, "9": false, "10": true, "31": true, "32": false} {
+		t.Run(value, func(t *testing.T) {
+			appProps := validAppPropsMap()
+			appProps["auth.bcrypt.cost"] = value
+
+			_, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+
+			if accepted {
+				assert.NoError(t, err)
+				return
+			}
+			var vErr *ValidationError
+			require.ErrorAs(t, err, &vErr)
+			assert.Equal(t, "auth.bcrypt.cost", vErr.Key)
+		})
+	}
 }
 
 func TestLoadConfigurationFromMaps_InvalidAuthSessionTTLMinutes(t *testing.T) {
@@ -450,6 +470,24 @@ func TestReadApplicationPropertiesFile_Success(t *testing.T) {
 	assert.Equal(t, "600", props["sensor.collection.interval"])
 }
 
+// A bound can be newer than the file: a cost an earlier release accepted
+// moves to the nearest bound instead of stopping the hub starting.
+func TestReadApplicationPropertiesFile_MovesAnOutOfRangeBcryptCostToTheNearestBound(t *testing.T) {
+	originalReadPropertiesFile := utils.ReadPropertiesFile
+	defer func() { utils.ReadPropertiesFile = originalReadPropertiesFile }()
+
+	for fileValue, want := range map[string]string{"4": "10", "12": "12", "40": "31"} {
+		utils.ReadPropertiesFile = func(path string) (map[string]string, error) {
+			return map[string]string{"auth.bcrypt.cost": fileValue}, nil
+		}
+
+		props, err := ReadApplicationPropertiesFile()
+
+		require.NoError(t, err)
+		assert.Equal(t, want, props["auth.bcrypt.cost"], "file value %s", fileValue)
+	}
+}
+
 func TestReadApplicationPropertiesFile_FileReadError(t *testing.T) {
 	originalReadPropertiesFile := utils.ReadPropertiesFile
 	defer func() { utils.ReadPropertiesFile = originalReadPropertiesFile }()
@@ -593,6 +631,44 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 	dbContent, err := os.ReadFile(databasePropertiesFilePath)
 	assert.NoError(t, err)
 	assert.Contains(t, string(dbContent), "database.path=test/save.db")
+}
+
+// Files are written at the mode the package installs them at. A save narrows
+// a file that grants more and never widens one an operator has tightened.
+func TestSaveConfigurationToFiles_WritesFilesAtMode0640(t *testing.T) {
+	tempDir := t.TempDir()
+
+	origAppPath, origSmtpPath, origDbPath := applicationPropertiesFilePath, smtpPropertiesFilePath, databasePropertiesFilePath
+	defer func() {
+		applicationPropertiesFilePath, smtpPropertiesFilePath, databasePropertiesFilePath = origAppPath, origSmtpPath, origDbPath
+	}()
+	applicationPropertiesFilePath = filepath.Join(tempDir, "application.properties")
+	smtpPropertiesFilePath = filepath.Join(tempDir, "smtp.properties")
+	databasePropertiesFilePath = filepath.Join(tempDir, "database.properties")
+
+	require.NoError(t, os.WriteFile(applicationPropertiesFilePath, []byte("stale=1\n"), 0o644))
+	require.NoError(t, os.Chmod(applicationPropertiesFilePath, 0o644))
+	require.NoError(t, os.WriteFile(smtpPropertiesFilePath, []byte("stale=1\n"), 0o600))
+
+	origConfig := AppConfig()
+	defer func() { SetAppConfig(origConfig) }()
+	SetAppConfig(&ApplicationConfiguration{AuthBcryptCost: 12, DatabasePath: "test/save.db"})
+
+	require.NoError(t, SaveConfigurationToFiles())
+
+	modes := map[string]os.FileMode{
+		applicationPropertiesFilePath: 0o640,
+		smtpPropertiesFilePath:        0o600,
+		databasePropertiesFilePath:    0o640,
+	}
+	for path, want := range modes {
+		info, err := os.Stat(path)
+		require.NoError(t, err)
+		assert.Equal(t, want, info.Mode().Perm(), filepath.Base(path))
+	}
+	content, err := os.ReadFile(applicationPropertiesFilePath)
+	require.NoError(t, err)
+	assert.NotContains(t, string(content), "stale=1")
 }
 
 func TestSaveConfigurationToFiles_NilAppConfig(t *testing.T) {

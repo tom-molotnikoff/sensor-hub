@@ -115,7 +115,7 @@ On a terminal it asks for the password twice. Otherwise it reads one line from s
 printf '%s\n' "$ADMIN_PASSWORD" | sudo sensor-hub local admin create admin
 ```
 
-The password must be at least 8 characters. It is hashed with bcrypt at `auth.bcrypt.cost`, raised to 10 when that is set lower. The admin is asked to change the password at first login only when `--must-change-password` is given. The server does not need to be running. Once any user holds the admin role the command refuses with "an admin already exists" and changes nothing; add further users from the web UI or with `users create`.
+The password must be at least 8 characters. It is hashed with bcrypt at `auth.bcrypt.cost`, which is never below 10. The admin is asked to change the password at first login only when `--must-change-password` is given. The server does not need to be running. Once any user holds the admin role the command refuses with "an admin already exists" and changes nothing; add further users from the web UI or with `users create`.
 
 ### Back up the database
 
@@ -124,6 +124,26 @@ sudo sensor-hub local db backup /var/backups/sensor-hub.db
 ```
 
 The copy is taken with SQLite's `VACUUM INTO` while the server keeps running, so it is consistent and includes writes not yet checkpointed out of the `-wal` file. The file is created with mode 0600, and an existing file is never overwritten. Keep the backup together with a copy of `/etc/sensor-hub`.
+
+## Users
+
+`sensor-hub users` manages the hub's users. No command takes a password as a flag value, where the shell history and the process list would show it.
+
+`users create` and `users change-password` prompt for the password twice on the terminal and refuse a mismatch:
+
+```bash
+sensor-hub users create --username alice --email alice@example.com
+sensor-hub users change-password --user-id 3
+```
+
+In a script, pass `--password-stdin` and pipe the password in. One line is read and its trailing newline stripped:
+
+```bash
+printf '%s\n' "$PASSWORD" | sensor-hub users create --username alice --password-stdin
+printf '%s\n' "$PASSWORD" | sensor-hub users change-password --user-id 3 --password-stdin
+```
+
+Without `--password-stdin` and with no terminal to prompt on, the command exits with an error rather than reading stdin. A user created this way is asked to change the password at first login.
 
 ## Automations
 

@@ -25,7 +25,7 @@ func setupPropertiesServiceTestConfig() func() {
 	appProps.SetAppConfig(&appProps.ApplicationConfiguration{
 		SensorCollectionInterval:      30,
 		AuthSessionTTLMinutes:         60,
-		AuthBcryptCost:                4,
+		AuthBcryptCost:                10,
 		HealthHistoryRetentionDays:    30,
 		SensorDataRetentionDays:       90,
 		DataCleanupIntervalHours:      24,
