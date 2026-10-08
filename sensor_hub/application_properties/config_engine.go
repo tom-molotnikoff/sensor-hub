@@ -335,7 +335,7 @@ func clampToBounds(file string, props map[string]string) {
 			bound = *def.Max
 		}
 		if bound != value {
-			slog.Warn("property outside its allowed range; using the nearest bound", "key", def.Key, "value", value, "using", bound)
+			slog.Warn("property in the file is outside its allowed range; using the nearest bound", "key", def.Key, "file_value", value, "using", bound)
 			props[def.Key] = strconv.Itoa(bound)
 		}
 	}
@@ -466,26 +466,17 @@ func SaveToFiles(cfg *ApplicationConfiguration) error {
 // propertiesFileMode is the mode the package installs the properties files at.
 const propertiesFileMode os.FileMode = 0o640
 
-// openPropertiesFileForWrite opens the file empty for writing, creating it at
-// propertiesFileMode. An existing file that grants more than that, such as
-// one left world-readable, is narrowed to it before it is truncated; one that
-// grants less keeps its mode, so a save never widens what an operator has
-// tightened.
+// openPropertiesFileForWrite opens the file empty for writing at
+// propertiesFileMode, setting that mode on an existing file too, before it is
+// truncated.
 func openPropertiesFileForWrite(path string) (*os.File, error) {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, propertiesFileMode)
 	if err != nil {
 		return nil, err
 	}
-	info, err := f.Stat()
-	if err != nil {
+	if err := f.Chmod(propertiesFileMode); err != nil {
 		f.Close()
-		return nil, err
-	}
-	if perm := info.Mode().Perm(); perm&^propertiesFileMode != 0 {
-		if err := f.Chmod(perm & propertiesFileMode); err != nil {
-			f.Close()
-			return nil, fmt.Errorf("failed to narrow the mode of %s: %w", path, err)
-		}
+		return nil, fmt.Errorf("failed to set the mode of %s: %w", path, err)
 	}
 	if err := f.Truncate(0); err != nil {
 		f.Close()

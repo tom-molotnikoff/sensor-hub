@@ -633,8 +633,8 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 	assert.Contains(t, string(dbContent), "database.path=test/save.db")
 }
 
-// Files are written at the mode the package installs them at. A save narrows
-// a file that grants more and never widens one an operator has tightened.
+// Every save leaves the files at the mode the package installs them at, new
+// or existing.
 func TestSaveConfigurationToFiles_WritesFilesAtMode0640(t *testing.T) {
 	tempDir := t.TempDir()
 
@@ -658,7 +658,7 @@ func TestSaveConfigurationToFiles_WritesFilesAtMode0640(t *testing.T) {
 
 	modes := map[string]os.FileMode{
 		applicationPropertiesFilePath: 0o640,
-		smtpPropertiesFilePath:        0o600,
+		smtpPropertiesFilePath:        0o640,
 		databasePropertiesFilePath:    0o640,
 	}
 	for path, want := range modes {
