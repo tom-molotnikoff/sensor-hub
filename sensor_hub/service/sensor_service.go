@@ -119,6 +119,19 @@ func (s *SensorService) ServiceUpdateSensorById(ctx context.Context, sensor gen.
 	if err != nil {
 		return fmt.Errorf("sensor validation failed: %w", err)
 	}
+	exists, err := s.sensorRepo.SensorExists(ctx, sensor.Name)
+	if err != nil {
+		return fmt.Errorf("error checking if sensor exists: %w", err)
+	}
+	if exists {
+		ownerID, err := s.sensorRepo.GetSensorIdByName(ctx, sensor.Name)
+		if err != nil {
+			return fmt.Errorf("error retrieving sensor ID for name check: %w", err)
+		}
+		if ownerID != sensor.Id {
+			return NewAlreadyExistsError(fmt.Sprintf("sensor with name %s already exists", sensor.Name))
+		}
+	}
 	err = s.sensorRepo.UpdateSensorById(ctx, sensor, retentionHoursPresent)
 	if err != nil {
 		return fmt.Errorf("error updating sensor: %w", err)

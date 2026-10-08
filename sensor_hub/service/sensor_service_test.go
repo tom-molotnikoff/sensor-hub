@@ -19,6 +19,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -254,6 +255,27 @@ func TestSensorService_ServiceAddSensor_AlreadyExists(t *testing.T) {
 	assert.True(t, errors.As(err, &alreadyExistsErr))
 }
 
+func TestSensorService_ServiceAddSensor_ExternalIdAlreadyExists(t *testing.T) {
+	service, sensorRepo, _, _, _ := setupSensorService()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]interface{}{"temperature": 22.5, "time": "2025-01-01 12:00:00"})
+	}))
+	defer server.Close()
+	externalID := "0x00158d0001"
+	sensor := gen.Sensor{Name: "kitchen", ExternalId: &externalID, SensorDriver: "sensor-hub-http-temperature", Config: map[string]string{"url": server.URL}}
+
+	sensorRepo.On("SensorExists", mock.Anything, "kitchen").Return(false, nil)
+	sensorRepo.On("SensorExistsByExternalId", mock.Anything, externalID).Return(true, nil)
+
+	err := service.ServiceAddSensor(context.Background(), sensor)
+
+	var alreadyExistsErr *AlreadyExistsError
+	require.True(t, errors.As(err, &alreadyExistsErr))
+	assert.Equal(t, "sensor with external_id 0x00158d0001 already exists", alreadyExistsErr.Message)
+	sensorRepo.AssertNotCalled(t, "AddSensor", mock.Anything, mock.Anything)
+}
+
 func TestSensorService_ServiceAddSensor_ValidationError_EmptyName(t *testing.T) {
 	service, _, _, _, _ := setupSensorService()
 
@@ -302,6 +324,7 @@ func TestSensorService_ServiceUpdateSensorById_Success(t *testing.T) {
 	defer server.Close()
 	sensor.Config = map[string]string{"url": server.URL}
 
+	sensorRepo.On("SensorExists", mock.Anything, "UpdatedSensor").Return(false, nil)
 	sensorRepo.On("UpdateSensorById", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	sensorRepo.On("UpdateSensorHealthById", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	sensorRepo.On("GetAllSensors", mock.Anything).Return([]gen.Sensor{sensor}, nil).Maybe()
@@ -309,6 +332,47 @@ func TestSensorService_ServiceUpdateSensorById_Success(t *testing.T) {
 	err := service.ServiceUpdateSensorById(context.Background(), sensor, false)
 
 	assert.NoError(t, err)
+	time.Sleep(50 * time.Millisecond)
+}
+
+func TestSensorService_ServiceUpdateSensorById_RenameToTakenName(t *testing.T) {
+	service, sensorRepo, _, _, _ := setupSensorService()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]interface{}{"temperature": 22.5, "time": "2025-01-01 12:00:00"})
+	}))
+	defer server.Close()
+	sensor := gen.Sensor{Id: 2, Name: "kitchen", SensorDriver: "sensor-hub-http-temperature", Config: map[string]string{"url": server.URL}}
+
+	sensorRepo.On("SensorExists", mock.Anything, "kitchen").Return(true, nil)
+	sensorRepo.On("GetSensorIdByName", mock.Anything, "kitchen").Return(1, nil)
+
+	err := service.ServiceUpdateSensorById(context.Background(), sensor, false)
+
+	var alreadyExistsErr *AlreadyExistsError
+	require.True(t, errors.As(err, &alreadyExistsErr))
+	assert.Equal(t, "sensor with name kitchen already exists", alreadyExistsErr.Message)
+	sensorRepo.AssertNotCalled(t, "UpdateSensorById", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestSensorService_ServiceUpdateSensorById_KeepsOwnName(t *testing.T) {
+	service, sensorRepo, _, _, _ := setupSensorService()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]interface{}{"temperature": 22.5, "time": "2025-01-01 12:00:00"})
+	}))
+	defer server.Close()
+	sensor := gen.Sensor{Id: 1, Name: "kitchen", SensorDriver: "sensor-hub-http-temperature", Config: map[string]string{"url": server.URL}}
+
+	sensorRepo.On("SensorExists", mock.Anything, "kitchen").Return(true, nil)
+	sensorRepo.On("GetSensorIdByName", mock.Anything, "kitchen").Return(1, nil)
+	sensorRepo.On("UpdateSensorById", mock.Anything, sensor, false).Return(nil)
+	sensorRepo.On("GetAllSensors", mock.Anything).Return([]gen.Sensor{sensor}, nil).Maybe()
+
+	err := service.ServiceUpdateSensorById(context.Background(), sensor, false)
+
+	assert.NoError(t, err)
+	sensorRepo.AssertCalled(t, "UpdateSensorById", mock.Anything, sensor, false)
 	time.Sleep(50 * time.Millisecond)
 }
 

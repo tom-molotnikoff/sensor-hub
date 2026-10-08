@@ -230,6 +230,11 @@ func (c *Client) UpdateSensorRetentionHours(id int, retentionHours *int) int {
 	return c.statusOnly(c.gen.UpdateSensorByIdWithBody(c.ctx(), id, "application/json", body))
 }
 
+func (c *Client) RenameSensor(id int, name string) (json.RawMessage, int) {
+	body := strings.NewReader(mustMarshal(map[string]any{"name": name}))
+	return c.consume(c.gen.UpdateSensorByIdWithBody(c.ctx(), id, "application/json", body))
+}
+
 func (c *Client) EnableSensor(name string) int {
 	return c.statusOnly(c.gen.EnableSensor(c.ctx(), name))
 }

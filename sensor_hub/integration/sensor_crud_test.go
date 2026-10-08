@@ -195,3 +195,69 @@ func TestSensor_InvalidRetentionHours(t *testing.T) {
 	status = client.UpdateSensorRetentionHours(got.Id, &negative)
 	assert.Equal(t, http.StatusBadRequest, status)
 }
+
+func TestSensor_AddDuplicateNameConflicts(t *testing.T) {
+	sensor := gen.Sensor{
+		Name:         "Duplicate Name Sensor",
+		SensorDriver: "sensor-hub-http-temperature",
+		Config:       map[string]string{"url": mockSensorURLs[0]},
+	}
+	_, status := client.AddSensor(sensor)
+	require.Equal(t, http.StatusCreated, status)
+	defer client.DeleteSensor("Duplicate Name Sensor")
+
+	before, status := client.GetAllSensors()
+	require.Equal(t, http.StatusOK, status)
+
+	body, status := client.AddSensor(sensor)
+	assert.Equal(t, http.StatusConflict, status)
+	assert.JSONEq(t, `{"message": "sensor with name Duplicate Name Sensor already exists"}`, string(body))
+
+	after, status := client.GetAllSensors()
+	require.Equal(t, http.StatusOK, status)
+	assert.Len(t, after, len(before))
+}
+
+func TestSensor_AddDuplicateExternalIdConflicts(t *testing.T) {
+	externalID := "0x00158d0001"
+	original := gen.Sensor{
+		Name:         "External Id Original",
+		ExternalId:   &externalID,
+		SensorDriver: "sensor-hub-http-temperature",
+		Config:       map[string]string{"url": mockSensorURLs[0]},
+	}
+	_, status := client.AddSensor(original)
+	require.Equal(t, http.StatusCreated, status)
+	defer client.DeleteSensor("External Id Original")
+
+	duplicate := original
+	duplicate.Name = "External Id Duplicate"
+	body, status := client.AddSensor(duplicate)
+	assert.Equal(t, http.StatusConflict, status)
+	assert.JSONEq(t, `{"message": "sensor with external_id 0x00158d0001 already exists"}`, string(body))
+
+	_, status = client.GetSensorByName("External Id Duplicate")
+	assert.Equal(t, http.StatusNotFound, status)
+}
+
+func TestSensor_RenameToTakenNameConflicts(t *testing.T) {
+	for _, name := range []string{"Rename Kitchen", "Rename Lounge"} {
+		_, status := client.AddSensor(gen.Sensor{
+			Name:         name,
+			SensorDriver: "sensor-hub-http-temperature",
+			Config:       map[string]string{"url": mockSensorURLs[0]},
+		})
+		require.Equal(t, http.StatusCreated, status)
+		defer client.DeleteSensor(name)
+	}
+	lounge, status := client.GetSensorByName("Rename Lounge")
+	require.Equal(t, http.StatusOK, status)
+
+	body, status := client.RenameSensor(lounge.Id, "Rename Kitchen")
+	assert.Equal(t, http.StatusConflict, status)
+	assert.JSONEq(t, `{"message": "sensor with name Rename Kitchen already exists"}`, string(body))
+
+	got, status := client.GetSensorByName("Rename Lounge")
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, lounge.Id, got.Id)
+}
