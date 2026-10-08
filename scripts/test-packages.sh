@@ -111,7 +111,13 @@ start_host() {
   CONTAINER="$(docker run -d --privileged --cgroupns=host \
     -v /sys/fs/cgroup:/sys/fs/cgroup:rw --tmpfs /run --tmpfs /run/lock "$IMAGE")"
   docker cp -q "$WORK_DIR/." "$CONTAINER:/packages"
-  local state
+  # "is-system-running --wait" waits for boot to finish, but only once it can
+  # reach systemd, which listens on its private socket a moment after start.
+  local state _
+  for _ in $(seq 60); do
+    on_host 'test -S /run/systemd/private' && break
+    sleep 1
+  done
   state="$(on_host 'systemctl is-system-running --wait' || true)"
   [[ "$state" == running || "$state" == degraded ]] || { fail "systemd did not start: $state"; return 1; }
 }
