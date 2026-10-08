@@ -1,0 +1,13 @@
+# Runs before each start of sensor-hub.service, which wants it. systemd will
+# not start a unit whose credential cannot be decrypted, so a TPM that refuses
+# the sealed secret-store key would keep the hub from starting at all. This
+# sets such a key aside and seals a new one, so the hub starts and asks for its
+# stored secrets to be entered again.
+[Unit]
+Description=Sensor Hub - check the sealed secret-store key
+ConditionPathExists=/etc/sensor-hub/secrets.key.cred
+Before=sensor-hub.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sensor-hub local secrets check-seal --config-dir=/etc/sensor-hub

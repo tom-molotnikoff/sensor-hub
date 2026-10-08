@@ -272,6 +272,7 @@ func (r *SqlNotificationRepository) GetAllChannelPreferences(ctx context.Context
 		notifications.CategoryUserManagement,
 		notifications.CategoryConfigChange,
 		notifications.CategoryAutomationFailure,
+		notifications.CategorySecretFailure,
 	}
 	var prefs []notifications.ChannelPreference
 	for _, cat := range categories {

@@ -52,6 +52,22 @@ sudo sensor-hub local secrets show-key
 
 You need it to restore a backup on another machine, or if the TPM refuses to unseal the key after a firmware or boot change. Without it the stored secrets cannot be decrypted and have to be entered again. To seal the key yourself or bring one you already have, see [The secret-store key](cli-tool#the-secret-store-key) in the CLI reference, and [Secret-store key](configuration#secret-store-key) for where the hub looks for it.
 
+### If the TPM will not unseal the key
+
+A TPM can refuse a key it sealed once the firmware or boot path changes. systemd will not start a service whose credential it cannot decrypt, so before each start of the service the package runs `sensor-hub-key-check.service`, which checks that the sealed key still unseals. If it does not, the check keeps the old key as `/etc/sensor-hub/secrets.key.cred.unsealable-<time>`, seals a new key in its place and logs why to the journal (`journalctl -u sensor-hub-key-check`). The hub then starts with the new key, and every secret stored under the old one needs re-entry (see [Secrets that need re-entry](configuration#secrets-that-need-re-entry)). Save the new key with `show-key` as above.
+
+Rather than entering the secrets again, you can put back the key you saved. Stop the service, remove the new key and its drop-in, seal the saved key, and start the service:
+
+```bash
+sudo systemctl stop sensor-hub
+sudo rm /etc/sensor-hub/secrets.key.cred /etc/systemd/system/sensor-hub.service.d/secrets-key.conf
+printf '%s\n' "$SAVED_KEY" | sudo sensor-hub local secrets init-key --from-stdin --seal
+sudo systemctl daemon-reload
+sudo systemctl start sensor-hub
+```
+
+Any secret entered again under the new key in the meantime then needs entering once more.
+
 ## Configure
 
 Edit the configuration files in `/etc/sensor-hub/`:

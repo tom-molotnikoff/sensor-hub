@@ -125,6 +125,31 @@ describe('MqttBrokersCard', () => {
     expect(row('cloud')).not.toHaveTextContent('Unencrypted');
   });
 
+  it('marks a broker whose password needs re-entry, and says what to do', async () => {
+    getMock.mockResolvedValue({
+      data: [{ ...broker, password_status: 'needs_reentry' }, { ...broker, id: 4, name: 'cloud' }],
+    });
+    render(<MqttBrokersCard />);
+
+    const row = (name: string) => screen.getByText(name).closest('[data-ui=data-table-row]');
+    await screen.findByText('home');
+    expect(row('home')).toHaveTextContent('Needs re-entry');
+    expect(row('cloud')).not.toHaveTextContent('Needs re-entry');
+    expect(screen.getByRole('alert')).toHaveTextContent('home: This secret could not be decrypted. Enter it again.');
+  });
+
+  it('asks for a password that needs re-entry in the edit dialog', async () => {
+    getMock.mockResolvedValue({ data: [{ ...broker, password_status: 'needs_reentry' }] });
+    const dialog = await openEditDialog();
+
+    expect(within(dialog).getByText('This secret could not be decrypted. Enter it again.')).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText('Password'), { target: { value: 'entered-again' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(putMock).toHaveBeenCalled());
+    expect(sentBody()).toMatchObject({ password: 'entered-again' });
+  });
+
   it('turns TLS on with a pasted CA certificate', async () => {
     const dialog = await openEditDialog();
     expect(within(dialog).queryByLabelText('CA certificate')).not.toBeInTheDocument();

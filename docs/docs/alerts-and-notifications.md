@@ -28,6 +28,8 @@ Notifications are the delivery mechanism for alerts and system events. The curre
 
 Each user can configure which categories of notifications they receive and through which channels.
 
+The **Stored Secrets** category (`secret_failure`) tells users with `view_notifications_config` when the hub started with stored secrets, such as broker passwords, that it could not decrypt and that need entering again (see [Secrets that need re-entry](configuration#secrets-that-need-re-entry)). It is in-app only by default.
+
 Email notifications require a working OAuth configuration. If OAuth is not configured, email delivery is silently skipped.
 
 ## Email notification setup

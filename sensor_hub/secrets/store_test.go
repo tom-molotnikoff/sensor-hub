@@ -149,6 +149,27 @@ func TestStore_LoadMarksSecretsFromAnotherKeyForReentry(t *testing.T) {
 	}, restarted.StatusAll())
 }
 
+func TestStore_SettingASecretAgainOverwritesItUnderTheCurrentKey(t *testing.T) {
+	ctx := context.Background()
+	repo := newMemoryRepo()
+	require.NoError(t, newTestStore(t, repo).Set(ctx, "mqtt_broker:1", "password", "old key"))
+	require.NoError(t, newTestStore(t, repo).Set(ctx, "smtp", "password", "old key"))
+	key, err := GenerateKey()
+	require.NoError(t, err)
+	restarted := newTestStoreWithKey(t, repo, key)
+	require.NoError(t, restarted.load(ctx))
+	require.Equal(t, []Ref{{Owner: "mqtt_broker:1", Name: "password"}, {Owner: "smtp", Name: "password"}}, restarted.NeedsReentry())
+
+	require.NoError(t, restarted.Set(ctx, "mqtt_broker:1", "password", "entered again"))
+
+	assert.Equal(t, StatusSet, restarted.Status("mqtt_broker:1", "password"))
+	assert.Equal(t, []Ref{{Owner: "smtp", Name: "password"}}, restarted.NeedsReentry())
+	value, status, err := newTestStoreWithKey(t, repo, key).Get(ctx, "mqtt_broker:1", "password")
+	require.NoError(t, err)
+	assert.Equal(t, StatusSet, status)
+	assert.Equal(t, "entered again", value)
+}
+
 func TestStore_ForgetDropsAnOwnersStatuses(t *testing.T) {
 	ctx := context.Background()
 	s := newTestStore(t, newMemoryRepo())

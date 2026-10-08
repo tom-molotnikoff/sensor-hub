@@ -13,6 +13,9 @@ const (
 	CategoryUserManagement    NotificationCategory = "user_management"
 	CategoryConfigChange      NotificationCategory = "config_change"
 	CategoryAutomationFailure NotificationCategory = "automation_failure"
+	// CategorySecretFailure tells admins that stored secrets could not be
+	// decrypted when the hub started and have to be entered again.
+	CategorySecretFailure NotificationCategory = "secret_failure"
 )
 
 type NotificationSeverity string
@@ -56,6 +59,7 @@ var validCategories = map[NotificationCategory]bool{
 	CategoryUserManagement:    true,
 	CategoryConfigChange:      true,
 	CategoryAutomationFailure: true,
+	CategorySecretFailure:     true,
 }
 
 var validSeverities = map[NotificationSeverity]bool{

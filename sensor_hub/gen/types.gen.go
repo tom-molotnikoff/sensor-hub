@@ -356,6 +356,7 @@ func (e CapabilityType) Valid() bool {
 const (
 	ChannelPreferenceCategoryAutomationFailure ChannelPreferenceCategory = "automation_failure"
 	ChannelPreferenceCategoryConfigChange      ChannelPreferenceCategory = "config_change"
+	ChannelPreferenceCategorySecretFailure     ChannelPreferenceCategory = "secret_failure"
 	ChannelPreferenceCategoryThresholdAlert    ChannelPreferenceCategory = "threshold_alert"
 	ChannelPreferenceCategoryUserManagement    ChannelPreferenceCategory = "user_management"
 )
@@ -366,6 +367,8 @@ func (e ChannelPreferenceCategory) Valid() bool {
 	case ChannelPreferenceCategoryAutomationFailure:
 		return true
 	case ChannelPreferenceCategoryConfigChange:
+		return true
+	case ChannelPreferenceCategorySecretFailure:
 		return true
 	case ChannelPreferenceCategoryThresholdAlert:
 		return true
@@ -467,6 +470,7 @@ func (e MeasurementTypeCategory) Valid() bool {
 const (
 	NotificationCategoryAutomationFailure NotificationCategory = "automation_failure"
 	NotificationCategoryConfigChange      NotificationCategory = "config_change"
+	NotificationCategorySecretFailure     NotificationCategory = "secret_failure"
 	NotificationCategoryThresholdAlert    NotificationCategory = "threshold_alert"
 	NotificationCategoryUserManagement    NotificationCategory = "user_management"
 )
@@ -477,6 +481,8 @@ func (e NotificationCategory) Valid() bool {
 	case NotificationCategoryAutomationFailure:
 		return true
 	case NotificationCategoryConfigChange:
+		return true
+	case NotificationCategorySecretFailure:
 		return true
 	case NotificationCategoryThresholdAlert:
 		return true

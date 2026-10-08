@@ -74,7 +74,7 @@ func sealKey(l Locations, key Key) error {
 	if !isRoot() {
 		return errors.New("sealing the key with the TPM needs root")
 	}
-	sealed, err := runSystemdCreds([]byte(key.Encode()+"\n"), "encrypt", "--with-key=tpm2", "--name="+CredentialName, "-", "-")
+	sealed, err := sealWith(key, "tpm2")
 	if err != nil {
 		return err
 	}
@@ -92,6 +92,12 @@ func sealKey(l Locations, key Key) error {
 		return fmt.Errorf("cannot write the systemd drop-in %s: %w", l.SystemdDropIn, err)
 	}
 	return nil
+}
+
+// sealWith encrypts key as the secrets.key credential with the given
+// systemd-creds key: tpm2, or host for the host's own credential secret.
+func sealWith(key Key, withKey string) ([]byte, error) {
+	return runSystemdCreds([]byte(key.Encode()+"\n"), "encrypt", "--with-key="+withKey, "--name="+CredentialName, "-", "-")
 }
 
 func writeDropIn(path, credPath string) error {
@@ -143,10 +149,14 @@ func unsealKey(path string) (Key, error) {
 	}
 	key, err := ParseKey(plain)
 	if err != nil {
-		return Key{}, fmt.Errorf("the sealed key %s is not usable: %w", path, err)
+		return Key{}, fmt.Errorf("the sealed key %s is not usable: %w: %w", path, errKeyNotUsable, err)
 	}
 	return key, nil
 }
+
+// errKeyNotUsable marks a sealed key that unsealed to something other than
+// a key.
+var errKeyNotUsable = errors.New("it does not hold a secret-store key")
 
 func runSystemdCreds(stdin []byte, args ...string) ([]byte, error) {
 	cmd := exec.Command("systemd-creds", args...)

@@ -16,6 +16,7 @@ const CATEGORIES: CategoryConfig[] = [
   { category: 'user_management', label: 'User Management', description: 'Notifications about user creation, deletion, and role changes' },
   { category: 'config_change', label: 'Configuration Changes', description: 'Notifications when sensors are added, updated, or removed' },
   { category: 'automation_failure', label: 'Automation Failures', description: 'Notifications when a step of an automation run fails' },
+  { category: 'secret_failure', label: 'Stored Secrets', description: 'Notifications when stored secrets, such as broker passwords, cannot be decrypted at startup and need re-entry' },
 ];
 
 function buildPrefMap(preferences: ChannelPreference[]): Record<NotificationCategory, ChannelPreference> {

@@ -1,7 +1,7 @@
 [Unit]
 Description=Sensor Hub - Home Temperature Monitoring
-After=network-online.target
-Wants=network-online.target
+After=network-online.target sensor-hub-key-check.service
+Wants=network-online.target sensor-hub-key-check.service
 
 [Service]
 Type=simple

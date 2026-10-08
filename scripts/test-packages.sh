@@ -2,7 +2,8 @@
 #
 # Install a server package under a real systemd in a container and check that
 # the hub comes up with no operator step: as an upgrade from a 1.5.x release
-# on a host with and without a TPM, and as a fresh install.
+# on a host with and without a TPM, then with a TPM that stops unsealing the
+# key, and as a fresh install.
 #
 # Usage:
 #   scripts/test-packages.sh <package.deb|package.rpm> [--from <version>]
@@ -23,7 +24,7 @@ FROM_VERSION="1.5.2"
 PACKAGE=""
 
 usage() {
-  sed -n '3,17p' "$0" | sed -E 's/^# ?//'
+  sed -n '3,18p' "$0" | sed -E 's/^# ?//'
   exit "${1:-0}"
 }
 
@@ -263,6 +264,39 @@ check_sealed_key() {
     "$(on_host 'sensor-hub local secrets show-key')"
 }
 
+# A TPM that will not unseal the key after a firmware or boot change. systemd
+# fails a unit whose credential will not decrypt, so the key check set aside
+# the key and sealed a new one before the hub started: the hub comes up, the
+# broker password asks to be entered again, and entering it puts it back.
+check_tpm_refusal() {
+  local old_key new_key broker_id
+  old_key="$(on_host 'sensor-hub local secrets show-key')"
+  # The stand-in TPM seals with systemd's host key, so a new host key is a TPM
+  # that no longer unseals what it sealed.
+  on_host 'mv /var/lib/systemd/credential.secret /root/credential.secret.before && systemd-creds setup >/dev/null 2>&1'
+  on_host 'systemctl restart sensor-hub'
+  wait_healthy || return 1
+  login >/dev/null || return 1
+  new_key="$(on_host 'sensor-hub local secrets show-key')"
+  check "a new key is sealed" "yes" "$([[ -n "$new_key" && "$new_key" != "$old_key" ]] && echo yes || echo no)"
+  check "the unit is given the new key" "$new_key" "$(on_host 'cat /run/credentials/sensor-hub.service/secrets.key')"
+  check "the old sealed key is kept" "1" "$(on_host 'ls /etc/sensor-hub/secrets.key.cred.unsealable-* | wc -l')"
+  check "the broker password needs re-entry" "needs_reentry" \
+    "$(api GET /mqtt/brokers | jq -r '.[] | select(.name == "home") | .password_status')"
+  check "one secret_failure notification" "1" \
+    "$(api GET '/notifications?limit=100' | jq '[.[] | select(.notification.category == "secret_failure")] | length')"
+  broker_id="$(api GET /mqtt/brokers | jq -r '.[] | select(.name == "home") | .id')"
+  api PUT "/mqtt/brokers/$broker_id" "{\"name\":\"home\",\"type\":\"external\",\"host\":\"192.0.2.1\",\"port\":1883,\"username\":\"hub\",\"password\":\"$BROKER_PASSWORD\",\"enabled\":false}" >/dev/null
+  check "entering the password again stores it" "set" \
+    "$(api GET /mqtt/brokers | jq -r '.[] | select(.name == "home") | .password_status')"
+  on_host 'systemctl restart sensor-hub'
+  wait_healthy || return 1
+  login >/dev/null || return 1
+  check "the new key survives a restart" "set" \
+    "$(api GET /mqtt/brokers | jq -r '.[] | select(.name == "home") | .password_status')"
+  check "the old sealed key is set aside once" "1" "$(on_host 'ls /etc/sensor-hub/secrets.key.cred.unsealable-* | wc -l')"
+}
+
 # remove_package removes the package as fully as the package manager can:
 # dpkg --purge, or rpm -e, which has no purge. Purge takes the configuration
 # files the package created; everything else stays, including the key, which
@@ -304,7 +338,7 @@ fake_tpm
 on_host "$INSTALL /packages/old.$FORMAT" >/dev/null
 seed_old_install
 upgrade_package
-wait_healthy && check_sealed_key && check_upgraded_install
+wait_healthy && check_sealed_key && check_upgraded_install && check_tpm_refusal
 remove_package "/etc/sensor-hub/secrets.key.cred /etc/systemd/system/sensor-hub.service.d/secrets-key.conf"
 stop_host
 

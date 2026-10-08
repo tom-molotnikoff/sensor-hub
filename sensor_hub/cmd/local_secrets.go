@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"example/sensorHub/secrets"
 
@@ -42,6 +43,21 @@ var localSecretsShowKeyCmd = &cobra.Command{
 	RunE: runLocalSecretsShowKey,
 }
 
+var localSecretsCheckSealCmd = &cobra.Command{
+	Use:   "check-seal",
+	Short: "Replace a sealed secret-store key the TPM will not unseal",
+	Long: "Checks that the key sealed with the TPM in <config-dir>/secrets.key.cred still unseals. systemd will not start a " +
+		"unit whose credential cannot be decrypted, so a TPM that refuses the key after a firmware or boot change would " +
+		"keep the hub from starting at all. When the key cannot be unsealed, after a few tries, it is kept as " +
+		"secrets.key.cred.unsealable-<time> and a new key is sealed in its place, with the TPM or, failing that, the " +
+		"host's own credential secret. The hub then starts, and every secret stored under the old key has to be " +
+		"entered again.\n\n" +
+		"The package runs this as root before each start of the service, through sensor-hub-key-check.service. It does " +
+		"nothing when the key is not sealed, and changes nothing when systemd-creds cannot be run.",
+	Args: cobra.NoArgs,
+	RunE: runLocalSecretsCheckSeal,
+}
+
 // keyExistsExitCode is init-key's exit status when a key already exists, so
 // the package's postinstall can tell that from a failure.
 const keyExistsExitCode = 3
@@ -54,7 +70,7 @@ func init() {
 	localSecretsInitKeyCmd.Flags().BoolVar(&initKeyFromStdin, "from-stdin", false, "Read the key from stdin rather than generating one")
 	localSecretsInitKeyCmd.Flags().BoolVar(&initKeySeal, "seal", false, "Seal the key with the TPM through systemd-creds (root only)")
 	localSecretsShowKeyCmd.Flags().StringVar(&showKeySecretsKeyFile, "secrets-key-file", "", "The --secrets-key-file the hub is run with, if any")
-	localSecretsCmd.AddCommand(localSecretsInitKeyCmd, localSecretsShowKeyCmd)
+	localSecretsCmd.AddCommand(localSecretsInitKeyCmd, localSecretsShowKeyCmd, localSecretsCheckSealCmd)
 	localCmd.AddCommand(localSecretsCmd)
 }
 
@@ -103,5 +119,23 @@ func runLocalSecretsShowKey(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), key.Encode())
+	return nil
+}
+
+func runLocalSecretsCheckSeal(cmd *cobra.Command, args []string) error {
+	cmd.SilenceUsage = true
+	l := secrets.LocationsFor(localConfigDir, "")
+	check, err := secrets.CheckSealedKey(l, time.Now())
+	if err != nil {
+		return err
+	}
+	if !check.Replaced {
+		return nil
+	}
+	out := cmd.ErrOrStderr()
+	fmt.Fprintf(out, "The sealed secret-store key %s could not be unsealed: %v\n", l.SealedKeyFile(), check.Reason)
+	fmt.Fprintf(out, "Kept it as %s and sealed a new key in its place with --with-key=%s.\n", check.SetAside, check.SealedWith)
+	fmt.Fprintln(out, "The hub will start, and every secret stored under the old key has to be entered again.")
+	fmt.Fprintln(out, "Keep a copy of the new key with 'sensor-hub local secrets show-key'.")
 	return nil
 }

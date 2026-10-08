@@ -85,22 +85,25 @@ func seed15Install(t *testing.T, brokerPassword string) install15 {
 	return install15{configDir: configDir, dbPath: dbPath, httpAddress: httpAddress, brokerID: int(id)}
 }
 
-// startHub runs 'local serve' as the packaged unit does and waits until it
-// answers. The hub is stopped at the end of the test.
-// startHub runs the hub until the test ends. Its output is written by the
-// process's copying goroutines while the test reads it, hence the lock.
-func startHub(t *testing.T, install install15) *lockedBuffer {
-	t.Helper()
-	output := &lockedBuffer{}
-	cmd := exec.Command(buildSensorHub(t), "local", "serve", "--config-dir", install.configDir)
-	cmd.Stdout, cmd.Stderr = output, output
-	require.NoError(t, cmd.Start())
-	t.Cleanup(func() {
-		_ = cmd.Process.Signal(syscall.SIGTERM)
-		_ = cmd.Wait()
-	})
+// runningHub is a 'local serve' process started by a test.
+type runningHub struct {
+	cmd    *exec.Cmd
+	output *lockedBuffer
+}
 
-	healthURL := fmt.Sprintf("http://%s/api/health", install.httpAddress)
+// startHub runs 'local serve' as the packaged unit does and waits until it
+// answers. The hub is stopped at the end of the test, or sooner with stop.
+// Its output is written by the process's copying goroutines while the test
+// reads it, hence the lock.
+func startHub(t *testing.T, configDir, httpAddress string) *runningHub {
+	t.Helper()
+	hub := &runningHub{output: &lockedBuffer{}}
+	hub.cmd = exec.Command(buildSensorHub(t), "local", "serve", "--config-dir", configDir)
+	hub.cmd.Stdout, hub.cmd.Stderr = hub.output, hub.output
+	require.NoError(t, hub.cmd.Start())
+	t.Cleanup(hub.stop)
+
+	healthURL := fmt.Sprintf("http://%s/api/health", httpAddress)
 	require.Eventually(t, func() bool {
 		resp, err := http.Get(healthURL)
 		if err != nil {
@@ -108,8 +111,17 @@ func startHub(t *testing.T, install install15) *lockedBuffer {
 		}
 		resp.Body.Close()
 		return resp.StatusCode == http.StatusOK
-	}, 60*time.Second, 200*time.Millisecond, "the hub did not come up:\n%s", output)
-	return output
+	}, 60*time.Second, 200*time.Millisecond, "the hub did not come up:\n%s", hub.output)
+	return hub
+}
+
+// stop shuts the hub down as systemd does and waits for it to exit.
+func (h *runningHub) stop() {
+	if h.cmd.ProcessState != nil {
+		return
+	}
+	_ = h.cmd.Process.Signal(syscall.SIGTERM)
+	_ = h.cmd.Wait()
 }
 
 func fileHolds(t *testing.T, path string, needle string) bool {
@@ -128,9 +140,9 @@ func TestUpgradeFrom15_EncryptsBrokerPasswordsAndScrubsThePlaintext(t *testing.T
 	dbPath := install.dbPath
 	require.True(t, fileHolds(t, dbPath, brokerPassword), "the 1.5.x database holds the password in plaintext")
 
-	output := startHub(t, install)
+	hub := startHub(t, install.configDir, install.httpAddress)
 
-	assert.Contains(t, output.String(), "generated")
+	assert.Contains(t, hub.output.String(), "generated")
 	assert.False(t, fileHolds(t, dbPath, brokerPassword), "the password is gone from the database file")
 	assert.False(t, fileHolds(t, dbPath+"-wal", brokerPassword), "the password is gone from the WAL")
 

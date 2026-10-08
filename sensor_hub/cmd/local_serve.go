@@ -186,6 +186,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	mqttBrokerRepo := database.NewMQTTBrokerRepository(db, logger)
 	mqttSubRepo := database.NewMQTTSubscriptionRepository(db, logger)
+
+	// A secret that did not decrypt leaves its owner unusable until it is
+	// entered again; the hub carries on and tells the admins once.
+	if err := service.NotifySecretFailures(ctx, secretStore.NeedsReentry(), mqttBrokerRepo, notificationService, logger); err != nil {
+		logger.Error("could not tell the admins that stored secrets need re-entry", "error", err)
+	}
 	mqttService := service.NewMQTTService(mqttBrokerRepo, mqttSubRepo, secretStore, logger)
 
 	connManager := mqttBrokerPkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, secretStore, embeddedBroker, logger)

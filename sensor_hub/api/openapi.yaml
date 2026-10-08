@@ -5404,7 +5404,7 @@ components:
           type: integer
         category:
           type: string
-          enum: [threshold_alert, user_management, config_change, automation_failure]
+          enum: [threshold_alert, user_management, config_change, automation_failure, secret_failure]
         severity:
           type: string
           enum: [info, warning, error]
@@ -5458,7 +5458,7 @@ components:
           type: integer
         category:
           type: string
-          enum: [threshold_alert, user_management, config_change, automation_failure]
+          enum: [threshold_alert, user_management, config_change, automation_failure, secret_failure]
         email_enabled:
           type: boolean
         inapp_enabled:
