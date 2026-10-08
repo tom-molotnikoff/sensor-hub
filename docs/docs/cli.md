@@ -131,7 +131,7 @@ The backup holds the stored secrets, such as outbound broker passwords, encrypte
 
 ### The secret-store key
 
-The hub holds the credentials it presents to other systems, such as outbound MQTT broker passwords, encrypted under a key kept outside the database. Where the hub looks for it, and the rules the key file must meet, are in [Secret-store key](configuration#secret-store-key). When there is no key anywhere the hub generates one into its configuration directory as it starts, so these commands are needed to choose the key or seal it before the first start, and to keep a copy of it.
+The hub holds the credentials it presents to other systems, such as outbound MQTT broker passwords, encrypted under a key kept outside the database. Where the hub looks for it, and the rules the key file must meet, are in [Secret-store key](configuration#secret-store-key). The package creates the key when it is installed (see [The secret-store key](installation#the-secret-store-key)), and outside a package the hub generates one into its configuration directory as it starts, so these commands are needed to choose the key or seal it yourself, and to keep a copy of it.
 
 ```bash
 sudo sensor-hub local secrets init-key
@@ -145,7 +145,7 @@ printf '%s\n' "$SECRETS_KEY" | sudo sensor-hub local secrets init-key --from-std
 
 With `--seal` the key is sealed with the TPM by `systemd-creds encrypt --with-key=tpm2 --name=secrets.key` into `<config-dir>/secrets.key.cred`, owned by root with mode 0600, and the drop-in `/etc/systemd/system/sensor-hub.service.d/secrets-key.conf` has systemd decrypt it for the hub. It needs root; run `systemctl daemon-reload` and restart the service afterwards. A disk image of a TPM host then carries nothing that decrypts the secrets.
 
-When a key already exists in any form (a key file, a sealed credential, a systemd credential or a Compose secret) `init-key` refuses, names it, and exits non-zero. There is no flag to overwrite a key: secrets stored under it could no longer be decrypted.
+When a key already exists in any form (a key file, a sealed credential, a systemd credential, a Compose secret, or a drop-in in `/etc/systemd/system/sensor-hub.service.d/` that passes the hub a `secrets.key` credential or `--secrets-key-file`) `init-key` refuses, names it, and exits with status 3. Any other failure exits with status 1. There is no flag to overwrite a key: secrets stored under it could no longer be decrypted.
 
 ```bash
 sudo sensor-hub local secrets show-key

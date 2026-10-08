@@ -156,3 +156,64 @@ jobs:
         with:
           name: layout-contract-failures
           path: sensor_hub/ui/sensor_hub_ui/test-results/
+
+  package-tests:
+    name: Package Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "25"
+          cache: "npm"
+          cache-dependency-path: |
+            sensor_hub/ui/sensor_hub_ui/package-lock.json
+            docs/package-lock.json
+
+      - name: Build React UI
+        working-directory: sensor_hub/ui/sensor_hub_ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy UI dist to web/dist
+        run: |
+          mkdir -p sensor_hub/web/dist
+          cp -r sensor_hub/ui/sensor_hub_ui/dist/* sensor_hub/web/dist/
+
+      - name: Build Docusaurus docs
+        working-directory: docs
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy docs build to web/docs
+        run: |
+          mkdir -p sensor_hub/web/docs
+          rm -rf sensor_hub/web/docs/*
+          cp -r docs/build/* sensor_hub/web/docs/
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: sensor_hub/go.mod
+          cache-dependency-path: sensor_hub/go.sum
+
+      - name: Build packages as the release does
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean --skip=sign
+
+      - name: Install and upgrade the .deb on Debian
+        run: scripts/test-packages.sh dist/sensor-hub_*_linux_amd64.deb
+
+      - name: Install and upgrade the .rpm on Fedora
+        run: scripts/test-packages.sh dist/sensor-hub_*_linux_amd64.rpm

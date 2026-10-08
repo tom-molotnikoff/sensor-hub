@@ -109,7 +109,7 @@ func LoadKey(l Locations, databasePath string, logger *slog.Logger) (Key, error)
 		if err != nil {
 			return Key{}, err
 		}
-		logger.Info("loaded the secret-store key", "source", source.description, "path", source.path)
+		logger.Info("loaded the secret-store key", "from", source.description, "path", source.path)
 		return key, nil
 	}
 	return generateKeyFile(l, databasePath, logger)

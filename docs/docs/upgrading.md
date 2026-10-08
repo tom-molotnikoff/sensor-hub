@@ -28,7 +28,7 @@ sudo dnf upgrade ./sensor-hub-*.rpm
 sudo apt install ./sensor-hub_*.deb
 ```
 
-The postinstall scriptlet restarts the `sensor-hub.service` automatically.
+The package restarts `sensor-hub.service` automatically.
 
 ## Database migrations
 
@@ -45,10 +45,9 @@ Some releases change what the hub deletes. Read these before upgrading past the 
 
 ## Configuration files
 
-Configuration files in `/etc/sensor-hub/` are marked as `noreplace` (RPM) or `conffiles` (DEB). Your edits are preserved during upgrades:
+The configuration files in `/etc/sensor-hub/` are yours, not the package's. The package ships their defaults as templates in `/usr/share/sensor-hub/defaults/` and copies one to `/etc/sensor-hub/` only when it is missing, so an upgrade never changes a file you have and never stops to ask about one. A property missing from your `application.properties` takes its built-in default.
 
-- **RPM:** If the package ships a new default, it is saved as `.rpmnew` alongside your existing file.
-- **DEB:** If the package ships a new default, it is saved as `.dpkg-new` alongside your existing file.
+Up to 1.5.x the package owned these files. The upgrade from 1.5.x keeps every file you or the hub changed as it is, and gives a file nobody changed the new default, as the package manager used to. It asks nothing, so it also runs unattended.
 
 Review release notes for any new properties and refer to [Configuration Settings](configuration) for the full property reference.
 

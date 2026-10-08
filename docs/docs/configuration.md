@@ -68,7 +68,7 @@ The key is 32 random bytes, held as one line of standard base64. When the hub st
 3. The path given with `--secrets-key-file` to `local serve`. The file must exist; the hub does not fall back to another location when it is missing.
 4. `<config-dir>/secrets.key`, which is `/etc/sensor-hub/secrets.key` on a package install.
 
-When there is no key at any of them, the hub generates one, writes it to `<config-dir>/secrets.key` with mode 0600, logs that it did and where, and carries on. It refuses to do so when a sealed key, `<config-dir>/secrets.key.cred`, exists without systemd passing it in, since secrets stored under a second key would be unreadable under the unit.
+A package install has a key from the start: the package creates it, sealed to the TPM where the host has one (see [The secret-store key](installation#the-secret-store-key)). When there is no key at any of them, the hub generates one, writes it to `<config-dir>/secrets.key` with mode 0600, logs that it did and where, and carries on. It refuses to do so when a sealed key, `<config-dir>/secrets.key.cred`, exists without systemd passing it in, since secrets stored under a second key would be unreadable under the unit.
 
 A key file given with `--secrets-key-file` or found in the configuration directory must meet two rules, or the hub logs which one it broke and exits with an error:
 

@@ -59,37 +59,19 @@ nfpms:
       - src: packaging/nginx.conf.example
         dst: /etc/sensor-hub/nginx.conf.example
 
+      # The configuration files are templates: postinstall copies each one to
+      # /etc/sensor-hub when it is missing, and never changes one that is there.
       - src: packaging/environment
-        dst: /etc/sensor-hub/environment
-        type: config|noreplace
-        file_info:
-          mode: 0640
-          owner: sensor-hub
-          group: sensor-hub
+        dst: /usr/share/sensor-hub/defaults/environment
 
       - src: packaging/defaults/application.properties
-        dst: /etc/sensor-hub/application.properties
-        type: config|noreplace
-        file_info:
-          mode: 0640
-          owner: sensor-hub
-          group: sensor-hub
+        dst: /usr/share/sensor-hub/defaults/application.properties
 
       - src: packaging/defaults/database.properties
-        dst: /etc/sensor-hub/database.properties
-        type: config|noreplace
-        file_info:
-          mode: 0640
-          owner: sensor-hub
-          group: sensor-hub
+        dst: /usr/share/sensor-hub/defaults/database.properties
 
       - src: packaging/defaults/smtp.properties
-        dst: /etc/sensor-hub/smtp.properties
-        type: config|noreplace
-        file_info:
-          mode: 0640
-          owner: sensor-hub
-          group: sensor-hub
+        dst: /usr/share/sensor-hub/defaults/smtp.properties
 
     scripts:
       preinstall: packaging/scripts/preinstall.sh
@@ -99,6 +81,9 @@ nfpms:
 
     rpm:
       group: Applications/System
+      scripts:
+        pretrans: packaging/scripts/rpm-pretrans.sh
+        posttrans: packaging/scripts/rpm-posttrans.sh
 
     conflicts:
       - sensor-hub-cli
@@ -146,6 +131,11 @@ signs:
       - "${signature}"
       - "--detach-sign"
       - "${artifact}"
+
+# A snapshot, such as CI's package test builds, sorts above the last release,
+# so installing it over that release is an upgrade.
+snapshot:
+  version_template: "{{ incpatch .Version }}-SNAPSHOT-{{ .ShortCommit }}"
 
 release:
   extra_files:
