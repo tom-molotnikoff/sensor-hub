@@ -1,19 +1,13 @@
 package cmd
 
 import (
-	"bufio"
-	"errors"
 	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
 	"fmt"
-	"io"
-	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 var localAdminCmd = &cobra.Command{
@@ -47,7 +41,7 @@ func runLocalAdminCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialise application configuration: %w", err)
 	}
 
-	password, err := readNewPassword(cmd)
+	password, err := readNewPassword(cmd, !stdinIsTerminal(cmd))
 	if err != nil {
 		return err
 	}
@@ -70,40 +64,4 @@ func runLocalAdminCreate(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), username)
 	return nil
-}
-
-func readNewPassword(cmd *cobra.Command) (string, error) {
-	in := cmd.InOrStdin()
-	if f, ok := in.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
-		return promptNewPassword(cmd, int(f.Fd()))
-	}
-	line, err := bufio.NewReader(in).ReadString('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		return "", fmt.Errorf("failed to read password from stdin: %w", err)
-	}
-	return strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r"), nil
-}
-
-func promptNewPassword(cmd *cobra.Command, fd int) (string, error) {
-	prompt := func(label string) (string, error) {
-		fmt.Fprint(cmd.ErrOrStderr(), label)
-		b, err := term.ReadPassword(fd)
-		fmt.Fprintln(cmd.ErrOrStderr())
-		if err != nil {
-			return "", fmt.Errorf("failed to read password: %w", err)
-		}
-		return string(b), nil
-	}
-	first, err := prompt("Password: ")
-	if err != nil {
-		return "", err
-	}
-	second, err := prompt("Confirm password: ")
-	if err != nil {
-		return "", err
-	}
-	if first != second {
-		return "", errors.New("passwords do not match")
-	}
-	return first, nil
 }

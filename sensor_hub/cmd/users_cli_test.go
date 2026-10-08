@@ -35,3 +35,19 @@ func TestUsersDisableAndEnable_CallTheDisabledEndpoint(t *testing.T) {
 		})
 	}
 }
+
+// A password never travels as a flag value, where the process list would
+// show it.
+func TestUsersPasswordCommands_TakeNoPasswordFlag(t *testing.T) {
+	for _, args := range [][]string{
+		{"users", "create", "--username", "alice", "--password", "secret-pass"},
+		{"users", "change-password", "--user-id", "3", "--new-password", "secret-pass"},
+	} {
+		t.Run(args[1], func(t *testing.T) {
+			_, _, err := executeRootCommand(t, args...)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "unknown flag")
+		})
+	}
+}

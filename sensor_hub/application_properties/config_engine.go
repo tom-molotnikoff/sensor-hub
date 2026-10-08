@@ -48,7 +48,9 @@ type PropertyDef struct {
 	Kind        reflect.Kind
 	Default     string     // default value from `default` tag
 	File        string     // "application", "smtp", or "database"
-	Validate    string     // "positive", "non_negative", "non_empty", "timezone", or ""
+	Validate    string     // comma-separated rules: "positive", "non_negative", "min:<n>", "max:<n>" for ints; one string rule; or ""
+	Min         *int       // lower bound from a "min:<n>" rule
+	Max         *int       // upper bound from a "max:<n>" rule
 	Label       string     // label - falls back to the field name split into words
 	Description string     // desc - one sentence, shown under the label
 	Group       string     // group - sensors|automations|retention|security|mqtt|email|weather|advanced
@@ -137,6 +139,9 @@ func buildRegistryFrom(t reflect.Type) []PropertyDef {
 			defaultValue = hostDefault()
 		}
 
+		validate := field.Tag.Get("validate")
+		minimum, maximum := intBounds(field.Name, validate)
+
 		defs = append(defs, PropertyDef{
 			FieldName:   field.Name,
 			FieldIndex:  i,
@@ -144,7 +149,9 @@ func buildRegistryFrom(t reflect.Type) []PropertyDef {
 			Kind:        field.Type.Kind(),
 			Default:     defaultValue,
 			File:        field.Tag.Get("file"),
-			Validate:    field.Tag.Get("validate"),
+			Validate:    validate,
+			Min:         minimum,
+			Max:         maximum,
 			Label:       label,
 			Description: field.Tag.Get("desc"),
 			Group:       field.Tag.Get("group"),
@@ -260,18 +267,78 @@ func errInvalidValue(def PropertyDef, raw string) *ValidationError {
 	return &ValidationError{Key: def.Key, Message: fmt.Sprintf("invalid %s value: %s", def.Key, raw)}
 }
 
-func validateInt(def PropertyDef, value int, raw string) error {
-	switch def.Validate {
-	case "positive":
-		if value <= 0 {
-			return errInvalidValue(def, raw)
+// intBounds reads the "min:<n>" and "max:<n>" rules from a validate tag. The
+// registry is static, so a malformed bound is a programming error and panics.
+func intBounds(field, validate string) (minimum, maximum *int) {
+	for _, rule := range strings.Split(validate, ",") {
+		name, arg, ok := strings.Cut(rule, ":")
+		if !ok || (name != "min" && name != "max") {
+			continue
 		}
-	case "non_negative":
-		if value < 0 {
-			return errInvalidValue(def, raw)
+		n, err := strconv.Atoi(arg)
+		if err != nil {
+			panic(fmt.Sprintf("field %s: validate rule %q needs a whole number", field, rule))
+		}
+		if name == "min" {
+			minimum = &n
+		} else {
+			maximum = &n
 		}
 	}
+	return minimum, maximum
+}
+
+func validateInt(def PropertyDef, value int, raw string) error {
+	for _, rule := range strings.Split(def.Validate, ",") {
+		switch rule {
+		case "positive":
+			if value <= 0 {
+				return errInvalidValue(def, raw)
+			}
+		case "non_negative":
+			if value < 0 {
+				return errInvalidValue(def, raw)
+			}
+		}
+	}
+	if def.Min != nil && value < *def.Min {
+		return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must be at least %d, got %d", def.Key, *def.Min, value)}
+	}
+	if def.Max != nil && value > *def.Max {
+		return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must be at most %d, got %d", def.Key, *def.Max, value)}
+	}
 	return nil
+}
+
+// clampToBounds moves an int read from a properties file that lies outside
+// its "min:" or "max:" rule to the nearest bound, with a warning. A bound can
+// be newer than the file, so a value an earlier release accepted must not stop
+// the hub starting; a value written through the API is rejected instead.
+func clampToBounds(file string, props map[string]string) {
+	for _, def := range registry {
+		if def.File != file || def.Kind != reflect.Int || (def.Min == nil && def.Max == nil) {
+			continue
+		}
+		raw, ok := props[def.Key]
+		if !ok {
+			continue
+		}
+		value, err := strconv.Atoi(raw)
+		if err != nil {
+			continue
+		}
+		bound := value
+		if def.Min != nil && value < *def.Min {
+			bound = *def.Min
+		}
+		if def.Max != nil && value > *def.Max {
+			bound = *def.Max
+		}
+		if bound != value {
+			slog.Warn("property in the file is outside its allowed range; using the nearest bound", "key", def.Key, "file_value", value, "using", bound)
+			props[def.Key] = strconv.Itoa(bound)
+		}
+	}
 }
 
 func validateString(def PropertyDef, value string) error {
@@ -375,7 +442,7 @@ func SaveToFiles(cfg *ApplicationConfiguration) error {
 	}
 
 	for _, fe := range files {
-		f, err := os.OpenFile(fe.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		f, err := openPropertiesFileForWrite(fe.path)
 		if err != nil {
 			return err
 		}
@@ -394,6 +461,28 @@ func SaveToFiles(cfg *ApplicationConfiguration) error {
 	}
 
 	return nil
+}
+
+// propertiesFileMode is the mode the package installs the properties files at.
+const propertiesFileMode os.FileMode = 0o640
+
+// openPropertiesFileForWrite opens the file empty for writing at
+// propertiesFileMode, setting that mode on an existing file too, before it is
+// truncated.
+func openPropertiesFileForWrite(path string) (*os.File, error) {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, propertiesFileMode)
+	if err != nil {
+		return nil, err
+	}
+	if err := f.Chmod(propertiesFileMode); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("failed to set the mode of %s: %w", path, err)
+	}
+	if err := f.Truncate(0); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return f, nil
 }
 
 // labelFromFieldName turns a PascalCase field name into words, keeping

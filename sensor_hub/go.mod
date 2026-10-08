@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/XSAM/otelsql v0.44.0
+	github.com/creack/pty v1.1.24
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/gin-contrib/gzip v1.2.8
 	github.com/golang-migrate/migrate/v4 v4.20.1

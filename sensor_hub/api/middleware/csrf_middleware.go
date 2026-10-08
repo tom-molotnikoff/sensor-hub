@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/subtle"
 	"net/http"
 
 	appProps "example/sensorHub/application_properties"
@@ -41,7 +42,7 @@ func CSRFMiddleware() gin.HandlerFunc {
 				c.AbortWithStatus(http.StatusInternalServerError)
 				return
 			}
-			if serverCSRF == "" || clientCSRF != serverCSRF {
+			if serverCSRF == "" || subtle.ConstantTimeCompare([]byte(clientCSRF), []byte(serverCSRF)) != 1 {
 				c.AbortWithStatus(http.StatusForbidden)
 				return
 			}

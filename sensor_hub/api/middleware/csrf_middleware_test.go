@@ -86,6 +86,34 @@ func TestCSRFMiddleware_MismatchedToken(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
+// Only the exact token passes: a prefix, an extension or a same-length token
+// differing in one byte is refused like any other mismatch.
+func TestCSRFMiddleware_AcceptsOnlyTheExactToken(t *testing.T) {
+	cases := map[string]int{
+		"csrf-secret":       http.StatusOK,
+		"csrf-secreT":       http.StatusForbidden,
+		"csrf-secre":        http.StatusForbidden,
+		"csrf-secret-extra": http.StatusForbidden,
+	}
+	for clientToken, want := range cases {
+		t.Run(clientToken, func(t *testing.T) {
+			mockService := new(MockAuthService)
+			InitAuthMiddleware(mockService)
+			mockService.On("GetCSRFForToken", mock.Anything, "valid-token").Return("csrf-secret", nil)
+
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("POST", "/api/data", nil)
+			c.Request.AddCookie(&http.Cookie{Name: "sensor_hub_session", Value: "valid-token"})
+			c.Request.Header.Set("X-CSRF-Token", clientToken)
+
+			CSRFMiddleware()(c)
+
+			assert.Equal(t, want, w.Code)
+		})
+	}
+}
+
 func TestCSRFMiddleware_ServiceError(t *testing.T) {
 	mockService := new(MockAuthService)
 	InitAuthMiddleware(mockService)

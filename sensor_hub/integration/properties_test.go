@@ -182,6 +182,34 @@ func TestProperties_ValidationFailureNamesKeyAndRejectsBatch(t *testing.T) {
 	assert.Equal(t, originalUser, readProperty(t, "smtp.user"))
 }
 
+// auth.bcrypt.cost holds to 10 through 31: below 10 a stolen hash is cheap to
+// crack, and bcrypt itself refuses more than 31.
+func TestProperties_BcryptCostOutsideTenToThirtyOneIsRefused(t *testing.T) {
+	original := readProperty(t, "auth.bcrypt.cost")
+
+	for _, value := range []string{"4", "32"} {
+		body, status := client.UpdateProperties(map[string]string{"auth.bcrypt.cost": value})
+		require.Equal(t, http.StatusBadRequest, status, value)
+
+		var errResp gen.PropertiesErrorResponse
+		require.NoError(t, json.Unmarshal(body, &errResp))
+		require.NotNil(t, errResp.Key)
+		assert.Equal(t, "auth.bcrypt.cost", *errResp.Key)
+		assert.Equal(t, original, readProperty(t, "auth.bcrypt.cost"))
+	}
+
+	defs, status := client.GetPropertyDefinitions()
+	require.Equal(t, http.StatusOK, status)
+	for _, def := range defs.Definitions {
+		if def.Key == "auth.bcrypt.cost" {
+			require.NotNil(t, def.Validate)
+			assert.Equal(t, "min:10,max:31", *def.Validate)
+			return
+		}
+	}
+	t.Fatal("auth.bcrypt.cost has no definition")
+}
+
 func readProperty(t *testing.T, key string) string {
 	t.Helper()
 
