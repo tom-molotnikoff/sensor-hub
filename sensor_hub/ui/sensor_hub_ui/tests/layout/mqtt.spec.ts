@@ -3,7 +3,7 @@ import { viewports } from './checks';
 import { signIn } from './users';
 
 const lists = [
-  { title: 'MQTT Brokers', row: 'Garage Mosquitto', menu: ['Disable', 'Delete'] },
+  { title: 'MQTT Brokers', row: 'Garage Mosquitto', menu: ['Edit', 'Disable', 'Delete'] },
   { title: 'MQTT Clients', row: 'zigbee2mqtt', menu: ['Rotate password', 'Disable', 'Delete'] },
   { title: 'MQTT Subscriptions', row: 'zigbee2mqtt/attic/+', menu: ['Disable', 'Delete'] },
 ];

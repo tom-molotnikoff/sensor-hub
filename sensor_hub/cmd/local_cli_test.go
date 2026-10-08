@@ -44,6 +44,8 @@ func TestLocalCommands_NameTheMissingConfigFile(t *testing.T) {
 		{"local", "serve"},
 		{"local", "admin", "create", "someone"},
 		{"local", "db", "backup", filepath.Join(dir, "backup.db")},
+		{"local", "secrets", "init-key"},
+		{"local", "secrets", "show-key"},
 	} {
 		t.Run(strings.Join(args[1:], " "), func(t *testing.T) {
 			_, _, err := executeRootCommand(t, append(args, "--config-dir", dir)...)

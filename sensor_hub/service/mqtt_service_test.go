@@ -8,6 +8,7 @@ import (
 
 	"example/sensorHub/drivers"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/secrets"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -121,10 +122,45 @@ func (d *stubPushDriver) ValidateSensor(_ context.Context, _ gen.Sensor) error  
 func (d *stubPushDriver) ParseMessage(_ string, _ []byte) ([]gen.Reading, error) { return nil, nil }
 func (d *stubPushDriver) IdentifyDevice(_ string, _ []byte) (string, error)      { return "", nil }
 
+// fakeBrokerSecrets keeps broker passwords in a map, standing in for the
+// secret store.
+type fakeBrokerSecrets struct {
+	values map[string]string
+}
+
+func newFakeBrokerSecrets() *fakeBrokerSecrets {
+	return &fakeBrokerSecrets{values: map[string]string{}}
+}
+
+func (f *fakeBrokerSecrets) Set(_ context.Context, owner, name, value string) error {
+	f.values[owner+"/"+name] = value
+	return nil
+}
+
+func (f *fakeBrokerSecrets) Delete(_ context.Context, owner, name string) error {
+	delete(f.values, owner+"/"+name)
+	return nil
+}
+
+func (f *fakeBrokerSecrets) Status(owner, name string) secrets.Status {
+	if _, ok := f.values[owner+"/"+name]; ok {
+		return secrets.StatusSet
+	}
+	return secrets.StatusUnset
+}
+
+func (f *fakeBrokerSecrets) Forget(owner string) {
+	for key := range f.values {
+		if strings.HasPrefix(key, owner+"/") {
+			delete(f.values, key)
+		}
+	}
+}
+
 func setupMQTTService() (*MQTTService, *MockMQTTBrokerRepo, *MockMQTTSubRepo) {
 	brokerRepo := new(MockMQTTBrokerRepo)
 	subRepo := new(MockMQTTSubRepo)
-	svc := NewMQTTService(brokerRepo, subRepo, slog.Default())
+	svc := NewMQTTService(brokerRepo, subRepo, newFakeBrokerSecrets(), slog.Default())
 	return svc, brokerRepo, subRepo
 }
 

@@ -65,6 +65,11 @@ var mqttBrokersGetCmd = &cobra.Command{
 var mqttBrokersCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new MQTT broker",
+	Long: "Creates a broker the hub connects out to.\n\n" +
+		"A password is asked for only when --username is given, and may be left empty for a broker that takes none. " +
+		"It is never taken as a flag value. With --password-stdin it is read from stdin (one line, trailing newline " +
+		"stripped); otherwise it is prompted for on the terminal and, unless left empty, asked for twice. " +
+		"The hub stores it encrypted and never returns it.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name, _ := cmd.Flags().GetString("name")
 		brokerType, _ := cmd.Flags().GetString("type")
@@ -72,7 +77,10 @@ var mqttBrokersCreateCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetInt("port")
 		enabled, _ := cmd.Flags().GetBool("enabled")
 		username, _ := cmd.Flags().GetString("username")
-		password, _ := cmd.Flags().GetString("password")
+		passwordStdin, _ := cmd.Flags().GetBool("password-stdin")
+		if passwordStdin && username == "" {
+			return fmt.Errorf("--password-stdin needs --username")
+		}
 
 		body := gen.CreateMqttBrokerJSONRequestBody{
 			Name:    name,
@@ -84,10 +92,14 @@ var mqttBrokersCreateCmd = &cobra.Command{
 			body.Port = &port
 		}
 		if username != "" {
+			password, err := readOptionalPassword(cmd, passwordStdin)
+			if err != nil {
+				return err
+			}
 			body.Username = &username
-		}
-		if password != "" {
-			body.Password = &password
+			if password != "" {
+				body.Password = &password
+			}
 		}
 
 		client, ctx, err := newAPIClient(cmd)
@@ -332,7 +344,7 @@ func init() {
 	mqttBrokersCreateCmd.Flags().Int("port", 1883, "Broker port (external brokers only)")
 	mqttBrokersCreateCmd.Flags().Bool("enabled", true, "Enable the broker")
 	mqttBrokersCreateCmd.Flags().String("username", "", "Broker username")
-	mqttBrokersCreateCmd.Flags().String("password", "", "Broker password")
+	mqttBrokersCreateCmd.Flags().Bool("password-stdin", false, "Read the broker password from stdin (one line); needs --username")
 	mqttBrokersCreateCmd.Flags().Bool("tls", false, "(Deprecated; use ca_cert_path/client_cert_path on update --file instead)")
 	_ = mqttBrokersCreateCmd.MarkFlagRequired("name")
 

@@ -13,6 +13,7 @@ import (
 	mqttBrokerPkg "example/sensorHub/mqtt"
 	"example/sensorHub/oauth"
 	"example/sensorHub/readings"
+	"example/sensorHub/secrets"
 	"example/sensorHub/service"
 	"example/sensorHub/smtp"
 	"example/sensorHub/telemetry"
@@ -26,6 +27,7 @@ import (
 )
 
 var logFile string
+var secretsKeyFile string
 
 var localServeCmd = &cobra.Command{
 	Use:   "serve",
@@ -36,6 +38,7 @@ var localServeCmd = &cobra.Command{
 
 func init() {
 	localServeCmd.Flags().StringVar(&logFile, "log-file", "", "Path to log file (default: stdout)")
+	localServeCmd.Flags().StringVar(&secretsKeyFile, "secrets-key-file", "", "Path to the secret-store key, read when there is no systemd credential or Compose secret (default: <config-dir>/secrets.key)")
 	localCmd.AddCommand(localServeCmd)
 }
 
@@ -65,6 +68,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 
 	bootCfg := appProps.AppConfig()
+	secretsKey, err := secrets.LoadKey(secrets.LocationsFor(localConfigDir, secretsKeyFile), bootCfg.DatabasePath, logger)
+	if err != nil {
+		logger.Error("cannot use the secret-store key", "error", err)
+		return err
+	}
+
 	db, err := database.Open(bootCfg, logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialise database: %w", err)
@@ -75,6 +84,11 @@ func runServe(cmd *cobra.Command, args []string) error {
 			logger.Error("error closing database", "error", err)
 		}
 	}()
+
+	secretStore, err := secrets.Open(ctx, db, secretsKey, logger)
+	if err != nil {
+		return fmt.Errorf("failed to open the secret store: %w", err)
+	}
 
 	// Start the embedded MQTT broker if enabled. Devices authenticate against
 	// the MQTT clients in the database, so it starts once the database is open.
@@ -171,9 +185,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	mqttBrokerRepo := database.NewMQTTBrokerRepository(db, logger)
 	mqttSubRepo := database.NewMQTTSubscriptionRepository(db, logger)
-	mqttService := service.NewMQTTService(mqttBrokerRepo, mqttSubRepo, logger)
+	mqttService := service.NewMQTTService(mqttBrokerRepo, mqttSubRepo, secretStore, logger)
 
-	connManager := mqttBrokerPkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, embeddedBroker, logger)
+	connManager := mqttBrokerPkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, secretStore, embeddedBroker, logger)
 	mqttService.SetSubscriptionNotifier(connManager)
 	commandService := service.NewCommandService(sensorRepo, mqttSubRepo, commandHistoryRepo, connManager, commandTracker, logger)
 	if err := commandTracker.RecoverPending(ctx); err != nil {

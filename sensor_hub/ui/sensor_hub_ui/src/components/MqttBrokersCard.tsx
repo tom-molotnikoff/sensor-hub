@@ -4,7 +4,7 @@ import { apiClient } from '../gen/client';
 import type { MQTTBroker } from '../gen/aliases';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';
-import CreateBrokerDialog from './CreateBrokerDialog';
+import BrokerDialog from './BrokerDialog';
 import { logger } from '../tools/logger';
 import Card from '../ui/Card';
 import DataTable from '../ui/DataTable';
@@ -13,7 +13,8 @@ export default function MqttBrokersCard() {
   const [brokers, setBrokers] = useState<MQTTBroker[]>([]);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRow, setSelectedRow] = useState<MQTTBroker | null>(null);
-  const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<MQTTBroker | null>(null);
   const { user } = useAuth();
 
   const load = () =>
@@ -30,13 +31,22 @@ export default function MqttBrokersCard() {
 
   const closeMenu = () => { setMenuAnchorEl(null); };
 
+  const openDialog = (broker: MQTTBroker | null) => {
+    closeMenu();
+    setEditing(broker);
+    setDialogOpen(true);
+  };
+
+  // Writes the broker back with every setting it has. The hub never sends the
+  // password, so the body has none, which keeps the stored one.
   const handleToggleEnabled = async () => {
     if (!selectedRow) return;
     closeMenu();
+    const { id, created_at: _createdAt, updated_at: _updatedAt, password_status: _passwordStatus, ...settings } = selectedRow;
     try {
       await apiClient.PUT('/mqtt/brokers/{id}', {
-        params: { path: { id: selectedRow.id } },
-        body: { name: selectedRow.name, type: selectedRow.type, host: selectedRow.host, port: selectedRow.port, enabled: !selectedRow.enabled } as never,
+        params: { path: { id } },
+        body: { ...settings, enabled: !selectedRow.enabled } as never,
       });
       await load();
     } catch (e) { logger.error('Failed to toggle broker', e); }
@@ -57,7 +67,7 @@ export default function MqttBrokersCard() {
     <>
       <Card
         title="MQTT Brokers"
-        actions={<Button variant="contained" onClick={() => setOpenCreateDialog(true)} disabled={!canManage}>Add Broker</Button>}
+        actions={<Button variant="contained" onClick={() => openDialog(null)} disabled={!canManage}>Add Broker</Button>}
       >
         <DataTable
           rows={brokers}
@@ -84,6 +94,7 @@ export default function MqttBrokersCard() {
 
         {canManage && (
           <Menu anchorEl={menuAnchorEl} open={Boolean(menuAnchorEl)} onClose={closeMenu}>
+            <MenuItem onClick={() => openDialog(selectedRow)}>Edit</MenuItem>
             <MenuItem onClick={handleToggleEnabled}>
               {selectedRow?.enabled ? 'Disable' : 'Enable'}
             </MenuItem>
@@ -91,7 +102,7 @@ export default function MqttBrokersCard() {
           </Menu>
         )}
       </Card>
-      <CreateBrokerDialog open={openCreateDialog} onClose={() => setOpenCreateDialog(false)} onCreated={load} />
+      <BrokerDialog open={dialogOpen} broker={editing} onClose={() => setDialogOpen(false)} onSaved={load} />
     </>
   );
 }

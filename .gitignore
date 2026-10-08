@@ -261,3 +261,7 @@ docs/plans
 
 # LLM bot credentials for the observability platform, never commit
 llm-open-observe-token.txt
+
+# The secret-store key a local run of the hub generates
+sensor_hub/configuration/secrets.key
+sensor_hub/configuration/secrets.key.cred
