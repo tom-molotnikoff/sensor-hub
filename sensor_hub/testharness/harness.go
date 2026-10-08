@@ -125,9 +125,10 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		return nil, func() {}, fmt.Errorf("failed to reserve a port for the embedded broker: %w", err)
 	}
 
-	// Write minimal config files
+	// Write minimal config files. Loopback is a trusted proxy, as nginx is on a
+	// packaged install, so a test can stand in for the proxy.
 	appPropsContent := fmt.Sprintf(
-		"sensor.collection.interval=300\ndatabase.path=%s\nlog.level=debug\nauth.bcrypt.cost=4\nmqtt.broker.enabled=true\nmqtt.broker.port=%d\n", dbPath, mqttBrokerPort)
+		"sensor.collection.interval=300\ndatabase.path=%s\nlog.level=debug\nauth.bcrypt.cost=4\nmqtt.broker.enabled=true\nmqtt.broker.port=%d\nhttp.trusted.proxies=127.0.0.1,::1\n", dbPath, mqttBrokerPort)
 	writeFileOrErr(filepath.Join(configDir, "application.properties"), appPropsContent)
 	writeFileOrErr(filepath.Join(configDir, "database.properties"), fmt.Sprintf("database.path=%s\n", dbPath))
 	writeFileOrErr(filepath.Join(configDir, "smtp.properties"), "smtp.user=\n")
@@ -282,7 +283,12 @@ func (e *Env) boot(listenAddr string) error {
 	)
 
 	gin.SetMode(gin.TestMode)
-	router := api.NewEngine()
+	router, err := api.NewEngine(appProps.AppConfig().TrustedProxies())
+	if err != nil {
+		_ = embeddedBroker.Stop()
+		db.Close()
+		return err
+	}
 	api.RegisterAPIRoutes(router, server)
 
 	if e.ui != nil {

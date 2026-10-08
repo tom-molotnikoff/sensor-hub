@@ -40,6 +40,10 @@ type ApplicationConfiguration struct {
 	WeatherLongitude    string `prop:"weather.longitude" default:"-1.4659" file:"application" label:"Longitude" desc:"Longitude the weather forecast is fetched for." group:"weather"`
 	WeatherLocationName string `prop:"weather.location.name" default:"Sheffield" file:"application" label:"Location name" desc:"Display name for the forecast location." group:"weather"`
 
+	HTTPListenAddress    string `prop:"http.listen.address" default:"127.0.0.1:8080" file:"application" validate:"listen_address" label:"HTTP listen address" desc:"Host and port the HTTP API and web UI listen on. The default takes connections from this machine only, such as from nginx." group:"advanced" apply:"action:service-restart"`
+	HTTPTrustedProxies   string `prop:"http.trusted.proxies" default:"" file:"application" validate:"ip_list" label:"Trusted proxies" desc:"Comma-separated IPs or CIDRs of reverse proxies whose X-Forwarded-For and X-Real-IP headers are believed. Empty trusts none, so the client address is the connecting peer." group:"security" apply:"action:service-restart"`
+	MetricsListenAddress string `prop:"metrics.listen.address" default:"127.0.0.1:9464" file:"application" validate:"listen_address_or_empty" label:"Metrics listen address" desc:"Host and port the Prometheus /metrics endpoint listens on, apart from the API. Empty turns the endpoint off." group:"advanced" apply:"action:service-restart"`
+
 	LogLevel string `prop:"log.level" default:"info" file:"application" desc:"Minimum severity written to the log." group:"advanced" enum:"debug,info,warn,error"`
 
 	MQTTBrokerEnabled bool `prop:"mqtt.broker.enabled" default:"true" file:"application" label:"Broker enabled" desc:"Whether the embedded MQTT broker is started." group:"mqtt" apply:"action:service-restart"`

@@ -86,6 +86,20 @@ If the page cannot load the property definitions, it still lists and saves every
 
 `command.history.retention.days` is how long a sensor's command history is kept, counted from when each command was sent. It covers commands sent by people as well as by automations. The default is `90`, and `0` keeps command history forever. A change applies from the next cleanup run, set by `data.cleanup.interval.hours`.
 
+### HTTP listen address
+
+`http.listen.address` is the host and port the HTTP API, WebSocket and web UI listen on. The default is `127.0.0.1:8080`, which takes connections from the same machine only: on a packaged install that is nginx, and nothing else on the network reaches the hub directly. To serve the hub without nginx in front of it, set an address other hosts can reach, such as `0.0.0.0:8080`. A value that is not `host:port` is rejected. A change applies when the service restarts.
+
+### Trusted proxies
+
+`http.trusted.proxies` is a comma-separated list of IP addresses and CIDR ranges, such as `127.0.0.1,::1` or `10.0.0.0/8`, of the reverse proxies in front of the hub. The hub believes the `X-Forwarded-For` and `X-Real-IP` headers only on a request that comes from one of them, and then takes the client's address as the rightmost address in `X-Forwarded-For` that is not a trusted proxy. A client can put any address it likes at the front of that header, so the forged part is never used.
+
+The default is empty, which trusts no proxy: the client's address is the address the connection came from, and both headers are ignored. The packaged `application.properties` sets `127.0.0.1,::1`, for nginx on the same machine. Behind nginx with an empty list, every request appears to come from nginx, so one person failing to log in puts everyone under the login backoff. A value that is not a list of addresses and ranges is rejected. A change applies when the service restarts. See [Nginx Setup](nginx-setup#client-addresses) for nginx on another host.
+
+### Metrics listen address
+
+`metrics.listen.address` is the host and port the Prometheus `/metrics` endpoint listens on, on a listener of its own apart from the API. The default is `127.0.0.1:9464`. Empty turns the endpoint off, and any other value that is not `host:port` is rejected. A change applies when the service restarts. See [Telemetry](telemetry#prometheus-metrics) for the scrape configuration.
+
 ### Readings aggregation
 
 Readings aggregation is controlled by the `readings.aggregation.*` properties. Tier values use ISO 8601 durations in `THRESHOLD:INTERVAL` format. The special interval `raw` means no aggregation. Tiers are evaluated in ascending order - the first tier whose threshold is >= the query span is used. Queries exceeding all thresholds fall back to `P1D` buckets. See the [auto-aggregation developer docs](development/auto-aggregation.md) for details.
@@ -96,4 +110,4 @@ Environment variables are defined in `/etc/sensor-hub/environment` and loaded by
 
 | Variable                    | Description                                                                            |
 |-----------------------------|----------------------------------------------------------------------------------------|
-| `SENSOR_HUB_ALLOWED_ORIGIN` | The allowed CORS origin for the web UI (e.g., `https://sensor-hub.example.com`)        |
+| `SENSOR_HUB_ALLOWED_ORIGIN` | An origin other than the hub's own that may call the API and open WebSockets, such as a UI dev server (e.g., `http://localhost:5173`). A browser WebSocket from any other origin is refused with 403 |

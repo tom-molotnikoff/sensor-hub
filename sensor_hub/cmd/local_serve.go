@@ -225,5 +225,5 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to start automations: %w", err)
 	}
 
-	return api.InitialiseAndListen(ctx, logger, tel.PrometheusHandler, server)
+	return api.InitialiseAndListen(ctx, logger, bootCfg, tel.PrometheusHandler, server)
 }

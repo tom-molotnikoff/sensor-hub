@@ -77,7 +77,7 @@ func TestBuildRegistry_Labels(t *testing.T) {
 // truthful apply state.
 func TestRegistry_MetadataComplete(t *testing.T) {
 	defs := Definitions()
-	assert.Len(t, defs, 33)
+	assert.Len(t, defs, 36)
 
 	knownGroups := make(map[string]bool)
 	for _, g := range PropertyGroups() {
@@ -108,8 +108,8 @@ func TestRegistry_MetadataComplete(t *testing.T) {
 		groupCounts[def.Group]++
 	}
 
-	assert.Equal(t, map[string]int{"live": 21, "next-cycle": 2, "action": 9, "readonly": 1}, applyCounts)
-	assert.Equal(t, map[string]int{"sensors": 1, "automations": 3, "retention": 7, "security": 7, "mqtt": 2, "email": 4, "weather": 3, "advanced": 6}, groupCounts)
+	assert.Equal(t, map[string]int{"live": 21, "next-cycle": 2, "action": 12, "readonly": 1}, applyCounts)
+	assert.Equal(t, map[string]int{"sensors": 1, "automations": 3, "retention": 7, "security": 8, "mqtt": 2, "email": 4, "weather": 3, "advanced": 8}, groupCounts)
 }
 
 func TestRegistry_SpecAssignments(t *testing.T) {
@@ -123,6 +123,19 @@ func TestRegistry_SpecAssignments(t *testing.T) {
 	assert.Equal(t, ApplyNextCycle, defByKey(t, defs, "data.cleanup.interval.hours").Apply)
 	assert.Equal(t, ApplyState("action:service-restart"), defByKey(t, defs, "mqtt.broker.port").Apply)
 	assert.Equal(t, ApplyState("action:oauth-reload"), defByKey(t, defs, "oauth.token.file.path").Apply)
+
+	for key, group := range map[string]string{
+		"http.listen.address":    "advanced",
+		"http.trusted.proxies":   "security",
+		"metrics.listen.address": "advanced",
+	} {
+		def := defByKey(t, defs, key)
+		assert.Equal(t, ApplyState("action:service-restart"), def.Apply, key)
+		assert.Equal(t, group, def.Group, key)
+	}
+	assert.Equal(t, "127.0.0.1:8080", defByKey(t, defs, "http.listen.address").Default)
+	assert.Equal(t, "", defByKey(t, defs, "http.trusted.proxies").Default)
+	assert.Equal(t, "127.0.0.1:9464", defByKey(t, defs, "metrics.listen.address").Default)
 
 	dbPath := defByKey(t, defs, "database.path")
 	assert.True(t, dbPath.ReadOnly)
