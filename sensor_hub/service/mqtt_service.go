@@ -55,7 +55,7 @@ func NewMQTTService(
 // ============================================================================
 
 func (s *MQTTService) AddBroker(ctx context.Context, broker gen.MQTTBroker) (int, error) {
-	normaliseEmbeddedBroker(&broker)
+	normaliseBroker(&broker)
 	if broker.Type == "embedded" {
 		existing, err := s.brokerRepo.GetAll(ctx)
 		if err != nil {
@@ -150,7 +150,7 @@ func (s *MQTTService) UpdateBroker(ctx context.Context, broker gen.MQTTBroker) e
 	if broker.Id == nil || *broker.Id <= 0 {
 		return fmt.Errorf("broker id must be positive")
 	}
-	normaliseEmbeddedBroker(&broker)
+	normaliseBroker(&broker)
 	if err := validateBroker(broker); err != nil {
 		return err
 	}
@@ -273,12 +273,18 @@ func (s *MQTTService) DeleteSubscription(ctx context.Context, id int) error {
 // Validation
 // ============================================================================
 
-// normaliseEmbeddedBroker drops any host and port given for the embedded
-// broker. The hub reaches it in-process, so it has no address.
-func normaliseEmbeddedBroker(broker *gen.MQTTBroker) {
+// normaliseBroker drops any host, port and TLS settings given for the
+// embedded broker. The hub reaches it in-process, so it has no address and no
+// connection to secure. An external broker's blank CA means none.
+func normaliseBroker(broker *gen.MQTTBroker) {
 	if broker.Type == "embedded" {
 		broker.Host = nil
 		broker.Port = nil
+		broker.Tls = nil
+		broker.CaCertPem = nil
+	}
+	if !brokerCAGiven(broker.CaCertPem) {
+		broker.CaCertPem = nil
 	}
 }
 
@@ -297,6 +303,11 @@ func validateBroker(broker gen.MQTTBroker) error {
 	}
 	if broker.Port == nil || *broker.Port <= 0 || *broker.Port > 65535 {
 		return fmt.Errorf("broker port must be between 1 and 65535")
+	}
+	if broker.CaCertPem != nil {
+		if _, err := ParseBrokerCA(*broker.CaCertPem); err != nil {
+			return err
+		}
 	}
 	return nil
 }

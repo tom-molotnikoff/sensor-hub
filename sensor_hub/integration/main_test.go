@@ -71,3 +71,5 @@ func TestMain(m *testing.M) {
 func ptrStr(s string) *string { return &s }
 
 func ptrInt(i int) *int { return &i }
+
+func ptrBool(b bool) *bool { return &b }

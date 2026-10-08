@@ -1794,12 +1794,13 @@ export interface components {
             readonly password_status?: "unset" | "set" | "needs_reentry";
             /** @description Optional MQTT client ID. Auto-generated as "sensor-hub-{brokerID}" if omitted. */
             client_id?: string;
-            /** @description Path to CA certificate for TLS. */
-            ca_cert_path?: string;
-            /** @description Path to client certificate for mutual TLS. */
-            client_cert_path?: string;
-            /** @description Path to client private key for mutual TLS. */
-            client_key_path?: string;
+            /**
+             * @description Whether the hub connects to the broker over TLS, verifying the broker's certificate and that it was issued for the broker's host. The connection fails on any verification error. Off connects over plain TCP, unencrypted. Ignored for the embedded broker.
+             * @default false
+             */
+            tls: boolean;
+            /** @description The CA certificate, or certificates, the broker's certificate is verified against, as PEM content. Set, it is the only CA trusted; omitted or empty, the system's trusted roots are used. A value that holds no PEM certificate is refused. Ignored for the embedded broker. */
+            ca_cert_pem?: string;
             /** @description Whether the broker connection is active. */
             enabled: boolean;
             /** Format: date-time */

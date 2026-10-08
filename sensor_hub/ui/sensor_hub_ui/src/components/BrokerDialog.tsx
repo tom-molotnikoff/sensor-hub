@@ -17,6 +17,8 @@ type BrokerPayload = {
   username?: string;
   password?: string;
   client_id?: string;
+  tls?: boolean;
+  ca_cert_pem?: string;
   enabled: boolean;
 };
 
@@ -41,6 +43,8 @@ export default function BrokerDialog({ open, onClose, onSaved, broker }: Props) 
   const [password, setPassword] = useState('');
   const [clearPassword, setClearPassword] = useState(false);
   const [clientId, setClientId] = useState('');
+  const [tls, setTls] = useState(false);
+  const [caCert, setCaCert] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [error, setError] = useState('');
 
@@ -57,6 +61,8 @@ export default function BrokerDialog({ open, onClose, onSaved, broker }: Props) 
       setPassword('');
       setClearPassword(false);
       setClientId(broker?.client_id ?? '');
+      setTls(broker?.tls ?? false);
+      setCaCert(broker?.ca_cert_pem ?? '');
       setEnabled(broker?.enabled ?? true);
       setError('');
     }
@@ -74,7 +80,8 @@ export default function BrokerDialog({ open, onClose, onSaved, broker }: Props) 
     setError('');
     const payload: BrokerPayload = {
       name, type, enabled,
-      ...(type !== 'embedded' && { host, port }),
+      ...(type !== 'embedded' && { host, port, tls }),
+      ...(type !== 'embedded' && tls && caCert.trim() && { ca_cert_pem: caCert }),
       ...(username && { username }),
       ...passwordField(),
       ...(clientId && { client_id: clientId }),
@@ -114,6 +121,26 @@ export default function BrokerDialog({ open, onClose, onSaved, broker }: Props) 
           <TextField fullWidth label="Host" value={type === 'embedded' ? 'localhost' : host} onChange={e => setHost(e.target.value)}
             disabled={type === 'embedded'} helperText={type === 'embedded' ? 'Embedded brokers always use localhost' : ''} />
           <TextField fullWidth label="Port" type="number" value={port} onChange={e => setPort(Number(e.target.value))} />
+          {type !== 'embedded' && (
+            <FormControlLabel
+              control={<Switch checked={tls} onChange={e => setTls(e.target.checked)} />}
+              label="TLS, verifying the broker's certificate"
+            />
+          )}
+          {type !== 'embedded' && tls && (
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              maxRows={10}
+              label="CA certificate"
+              value={caCert}
+              onChange={e => setCaCert(e.target.value)}
+              placeholder={'-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'}
+              helperText="Optional. Paste the PEM of the CA that signed the broker's certificate, such as a self-signed one. Left empty, the system's trusted CAs are used."
+              slotProps={{ htmlInput: { style: { fontFamily: 'monospace' } } }}
+            />
+          )}
           <TextField fullWidth label="Username" value={username} onChange={e => setUsername(e.target.value)} />
           <TextField
             fullWidth

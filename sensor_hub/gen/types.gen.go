@@ -1204,18 +1204,12 @@ type LoginResponse struct {
 
 // MQTTBroker An MQTT broker connection configuration.
 type MQTTBroker struct {
-	// CaCertPath Path to CA certificate for TLS.
-	CaCertPath *string `json:"ca_cert_path,omitempty"`
-
-	// ClientCertPath Path to client certificate for mutual TLS.
-	ClientCertPath *string `json:"client_cert_path,omitempty"`
+	// CaCertPem The CA certificate, or certificates, the broker's certificate is verified against, as PEM content. Set, it is the only CA trusted; omitted or empty, the system's trusted roots are used. A value that holds no PEM certificate is refused. Ignored for the embedded broker.
+	CaCertPem *string `json:"ca_cert_pem,omitempty"`
 
 	// ClientId Optional MQTT client ID. Auto-generated as "sensor-hub-{brokerID}" if omitted.
-	ClientId *string `json:"client_id,omitempty"`
-
-	// ClientKeyPath Path to client private key for mutual TLS.
-	ClientKeyPath *string    `json:"client_key_path,omitempty"`
-	CreatedAt     *time.Time `json:"created_at,omitempty"`
+	ClientId  *string    `json:"client_id,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
 
 	// Enabled Whether the broker connection is active.
 	Enabled bool `json:"enabled"`
@@ -1235,6 +1229,9 @@ type MQTTBroker struct {
 
 	// Port Broker port number. Required for an external broker and omitted for the embedded broker.
 	Port *int `json:"port,omitempty"`
+
+	// Tls Whether the hub connects to the broker over TLS, verifying the broker's certificate and that it was issued for the broker's host. The connection fails on any verification error. Off connects over plain TCP, unencrypted. Ignored for the embedded broker.
+	Tls *bool `json:"tls,omitempty"`
 
 	// Type Broker type (e.g. "mosquitto", "emqx").
 	Type      string     `json:"type"`

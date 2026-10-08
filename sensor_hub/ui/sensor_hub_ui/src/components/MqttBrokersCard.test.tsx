@@ -32,10 +32,13 @@ const broker: MQTTBroker = {
   username: 'hub',
   client_id: 'sensor-hub-home',
   password_status: 'set',
+  tls: false,
   enabled: true,
   created_at: '2026-10-08T12:00:00Z',
   updated_at: '2026-10-08T12:00:00Z',
 };
+
+const caPEM = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n';
 
 async function openRowMenu() {
   render(<MqttBrokersCard />);
@@ -107,5 +110,39 @@ describe('MqttBrokersCard', () => {
 
     expect(within(dialog).queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText('Password')).not.toHaveAttribute('placeholder', 'unchanged');
+  });
+
+  it('shows a broker reached without TLS as unencrypted, and one over TLS as TLS', async () => {
+    getMock.mockResolvedValue({
+      data: [broker, { ...broker, id: 4, name: 'cloud', host: 'mqtt.example.com', port: 8883, tls: true }],
+    });
+    render(<MqttBrokersCard />);
+
+    const row = (name: string) => screen.getByText(name).closest('[data-ui=data-table-row]');
+    await screen.findByText('home');
+    expect(row('home')).toHaveTextContent('Unencrypted');
+    expect(row('cloud')).toHaveTextContent('TLS');
+    expect(row('cloud')).not.toHaveTextContent('Unencrypted');
+  });
+
+  it('turns TLS on with a pasted CA certificate', async () => {
+    const dialog = await openEditDialog();
+    expect(within(dialog).queryByLabelText('CA certificate')).not.toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('switch', { name: /TLS/ }));
+    fireEvent.change(within(dialog).getByLabelText('CA certificate'), { target: { value: caPEM } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(putMock).toHaveBeenCalled());
+    expect(sentBody()).toMatchObject({ tls: true, ca_cert_pem: caPEM });
+  });
+
+  it('keeps TLS and the CA certificate when a broker is toggled', async () => {
+    getMock.mockResolvedValue({ data: [{ ...broker, tls: true, ca_cert_pem: caPEM }] });
+    await openRowMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Disable' }));
+
+    await waitFor(() => expect(putMock).toHaveBeenCalled());
+    expect(sentBody()).toMatchObject({ tls: true, ca_cert_pem: caPEM, enabled: false });
   });
 });

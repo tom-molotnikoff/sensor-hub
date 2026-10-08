@@ -165,6 +165,13 @@ Keep a copy of the key. Without it the stored secrets cannot be decrypted and ha
 printf '%s\n' "$BROKER_PASSWORD" | sensor-hub mqtt brokers create --name home --host mqtt.home.lan --username hub --password-stdin
 ```
 
+`--tls` makes the hub connect over TLS, verifying the broker's certificate against the system's trusted CAs, and `--ca-cert-file` names a PEM file holding the only CA to trust instead. The file's content is sent, not its path. `--ca-cert-file` needs `--tls`. [TLS to outbound MQTT brokers](configuration#tls-to-outbound-mqtt-brokers) says when to use them.
+
+```bash
+printf '%s\n' "$BROKER_PASSWORD" | sensor-hub mqtt brokers create --name cloud --host mqtt.example.com --port 8883 \
+  --tls --ca-cert-file home-ca.pem --username hub --password-stdin
+```
+
 In the JSON given to `mqtt brokers update --file`, leaving `password` out or setting it to `"****"` keeps the stored password, a new value replaces it, and `""` removes it. `mqtt brokers enable` and `disable` write the broker back without a password, so its password is kept.
 
 ## Users

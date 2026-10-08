@@ -36,12 +36,12 @@ func (r *MQTTBrokerRepository) Add(ctx context.Context, broker gen.MQTTBroker) (
 		}
 	}
 	query := `INSERT INTO mqtt_brokers (name, type, host, port, username, client_id,
-		ca_cert_path, client_cert_path, client_key_path, enabled)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		tls, ca_cert_pem, enabled)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	result, err := r.db.Writer.ExecContext(ctx, query,
 		broker.Name, broker.Type, nullStringPtr(broker.Host), broker.Port,
 		nullStringPtr(broker.Username), nullStringPtr(broker.ClientId),
-		nullStringPtr(broker.CaCertPath), nullStringPtr(broker.ClientCertPath), nullStringPtr(broker.ClientKeyPath),
+		brokerTLS(broker), nullStringPtr(broker.CaCertPem),
 		broker.Enabled,
 	)
 	if err != nil {
@@ -56,7 +56,7 @@ func (r *MQTTBrokerRepository) Add(ctx context.Context, broker gen.MQTTBroker) (
 
 func (r *MQTTBrokerRepository) GetByID(ctx context.Context, id int) (*gen.MQTTBroker, error) {
 	query := `SELECT id, name, type, host, port, username, client_id,
-		ca_cert_path, client_cert_path, client_key_path, enabled, created_at, updated_at
+		tls, ca_cert_pem, enabled, created_at, updated_at
 		FROM mqtt_brokers WHERE id = ?`
 	broker, err := scanBrokerRow(r.db.Reader.QueryRowContext(ctx, query, id))
 	if err != nil {
@@ -70,7 +70,7 @@ func (r *MQTTBrokerRepository) GetByID(ctx context.Context, id int) (*gen.MQTTBr
 
 func (r *MQTTBrokerRepository) GetByName(ctx context.Context, name string) (*gen.MQTTBroker, error) {
 	query := `SELECT id, name, type, host, port, username, client_id,
-		ca_cert_path, client_cert_path, client_key_path, enabled, created_at, updated_at
+		tls, ca_cert_pem, enabled, created_at, updated_at
 		FROM mqtt_brokers WHERE LOWER(name) = LOWER(?)`
 	broker, err := scanBrokerRow(r.db.Reader.QueryRowContext(ctx, query, name))
 	if err != nil {
@@ -84,7 +84,7 @@ func (r *MQTTBrokerRepository) GetByName(ctx context.Context, name string) (*gen
 
 func (r *MQTTBrokerRepository) GetAll(ctx context.Context) ([]gen.MQTTBroker, error) {
 	query := `SELECT id, name, type, host, port, username, client_id,
-		ca_cert_path, client_cert_path, client_key_path, enabled, created_at, updated_at
+		tls, ca_cert_pem, enabled, created_at, updated_at
 		FROM mqtt_brokers ORDER BY name`
 	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
@@ -109,12 +109,12 @@ func (r *MQTTBrokerRepository) GetAll(ctx context.Context) ([]gen.MQTTBroker, er
 func (r *MQTTBrokerRepository) Update(ctx context.Context, broker gen.MQTTBroker) error {
 	query := `UPDATE mqtt_brokers SET name = ?, type = ?, host = ?, port = ?,
 		username = ?, client_id = ?,
-		ca_cert_path = ?, client_cert_path = ?, client_key_path = ?,
+		tls = ?, ca_cert_pem = ?,
 		enabled = ?, updated_at = datetime('now') WHERE id = ?`
 	result, err := r.db.Writer.ExecContext(ctx, query,
 		broker.Name, broker.Type, nullStringPtr(broker.Host), broker.Port,
 		nullStringPtr(broker.Username), nullStringPtr(broker.ClientId),
-		nullStringPtr(broker.CaCertPath), nullStringPtr(broker.ClientCertPath), nullStringPtr(broker.ClientKeyPath),
+		brokerTLS(broker), nullStringPtr(broker.CaCertPem),
 		broker.Enabled, *broker.Id,
 	)
 	if err != nil {
@@ -160,7 +160,7 @@ func (r *MQTTBrokerRepository) Delete(ctx context.Context, id int) error {
 
 func (r *MQTTBrokerRepository) GetEnabled(ctx context.Context) ([]gen.MQTTBroker, error) {
 	query := `SELECT id, name, type, host, port, username, client_id,
-		ca_cert_path, client_cert_path, client_key_path, enabled, created_at, updated_at
+		tls, ca_cert_pem, enabled, created_at, updated_at
 		FROM mqtt_brokers WHERE enabled = 1 ORDER BY name`
 	rows, err := r.db.Reader.QueryContext(ctx, query)
 	if err != nil {
@@ -180,6 +180,11 @@ func (r *MQTTBrokerRepository) GetEnabled(ctx context.Context) ([]gen.MQTTBroker
 		return nil, fmt.Errorf("error iterating over MQTT broker rows: %w", err)
 	}
 	return brokers, nil
+}
+
+// brokerTLS reads the broker's TLS switch, which is off when omitted.
+func brokerTLS(broker gen.MQTTBroker) bool {
+	return broker.Tls != nil && *broker.Tls
 }
 
 // nullString converts an empty string to a sql.NullString for nullable TEXT columns.
@@ -203,12 +208,13 @@ func scanBrokerRow(row scannable) (gen.MQTTBroker, error) {
 	var id int
 	var host, username, clientId sql.NullString
 	var port sql.NullInt64
-	var caCert, clientCert, clientKey sql.NullString
+	var tls bool
+	var caCert sql.NullString
 	var createdAt, updatedAt NullSQLiteTime
 	err := row.Scan(
 		&id, &b.Name, &b.Type, &host, &port,
 		&username, &clientId,
-		&caCert, &clientCert, &clientKey,
+		&tls, &caCert,
 		&b.Enabled, &createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -225,14 +231,9 @@ func scanBrokerRow(row scannable) (gen.MQTTBroker, error) {
 	if clientId.Valid {
 		b.ClientId = &clientId.String
 	}
+	b.Tls = &tls
 	if caCert.Valid {
-		b.CaCertPath = &caCert.String
-	}
-	if clientCert.Valid {
-		b.ClientCertPath = &clientCert.String
-	}
-	if clientKey.Valid {
-		b.ClientKeyPath = &clientKey.String
+		b.CaCertPem = &caCert.String
 	}
 	if createdAt.Valid {
 		b.CreatedAt = &createdAt.Time

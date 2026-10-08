@@ -9,6 +9,13 @@ import { logger } from '../tools/logger';
 import Card from '../ui/Card';
 import DataTable from '../ui/DataTable';
 
+// How the hub reaches the broker. The embedded broker is in-process, so its
+// traffic never crosses a network; an external one is either over TLS or not.
+function connectionOf(broker: MQTTBroker): string {
+  if (broker.type === 'embedded') return 'In-process';
+  return broker.tls ? 'TLS' : 'Unencrypted';
+}
+
 export default function MqttBrokersCard() {
   const [brokers, setBrokers] = useState<MQTTBroker[]>([]);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -75,9 +82,19 @@ export default function MqttBrokersCard() {
           columns={[
             { field: 'id', headerName: 'ID', width: 60, compact: 'hidden' },
             { field: 'name', headerName: 'Name', flex: 1, minWidth: 140, compact: 'title' },
-            { field: 'type', headerName: 'Type', width: 100, compact: 'meta' },
+            { field: 'type', headerName: 'Type', width: 100, compact: 'hidden' },
             { field: 'host', headerName: 'Host', flex: 1, minWidth: 140, compact: 'meta' },
             { field: 'port', headerName: 'Port', width: 80, compact: 'hidden' },
+            {
+              field: 'tls',
+              headerName: 'Connection',
+              width: 130,
+              compact: 'meta',
+              valueGetter: (_value: unknown, row: MQTTBroker) => connectionOf(row),
+              renderCell: ({ value }) => (value === 'Unencrypted'
+                ? <Chip label={value} color="warning" variant="outlined" size="small" />
+                : value),
+            },
             {
               field: 'enabled',
               headerName: 'Status',
