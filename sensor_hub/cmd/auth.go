@@ -10,8 +10,9 @@ import (
 )
 
 var authCmd = &cobra.Command{
-	Use:   "auth",
-	Short: "Authentication commands",
+	Use:     "auth",
+	GroupID: hubGroupID,
+	Short:   "Authentication commands",
 }
 
 func init() {

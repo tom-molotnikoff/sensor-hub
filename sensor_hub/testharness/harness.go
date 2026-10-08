@@ -4,6 +4,7 @@ package testharness
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -23,6 +24,7 @@ import (
 	"example/sensorHub/automation"
 	database "example/sensorHub/db"
 	_ "example/sensorHub/drivers" // register sensor drivers
+	gen "example/sensorHub/gen"
 	mqttpkg "example/sensorHub/mqtt"
 	"example/sensorHub/notifications"
 	"example/sensorHub/readings"
@@ -150,7 +152,7 @@ func (e *Env) boot(listenAddr string) error {
 		return fmt.Errorf("failed to initialise database: %w", err)
 	}
 
-	// Build the full service graph, mirroring cmd/serve.go
+	// Build the full service graph, mirroring cmd/local_serve.go
 	sensorRepo := database.NewSensorRepository(db, logger)
 	mtRepo := database.NewMeasurementTypeRepository(db, logger)
 	readingsRepo := database.NewReadingsRepository(db, sensorRepo, mtRepo, logger)
@@ -256,7 +258,7 @@ func (e *Env) boot(listenAddr string) error {
 	srv := &http.Server{Handler: router}
 	go srv.Serve(listener)
 
-	// Mirror cmd/serve.go: watch for external config edits and broadcast
+	// Mirror cmd/local_serve.go: watch for external config edits and broadcast
 	// reloads to properties websocket subscribers.
 	watcherCtx, stopWatcher := context.WithCancel(context.Background())
 	appProps.WatchConfigFiles(watcherCtx, func() {
@@ -281,7 +283,14 @@ func (e *Env) boot(listenAddr string) error {
 	e.WSCapture = wsCapture
 	e.EmailCapture = emailCapture
 
-	if err := authService.CreateInitialAdminIfNone(context.Background(), DefaultAdminUser, DefaultAdminPass); err != nil {
+	adminHash, err := service.HashFirstAdminPassword(DefaultAdminPass)
+	if err != nil {
+		e.stop()
+		return fmt.Errorf("failed to hash admin password: %w", err)
+	}
+	admin := gen.User{Username: DefaultAdminUser, MustChangePassword: true}
+	_, err = userRepo.CreateFirstAdmin(context.Background(), admin, adminHash)
+	if err != nil && !errors.Is(err, database.ErrAdminExists) {
 		e.stop()
 		return fmt.Errorf("failed to create admin user: %w", err)
 	}
@@ -291,7 +300,7 @@ func (e *Env) boot(listenAddr string) error {
 		return fmt.Errorf("failed to start mqtt connection manager: %w", err)
 	}
 
-	// As in cmd/serve.go, automations start once MQTT is connected, so a run
+	// As in cmd/local_serve.go, automations start once MQTT is connected, so a run
 	// resumed on startup can send its commands.
 	if err := automationService.Start(automationCtx); err != nil {
 		e.stop()

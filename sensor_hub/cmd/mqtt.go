@@ -11,8 +11,9 @@ import (
 )
 
 var mqttCmd = &cobra.Command{
-	Use:   "mqtt",
-	Short: "Manage MQTT brokers, subscriptions, and view stats",
+	Use:     "mqtt",
+	GroupID: hubGroupID,
+	Short:   "Manage MQTT brokers, subscriptions, and view stats",
 }
 
 // ----------------------------------------------------------------------------

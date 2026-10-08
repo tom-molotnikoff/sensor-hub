@@ -10,8 +10,9 @@ import (
 )
 
 var skillsCmd = &cobra.Command{
-	Use:   "skills",
-	Short: "Manage LLM skill files for AI assistant integration",
+	Use:     "skills",
+	GroupID: hubGroupID,
+	Short:   "Manage LLM skill files for AI assistant integration",
 }
 
 var skillsShowCmd = &cobra.Command{

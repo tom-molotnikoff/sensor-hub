@@ -31,13 +31,22 @@ Additional files in `/etc/sensor-hub/`:
 
 ## CLI flags
 
-The `sensor-hub` binary accepts the following flags:
+The commands under `sensor-hub local` act on this machine's install and read its configuration directory. See [Local commands](cli-tool#local-commands) for each one.
 
-| Flag             | Default                              | Description                         |
-|------------------|--------------------------------------|-------------------------------------|
-| `--config-dir`   | `/etc/sensor-hub`                    | Path to the configuration directory |
-| `--log-file`     | `/var/log/sensor-hub/sensor-hub.log` | Path to the log file                |
-| `--version`      | —                                    | Print version and exit              |
+| Command | What it does |
+|---|---|
+| `local serve` | Run the server |
+| `local admin create <username>` | Create the first admin user |
+| `local db backup <path>` | Write a consistent copy of the live database to a new file |
+
+They accept the following flags:
+
+| Flag           | Applies to            | Default           | Description |
+|----------------|-----------------------|-------------------|-------------|
+| `--config-dir` | every `local` command | `/etc/sensor-hub` | Path to the configuration directory. It must hold `application.properties` and `database.properties` |
+| `--log-file`   | `local serve`         | stdout            | Path to the log file. The packaged systemd unit sets `/var/log/sensor-hub/sensor-hub.log` |
+
+`sensor-hub --version` prints the version and exits.
 
 These flags are useful for running sensor-hub outside the standard package layout (e.g., during development).
 
@@ -87,5 +96,4 @@ Environment variables are defined in `/etc/sensor-hub/environment` and loaded by
 
 | Variable                    | Description                                                                            |
 |-----------------------------|----------------------------------------------------------------------------------------|
-| `SENSOR_HUB_INITIAL_ADMIN`  | Creates an initial admin user on first startup; format is `username:password`          |
 | `SENSOR_HUB_ALLOWED_ORIGIN` | The allowed CORS origin for the web UI (e.g., `https://sensor-hub.example.com`)        |

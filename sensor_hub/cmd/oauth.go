@@ -7,8 +7,9 @@ import (
 )
 
 var oauthCmd = &cobra.Command{
-	Use:   "oauth",
-	Short: "OAuth configuration commands",
+	Use:     "oauth",
+	GroupID: hubGroupID,
+	Short:   "OAuth configuration commands",
 }
 
 func init() {

@@ -12,8 +12,9 @@ import (
 )
 
 var automationsCmd = &cobra.Command{
-	Use:   "automations",
-	Short: "Manage automations",
+	Use:     "automations",
+	GroupID: hubGroupID,
+	Short:   "Manage automations",
 	Long: "Manage automations: triggers (a time of day, an interval, a sensor reading) followed by\n" +
 		"set and wait steps that the hub runs. Run \"sensor-hub automations create --help\" for the JSON shape.",
 }

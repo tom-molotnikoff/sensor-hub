@@ -10,8 +10,9 @@ import (
 )
 
 var measurementTypesCmd = &cobra.Command{
-	Use:   "measurement-types",
-	Short: "Query measurement types",
+	Use:     "measurement-types",
+	GroupID: hubGroupID,
+	Short:   "Query measurement types",
 }
 
 func init() {

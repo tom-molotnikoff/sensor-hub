@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=sensor-hub
 Group=sensor-hub
-ExecStart=/usr/bin/sensor-hub serve --config-dir=/etc/sensor-hub --log-file=/var/log/sensor-hub/sensor-hub.log
+ExecStart=/usr/bin/sensor-hub local serve --config-dir=/etc/sensor-hub --log-file=/var/log/sensor-hub/sensor-hub.log
 WorkingDirectory=/var/lib/sensor-hub
 Restart=on-failure
 RestartSec=5

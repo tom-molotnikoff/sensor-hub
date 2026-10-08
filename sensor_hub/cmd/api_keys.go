@@ -11,8 +11,9 @@ import (
 )
 
 var apiKeysCmd = &cobra.Command{
-	Use:   "api-keys",
-	Short: "Manage API keys",
+	Use:     "api-keys",
+	GroupID: hubGroupID,
+	Short:   "Manage API keys",
 }
 
 func init() {

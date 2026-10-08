@@ -14,8 +14,9 @@ import (
 )
 
 var sensorsCmd = &cobra.Command{
-	Use:   "sensors",
-	Short: "Manage sensors",
+	Use:     "sensors",
+	GroupID: hubGroupID,
+	Short:   "Manage sensors",
 }
 
 func init() {

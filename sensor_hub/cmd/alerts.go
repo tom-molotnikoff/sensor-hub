@@ -10,8 +10,9 @@ import (
 )
 
 var alertsCmd = &cobra.Command{
-	Use:   "alerts",
-	Short: "Manage alert rules",
+	Use:     "alerts",
+	GroupID: hubGroupID,
+	Short:   "Manage alert rules",
 }
 
 func init() {

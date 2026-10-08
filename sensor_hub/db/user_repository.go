@@ -37,6 +37,50 @@ func (r *SqlUserRepository) CreateUser(ctx context.Context, user gen.User, passw
 	return int(id), nil
 }
 
+var ErrAdminExists = errors.New("an admin already exists")
+
+func (r *SqlUserRepository) CreateFirstAdmin(ctx context.Context, user gen.User, passwordHash string) (int, error) {
+	tx, err := r.db.Writer.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var adminExists bool
+	err = tx.QueryRowContext(ctx,
+		"SELECT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE LOWER(r.name) = 'admin')",
+	).Scan(&adminExists)
+	if err != nil {
+		return 0, fmt.Errorf("error checking for an existing admin: %w", err)
+	}
+	if adminExists {
+		return 0, ErrAdminExists
+	}
+
+	res, err := tx.ExecContext(ctx,
+		"INSERT INTO users (username, email, password_hash, must_change_password, disabled, created_at) VALUES (?, ?, ?, ?, 0, ?)",
+		user.Username, user.Email, passwordHash, user.MustChangePassword, time.Now())
+	if err != nil {
+		return 0, fmt.Errorf("error creating user: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("error fetching last insert id: %w", err)
+	}
+	res, err = tx.ExecContext(ctx,
+		"INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE LOWER(name) = 'admin'", id)
+	if err != nil {
+		return 0, fmt.Errorf("error assigning admin role: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		return 0, fmt.Errorf("error assigning admin role: no admin role found")
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("error committing create admin transaction: %w", err)
+	}
+	return int(id), nil
+}
+
 func (r *SqlUserRepository) GetUserByUsername(ctx context.Context, username string) (*gen.User, string, error) {
 	query := "SELECT id, username, email, must_change_password, disabled, created_at, updated_at, password_hash FROM users WHERE LOWER(username) = LOWER(?)"
 	var user gen.User

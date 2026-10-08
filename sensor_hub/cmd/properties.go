@@ -7,8 +7,9 @@ import (
 )
 
 var propertiesCmd = &cobra.Command{
-	Use:   "properties",
-	Short: "Manage application properties",
+	Use:     "properties",
+	GroupID: hubGroupID,
+	Short:   "Manage application properties",
 }
 
 func init() {

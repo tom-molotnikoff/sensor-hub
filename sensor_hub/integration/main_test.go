@@ -61,6 +61,7 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	cleanupSharedZigbee2MQTTBridgeBroker()
+	cleanupSensorHubBinary()
 	cleanupServer()
 	cleanupContainers()
 	os.Exit(code)

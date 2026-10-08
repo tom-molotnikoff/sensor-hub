@@ -17,7 +17,7 @@ Each user account has:
 - One or more roles
 - An optional "must change password" flag
 
-The initial admin user is created on first startup using the `SENSOR_HUB_INITIAL_ADMIN` environment variable (see [Installation](installation)). Additional users are created through the User Management page in the web UI or via the API.
+The first admin user is created on the server with `sensor-hub local admin create` (see [Installation](installation#create-the-first-admin-user)). Additional users are created through the User Management page in the web UI or via the API.
 
 User accounts can be disabled without deletion. A disabled user cannot log in but their data is retained.
 

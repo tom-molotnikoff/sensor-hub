@@ -10,8 +10,9 @@ import (
 )
 
 var notificationsCmd = &cobra.Command{
-	Use:   "notifications",
-	Short: "Manage notifications",
+	Use:     "notifications",
+	GroupID: hubGroupID,
+	Short:   "Manage notifications",
 }
 
 func init() {

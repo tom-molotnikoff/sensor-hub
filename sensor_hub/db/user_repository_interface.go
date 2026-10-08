@@ -8,6 +8,7 @@ import (
 
 type UserRepository interface {
 	CreateUser(ctx context.Context, user gen.User, passwordHash string) (int, error)
+	CreateFirstAdmin(ctx context.Context, user gen.User, passwordHash string) (int, error)
 	GetUserByUsername(ctx context.Context, username string) (*gen.User, string, error) // returns user and passwordHash
 	GetUserById(ctx context.Context, id int) (*gen.User, error)
 	ListUsers(ctx context.Context) ([]gen.User, error)

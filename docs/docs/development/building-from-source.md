@@ -27,7 +27,7 @@ The `sensor-hub` binary embeds the UI static assets from `web/dist/`.
 ## Run Locally
 
 ```bash
-./sensor-hub --config-dir=configuration
+./sensor-hub local serve --config-dir=configuration
 ```
 
 The binary serves on **port 8080** by default.

@@ -10,8 +10,9 @@ import (
 )
 
 var usersCmd = &cobra.Command{
-	Use:   "users",
-	Short: "Manage users",
+	Use:     "users",
+	GroupID: hubGroupID,
+	Short:   "Manage users",
 }
 
 func init() {

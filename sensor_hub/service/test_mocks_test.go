@@ -40,6 +40,11 @@ func (m *MockUserRepository) CreateUser(ctx context.Context, user gen.User, pass
 	return args.Int(0), args.Error(1)
 }
 
+func (m *MockUserRepository) CreateFirstAdmin(ctx context.Context, user gen.User, passwordHash string) (int, error) {
+	args := m.Called(ctx, user, passwordHash)
+	return args.Int(0), args.Error(1)
+}
+
 func (m *MockUserRepository) ListUsers(ctx context.Context) ([]gen.User, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]gen.User), args.Error(1)
