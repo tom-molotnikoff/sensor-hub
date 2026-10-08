@@ -1,8 +1,11 @@
 package api
 
 import (
+	"errors"
 	appProps "example/sensorHub/application_properties"
+	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/service"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -184,4 +187,31 @@ func (s *Server) SetUserRoles(c *gin.Context, id int) {
 		return
 	}
 	c.Status(http.StatusOK)
+}
+
+func (s *Server) SetUserDisabled(c *gin.Context, id int) {
+	var req gen.SetUserDisabledJSONRequestBody
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		return
+	}
+	currentUser := c.MustGet("currentUser").(*gen.User)
+
+	err := s.userService.SetUserDisabled(c.Request.Context(), currentUser.Id, id, req.Disabled)
+	switch {
+	case err == nil:
+		message := "user enabled"
+		if req.Disabled {
+			message = "user disabled"
+		}
+		c.JSON(http.StatusOK, gin.H{"message": message})
+	case errors.Is(err, service.ErrCannotDisableSelf):
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+	case errors.Is(err, database.ErrUserNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"message": err.Error()})
+	case errors.Is(err, database.ErrLastEnabledAdmin):
+		c.JSON(http.StatusConflict, gin.H{"message": err.Error()})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to update user", "error": err.Error()})
+	}
 }

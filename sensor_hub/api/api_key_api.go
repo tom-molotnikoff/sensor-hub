@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 	"net/http"
 
@@ -56,8 +58,8 @@ func (s *Server) UpdateApiKeyExpiry(c *gin.Context, id int) {
 	ctx := c.Request.Context()
 	user := c.MustGet("currentUser").(*gen.User)
 
-	if err := s.apiKeyService.UpdateApiKeyExpiry(ctx, id, user.Id, req.ExpiresAt); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to update expiry", "error": err.Error()})
+	if err := s.apiKeyService.UpdateApiKeyExpiry(ctx, id, user, req.ExpiresAt); err != nil {
+		respondApiKeyError(c, err, "failed to update expiry")
 		return
 	}
 
@@ -68,8 +70,8 @@ func (s *Server) RevokeApiKey(c *gin.Context, id int) {
 	ctx := c.Request.Context()
 	user := c.MustGet("currentUser").(*gen.User)
 
-	if err := s.apiKeyService.RevokeApiKey(ctx, id, user.Id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to revoke api key", "error": err.Error()})
+	if err := s.apiKeyService.RevokeApiKey(ctx, id, user); err != nil {
+		respondApiKeyError(c, err, "failed to revoke api key")
 		return
 	}
 
@@ -80,10 +82,20 @@ func (s *Server) DeleteApiKey(c *gin.Context, id int) {
 	ctx := c.Request.Context()
 	user := c.MustGet("currentUser").(*gen.User)
 
-	if err := s.apiKeyService.DeleteApiKey(ctx, id, user.Id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to delete api key", "error": err.Error()})
+	if err := s.apiKeyService.DeleteApiKey(ctx, id, user); err != nil {
+		respondApiKeyError(c, err, "failed to delete api key")
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "api key deleted"})
+}
+
+// respondApiKeyError answers 404 for a key the caller may not touch, exactly
+// as for one that does not exist, so another user's key ids are not revealed.
+func respondApiKeyError(c *gin.Context, err error, message string) {
+	if errors.Is(err, database.ErrApiKeyNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"message": "api key not found"})
+		return
+	}
+	c.JSON(http.StatusInternalServerError, gin.H{"message": message, "error": err.Error()})
 }

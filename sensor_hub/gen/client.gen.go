@@ -458,6 +458,11 @@ type ClientInterface interface {
 	// DeleteUser request
 	DeleteUser(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SetUserDisabledWithBody request with any body
+	SetUserDisabledWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetUserDisabled(ctx context.Context, id int, body SetUserDisabledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SetMustChangePasswordWithBody request with any body
 	SetMustChangePasswordWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2031,6 +2036,30 @@ func (c *Client) ChangePassword(ctx context.Context, body ChangePasswordJSONRequ
 
 func (c *Client) DeleteUser(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteUserRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetUserDisabledWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetUserDisabledRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetUserDisabled(ctx context.Context, id int, body SetUserDisabledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetUserDisabledRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5920,6 +5949,53 @@ func NewDeleteUserRequest(server string, id int) (*http.Request, error) {
 	return req, nil
 }
 
+// NewSetUserDisabledRequest calls the generic SetUserDisabled builder with application/json body
+func NewSetUserDisabledRequest(server string, id int, body SetUserDisabledJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetUserDisabledRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetUserDisabledRequestWithBody generates requests for SetUserDisabled with any type of body
+func NewSetUserDisabledRequestWithBody(server string, id int, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/users/%s/disabled", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSetMustChangePasswordRequest calls the generic SetMustChangePassword builder with application/json body
 func NewSetMustChangePasswordRequest(server string, id int, body SetMustChangePasswordJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -6424,6 +6500,11 @@ type ClientWithResponsesInterface interface {
 	// DeleteUserWithResponse request
 	DeleteUserWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*DeleteUserResp, error)
 
+	// SetUserDisabledWithBodyWithResponse request with any body
+	SetUserDisabledWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetUserDisabledResp, error)
+
+	SetUserDisabledWithResponse(ctx context.Context, id int, body SetUserDisabledJSONRequestBody, reqEditors ...RequestEditorFn) (*SetUserDisabledResp, error)
+
 	// SetMustChangePasswordWithBodyWithResponse request with any body
 	SetMustChangePasswordWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetMustChangePasswordResp, error)
 
@@ -6656,6 +6737,7 @@ type DeleteApiKeyResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *SuccessMessage
+	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -6679,6 +6761,7 @@ type UpdateApiKeyExpiryResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *SuccessMessage
+	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -6702,6 +6785,7 @@ type RevokeApiKeyResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *SuccessMessage
+	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -8877,6 +8961,32 @@ func (r DeleteUserResp) StatusCode() int {
 	return 0
 }
 
+type SetUserDisabledResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SuccessMessage
+	JSON400      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r SetUserDisabledResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetUserDisabledResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type SetMustChangePasswordResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10076,6 +10186,23 @@ func (c *ClientWithResponses) DeleteUserWithResponse(ctx context.Context, id int
 	return ParseDeleteUserResp(rsp)
 }
 
+// SetUserDisabledWithBodyWithResponse request with arbitrary body returning *SetUserDisabledResp
+func (c *ClientWithResponses) SetUserDisabledWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetUserDisabledResp, error) {
+	rsp, err := c.SetUserDisabledWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetUserDisabledResp(rsp)
+}
+
+func (c *ClientWithResponses) SetUserDisabledWithResponse(ctx context.Context, id int, body SetUserDisabledJSONRequestBody, reqEditors ...RequestEditorFn) (*SetUserDisabledResp, error) {
+	rsp, err := c.SetUserDisabled(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetUserDisabledResp(rsp)
+}
+
 // SetMustChangePasswordWithBodyWithResponse request with arbitrary body returning *SetMustChangePasswordResp
 func (c *ClientWithResponses) SetMustChangePasswordWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetMustChangePasswordResp, error) {
 	rsp, err := c.SetMustChangePasswordWithBody(ctx, id, contentType, body, reqEditors...)
@@ -10474,6 +10601,13 @@ func ParseDeleteApiKeyResp(rsp *http.Response) (*DeleteApiKeyResp, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -10507,6 +10641,13 @@ func ParseUpdateApiKeyExpiryResp(rsp *http.Response) (*UpdateApiKeyExpiryResp, e
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -10539,6 +10680,13 @@ func ParseRevokeApiKeyResp(rsp *http.Response) (*RevokeApiKeyResp, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -13631,6 +13779,60 @@ func ParseDeleteUserResp(rsp *http.Response) (*DeleteUserResp, error) {
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetUserDisabledResp parses an HTTP response from a SetUserDisabledWithResponse call
+func ParseSetUserDisabledResp(rsp *http.Response) (*SetUserDisabledResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetUserDisabledResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SuccessMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

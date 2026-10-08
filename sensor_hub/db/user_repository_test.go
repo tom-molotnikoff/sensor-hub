@@ -384,47 +384,57 @@ func TestUserRepository_UpdatePassword_DBError(t *testing.T) {
 // SetDisabled tests
 // ============================================================================
 
-func TestUserRepository_SetDisabled_Enable(t *testing.T) {
-	db, mock := newMockDB(t)
-	repo := NewUserRepository(handles(db), slog.Default())
+func TestUserRepository_SetDisabled_DisablesAndDeletesSessionsTogether(t *testing.T) {
+	h := newMigratedHandles(t)
+	repo := NewUserRepository(h, slog.Default())
+	insertTestUser(t, h, "admin1", "admin", false)
+	viewer := insertTestUser(t, h, "viewer1", "viewer", false)
+	insertTestSession(t, h, viewer, "viewer-token-1")
+	insertTestSession(t, h, viewer, "viewer-token-2")
 
-	mock.ExpectExec("UPDATE users SET disabled = \\?, updated_at = \\? WHERE id = \\?").
-		WithArgs(false, sqlmock.AnyArg(), 1).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	require.NoError(t, repo.SetDisabled(context.Background(), viewer, true))
 
-	err := repo.SetDisabled(context.Background(), 1, false)
+	user, err := repo.GetUserById(context.Background(), viewer)
+	require.NoError(t, err)
+	assert.True(t, user.Disabled)
+	assert.Equal(t, 0, countSessions(t, h, viewer))
 
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, repo.SetDisabled(context.Background(), viewer, false))
+	user, err = repo.GetUserById(context.Background(), viewer)
+	require.NoError(t, err)
+	assert.False(t, user.Disabled)
 }
 
-func TestUserRepository_SetDisabled_Disable(t *testing.T) {
-	db, mock := newMockDB(t)
-	repo := NewUserRepository(handles(db), slog.Default())
+func TestUserRepository_SetDisabled_RefusesTheLastEnabledAdmin(t *testing.T) {
+	h := newMigratedHandles(t)
+	repo := NewUserRepository(h, slog.Default())
+	admin := insertTestUser(t, h, "admin1", "admin", false)
+	insertTestUser(t, h, "admin2", "admin", true)
+	insertTestSession(t, h, admin, "admin-token")
 
-	mock.ExpectExec("UPDATE users SET disabled = \\?, updated_at = \\? WHERE id = \\?").
-		WithArgs(true, sqlmock.AnyArg(), 1).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	err := repo.SetDisabled(context.Background(), admin, true)
 
-	err := repo.SetDisabled(context.Background(), 1, true)
-
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	assert.ErrorIs(t, err, ErrLastEnabledAdmin)
+	user, err := repo.GetUserById(context.Background(), admin)
+	require.NoError(t, err)
+	assert.False(t, user.Disabled, "a refused disable changes nothing")
+	assert.Equal(t, 1, countSessions(t, h, admin), "a refused disable keeps the sessions")
 }
 
-func TestUserRepository_SetDisabled_DBError(t *testing.T) {
-	db, mock := newMockDB(t)
-	repo := NewUserRepository(handles(db), slog.Default())
+func TestUserRepository_SetDisabled_AllowsAnAdminWhileAnotherIsEnabled(t *testing.T) {
+	h := newMigratedHandles(t)
+	repo := NewUserRepository(h, slog.Default())
+	admin := insertTestUser(t, h, "admin1", "admin", false)
+	insertTestUser(t, h, "admin2", "admin", false)
 
-	mock.ExpectExec("UPDATE users SET disabled = \\?, updated_at = \\? WHERE id = \\?").
-		WithArgs(true, sqlmock.AnyArg(), 1).
-		WillReturnError(errors.New("database error"))
+	require.NoError(t, repo.SetDisabled(context.Background(), admin, true))
+}
 
-	err := repo.SetDisabled(context.Background(), 1, true)
+func TestUserRepository_SetDisabled_UnknownUser(t *testing.T) {
+	h := newMigratedHandles(t)
+	repo := NewUserRepository(h, slog.Default())
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error updating disabled flag")
-	assert.NoError(t, mock.ExpectationsWereMet())
+	assert.ErrorIs(t, repo.SetDisabled(context.Background(), 999, true), ErrUserNotFound)
 }
 
 // ============================================================================

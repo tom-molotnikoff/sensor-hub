@@ -15,9 +15,13 @@ import (
 type ApiKeyServiceInterface interface {
 	CreateApiKey(ctx context.Context, name string, userId int, expiresAt *time.Time) (fullKey string, err error)
 	ListApiKeysForUser(ctx context.Context, userId int) ([]database.ApiKey, error)
-	UpdateApiKeyExpiry(ctx context.Context, keyId int, userId int, expiresAt *time.Time) error
-	RevokeApiKey(ctx context.Context, keyId int, userId int) error
-	DeleteApiKey(ctx context.Context, keyId int, userId int) error
+	// UpdateApiKeyExpiry, RevokeApiKey and DeleteApiKey act on the caller's
+	// own key, or on any key when the caller holds manage_users. They return
+	// database.ErrApiKeyNotFound when the key does not exist or belongs to
+	// another user the caller may not manage.
+	UpdateApiKeyExpiry(ctx context.Context, keyId int, caller *gen.User, expiresAt *time.Time) error
+	RevokeApiKey(ctx context.Context, keyId int, caller *gen.User) error
+	DeleteApiKey(ctx context.Context, keyId int, caller *gen.User) error
 	ValidateApiKey(ctx context.Context, rawKey string) (*gen.User, error)
 }
 
@@ -56,16 +60,26 @@ func (s *ApiKeyService) ListApiKeysForUser(ctx context.Context, userId int) ([]d
 	return s.apiKeyRepo.ListApiKeysForUser(ctx, userId)
 }
 
-func (s *ApiKeyService) UpdateApiKeyExpiry(ctx context.Context, keyId int, userId int, expiresAt *time.Time) error {
-	return s.apiKeyRepo.UpdateApiKeyExpiry(ctx, keyId, expiresAt)
+func (s *ApiKeyService) UpdateApiKeyExpiry(ctx context.Context, keyId int, caller *gen.User, expiresAt *time.Time) error {
+	return s.apiKeyRepo.UpdateApiKeyExpiry(ctx, keyId, apiKeyOwnerScope(caller), expiresAt)
 }
 
-func (s *ApiKeyService) RevokeApiKey(ctx context.Context, keyId int, userId int) error {
-	return s.apiKeyRepo.RevokeApiKey(ctx, keyId)
+func (s *ApiKeyService) RevokeApiKey(ctx context.Context, keyId int, caller *gen.User) error {
+	return s.apiKeyRepo.RevokeApiKey(ctx, keyId, apiKeyOwnerScope(caller))
 }
 
-func (s *ApiKeyService) DeleteApiKey(ctx context.Context, keyId int, userId int) error {
-	return s.apiKeyRepo.DeleteApiKey(ctx, keyId)
+func (s *ApiKeyService) DeleteApiKey(ctx context.Context, keyId int, caller *gen.User) error {
+	return s.apiKeyRepo.DeleteApiKey(ctx, keyId, apiKeyOwnerScope(caller))
+}
+
+// apiKeyOwnerScope is the owner a key operation is restricted to: none for a
+// caller who manages users, otherwise the caller.
+func apiKeyOwnerScope(caller *gen.User) *int {
+	if hasPermission(caller.Permissions, "manage_users") {
+		return nil
+	}
+	id := caller.Id
+	return &id
 }
 
 func (s *ApiKeyService) ValidateApiKey(ctx context.Context, rawKey string) (*gen.User, error) {
@@ -83,7 +97,7 @@ func (s *ApiKeyService) ValidateApiKey(ctx context.Context, rawKey string) (*gen
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up user for api key: %w", err)
 	}
-	if user == nil {
+	if user == nil || user.Disabled {
 		return nil, nil
 	}
 

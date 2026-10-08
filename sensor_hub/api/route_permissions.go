@@ -138,6 +138,7 @@ var routePermissions = map[string][]string{
 	"POST /api/users":                  {"manage_users"},
 	"DELETE /api/users/:id":            {"manage_users"},
 	"PATCH /api/users/:id/must_change": {"manage_users"},
+	"PUT /api/users/:id/disabled":      {"manage_users"},
 	"POST /api/users/:id/roles":        {"manage_users"},
 }
 

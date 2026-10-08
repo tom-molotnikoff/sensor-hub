@@ -30,6 +30,11 @@ func setupApiKeyRouter(method, path string, handler gin.HandlerFunc, userID int)
 	return router
 }
 
+// callerWithID matches the *gen.User the handler passes on as the caller.
+func callerWithID(id int) any {
+	return mock.MatchedBy(func(u *gen.User) bool { return u != nil && u.Id == id })
+}
+
 func withApiKeyID(s *Server, h func(*gin.Context, int)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
@@ -134,7 +139,7 @@ func TestUpdateApiKeyExpiry_Success(t *testing.T) {
 	s := &Server{apiKeyService: mockSvc}
 
 	expires := time.Now().Add(48 * time.Hour)
-	mockSvc.On("UpdateApiKeyExpiry", mock.Anything, 5, 1, mock.AnythingOfType("*time.Time")).Return(nil)
+	mockSvc.On("UpdateApiKeyExpiry", mock.Anything, 5, callerWithID(1), mock.AnythingOfType("*time.Time")).Return(nil)
 
 	body, _ := json.Marshal(map[string]interface{}{"expires_at": expires})
 	router := setupApiKeyRouter("PATCH", "/api-keys/:id/expiry", withApiKeyID(s, s.UpdateApiKeyExpiry), 1)
@@ -165,7 +170,7 @@ func TestUpdateApiKeyExpiry_Error(t *testing.T) {
 	mockSvc := new(MockApiKeyService)
 	s := &Server{apiKeyService: mockSvc}
 
-	mockSvc.On("UpdateApiKeyExpiry", mock.Anything, 5, 1, mock.Anything).Return(errors.New("not found"))
+	mockSvc.On("UpdateApiKeyExpiry", mock.Anything, 5, callerWithID(1), mock.Anything).Return(errors.New("not found"))
 
 	body := []byte(`{"expires_at": null}`)
 	router := setupApiKeyRouter("PATCH", "/api-keys/:id/expiry", withApiKeyID(s, s.UpdateApiKeyExpiry), 1)
@@ -184,7 +189,7 @@ func TestRevokeApiKey_Success(t *testing.T) {
 	mockSvc := new(MockApiKeyService)
 	s := &Server{apiKeyService: mockSvc}
 
-	mockSvc.On("RevokeApiKey", mock.Anything, 3, 1).Return(nil)
+	mockSvc.On("RevokeApiKey", mock.Anything, 3, callerWithID(1)).Return(nil)
 
 	router := setupApiKeyRouter("POST", "/api-keys/:id/revoke", withApiKeyID(s, s.RevokeApiKey), 1)
 	w := httptest.NewRecorder()
@@ -212,7 +217,7 @@ func TestRevokeApiKey_Error(t *testing.T) {
 	mockSvc := new(MockApiKeyService)
 	s := &Server{apiKeyService: mockSvc}
 
-	mockSvc.On("RevokeApiKey", mock.Anything, 3, 1).Return(errors.New("not found"))
+	mockSvc.On("RevokeApiKey", mock.Anything, 3, callerWithID(1)).Return(errors.New("not found"))
 
 	router := setupApiKeyRouter("POST", "/api-keys/:id/revoke", withApiKeyID(s, s.RevokeApiKey), 1)
 	w := httptest.NewRecorder()
@@ -229,7 +234,7 @@ func TestDeleteApiKey_Success(t *testing.T) {
 	mockSvc := new(MockApiKeyService)
 	s := &Server{apiKeyService: mockSvc}
 
-	mockSvc.On("DeleteApiKey", mock.Anything, 7, 1).Return(nil)
+	mockSvc.On("DeleteApiKey", mock.Anything, 7, callerWithID(1)).Return(nil)
 
 	router := setupApiKeyRouter("DELETE", "/api-keys/:id", withApiKeyID(s, s.DeleteApiKey), 1)
 	w := httptest.NewRecorder()
@@ -257,7 +262,7 @@ func TestDeleteApiKey_Error(t *testing.T) {
 	mockSvc := new(MockApiKeyService)
 	s := &Server{apiKeyService: mockSvc}
 
-	mockSvc.On("DeleteApiKey", mock.Anything, 7, 1).Return(errors.New("forbidden"))
+	mockSvc.On("DeleteApiKey", mock.Anything, 7, callerWithID(1)).Return(errors.New("forbidden"))
 
 	router := setupApiKeyRouter("DELETE", "/api-keys/:id", withApiKeyID(s, s.DeleteApiKey), 1)
 	w := httptest.NewRecorder()
@@ -266,4 +271,39 @@ func TestDeleteApiKey_Error(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	mockSvc.AssertExpectations(t)
+}
+
+// --- A key the caller may not touch ---
+
+func TestApiKeyWrites_NotFoundAnswers404(t *testing.T) {
+	cases := []struct {
+		name, op, method, route, target string
+		handler                         func(*Server) func(*gin.Context, int)
+		body                            []byte
+	}{
+		{"expiry", "UpdateApiKeyExpiry", "PATCH", "/api-keys/:id/expiry", "/api/api-keys/9/expiry", func(s *Server) func(*gin.Context, int) { return s.UpdateApiKeyExpiry }, []byte(`{"expires_at": null}`)},
+		{"revoke", "RevokeApiKey", "POST", "/api-keys/:id/revoke", "/api/api-keys/9/revoke", func(s *Server) func(*gin.Context, int) { return s.RevokeApiKey }, nil},
+		{"delete", "DeleteApiKey", "DELETE", "/api-keys/:id", "/api/api-keys/9", func(s *Server) func(*gin.Context, int) { return s.DeleteApiKey }, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockSvc := new(MockApiKeyService)
+			s := &Server{apiKeyService: mockSvc}
+			args := []any{mock.Anything, 9, callerWithID(1)}
+			if tc.op == "UpdateApiKeyExpiry" {
+				args = append(args, mock.Anything)
+			}
+			mockSvc.On(tc.op, args...).Return(db.ErrApiKeyNotFound)
+
+			router := setupApiKeyRouter(tc.method, tc.route, withApiKeyID(s, tc.handler(s)), 1)
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(tc.method, tc.target, bytes.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusNotFound, w.Code)
+			assert.JSONEq(t, `{"message":"api key not found"}`, w.Body.String())
+			mockSvc.AssertExpectations(t)
+		})
+	}
 }

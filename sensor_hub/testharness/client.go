@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	gen "example/sensorHub/gen"
 
@@ -29,6 +30,7 @@ type Client struct {
 	http      *http.Client
 	gen       *gen.Client
 	csrfToken string
+	apiKey    string
 }
 
 // NewClient creates an unauthenticated client pointed at the test server.
@@ -46,12 +48,28 @@ func NewClient(t testing.TB, baseURL string) *Client {
 		strings.TrimRight(baseURL, "/")+"/api",
 		gen.WithHTTPClient(httpClient),
 		gen.WithRequestEditorFn(c.injectCSRF),
+		gen.WithRequestEditorFn(c.injectApiKey),
 	)
 	if err != nil {
 		c.fatalf("failed to build generated client: %v", err)
 	}
 	c.gen = g
 	return c
+}
+
+// NewApiKeyClient creates a client that authenticates every request with the
+// X-API-Key header instead of a session cookie.
+func NewApiKeyClient(t testing.TB, baseURL, apiKey string) *Client {
+	c := NewClient(t, baseURL)
+	c.apiKey = apiKey
+	return c
+}
+
+func (c *Client) injectApiKey(_ context.Context, req *http.Request) error {
+	if c.apiKey != "" {
+		req.Header.Set("X-API-Key", c.apiKey)
+	}
+	return nil
 }
 
 func (c *Client) injectCSRF(_ context.Context, req *http.Request) error {
@@ -448,6 +466,20 @@ func (c *Client) DeleteUser(id int) int {
 	return c.statusOnly(c.gen.DeleteUser(c.ctx(), id))
 }
 
+func (c *Client) SetUserDisabled(id int, disabled bool) (json.RawMessage, int) {
+	return c.consume(c.gen.SetUserDisabled(c.ctx(), id, gen.SetUserDisabledJSONRequestBody{Disabled: disabled}))
+}
+
+func (c *Client) SetMustChangePassword(id int, mustChange bool) int {
+	return c.statusOnly(c.gen.SetMustChangePassword(c.ctx(), id, gen.SetMustChangePasswordJSONRequestBody{MustChange: mustChange}))
+}
+
+// LoginBody is Login returning the response body too, such as the message of
+// a refused login.
+func (c *Client) LoginBody(username, password string) (json.RawMessage, int) {
+	return c.consume(c.gen.Login(c.ctx(), gen.LoginJSONRequestBody{Username: username, Password: password}))
+}
+
 // --- Notifications ---
 
 func (c *Client) GetNotifications(limit, offset int) (json.RawMessage, int) {
@@ -496,10 +528,44 @@ func (c *Client) CreateApiKey(name string) (json.RawMessage, int) {
 	return c.consume(c.gen.CreateApiKey(c.ctx(), gen.CreateApiKeyJSONRequestBody{Name: name}))
 }
 
+func (c *Client) ListApiKeys() ([]gen.ApiKey, int) {
+	var out []gen.ApiKey
+	resp, err := c.gen.ListApiKeys(c.ctx())
+	status := c.decodeInto(resp, err, &out)
+	return out, status
+}
+
+func (c *Client) UpdateApiKeyExpiry(id int, expiresAt *time.Time) int {
+	return c.statusOnly(c.gen.UpdateApiKeyExpiry(c.ctx(), id, gen.UpdateApiKeyExpiryJSONRequestBody{ExpiresAt: expiresAt}))
+}
+
+func (c *Client) RevokeApiKey(id int) int {
+	return c.statusOnly(c.gen.RevokeApiKey(c.ctx(), id))
+}
+
+func (c *Client) DeleteApiKey(id int) int {
+	return c.statusOnly(c.gen.DeleteApiKey(c.ctx(), id))
+}
+
 // --- Roles ---
 
 func (c *Client) ListRoles() (json.RawMessage, int) {
 	return c.consume(c.gen.ListRoles(c.ctx()))
+}
+
+func (c *Client) ListPermissions() ([]gen.PermissionInfo, int) {
+	var out []gen.PermissionInfo
+	resp, err := c.gen.ListPermissions(c.ctx())
+	status := c.decodeInto(resp, err, &out)
+	return out, status
+}
+
+func (c *Client) AssignPermission(roleID, permissionID int) int {
+	return c.statusOnly(c.gen.AssignPermission(c.ctx(), roleID, gen.AssignPermissionJSONRequestBody{PermissionId: permissionID}))
+}
+
+func (c *Client) RemovePermission(roleID, permissionID int) int {
+	return c.statusOnly(c.gen.RemovePermission(c.ctx(), roleID, permissionID))
 }
 
 // --- Dashboards ---

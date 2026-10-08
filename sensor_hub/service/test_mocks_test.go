@@ -428,18 +428,18 @@ func (m *MockApiKeyRepository) ListApiKeysForUser(ctx context.Context, userId in
 	return args.Get(0).([]database.ApiKey), args.Error(1)
 }
 
-func (m *MockApiKeyRepository) UpdateApiKeyExpiry(ctx context.Context, id int, expiresAt *time.Time) error {
-	args := m.Called(ctx, id, expiresAt)
+func (m *MockApiKeyRepository) UpdateApiKeyExpiry(ctx context.Context, id int, ownerId *int, expiresAt *time.Time) error {
+	args := m.Called(ctx, id, ownerId, expiresAt)
 	return args.Error(0)
 }
 
-func (m *MockApiKeyRepository) RevokeApiKey(ctx context.Context, id int) error {
-	args := m.Called(ctx, id)
+func (m *MockApiKeyRepository) RevokeApiKey(ctx context.Context, id int, ownerId *int) error {
+	args := m.Called(ctx, id, ownerId)
 	return args.Error(0)
 }
 
-func (m *MockApiKeyRepository) DeleteApiKey(ctx context.Context, id int) error {
-	args := m.Called(ctx, id)
+func (m *MockApiKeyRepository) DeleteApiKey(ctx context.Context, id int, ownerId *int) error {
+	args := m.Called(ctx, id, ownerId)
 	return args.Error(0)
 }
 

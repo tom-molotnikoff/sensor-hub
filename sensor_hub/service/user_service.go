@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
@@ -21,7 +22,12 @@ type UserServiceInterface interface {
 	DeleteUser(ctx context.Context, userId int) error
 	SetMustChangeFlag(ctx context.Context, userId int, mustChange bool) error
 	SetUserRoles(ctx context.Context, userId int, roles []string) error
+	SetUserDisabled(ctx context.Context, callerId int, userId int, disabled bool) error
 }
+
+// ErrCannotDisableSelf is returned when a user tries to disable or enable
+// their own account.
+var ErrCannotDisableSelf = errors.New("you cannot disable or enable your own account")
 
 type UserService struct {
 	userRepo database.UserRepository
@@ -134,4 +140,15 @@ func (s *UserService) SetUserRoles(ctx context.Context, userId int, roles []stri
 		})
 	}
 	return nil
+}
+
+// SetUserDisabled disables or enables a user on behalf of the caller.
+// Disabling deletes the user's sessions; their API keys stop working because
+// authentication refuses disabled users. It returns ErrCannotDisableSelf,
+// database.ErrUserNotFound or database.ErrLastEnabledAdmin when refused.
+func (s *UserService) SetUserDisabled(ctx context.Context, callerId int, userId int, disabled bool) error {
+	if callerId == userId {
+		return ErrCannotDisableSelf
+	}
+	return s.userRepo.SetDisabled(ctx, userId, disabled)
 }

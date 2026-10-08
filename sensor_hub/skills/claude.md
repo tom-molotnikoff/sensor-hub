@@ -243,6 +243,8 @@ sensor-hub users delete 2
 sensor-hub users change-password --user-id 1 --new-password newpass
 sensor-hub users set-must-change 1 --must-change
 sensor-hub users set-roles 1 --roles admin,viewer
+sensor-hub users disable 2                           # Sign out and block a user; their API keys stop working
+sensor-hub users enable 2
 ```
 
 ### Roles

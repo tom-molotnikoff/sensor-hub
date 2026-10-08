@@ -115,6 +115,11 @@ func (m *MockUserService) SetUserRoles(ctx context.Context, userId int, roles []
 	return args.Error(0)
 }
 
+func (m *MockUserService) SetUserDisabled(ctx context.Context, callerId int, userId int, disabled bool) error {
+	args := m.Called(ctx, callerId, userId, disabled)
+	return args.Error(0)
+}
+
 type MockRoleService struct {
 	mock.Mock
 }
@@ -402,18 +407,18 @@ func (m *MockApiKeyService) ListApiKeysForUser(ctx context.Context, userId int) 
 	return args.Get(0).([]db.ApiKey), args.Error(1)
 }
 
-func (m *MockApiKeyService) UpdateApiKeyExpiry(ctx context.Context, keyId int, userId int, expiresAt *time.Time) error {
-	args := m.Called(ctx, keyId, userId, expiresAt)
+func (m *MockApiKeyService) UpdateApiKeyExpiry(ctx context.Context, keyId int, caller *gen.User, expiresAt *time.Time) error {
+	args := m.Called(ctx, keyId, caller, expiresAt)
 	return args.Error(0)
 }
 
-func (m *MockApiKeyService) RevokeApiKey(ctx context.Context, keyId int, userId int) error {
-	args := m.Called(ctx, keyId, userId)
+func (m *MockApiKeyService) RevokeApiKey(ctx context.Context, keyId int, caller *gen.User) error {
+	args := m.Called(ctx, keyId, caller)
 	return args.Error(0)
 }
 
-func (m *MockApiKeyService) DeleteApiKey(ctx context.Context, keyId int, userId int) error {
-	args := m.Called(ctx, keyId, userId)
+func (m *MockApiKeyService) DeleteApiKey(ctx context.Context, keyId int, caller *gen.User) error {
+	args := m.Called(ctx, keyId, caller)
 	return args.Error(0)
 }
 

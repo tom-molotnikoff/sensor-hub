@@ -132,9 +132,28 @@ func TestAuthService_Login_DisabledAccount(t *testing.T) {
 
 	token, _, _, err := service.Login(context.Background(), "testuser", "password123", "192.168.1.1", "TestAgent")
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "account disabled")
+	assert.ErrorIs(t, err, ErrAccountDisabled)
 	assert.Empty(t, token)
+}
+
+func TestAuthService_Login_DisabledAccountWrongPassword(t *testing.T) {
+	defer setupTestConfig()()
+	resetBlockers()
+
+	service, userRepo, _, failedRepo := setupAuthService()
+
+	passwordHash := "$2a$04$8/TZfgezGK2PM2Eoni4P6O/nUDjGtd4rLPMHqQ7g4n3DATqIDPRxq"
+	user := &gen.User{Id: 1, Username: "testuser", Disabled: true}
+	userId := 1
+
+	failedRepo.On("CountRecentFailedAttemptsByUsername", mock.Anything, "testuser", mock.Anything).Return(0, nil)
+	failedRepo.On("CountRecentFailedAttemptsByIP", mock.Anything, "192.168.1.1", mock.Anything).Return(0, nil)
+	userRepo.On("GetUserByUsername", mock.Anything, "testuser").Return(user, passwordHash, nil)
+	failedRepo.On("RecordFailedAttempt", mock.Anything, "testuser", &userId, "192.168.1.1", "bad_password").Return(nil)
+
+	_, _, _, err := service.Login(context.Background(), "testuser", "wrongpassword", "192.168.1.1", "TestAgent")
+
+	assert.EqualError(t, err, "invalid credentials", "a wrong password does not reveal that the account is disabled")
 }
 
 func TestAuthService_Login_MustChangePassword(t *testing.T) {
@@ -209,6 +228,19 @@ func TestAuthService_ValidateSession_Success(t *testing.T) {
 	assert.Contains(t, result.Permissions, "read")
 	sessionRepo.AssertNotCalled(t, "TouchSession", mock.Anything, mock.Anything)
 	sessionRepo.AssertExpectations(t)
+}
+
+func TestAuthService_ValidateSession_DisabledUser(t *testing.T) {
+	service, _, sessionRepo, _ := setupAuthService()
+
+	user := &gen.User{Id: 1, Username: "gone", Disabled: true}
+	sessionRepo.On("GetAuthenticatedUserByToken", mock.Anything, "valid-token").Return(user, time.Now().Add(-time.Hour), nil)
+
+	result, err := service.ValidateSession(context.Background(), "valid-token")
+
+	assert.NoError(t, err)
+	assert.Nil(t, result, "a disabled user's session does not authenticate")
+	sessionRepo.AssertNotCalled(t, "TouchSession", mock.Anything, mock.Anything)
 }
 
 func TestAuthService_ValidateSession_TouchesStaleSession(t *testing.T) {

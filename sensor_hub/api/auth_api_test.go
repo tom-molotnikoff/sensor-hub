@@ -58,6 +58,20 @@ func TestLoginHandler_InvalidCredentials(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
+func TestLoginHandler_AccountDisabled(t *testing.T) {
+	router, api, s, mockService := setupAuthRouter()
+	api.POST("/auth/login", s.Login)
+
+	jsonBody, _ := json.Marshal(gen.LoginRequest{Username: "user", Password: "password"})
+	mockService.On("Login", mock.Anything, "user", "password", mock.Anything, mock.Anything).Return("", "", false, service.ErrAccountDisabled)
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest("POST", "/api/auth/login", bytes.NewBuffer(jsonBody)))
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.JSONEq(t, `{"message":"account disabled"}`, w.Body.String())
+}
+
 func TestLoginHandler_TooManyAttempts(t *testing.T) {
 	router, api, s, mockService := setupAuthRouter()
 	api.POST("/auth/login", s.Login)
