@@ -89,3 +89,28 @@ func TestMQTTBrokersEnableAndDisable_KeepTheUsernameAndPassword(t *testing.T) {
 		})
 	}
 }
+
+func TestMQTTBrokersCreate_AnEmptyPasswordOnStdinCreatesTheBrokerWithoutOne(t *testing.T) {
+	server, written := brokerAPI(t)
+	withStdin(t, "\n")
+
+	_, _, err := executeRootCommand(t, "--server", server.URL, "mqtt", "brokers", "create",
+		"--name", "home", "--host", "mqtt.lan", "--username", "hub", "--password-stdin")
+
+	require.NoError(t, err)
+	require.Len(t, *written, 1)
+	assert.Equal(t, "hub", (*written)[0]["username"])
+	assert.NotContains(t, (*written)[0], "password")
+}
+
+func TestMQTTBrokersCreate_RefusesToPromptWithoutATerminal(t *testing.T) {
+	server, written := brokerAPI(t)
+	withStdin(t, "piped-but-not-asked-for\n")
+
+	_, _, err := executeRootCommand(t, "--server", server.URL, "mqtt", "brokers", "create",
+		"--name", "home", "--host", "mqtt.lan", "--username", "hub", "--password-stdin=false")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--password-stdin")
+	assert.Empty(t, *written, "nothing is created")
+}

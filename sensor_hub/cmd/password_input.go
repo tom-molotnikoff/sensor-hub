@@ -37,17 +37,7 @@ func stdinIsTerminal(cmd *cobra.Command) bool {
 // otherwise prompts for it twice on the terminal, rejecting a mismatch. It
 // refuses an empty password.
 func readNewPassword(cmd *cobra.Command, fromStdin bool) (string, error) {
-	var password string
-	var err error
-	if fromStdin {
-		password, err = readPasswordLine(cmd.InOrStdin())
-	} else {
-		fd, ok := stdinTerminal(cmd)
-		if !ok {
-			return "", errors.New("stdin is not a terminal, so the password cannot be prompted for; pipe it in with --password-stdin")
-		}
-		password, err = promptNewPassword(cmd, fd)
-	}
+	password, err := readPassword(cmd, fromStdin, "Password: ")
 	if err != nil {
 		return "", err
 	}
@@ -55,6 +45,24 @@ func readNewPassword(cmd *cobra.Command, fromStdin bool) (string, error) {
 		return "", errors.New("password must not be empty")
 	}
 	return password, nil
+}
+
+// readOptionalPassword reads a password that may be left empty, such as one
+// the hub presents to an outbound broker. An empty line on stdin, or an empty
+// entry at the prompt, means no password; a typed one is confirmed.
+func readOptionalPassword(cmd *cobra.Command, fromStdin bool) (string, error) {
+	return readPassword(cmd, fromStdin, "Password (leave empty for none): ")
+}
+
+func readPassword(cmd *cobra.Command, fromStdin bool, label string) (string, error) {
+	if fromStdin {
+		return readPasswordLine(cmd.InOrStdin())
+	}
+	fd, ok := stdinTerminal(cmd)
+	if !ok {
+		return "", errors.New("stdin is not a terminal, so the password cannot be prompted for; pipe it in with --password-stdin")
+	}
+	return promptPassword(cmd, fd, label)
 }
 
 func readPasswordLine(in io.Reader) (string, error) {
@@ -65,7 +73,9 @@ func readPasswordLine(in io.Reader) (string, error) {
 	return strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r"), nil
 }
 
-func promptNewPassword(cmd *cobra.Command, fd int) (string, error) {
+// promptPassword asks for a password and, unless it is empty, for it again,
+// rejecting a mismatch.
+func promptPassword(cmd *cobra.Command, fd int, label string) (string, error) {
 	prompt := func(label string) (string, error) {
 		fmt.Fprint(cmd.ErrOrStderr(), label)
 		b, err := term.ReadPassword(fd)
@@ -75,9 +85,9 @@ func promptNewPassword(cmd *cobra.Command, fd int) (string, error) {
 		}
 		return string(b), nil
 	}
-	first, err := prompt("Password: ")
-	if err != nil {
-		return "", err
+	first, err := prompt(label)
+	if err != nil || first == "" {
+		return first, err
 	}
 	second, err := prompt("Confirm password: ")
 	if err != nil {

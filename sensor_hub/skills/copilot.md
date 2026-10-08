@@ -81,7 +81,7 @@ sensor-hub mqtt brokers enable 1                     # Enable a broker
 sensor-hub mqtt brokers disable 1                    # Disable a broker
 ```
 
-Broker passwords are write-only: responses carry `password_status` (`unset`, `set`, `needs_reentry`) and never the password. A password is never passed as a flag; `create` reads it from `--password-stdin` or a prompt, and only when `--username` is given. In an update body, omitting `password` or sending `"****"` keeps the stored one and `""` clears it.
+Broker passwords are write-only: responses carry `password_status` (`unset`, `set`, `needs_reentry`) and never the password. A password is never passed as a flag; `create` reads it from `--password-stdin` or a prompt, only when `--username` is given; an empty one means the broker takes none. In an update body, omitting `password` or sending `"****"` keeps the stored one and `""` clears it.
 
 ### MQTT Subscriptions
 ```bash

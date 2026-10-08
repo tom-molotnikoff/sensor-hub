@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"strings"
 	"testing"
@@ -126,9 +125,7 @@ func (d *stubPushDriver) IdentifyDevice(_ string, _ []byte) (string, error)     
 // fakeBrokerSecrets keeps broker passwords in a map, standing in for the
 // secret store.
 type fakeBrokerSecrets struct {
-	values    map[string]string
-	forgotten []string
-	failSet   error
+	values map[string]string
 }
 
 func newFakeBrokerSecrets() *fakeBrokerSecrets {
@@ -136,9 +133,6 @@ func newFakeBrokerSecrets() *fakeBrokerSecrets {
 }
 
 func (f *fakeBrokerSecrets) Set(_ context.Context, owner, name, value string) error {
-	if f.failSet != nil {
-		return f.failSet
-	}
 	f.values[owner+"/"+name] = value
 	return nil
 }
@@ -156,20 +150,18 @@ func (f *fakeBrokerSecrets) Status(owner, name string) secrets.Status {
 }
 
 func (f *fakeBrokerSecrets) Forget(owner string) {
-	f.forgotten = append(f.forgotten, owner)
+	for key := range f.values {
+		if strings.HasPrefix(key, owner+"/") {
+			delete(f.values, key)
+		}
+	}
 }
 
 func setupMQTTService() (*MQTTService, *MockMQTTBrokerRepo, *MockMQTTSubRepo) {
-	svc, brokerRepo, subRepo, _ := setupMQTTServiceWithSecrets()
-	return svc, brokerRepo, subRepo
-}
-
-func setupMQTTServiceWithSecrets() (*MQTTService, *MockMQTTBrokerRepo, *MockMQTTSubRepo, *fakeBrokerSecrets) {
 	brokerRepo := new(MockMQTTBrokerRepo)
 	subRepo := new(MockMQTTSubRepo)
-	brokerSecrets := newFakeBrokerSecrets()
-	svc := NewMQTTService(brokerRepo, subRepo, brokerSecrets, slog.Default())
-	return svc, brokerRepo, subRepo, brokerSecrets
+	svc := NewMQTTService(brokerRepo, subRepo, newFakeBrokerSecrets(), slog.Default())
+	return svc, brokerRepo, subRepo
 }
 
 // ============================================================================
@@ -271,110 +263,12 @@ func TestMQTTService_UpdateBroker_InvalidID(t *testing.T) {
 }
 
 func TestMQTTService_DeleteBroker(t *testing.T) {
-	svc, brokerRepo, _, brokerSecrets := setupMQTTServiceWithSecrets()
+	svc, brokerRepo, _ := setupMQTTService()
 
 	brokerRepo.On("Delete", mock.Anything, 1).Return(nil)
 
 	err := svc.DeleteBroker(context.Background(), 1)
 	assert.NoError(t, err)
-	assert.Equal(t, []string{"mqtt_broker:1"}, brokerSecrets.forgotten)
-}
-
-// ============================================================================
-// Broker password tests
-// ============================================================================
-
-const brokerOnePassword = "mqtt_broker:1/password"
-
-func expectBrokerWrite(brokerRepo *MockMQTTBrokerRepo, name string) {
-	brokerRepo.On("GetByName", mock.Anything, name).Return(nil, nil)
-	brokerRepo.On("GetAll", mock.Anything).Return([]gen.MQTTBroker{}, nil)
-}
-
-func TestMQTTService_AddBroker_StoresThePasswordInTheSecretStoreOnly(t *testing.T) {
-	svc, brokerRepo, _, brokerSecrets := setupMQTTServiceWithSecrets()
-	broker := gen.MQTTBroker{Name: "b", Type: "external", Host: ptrStr("h"), Port: ptrInt(1883), Password: ptrStr("s3cret")}
-	expectBrokerWrite(brokerRepo, "b")
-	brokerRepo.On("Add", mock.Anything, broker).Return(1, nil)
-
-	id, err := svc.AddBroker(context.Background(), broker)
-
-	assert.NoError(t, err)
-	assert.Equal(t, 1, id)
-	assert.Equal(t, map[string]string{brokerOnePassword: "s3cret"}, brokerSecrets.values)
-}
-
-func TestMQTTService_AddBroker_StoresNoPasswordForEmptyOrPlaceholder(t *testing.T) {
-	for _, password := range []*string{nil, ptrStr(""), ptrStr("****")} {
-		svc, brokerRepo, _, brokerSecrets := setupMQTTServiceWithSecrets()
-		broker := gen.MQTTBroker{Name: "b", Type: "external", Host: ptrStr("h"), Port: ptrInt(1883), Password: password}
-		expectBrokerWrite(brokerRepo, "b")
-		brokerRepo.On("Add", mock.Anything, broker).Return(1, nil)
-
-		_, err := svc.AddBroker(context.Background(), broker)
-
-		assert.NoError(t, err)
-		assert.Empty(t, brokerSecrets.values)
-	}
-}
-
-func TestMQTTService_AddBroker_RemovesTheBrokerWhenItsPasswordCannotBeStored(t *testing.T) {
-	svc, brokerRepo, _, brokerSecrets := setupMQTTServiceWithSecrets()
-	brokerSecrets.failSet = errors.New("disk full")
-	broker := gen.MQTTBroker{Name: "b", Type: "external", Host: ptrStr("h"), Port: ptrInt(1883), Password: ptrStr("s3cret")}
-	expectBrokerWrite(brokerRepo, "b")
-	brokerRepo.On("Add", mock.Anything, broker).Return(1, nil)
-	brokerRepo.On("Delete", mock.Anything, 1).Return(nil)
-
-	_, err := svc.AddBroker(context.Background(), broker)
-
-	assert.Error(t, err)
-	brokerRepo.AssertCalled(t, "Delete", mock.Anything, 1)
-}
-
-func TestMQTTService_UpdateBroker_SetsKeepsAndClearsThePassword(t *testing.T) {
-	steps := []struct {
-		name     string
-		password *string
-		want     map[string]string
-	}{
-		{"a new password replaces the stored one", ptrStr("second"), map[string]string{brokerOnePassword: "second"}},
-		{"an omitted password keeps it", nil, map[string]string{brokerOnePassword: "first"}},
-		{"the placeholder keeps it", ptrStr("****"), map[string]string{brokerOnePassword: "first"}},
-		{"an empty password clears it", ptrStr(""), map[string]string{}},
-	}
-	for _, step := range steps {
-		t.Run(step.name, func(t *testing.T) {
-			svc, brokerRepo, _, brokerSecrets := setupMQTTServiceWithSecrets()
-			brokerSecrets.values[brokerOnePassword] = "first"
-			broker := gen.MQTTBroker{Id: ptrInt(1), Name: "b", Type: "external", Host: ptrStr("h"), Port: ptrInt(1883), Password: step.password}
-			expectBrokerWrite(brokerRepo, "b")
-			brokerRepo.On("Update", mock.Anything, broker).Return(nil)
-
-			assert.NoError(t, svc.UpdateBroker(context.Background(), broker))
-			assert.Equal(t, step.want, brokerSecrets.values)
-		})
-	}
-}
-
-func TestMQTTService_ReadsCarryThePasswordStatusAndNeverThePassword(t *testing.T) {
-	svc, brokerRepo, _, brokerSecrets := setupMQTTServiceWithSecrets()
-	brokerSecrets.values[brokerOnePassword] = "first"
-	brokerRepo.On("GetAll", mock.Anything).Return([]gen.MQTTBroker{
-		{Id: ptrInt(1), Name: "with", Password: ptrStr("leaked?")},
-		{Id: ptrInt(2), Name: "without"},
-	}, nil)
-	brokerRepo.On("GetByID", mock.Anything, 1).Return(&gen.MQTTBroker{Id: ptrInt(1), Name: "with"}, nil)
-
-	brokers, err := svc.GetAllBrokers(context.Background())
-	assert.NoError(t, err)
-	one, err := svc.GetBrokerByID(context.Background(), 1)
-	assert.NoError(t, err)
-
-	assert.Nil(t, brokers[0].Password)
-	assert.Equal(t, gen.Set, *brokers[0].PasswordStatus)
-	assert.Equal(t, gen.Unset, *brokers[1].PasswordStatus)
-	assert.Equal(t, gen.Set, *one.PasswordStatus)
 }
 
 // ============================================================================

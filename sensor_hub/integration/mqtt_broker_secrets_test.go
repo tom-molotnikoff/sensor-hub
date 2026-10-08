@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -172,4 +173,27 @@ func TestMQTTBrokerSecrets_TheConnectionUsesTheStoredPassword(t *testing.T) {
 	require.NoError(t, env.ConnectionManager.ConnectBroker(context.Background(), broker))
 	assert.Eventually(t, func() bool { return env.ConnectionManager.IsConnected(created.ID) },
 		5*time.Second, 100*time.Millisecond)
+}
+
+func TestMQTTBrokerSecrets_CLIPromptLeftEmptyCreatesABrokerWithoutAPassword(t *testing.T) {
+	term := startOnTerminal(t, withFlags(hubFlags(t), "mqtt", "brokers", "create",
+		"--name", "cli-no-password-broker", "--host", "cli-no-password.example.com", "--username", "hub", "--enabled=false")...)
+	term.answer("Password (leave empty for none): ", "")
+	output, err := term.wait()
+	require.NoError(t, err, output)
+	start := strings.Index(output, "{")
+	require.GreaterOrEqual(t, start, 0, "the created broker is printed as JSON; output: %q", output)
+	var created struct {
+		ID int `json:"id"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(output[start:]), &created), output)
+	t.Cleanup(func() { client.DeleteMQTTBroker(created.ID) })
+
+	resp, status := client.GetMQTTBroker(created.ID)
+	require.Equal(t, http.StatusOK, status)
+	var broker map[string]any
+	require.NoError(t, json.Unmarshal(resp, &broker))
+	assert.Equal(t, "hub", broker["username"])
+	assert.Equal(t, "unset", broker["password_status"])
+	assert.NotContains(t, output, "Confirm password", "an empty password is not asked for twice")
 }

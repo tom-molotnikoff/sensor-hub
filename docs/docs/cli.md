@@ -159,7 +159,7 @@ Keep a copy of the key. Without it the stored secrets cannot be decrypted and ha
 
 `sensor-hub mqtt brokers` manages the brokers the hub connects out to. A broker's password is write-only: the hub stores it encrypted and no response carries it, only `password_status` (`unset`, `set` or `needs_reentry`).
 
-`mqtt brokers create` never takes the password as a flag. It asks for one only when `--username` is given: on a terminal it prompts twice, and in a script `--password-stdin` reads one line from stdin:
+`mqtt brokers create` never takes the password as a flag. It asks for one only when `--username` is given: on a terminal it prompts, and asks again to confirm, and in a script `--password-stdin` reads one line from stdin. Leaving it empty creates a broker with a username and no password. Without `--password-stdin` and with no terminal to prompt on, the command exits with an error.
 
 ```bash
 printf '%s\n' "$BROKER_PASSWORD" | sensor-hub mqtt brokers create --name home --host mqtt.home.lan --username hub --password-stdin

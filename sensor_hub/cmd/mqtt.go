@@ -66,7 +66,9 @@ var mqttBrokersCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new MQTT broker",
 	Long: "Creates a broker the hub connects out to.\n\n" +
-		"A password is asked for only when --username is given. " + passwordInputHelp + " " +
+		"A password is asked for only when --username is given, and may be left empty for a broker that takes none. " +
+		"It is never taken as a flag value. With --password-stdin it is read from stdin (one line, trailing newline " +
+		"stripped); otherwise it is prompted for on the terminal and, unless left empty, asked for twice. " +
 		"The hub stores it encrypted and never returns it.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name, _ := cmd.Flags().GetString("name")
@@ -90,12 +92,14 @@ var mqttBrokersCreateCmd = &cobra.Command{
 			body.Port = &port
 		}
 		if username != "" {
-			password, err := readNewPassword(cmd, passwordStdin)
+			password, err := readOptionalPassword(cmd, passwordStdin)
 			if err != nil {
 				return err
 			}
 			body.Username = &username
-			body.Password = &password
+			if password != "" {
+				body.Password = &password
+			}
 		}
 
 		client, ctx, err := newAPIClient(cmd)
