@@ -3113,7 +3113,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Conflict (sensor with same name exists) */
+            /** @description A sensor with the same name or external id already exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3169,6 +3169,15 @@ export interface operations {
             };
             /** @description Sensor not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Another sensor already has the requested name */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

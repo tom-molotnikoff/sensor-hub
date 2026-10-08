@@ -403,7 +403,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Conflict (sensor with same name exists)
+          description: A sensor with the same name or external id already exists
           content:
             application/json:
               schema:
@@ -472,6 +472,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Sensor not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Another sensor already has the requested name
           content:
             application/json:
               schema:

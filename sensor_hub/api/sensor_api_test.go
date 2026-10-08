@@ -464,6 +464,24 @@ func TestAddSensorHandler_ServiceError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
+func TestAddSensorHandler_AlreadyExists(t *testing.T) {
+	router, api, s, mockService := setupSensorRouter()
+	api.POST("/sensors", s.AddSensor)
+
+	sensor := gen.Sensor{Name: "kitchen", SensorDriver: "sensor-hub-http-temperature", Config: map[string]string{"url": "http://localhost:8080"}}
+	jsonBody, _ := json.Marshal(sensor)
+
+	conflict := servicepkg.NewAlreadyExistsError("sensor with name kitchen already exists")
+	mockService.On("ServiceAddSensor", mock.Anything, sensor).Return(fmt.Errorf("adding sensor: %w", conflict))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/sensors", bytes.NewBuffer(jsonBody))
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.JSONEq(t, `{"message": "sensor with name kitchen already exists"}`, w.Body.String())
+}
+
 func TestGetSensorByNameHandler_NotFound(t *testing.T) {
 	router, api, s, mockService := setupSensorRouter()
 	api.GET("/sensors/:name", func(c *gin.Context) {
@@ -559,6 +577,35 @@ func TestUpdateSensorHandler_ServiceError(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestUpdateSensorHandler_AlreadyExists(t *testing.T) {
+	router, api, s, mockService := setupSensorRouter()
+	api.PUT("/sensors/:id", func(c *gin.Context) {
+		var id int
+		if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid sensor ID"})
+			return
+		}
+		s.UpdateSensorById(c, id)
+	})
+
+	existing := gen.Sensor{Id: 2, Name: "lounge", SensorDriver: "sensor-hub-http-temperature", Config: map[string]string{"url": "http://localhost:8080"}}
+	jsonBody, _ := json.Marshal(map[string]interface{}{"name": "kitchen"})
+
+	expected := existing
+	expected.Name = "kitchen"
+
+	conflict := servicepkg.NewAlreadyExistsError("sensor with name kitchen already exists")
+	mockService.On("ServiceGetSensorById", mock.Anything, 2).Return(&existing, nil)
+	mockService.On("ServiceUpdateSensorById", mock.Anything, expected, false).Return(fmt.Errorf("updating sensor: %w", conflict))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/sensors/2", bytes.NewBuffer(jsonBody))
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.JSONEq(t, `{"message": "sensor with name kitchen already exists"}`, w.Body.String())
 }
 
 func TestDeleteSensorHandler_ServiceError(t *testing.T) {

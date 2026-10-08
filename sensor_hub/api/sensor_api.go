@@ -32,6 +32,11 @@ func (s *Server) AddSensor(c *gin.Context) {
 	}
 	err := s.sensorService.ServiceAddSensor(ctx, sensor)
 	if err != nil {
+		var alreadyExists *service.AlreadyExistsError
+		if errors.As(err, &alreadyExists) {
+			c.JSON(http.StatusConflict, gin.H{"message": alreadyExists.Message})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error adding sensor", "error": err.Error()})
 		return
 	}
@@ -115,6 +120,11 @@ func (s *Server) UpdateSensorById(c *gin.Context, id int) {
 
 	err = s.sensorService.ServiceUpdateSensorById(ctx, sensor, retentionHoursPresent)
 	if err != nil {
+		var alreadyExists *service.AlreadyExistsError
+		if errors.As(err, &alreadyExists) {
+			c.JSON(http.StatusConflict, gin.H{"message": alreadyExists.Message})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error updating sensor", "error": err.Error()})
 		return
 	}

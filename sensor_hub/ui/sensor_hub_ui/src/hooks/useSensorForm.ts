@@ -60,8 +60,9 @@ export function useSensorForm({ mode = 'edit', initialSensor = null, onSuccess }
       setAdvancedErrorMessage(null);
 
       try {
+        let result: { error?: unknown; response: Response };
         if (mode === 'create') {
-          await apiClient.POST('/sensors', {
+          result = await apiClient.POST('/sensors', {
             body: { name: values.name, sensor_driver: values.sensorDriver, config: values.config } as never,
           });
         } else {
@@ -71,10 +72,15 @@ export function useSensorForm({ mode = 'edit', initialSensor = null, onSuccess }
           const retentionHours = values.retentionEnabled
             ? unitToHours(parseFloat(values.retentionValue), values.retentionUnit)
             : null;
-          await apiClient.PUT('/sensors/{id}', {
+          result = await apiClient.PUT('/sensors/{id}', {
             params: { path: { id: Number(initialSensor.id) } },
             body: { name: values.name, sensor_driver: values.sensorDriver, config: values.config, retention_hours: retentionHours } as never,
           });
+        }
+        if (!result.response.ok) {
+          const { error, response } = result;
+          handleErrors(error && typeof error === 'object' ? error : { message: `${response.status} ${response.statusText}` });
+          return;
         }
 
         let newSensor: Sensor | null;
