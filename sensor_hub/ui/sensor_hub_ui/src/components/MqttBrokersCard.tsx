@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Button, Menu, MenuItem, Chip } from '@mui/material';
+import { Alert, Button, Menu, MenuItem, Chip, Tooltip } from '@mui/material';
 import { apiClient } from '../gen/client';
 import type { MQTTBroker } from '../gen/aliases';
 import { useAuth } from '../providers/AuthContext';
 import { hasPerm } from '../tools/Utils';
 import BrokerDialog from './BrokerDialog';
 import { logger } from '../tools/logger';
+import { NEEDS_REENTRY_LABEL, NEEDS_REENTRY_TEXT, needsReentry } from '../tools/secretStatus';
 import Card from '../ui/Card';
 import DataTable from '../ui/DataTable';
+import Stack from '../ui/Stack';
 
 // How the hub reaches the broker. The embedded broker is in-process, so its
 // traffic never crosses a network; an external one is either over TLS or not.
@@ -69,6 +71,7 @@ export default function MqttBrokersCard() {
   };
 
   const canManage = user && hasPerm(user, 'manage_mqtt');
+  const brokersNeedingReentry = brokers.filter(needsReentry);
 
   return (
     <>
@@ -76,38 +79,55 @@ export default function MqttBrokersCard() {
         title="MQTT Brokers"
         actions={<Button variant="contained" onClick={() => openDialog(null)} disabled={!canManage}>Add Broker</Button>}
       >
-        <DataTable
-          rows={brokers}
-          onRowClick={canManage ? handleRowClick : undefined}
-          columns={[
-            { field: 'id', headerName: 'ID', width: 60, compact: 'hidden' },
-            { field: 'name', headerName: 'Name', flex: 1, minWidth: 140, compact: 'title' },
-            { field: 'type', headerName: 'Type', width: 100, compact: 'hidden' },
-            { field: 'host', headerName: 'Host', flex: 1, minWidth: 140, compact: 'meta' },
-            { field: 'port', headerName: 'Port', width: 80, compact: 'hidden' },
-            {
-              field: 'tls',
-              headerName: 'Connection',
-              width: 130,
-              compact: 'meta',
-              valueGetter: (_value: unknown, row: MQTTBroker) => connectionOf(row),
-              renderCell: ({ value }) => (value === 'Unencrypted'
-                ? <Chip label={value} color="warning" variant="outlined" size="small" />
-                : value),
-            },
-            {
-              field: 'enabled',
-              headerName: 'Status',
-              width: 110,
-              compact: 'status',
-              statusOf: (row) => (row.enabled ? 'ok' : 'unknown'),
-              valueFormatter: (value: boolean) => (value ? 'Enabled' : 'Disabled'),
-              renderCell: ({ row, formattedValue }) => (
-                <Chip label={formattedValue} color={row.enabled ? 'success' : 'default'} size="small" />
-              ),
-            },
-          ]}
-        />
+        <Stack>
+          {brokersNeedingReentry.map((broker) => (
+            <Alert key={broker.id} severity="error">
+              {broker.name}: {NEEDS_REENTRY_TEXT}
+            </Alert>
+          ))}
+          <DataTable
+            rows={brokers}
+            onRowClick={canManage ? handleRowClick : undefined}
+            columns={[
+              { field: 'id', headerName: 'ID', width: 60, compact: 'hidden' },
+              { field: 'name', headerName: 'Name', flex: 1, minWidth: 140, compact: 'title' },
+              { field: 'type', headerName: 'Type', width: 100, compact: 'hidden' },
+              { field: 'host', headerName: 'Host', flex: 1, minWidth: 140, compact: 'meta' },
+              { field: 'port', headerName: 'Port', width: 80, compact: 'hidden' },
+              {
+                field: 'tls',
+                headerName: 'Connection',
+                width: 130,
+                compact: 'meta',
+                valueGetter: (_value: unknown, row: MQTTBroker) => connectionOf(row),
+                renderCell: ({ value }) => (value === 'Unencrypted'
+                  ? <Chip label={value} color="warning" variant="outlined" size="small" />
+                  : value),
+              },
+              {
+                field: 'enabled',
+                headerName: 'Status',
+                width: 140,
+                compact: 'status',
+                statusOf: (row) => {
+                  if (needsReentry(row)) return 'bad';
+                  return row.enabled ? 'ok' : 'unknown';
+                },
+                valueFormatter: (value: boolean, row: MQTTBroker) => {
+                  if (needsReentry(row)) return NEEDS_REENTRY_LABEL;
+                  return value ? 'Enabled' : 'Disabled';
+                },
+                renderCell: ({ row, formattedValue }) => (needsReentry(row)
+                  ? (
+                    <Tooltip title={NEEDS_REENTRY_TEXT}>
+                      <Chip label={formattedValue} color="error" size="small" />
+                    </Tooltip>
+                  )
+                  : <Chip label={formattedValue} color={row.enabled ? 'success' : 'default'} size="small" />),
+              },
+            ]}
+          />
+        </Stack>
 
         {canManage && (
           <Menu anchorEl={menuAnchorEl} open={Boolean(menuAnchorEl)} onClose={closeMenu}>

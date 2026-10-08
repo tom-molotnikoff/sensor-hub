@@ -7,6 +7,7 @@ import { apiClient } from '../gen/client';
 import { unwrap } from '../api/unwrap';
 import type { MQTTBroker } from '../gen/aliases';
 import { logger } from '../tools/logger';
+import { NEEDS_REENTRY_TEXT, needsReentry } from '../tools/secretStatus';
 import Stack from '../ui/Stack';
 
 type BrokerPayload = {
@@ -103,6 +104,7 @@ export default function BrokerDialog({ open, onClose, onSaved, broker }: Props) 
 
   let passwordHelper = '';
   if (clearPassword && !password) passwordHelper = 'The stored password will be removed.';
+  else if (broker && needsReentry(broker) && !password) passwordHelper = NEEDS_REENTRY_TEXT;
   else if (passwordStored && !password) passwordHelper = 'Leave empty to keep the stored password.';
 
   return (

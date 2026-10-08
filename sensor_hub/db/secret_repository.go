@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 // BrokerPasswordSecret is the name an outbound broker's password is stored
@@ -14,7 +16,20 @@ const BrokerPasswordSecret = "password"
 // BrokerSecretOwner is the secrets owner for the outbound MQTT broker with the
 // given id.
 func BrokerSecretOwner(brokerID int) string {
-	return fmt.Sprintf("mqtt_broker:%d", brokerID)
+	return brokerSecretOwnerPrefix + strconv.Itoa(brokerID)
+}
+
+const brokerSecretOwnerPrefix = "mqtt_broker:"
+
+// BrokerIDOfSecretOwner gives the broker id a BrokerSecretOwner names, and
+// false for an owner that is not a broker.
+func BrokerIDOfSecretOwner(owner string) (int, bool) {
+	id, found := strings.CutPrefix(owner, brokerSecretOwnerPrefix)
+	if !found {
+		return 0, false
+	}
+	brokerID, err := strconv.Atoi(id)
+	return brokerID, err == nil
 }
 
 // SealedSecret is a secret as the secrets table holds it: the ciphertext and

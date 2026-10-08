@@ -2611,7 +2611,7 @@ export interface components {
         Notification: {
             id: number;
             /** @enum {string} */
-            category: "threshold_alert" | "user_management" | "config_change" | "automation_failure";
+            category: "threshold_alert" | "user_management" | "config_change" | "automation_failure" | "secret_failure";
             /** @enum {string} */
             severity: "info" | "warning" | "error";
             title: string;
@@ -2639,7 +2639,7 @@ export interface components {
         ChannelPreference: {
             user_id?: number;
             /** @enum {string} */
-            category: "threshold_alert" | "user_management" | "config_change" | "automation_failure";
+            category: "threshold_alert" | "user_management" | "config_change" | "automation_failure" | "secret_failure";
             email_enabled?: boolean;
             inapp_enabled?: boolean;
         };

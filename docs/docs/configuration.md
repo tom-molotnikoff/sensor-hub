@@ -42,6 +42,7 @@ The commands under `sensor-hub local` act on this machine's install and read its
 | `local db backup <path>` | Write a consistent copy of the live database to a new file |
 | `local secrets init-key` | Create the secret-store key |
 | `local secrets show-key` | Print the secret-store key |
+| `local secrets check-seal` | Replace a sealed key that can no longer be unsealed |
 
 They accept the following flags:
 
@@ -52,6 +53,7 @@ They accept the following flags:
 | `--secrets-key-file` | `local serve`, `local secrets show-key` | none | Path to the secret-store key, read when there is no systemd credential or Compose secret. See [Secret-store key](#secret-store-key) |
 | `--from-stdin` | `local secrets init-key` | off | Read the key from stdin rather than generating one |
 | `--seal`       | `local secrets init-key` | off | Seal the key with the TPM through `systemd-creds` (root only) |
+| `--tpm-grace`  | `local secrets check-seal` | `5m` | How long to wait for a TPM that cannot be used before replacing the sealed key |
 
 `sensor-hub --version` prints the version and exits.
 
@@ -78,6 +80,16 @@ A key file given with `--secrets-key-file` or found in the configuration directo
 A systemd credential and a Compose secret are exempt, because their manager puts them in place.
 
 Keep a copy of the key, from `sudo sensor-hub local secrets show-key`, somewhere other than the hub, such as a password manager. If the key is lost or replaced, the stored secrets cannot be decrypted and have to be entered again.
+
+### Secrets that need re-entry
+
+When a stored secret does not decrypt under the key the hub starts with, because the key was lost or replaced or the database came from another host, the hub still starts. Readings, alerts, logins and the UI work as usual. Only what the secret belongs to stops:
+
+- A broker whose password does not decrypt stays disconnected. Its `password_status` is `needs_reentry`, and the MQTT page shows a **Needs re-entry** chip on it with the text "This secret could not be decrypted. Enter it again."
+- The hub logs one warning per secret, and raises one in-app notification, "Stored secrets need re-entry", naming everything affected. It goes to users with `view_notifications_config`, under the **Stored Secrets** notification category, which is in-app only by default.
+- The gauge `sensor_hub_secret_decrypt_failures` reports how many stored secrets need re-entry (see [Telemetry](telemetry#prometheus-metrics)).
+
+Enter the secret again, for a broker by editing it and typing its password, and it is stored under the current key and used straight away: the broker reconnects with no restart. Nothing else needs doing. If you still have the old key, you can instead put it back (see [The secret-store key](installation#the-secret-store-key)), and everything decrypts again at the next start.
 
 ## TLS to outbound MQTT brokers
 

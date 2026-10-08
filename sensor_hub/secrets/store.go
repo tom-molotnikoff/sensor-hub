@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"cmp"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -9,9 +10,13 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"slices"
 	"sync"
 
 	database "example/sensorHub/db"
+	"example/sensorHub/telemetry"
+
+	"go.opentelemetry.io/otel/metric"
 )
 
 // Status is what may be said about a secret without revealing it.
@@ -92,7 +97,25 @@ func Open(ctx context.Context, db *database.Handles, key Key, logger *slog.Logge
 	if err := s.load(ctx); err != nil {
 		return nil, err
 	}
+	if err := s.exportDecryptFailures(); err != nil {
+		return nil, err
+	}
 	return s, nil
+}
+
+// exportDecryptFailures reports how many stored secrets need re-entry as the
+// gauge sensor_hub_secret_decrypt_failures, read afresh at each collection.
+func (s *Store) exportDecryptFailures() error {
+	_, err := telemetry.Meter("secrets").Int64ObservableGauge("sensor_hub.secret.decrypt.failures",
+		metric.WithDescription("Stored secrets that do not decrypt under the current key and need re-entry"),
+		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+			o.Observe(int64(len(s.NeedsReentry())))
+			return nil
+		}))
+	if err != nil {
+		return fmt.Errorf("failed to export the secret decrypt failures gauge: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) load(ctx context.Context) error {
@@ -129,11 +152,13 @@ func (s *Store) Set(ctx context.Context, owner, name, value string) error {
 	if err := s.repo.Put(ctx, sealed); err != nil {
 		return err
 	}
-	s.setStatus(Ref{Owner: owner, Name: name}, StatusSet)
-	return nil
+	// The status comes from decrypting what was stored, as at startup.
+	_, _, err = s.Get(ctx, owner, name)
+	return err
 }
 
-// Get decrypts the secret. The value is empty unless the status is set.
+// Get decrypts the secret, and records the status that gives. The value is
+// empty unless the status is set.
 func (s *Store) Get(ctx context.Context, owner, name string) (string, Status, error) {
 	ref := Ref{Owner: owner, Name: name}
 	sealed, err := s.repo.Get(ctx, owner, name)
@@ -188,6 +213,23 @@ func (s *Store) StatusAll() map[Ref]Status {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Clone(s.status)
+}
+
+// NeedsReentry lists the stored secrets that do not decrypt under the
+// current key, ordered by owner and name.
+func (s *Store) NeedsReentry() []Ref {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var refs []Ref
+	for ref, status := range s.status {
+		if status == StatusNeedsReentry {
+			refs = append(refs, ref)
+		}
+	}
+	slices.SortFunc(refs, func(a, b Ref) int {
+		return cmp.Or(cmp.Compare(a.Owner, b.Owner), cmp.Compare(a.Name, b.Name))
+	})
+	return refs
 }
 
 func (s *Store) setStatus(ref Ref, status Status) {

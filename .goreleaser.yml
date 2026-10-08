@@ -44,6 +44,9 @@ nfpms:
       - src: packaging/sensor-hub.service
         dst: /usr/lib/systemd/system/sensor-hub.service
 
+      - src: packaging/sensor-hub-key-check.service
+        dst: /usr/lib/systemd/system/sensor-hub-key-check.service
+
       - src: packaging/completions/sensor-hub.bash
         dst: /usr/share/bash-completion/completions/sensor-hub
 

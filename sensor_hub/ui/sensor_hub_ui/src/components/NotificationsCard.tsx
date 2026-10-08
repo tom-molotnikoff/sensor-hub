@@ -50,6 +50,7 @@ function getCategoryLabel(category: NotificationCategory): string {
     case 'user_management': return 'User';
     case 'config_change': return 'Config';
     case 'automation_failure': return 'Automation';
+    case 'secret_failure': return 'Secrets';
     default: return category;
   }
 }

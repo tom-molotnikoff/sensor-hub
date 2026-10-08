@@ -68,10 +68,19 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 
 	bootCfg := appProps.AppConfig()
-	secretsKey, err := secrets.LoadKey(secrets.LocationsFor(localConfigDir, secretsKeyFile), bootCfg.DatabasePath, logger)
+	keyLocations := secrets.LocationsFor(localConfigDir, secretsKeyFile)
+	secretsKey, err := secrets.LoadKey(keyLocations, bootCfg.DatabasePath, logger)
 	if err != nil {
 		logger.Error("cannot use the secret-store key", "error", err)
 		return err
+	}
+	keyReplacement, err := secrets.ReadKeyReplacement(keyLocations)
+	if err != nil {
+		logger.Warn("cannot tell whether the sealed secret-store key was replaced this boot", "error", err)
+	}
+	if keyReplacement != nil {
+		logger.Error("the sealed secret-store key could not be unsealed this boot, so a new key was sealed in its place; secrets stored under the old key need re-entry",
+			"sealed_with", keyReplacement.SealedWith, "old_key", keyReplacement.SetAside, "reason", keyReplacement.Reason)
 	}
 
 	db, err := database.Open(bootCfg, logger)
@@ -186,6 +195,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	mqttBrokerRepo := database.NewMQTTBrokerRepository(db, logger)
 	mqttSubRepo := database.NewMQTTSubscriptionRepository(db, logger)
+
+	// A secret that did not decrypt leaves its owner unusable until it is
+	// entered again; the hub carries on and tells the admins once.
+	if err := service.NotifySecretFailures(ctx, secretStore.NeedsReentry(), keyReplacement, mqttBrokerRepo, notificationService, logger); err != nil {
+		logger.Error("could not tell the admins that stored secrets need re-entry", "error", err)
+	}
 	mqttService := service.NewMQTTService(mqttBrokerRepo, mqttSubRepo, secretStore, logger)
 
 	connManager := mqttBrokerPkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, secretStore, embeddedBroker, logger)
