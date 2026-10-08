@@ -274,6 +274,7 @@ func (e *Env) boot(listenAddr string) error {
 	mqttService := service.NewMQTTService(mqttBrokerRepo, mqttSubRepo, secretStore, logger)
 	connManager := mqttpkg.NewConnectionManager(sensorService, mqttSubRepo, mqttBrokerRepo, secretStore, embeddedBroker, logger)
 	mqttService.SetSubscriptionNotifier(connManager)
+	mqttService.SetBrokerNotifier(connManager)
 	commandService := service.NewCommandService(sensorRepo, mqttSubRepo, commandHistoryRepo, connManager, commandTracker, logger)
 	if err := commandTracker.RecoverPending(context.Background()); err != nil {
 		_ = embeddedBroker.Stop()

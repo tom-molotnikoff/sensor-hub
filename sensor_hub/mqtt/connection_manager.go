@@ -61,6 +61,10 @@ type PasswordSource interface {
 	Get(ctx context.Context, owner, name string) (string, secrets.Status, error)
 }
 
+// connectWait is how long ConnectBroker waits for an external broker to accept
+// the connection. A client still retrying after it keeps retrying.
+const connectWait = 10 * time.Second
+
 // ConnectionManager manages MQTT client connections for all configured brokers.
 type ConnectionManager struct {
 	sensorService service.SensorServiceInterface
@@ -70,7 +74,13 @@ type ConnectionManager struct {
 	embedded      *EmbeddedBroker
 	logger        *slog.Logger
 
-	connections map[int]*brokerConnection // keyed by broker ID
+	// lifecycle serialises opening and closing links, so two changes to one
+	// broker cannot interleave and leave a stale client behind.
+	lifecycle sync.Mutex
+
+	// connections holds every link the manager has opened and not yet
+	// closed, connected or still retrying, keyed by broker ID.
+	connections map[int]*brokerConnection
 	mu          sync.RWMutex
 
 	instruments *mqttInstruments
@@ -133,37 +143,94 @@ func (cm *ConnectionManager) Start(ctx context.Context) error {
 
 // Stop disconnects all broker clients gracefully.
 func (cm *ConnectionManager) Stop() {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
+	cm.lifecycle.Lock()
+	defer cm.lifecycle.Unlock()
 
-	for id, conn := range cm.connections {
-		cm.logger.Info("disconnecting from broker", "broker", conn.broker.Name)
-		conn.link.close()
-		delete(cm.connections, id)
+	for _, id := range cm.linkedBrokerIDs() {
+		cm.disconnect(id)
 	}
 }
 
-// ConnectBroker establishes a connection to the given broker and subscribes
-// to all enabled subscriptions for that broker. The embedded broker is
-// reached through its inline client rather than over the network.
+// ConnectBroker connects to the given broker, replacing any link the manager
+// already holds for it, and subscribes to all enabled subscriptions for that
+// broker. The embedded broker is reached through its inline client rather
+// than over the network. For an external broker it waits up to connectWait
+// for the broker to accept and the subscriptions to be in place; a client
+// still retrying when the wait ends stays tracked, so it connects once the
+// broker accepts and a later change stops it.
 func (cm *ConnectionManager) ConnectBroker(ctx context.Context, broker gen.MQTTBroker) error {
+	cm.lifecycle.Lock()
+	link, err := cm.replaceLink(ctx, broker)
+	cm.lifecycle.Unlock()
+	if err != nil {
+		return err
+	}
+	if err := link.awaitConnected(connectWait); err != nil {
+		return fmt.Errorf("connection to broker %s: %w", broker.Name, err)
+	}
+	return nil
+}
+
+// OnBrokerChanged makes the broker's connection follow its stored settings
+// and password: the old link is closed and, if the broker is enabled, a new
+// one is opened. It does not wait for an external broker to accept.
+func (cm *ConnectionManager) OnBrokerChanged(brokerID int) {
+	cm.lifecycle.Lock()
+	defer cm.lifecycle.Unlock()
+
+	// Close first, so a failure below never leaves the old credential in use.
+	cm.disconnect(brokerID)
+
+	ctx := context.Background()
+	broker, err := cm.brokerRepo.GetByID(ctx, brokerID)
+	if err != nil {
+		cm.logger.Error("failed to load a changed broker; it stays disconnected", "broker_id", brokerID, "error", err)
+		return
+	}
+	if broker == nil || !broker.Enabled {
+		return
+	}
+	link, err := cm.replaceLink(ctx, *broker)
+	if err != nil {
+		cm.logger.Error("failed to connect to broker", "broker", broker.Name, "error", err)
+		return
+	}
+	go func() {
+		err := link.awaitConnected(connectWait)
+		if err != nil && cm.holds(brokerID, link) {
+			cm.logger.Warn("broker not connected yet; still retrying", "broker", broker.Name, "error", err)
+		}
+	}()
+}
+
+// OnBrokerDeleted closes the deleted broker's link and drops its statistics.
+func (cm *ConnectionManager) OnBrokerDeleted(brokerID int) {
+	cm.lifecycle.Lock()
+	defer cm.lifecycle.Unlock()
+
+	cm.disconnect(brokerID)
+	cm.stats.RemoveBroker(brokerID)
+}
+
+// replaceLink closes the broker's link, if any, and opens a new one. The
+// caller holds cm.lifecycle.
+func (cm *ConnectionManager) replaceLink(ctx context.Context, broker gen.MQTTBroker) (brokerLink, error) {
+	cm.disconnect(brokerIDOf(broker))
 	if broker.Type == "embedded" {
 		return cm.attachEmbeddedBroker(ctx, broker)
 	}
 	return cm.dialExternalBroker(ctx, broker)
 }
 
-func (cm *ConnectionManager) attachEmbeddedBroker(ctx context.Context, broker gen.MQTTBroker) error {
+func (cm *ConnectionManager) attachEmbeddedBroker(ctx context.Context, broker gen.MQTTBroker) (brokerLink, error) {
 	brokerID := brokerIDOf(broker)
 	if cm.embedded == nil || !cm.embedded.IsRunning() {
-		return fmt.Errorf("embedded broker %s is not running", broker.Name)
+		return nil, fmt.Errorf("embedded broker %s is not running", broker.Name)
 	}
 
 	cm.stats.SetBrokerName(brokerID, broker.Name)
 	link := newInlineLink(cm.embedded.Server())
-	cm.mu.Lock()
-	cm.connections[brokerID] = &brokerConnection{broker: broker, link: link}
-	cm.mu.Unlock()
+	cm.track(broker, link)
 	cm.instruments.connectionsActive.Add(ctx, 1)
 	cm.stats.RecordConnected(brokerID)
 
@@ -172,30 +239,32 @@ func (cm *ConnectionManager) attachEmbeddedBroker(ctx context.Context, broker ge
 	}
 
 	cm.logger.Info("attached to embedded MQTT broker", "broker", broker.Name)
-	return nil
+	return link, nil
 }
 
-func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.MQTTBroker) error {
+// dialExternalBroker starts connecting a new Paho client and tracks it at
+// once, before the broker has accepted it: a client in ConnectRetry presents
+// its credential every retry until it is stopped.
+func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.MQTTBroker) (brokerLink, error) {
 	brokerID := brokerIDOf(broker)
 	if broker.Host == nil || broker.Port == nil {
-		return fmt.Errorf("broker %s has no host and port", broker.Name)
+		return nil, fmt.Errorf("broker %s has no host and port", broker.Name)
 	}
 	host, port := *broker.Host, *broker.Port
 	password, status, err := cm.passwords.Get(ctx, database.BrokerSecretOwner(brokerID), database.BrokerPasswordSecret)
 	if err != nil {
-		return fmt.Errorf("failed to read the password of broker %s: %w", broker.Name, err)
+		return nil, fmt.Errorf("failed to read the password of broker %s: %w", broker.Name, err)
 	}
 	if status == secrets.StatusNeedsReentry {
-		return fmt.Errorf("the stored password of broker %s does not decrypt under the current key; enter it again", broker.Name)
+		return nil, fmt.Errorf("the stored password of broker %s does not decrypt under the current key; enter it again", broker.Name)
 	}
-	ctx, span := cm.tracer.Start(ctx, "mqtt.connect_broker",
+	_, span := cm.tracer.Start(ctx, "mqtt.connect_broker",
 		trace.WithAttributes(
 			attribute.String("broker.name", broker.Name),
 			attribute.Int("broker.id", brokerID),
 			attribute.String("broker.host", host),
 			attribute.Int("broker.port", port),
 		))
-	defer span.End()
 
 	brokerURL := fmt.Sprintf("tcp://%s:%d", host, port)
 
@@ -206,6 +275,7 @@ func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.
 
 	cm.stats.SetBrokerName(brokerID, broker.Name)
 
+	link := newPahoLink()
 	opts := pahomqtt.NewClientOptions().
 		AddBroker(brokerURL).
 		SetClientID(clientID).
@@ -215,19 +285,22 @@ func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.
 		SetMaxReconnectInterval(2 * time.Minute).
 		SetConnectionLostHandler(func(client pahomqtt.Client, err error) {
 			cm.logger.Warn("MQTT connection lost", "broker", broker.Name, "error", err)
-			cm.instruments.connectionsActive.Add(context.Background(), -1)
-			cm.stats.RecordDisconnected(brokerID)
+			if link.connectionLost() {
+				cm.instruments.connectionsActive.Add(context.Background(), -1)
+				cm.stats.RecordDisconnected(brokerID)
+			}
 		}).
-		SetOnConnectHandler(func(client pahomqtt.Client) {
-			cm.logger.Info("MQTT connected", "broker", broker.Name)
-			cm.instruments.connectionsActive.Add(context.Background(), 1)
-			cm.stats.RecordConnected(brokerID)
-			// Re-subscribe on reconnect
-			go func() {
-				if err := cm.subscribeAll(context.Background(), brokerID, &pahoLink{client: client}); err != nil {
-					cm.logger.Error("failed to re-subscribe after reconnect", "broker", broker.Name, "error", err)
-				}
-			}()
+		SetOnConnectHandler(func(pahomqtt.Client) {
+			// Paho calls this on its own goroutine, on every connect and reconnect.
+			cm.logger.Info("MQTT connected", "broker", broker.Name, "url", brokerURL)
+			if link.connectionUp() {
+				cm.instruments.connectionsActive.Add(context.Background(), 1)
+				cm.stats.RecordConnected(brokerID)
+			}
+			if err := cm.subscribeAll(context.Background(), brokerID, link); err != nil {
+				cm.logger.Error("failed to subscribe after connecting", "broker", broker.Name, "error", err)
+			}
+			link.markSubscribed()
 		})
 
 	if broker.Username != nil && *broker.Username != "" {
@@ -237,45 +310,68 @@ func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.
 		opts.SetPassword(password)
 	}
 
-	client := pahomqtt.NewClient(opts)
-	token := client.Connect()
-	if !token.WaitTimeout(10 * time.Second) {
-		span.RecordError(fmt.Errorf("connection timed out"))
-		return fmt.Errorf("connection to broker %s timed out", broker.Name)
-	}
-	if token.Error() != nil {
-		span.RecordError(token.Error())
-		return fmt.Errorf("failed to connect to broker %s: %w", broker.Name, token.Error())
-	}
+	link.client = pahomqtt.NewClient(opts)
+	link.connecting = link.client.Connect()
+	cm.track(broker, link)
 
-	link := &pahoLink{client: client}
-	cm.mu.Lock()
-	cm.connections[brokerID] = &brokerConnection{broker: broker, link: link}
-	cm.mu.Unlock()
-
-	if err := cm.subscribeAll(ctx, brokerID, link); err != nil {
-		cm.logger.Error("failed to subscribe to topics", "broker", broker.Name, "error", err)
-	}
-
-	cm.logger.Info("connected to MQTT broker", "broker", broker.Name, "url", brokerURL)
-	return nil
+	go func() {
+		defer span.End()
+		if err := link.awaitConnected(connectWait); err != nil {
+			span.RecordError(err)
+		}
+	}()
+	return link, nil
 }
 
 // DisconnectBroker disconnects from a specific broker by ID.
 func (cm *ConnectionManager) DisconnectBroker(brokerID int) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
+	cm.lifecycle.Lock()
+	defer cm.lifecycle.Unlock()
+	cm.disconnect(brokerID)
+}
 
+// track records a newly opened link. The caller holds cm.lifecycle and has
+// closed any previous link for the broker.
+func (cm *ConnectionManager) track(broker gen.MQTTBroker, link brokerLink) {
+	cm.mu.Lock()
+	cm.connections[brokerIDOf(broker)] = &brokerConnection{broker: broker, link: link}
+	cm.mu.Unlock()
+}
+
+// holds reports whether link is still the broker's current link.
+func (cm *ConnectionManager) holds(brokerID int, link brokerLink) bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
 	conn, ok := cm.connections[brokerID]
+	return ok && conn.link == link
+}
+
+// disconnect closes and forgets the broker's link, whether it is connected or
+// still retrying. The caller holds cm.lifecycle.
+func (cm *ConnectionManager) disconnect(brokerID int) {
+	cm.mu.Lock()
+	conn, ok := cm.connections[brokerID]
+	delete(cm.connections, brokerID)
+	cm.mu.Unlock()
 	if !ok {
 		return
 	}
 
-	conn.link.close()
-	delete(cm.connections, brokerID)
-	cm.instruments.connectionsActive.Add(context.Background(), -1)
-	cm.stats.RecordDisconnected(brokerID)
-	cm.logger.Info("disconnected from broker", "broker_id", brokerID)
+	if conn.link.close() {
+		cm.instruments.connectionsActive.Add(context.Background(), -1)
+		cm.stats.RecordDisconnected(brokerID)
+	}
+	cm.logger.Info("disconnected from broker", "broker", conn.broker.Name, "broker_id", brokerID)
+}
+
+func (cm *ConnectionManager) linkedBrokerIDs() []int {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	ids := make([]int, 0, len(cm.connections))
+	for id := range cm.connections {
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 func brokerIDOf(broker gen.MQTTBroker) int {
@@ -659,8 +755,10 @@ func (cm *ConnectionManager) ConnectedBrokerIDs() []int {
 	defer cm.mu.RUnlock()
 
 	ids := make([]int, 0, len(cm.connections))
-	for id := range cm.connections {
-		ids = append(ids, id)
+	for id, conn := range cm.connections {
+		if conn.link.connected() {
+			ids = append(ids, id)
+		}
 	}
 	return ids
 }

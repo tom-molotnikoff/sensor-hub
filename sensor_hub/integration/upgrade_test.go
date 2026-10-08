@@ -87,9 +87,11 @@ func seed15Install(t *testing.T, brokerPassword string) install15 {
 
 // startHub runs 'local serve' as the packaged unit does and waits until it
 // answers. The hub is stopped at the end of the test.
-func startHub(t *testing.T, install install15) *bytes.Buffer {
+// startHub runs the hub until the test ends. Its output is written by the
+// process's copying goroutines while the test reads it, hence the lock.
+func startHub(t *testing.T, install install15) *lockedBuffer {
 	t.Helper()
-	output := &bytes.Buffer{}
+	output := &lockedBuffer{}
 	cmd := exec.Command(buildSensorHub(t), "local", "serve", "--config-dir", install.configDir)
 	cmd.Stdout, cmd.Stderr = output, output
 	require.NoError(t, cmd.Start())
