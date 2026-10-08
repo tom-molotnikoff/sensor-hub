@@ -24,11 +24,11 @@ func ParseBrokerCA(pemText string) (*x509.CertPool, error) {
 		}
 		count++
 		if block.Type != "CERTIFICATE" {
-			return nil, fmt.Errorf("broker CA certificate block %d is a %q, not a CERTIFICATE", count, block.Type)
+			return nil, fmt.Errorf("broker CA certificate contains a %s block (block %d); paste only the CA certificates and remove it", block.Type, count)
 		}
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("broker CA certificate block %d does not parse: %w", count, err)
+			return nil, fmt.Errorf("broker CA certificate %d does not parse (%v); check it was pasted whole", count, err)
 		}
 		pool.AddCert(cert)
 	}

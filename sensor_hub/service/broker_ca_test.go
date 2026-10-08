@@ -37,19 +37,25 @@ func TestParseBrokerCA_AcceptsCertificatesWithTextAroundThem(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestParseBrokerCA_RefusesAnythingButCertificates(t *testing.T) {
+func TestParseBrokerCA_RefusesAnythingButCertificatesAndSaysWhat(t *testing.T) {
 	ca := caPEM(t)
-	cases := map[string]string{
-		"no PEM at all":         "not a certificate",
-		"a private key":         ca + string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte{1, 2, 3}})),
-		"a damaged certificate": string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("damaged")})),
+	cases := map[string]struct{ input, message string }{
+		"no PEM at all": {"not a certificate", "broker CA certificate holds no PEM certificate"},
+		"a private key after the CA": {
+			ca + string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte{1, 2, 3}})),
+			"broker CA certificate contains a PRIVATE KEY block (block 2)",
+		},
+		"a damaged second certificate": {
+			ca + string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("damaged")})),
+			"broker CA certificate 2 does not parse",
+		},
 	}
-	for name, input := range cases {
+	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := ParseBrokerCA(input)
+			_, err := ParseBrokerCA(tc.input)
 
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "broker CA certificate", "the API reports it as a validation error")
+			assert.Contains(t, err.Error(), tc.message)
 		})
 	}
 }
