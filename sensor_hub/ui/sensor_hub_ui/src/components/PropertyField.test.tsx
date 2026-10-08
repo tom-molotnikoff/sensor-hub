@@ -5,9 +5,9 @@ import PropertyField from './PropertyField';
 
 function makeDefinition(overrides: Partial<PropertyDefinition> = {}): PropertyDefinition {
   return {
-    key: 'sensor.discovery.skip',
-    label: 'Skip sensor discovery',
-    description: "Don't try to auto-discover sensors at startup.",
+    key: 'readings.aggregation.enabled',
+    label: 'Readings aggregation',
+    description: 'Whether readings are downsampled into aggregation tiers.',
     type: 'bool',
     default: 'false',
     group: 'sensors',
@@ -21,7 +21,7 @@ describe('PropertyField', () => {
   it('reflects the default in the control of a definition carrying no value', () => {
     render(<PropertyField definition={makeDefinition({ default: 'true' })} onChange={() => {}} />);
 
-    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Readings aggregation' })).toBeChecked();
   });
 
   it('states only the saved value for an undescribed property, with no default, chip or consequence note', () => {
@@ -52,7 +52,7 @@ describe('PropertyField', () => {
   it('renders a bool property as a switch whose state matches the current value', () => {
     render(<PropertyField definition={makeDefinition()} serverValue="true" onChange={() => {}} />);
 
-    const control = screen.getByRole('switch', { name: 'Skip sensor discovery' });
+    const control = screen.getByRole('switch', { name: 'Readings aggregation' });
     expect(control).toBeChecked();
   });
 
@@ -364,15 +364,15 @@ describe('PropertyField', () => {
   it('shows the raw key alongside the label', () => {
     render(<PropertyField definition={makeDefinition()} serverValue="false" onChange={() => {}} />);
 
-    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
-    expect(screen.getByText('sensor.discovery.skip')).toBeInTheDocument();
+    expect(screen.getByText('Readings aggregation')).toBeInTheDocument();
+    expect(screen.getByText('readings.aggregation.enabled')).toBeInTheDocument();
   });
 
   it('shows the visible label with its description alongside the control', () => {
     render(<PropertyField definition={makeDefinition()} serverValue="false" onChange={() => {}} />);
 
-    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
-    expect(screen.getByText("Don't try to auto-discover sensors at startup.")).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeInTheDocument();
+    expect(screen.getByText('Readings aggregation')).toBeInTheDocument();
+    expect(screen.getByText('Whether readings are downsampled into aggregation tiers.')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Readings aggregation' })).toBeInTheDocument();
   });
 });

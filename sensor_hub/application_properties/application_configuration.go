@@ -10,16 +10,14 @@ import (
 )
 
 type ApplicationConfiguration struct {
-	SensorCollectionInterval       int    `prop:"sensor.collection.interval" default:"300" file:"application" validate:"positive" label:"Collection interval" desc:"How often every enabled sensor is polled." group:"sensors" unit:"seconds" apply:"next-cycle"`
-	SensorDiscoverySkip            bool   `prop:"sensor.discovery.skip" default:"true" file:"application" label:"Skip sensor discovery" desc:"Skip automatic sensor discovery at startup." group:"sensors"`
-	OpenAPILocation                string `prop:"openapi.yaml.location" default:"./docker_tests/openapi.yaml" file:"application" label:"OpenAPI YAML location" desc:"Path to the OpenAPI document used when discovering HTTP sensors." group:"advanced"`
-	HealthHistoryRetentionDays     int    `prop:"health.history.retention.days" default:"30" file:"application" validate:"non_negative" label:"Health history retention" desc:"How long sensor health check history is kept." group:"retention" unit:"days"`
-	SensorDataRetentionDays        int    `prop:"sensor.data.retention.days" default:"90" file:"application" validate:"non_negative" label:"Sensor data retention" desc:"How long sensor readings are kept." group:"retention" unit:"days"`
-	FailedLoginRetentionDays       int    `prop:"failed.login.retention.days" default:"2" file:"application" validate:"non_negative" label:"Failed login retention" desc:"How long failed login attempts are kept." group:"retention" unit:"days"`
-	AlertHistoryRetentionDays      int    `prop:"alert.history.retention.days" default:"90" file:"application" validate:"non_negative" label:"Alert history retention" desc:"How long alert trigger history is kept." group:"retention" unit:"days"`
-	AutomationHistoryRetentionDays int    `prop:"automation.history.retention.days" default:"30" file:"application" validate:"non_negative" label:"Automation run history retention" desc:"How long finished automation runs and their step outcomes are kept. Running and waiting runs are always kept." group:"retention" unit:"days"`
-	CommandHistoryRetentionDays    int    `prop:"command.history.retention.days" default:"90" file:"application" validate:"non_negative" label:"Command history retention" desc:"How long the history of commands sent to devices is kept, whether a person or an automation sent them." group:"retention" unit:"days"`
-	DataCleanupIntervalHours       int    `prop:"data.cleanup.interval.hours" default:"1" file:"application" validate:"positive" label:"Cleanup interval" desc:"How often the retention cleanup task runs." group:"retention" unit:"hours" apply:"next-cycle"`
+	SensorCollectionInterval       int `prop:"sensor.collection.interval" default:"300" file:"application" validate:"positive" label:"Collection interval" desc:"How often every enabled sensor is polled." group:"sensors" unit:"seconds" apply:"next-cycle"`
+	HealthHistoryRetentionDays     int `prop:"health.history.retention.days" default:"30" file:"application" validate:"non_negative" label:"Health history retention" desc:"How long sensor health check history is kept." group:"retention" unit:"days"`
+	SensorDataRetentionDays        int `prop:"sensor.data.retention.days" default:"90" file:"application" validate:"non_negative" label:"Sensor data retention" desc:"How long sensor readings are kept." group:"retention" unit:"days"`
+	FailedLoginRetentionDays       int `prop:"failed.login.retention.days" default:"2" file:"application" validate:"non_negative" label:"Failed login retention" desc:"How long failed login attempts are kept." group:"retention" unit:"days"`
+	AlertHistoryRetentionDays      int `prop:"alert.history.retention.days" default:"90" file:"application" validate:"non_negative" label:"Alert history retention" desc:"How long alert trigger history is kept." group:"retention" unit:"days"`
+	AutomationHistoryRetentionDays int `prop:"automation.history.retention.days" default:"30" file:"application" validate:"non_negative" label:"Automation run history retention" desc:"How long finished automation runs and their step outcomes are kept. Running and waiting runs are always kept." group:"retention" unit:"days"`
+	CommandHistoryRetentionDays    int `prop:"command.history.retention.days" default:"90" file:"application" validate:"non_negative" label:"Command history retention" desc:"How long the history of commands sent to devices is kept, whether a person or an automation sent them." group:"retention" unit:"days"`
+	DataCleanupIntervalHours       int `prop:"data.cleanup.interval.hours" default:"1" file:"application" validate:"positive" label:"Cleanup interval" desc:"How often the retention cleanup task runs." group:"retention" unit:"hours" apply:"next-cycle"`
 
 	SMTPUser string `prop:"smtp.user" default:"" file:"smtp" desc:"Email address alert and notification emails are sent from." group:"email"`
 

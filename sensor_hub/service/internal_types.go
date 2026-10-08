@@ -54,20 +54,3 @@ const (
 	RoleUser   = "user"
 	RoleViewer = "viewer"
 )
-
-// ============================================================================
-// SensorServers — YAML config types used when loading sensor server configs
-// ============================================================================
-
-type SensorServers struct {
-	Servers []SensorServerItem `yaml:"servers"`
-}
-
-type SensorServerItem struct {
-	Url       string                                  `yaml:"url"`
-	Variables map[string]SensorServerVariableProperty `yaml:"variables"`
-}
-
-type SensorServerVariableProperty struct {
-	Default string `yaml:"default"`
-}

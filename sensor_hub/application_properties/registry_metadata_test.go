@@ -77,7 +77,7 @@ func TestBuildRegistry_Labels(t *testing.T) {
 // truthful apply state.
 func TestRegistry_MetadataComplete(t *testing.T) {
 	defs := Definitions()
-	assert.Len(t, defs, 35)
+	assert.Len(t, defs, 33)
 
 	knownGroups := make(map[string]bool)
 	for _, g := range PropertyGroups() {
@@ -108,8 +108,8 @@ func TestRegistry_MetadataComplete(t *testing.T) {
 		groupCounts[def.Group]++
 	}
 
-	assert.Equal(t, map[string]int{"live": 23, "next-cycle": 2, "action": 9, "readonly": 1}, applyCounts)
-	assert.Equal(t, map[string]int{"sensors": 2, "automations": 3, "retention": 7, "security": 7, "mqtt": 2, "email": 4, "weather": 3, "advanced": 7}, groupCounts)
+	assert.Equal(t, map[string]int{"live": 21, "next-cycle": 2, "action": 9, "readonly": 1}, applyCounts)
+	assert.Equal(t, map[string]int{"sensors": 1, "automations": 3, "retention": 7, "security": 7, "mqtt": 2, "email": 4, "weather": 3, "advanced": 6}, groupCounts)
 }
 
 func TestRegistry_SpecAssignments(t *testing.T) {

@@ -14,8 +14,6 @@ import (
 func validAppPropsMap() map[string]string {
 	return map[string]string{
 		"sensor.collection.interval":           "300",
-		"sensor.discovery.skip":                "true",
-		"openapi.yaml.location":                "/path/to/openapi.yaml",
 		"health.history.retention.days":        "180",
 		"sensor.data.retention.days":           "365",
 		"data.cleanup.interval.hours":          "24",
@@ -61,8 +59,6 @@ func TestLoadConfigurationFromMaps_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, cfg)
 	assert.Equal(t, 300, cfg.SensorCollectionInterval)
-	assert.True(t, cfg.SensorDiscoverySkip)
-	assert.Equal(t, "/path/to/openapi.yaml", cfg.OpenAPILocation)
 	assert.Equal(t, 180, cfg.HealthHistoryRetentionDays)
 	assert.Equal(t, 365, cfg.SensorDataRetentionDays)
 	assert.Equal(t, 24, cfg.DataCleanupIntervalHours)
@@ -130,9 +126,9 @@ func TestLoadConfigurationFromMaps_InvalidSensorCollectionInterval(t *testing.T)
 	assert.Nil(t, cfg)
 }
 
-func TestLoadConfigurationFromMaps_InvalidSensorDiscoverySkip(t *testing.T) {
+func TestLoadConfigurationFromMaps_InvalidReadingsAggregationEnabled(t *testing.T) {
 	appProps := validAppPropsMap()
-	appProps["sensor.discovery.skip"] = "maybe"
+	appProps["readings.aggregation.enabled"] = "notabool"
 
 	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
 
@@ -303,8 +299,7 @@ func TestLoadConfigurationFromMaps_ZeroCleanupInterval(t *testing.T) {
 func TestConvertConfigurationToMaps_Success(t *testing.T) {
 	cfg := &ApplicationConfiguration{
 		SensorCollectionInterval:      300,
-		SensorDiscoverySkip:           true,
-		OpenAPILocation:               "/path/to/openapi.yaml",
+		ReadingsAggregationEnabled:    true,
 		HealthHistoryRetentionDays:    180,
 		SensorDataRetentionDays:       365,
 		DataCleanupIntervalHours:      24,
@@ -324,8 +319,7 @@ func TestConvertConfigurationToMaps_Success(t *testing.T) {
 	appProps, smtpProps, dbProps := ConvertConfigurationToMaps(cfg)
 
 	assert.Equal(t, "300", appProps["sensor.collection.interval"])
-	assert.Equal(t, "true", appProps["sensor.discovery.skip"])
-	assert.Equal(t, "/path/to/openapi.yaml", appProps["openapi.yaml.location"])
+	assert.Equal(t, "true", appProps["readings.aggregation.enabled"])
 	assert.Equal(t, "180", appProps["health.history.retention.days"])
 	assert.Equal(t, "365", appProps["sensor.data.retention.days"])
 	assert.Equal(t, "24", appProps["data.cleanup.interval.hours"])
@@ -353,7 +347,7 @@ func TestConvertConfigurationToMaps_ZeroValues(t *testing.T) {
 	appProps, smtpProps, dbProps := ConvertConfigurationToMaps(cfg)
 
 	assert.Equal(t, "0", appProps["sensor.collection.interval"])
-	assert.Equal(t, "false", appProps["sensor.discovery.skip"])
+	assert.Equal(t, "false", appProps["readings.aggregation.enabled"])
 	assert.Equal(t, "", smtpProps["smtp.user"])
 	assert.Equal(t, "", dbProps["database.path"])
 }
@@ -361,8 +355,7 @@ func TestConvertConfigurationToMaps_ZeroValues(t *testing.T) {
 func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 	original := &ApplicationConfiguration{
 		SensorCollectionInterval:      600,
-		SensorDiscoverySkip:           false,
-		OpenAPILocation:               "/api/spec.yaml",
+		ReadingsAggregationEnabled:    true,
 		HealthHistoryRetentionDays:    90,
 		SensorDataRetentionDays:       180,
 		DataCleanupIntervalHours:      12,
@@ -388,7 +381,7 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, original.SensorCollectionInterval, restored.SensorCollectionInterval)
-	assert.Equal(t, original.SensorDiscoverySkip, restored.SensorDiscoverySkip)
+	assert.Equal(t, original.ReadingsAggregationEnabled, restored.ReadingsAggregationEnabled)
 	assert.Equal(t, original.AuthBcryptCost, restored.AuthBcryptCost)
 	assert.Equal(t, original.SMTPUser, restored.SMTPUser)
 	assert.Equal(t, original.DatabasePath, restored.DatabasePath)
@@ -400,45 +393,6 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 // ============================================================================
 // Validation function tests
 // ============================================================================
-
-func TestValidateApplicationProperties_ValidConfig(t *testing.T) {
-	applicationProperties = validAppPropsMap()
-
-	err := validateApplicationProperties()
-
-	assert.NoError(t, err)
-}
-
-func TestValidateApplicationProperties_InvalidSensorDiscoverySkip(t *testing.T) {
-	applicationProperties = validAppPropsMap()
-	applicationProperties["sensor.discovery.skip"] = "yes"
-
-	err := validateApplicationProperties()
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid sensor discovery skip")
-}
-
-func TestValidateApplicationProperties_EmptyOpenAPIWhenDiscoveryEnabled(t *testing.T) {
-	applicationProperties = validAppPropsMap()
-	applicationProperties["sensor.discovery.skip"] = "false"
-	applicationProperties["openapi.yaml.location"] = ""
-
-	err := validateApplicationProperties()
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "openapi.yaml.location cannot be empty")
-}
-
-func TestValidateApplicationProperties_EmptyOpenAPIWhenDiscoverySkipped(t *testing.T) {
-	applicationProperties = validAppPropsMap()
-	applicationProperties["sensor.discovery.skip"] = "true"
-	applicationProperties["openapi.yaml.location"] = ""
-
-	err := validateApplicationProperties()
-
-	assert.NoError(t, err)
-}
 
 // Tests for validateSMTPProperties
 
@@ -507,24 +461,6 @@ func TestReadApplicationPropertiesFile_FileReadError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, props)
 	assert.Contains(t, err.Error(), "failed to read application properties file")
-}
-
-func TestReadApplicationPropertiesFile_ValidationError(t *testing.T) {
-	originalReadPropertiesFile := utils.ReadPropertiesFile
-	defer func() { utils.ReadPropertiesFile = originalReadPropertiesFile }()
-
-	utils.ReadPropertiesFile = func(path string) (map[string]string, error) {
-		return map[string]string{
-			"sensor.discovery.skip": "not_a_bool",
-			"openapi.yaml.location": "/path",
-		}, nil
-	}
-
-	props, err := ReadApplicationPropertiesFile()
-
-	assert.Error(t, err)
-	assert.Nil(t, props)
-	assert.Contains(t, err.Error(), "validation failed")
 }
 
 func TestReadDatabasePropertiesFile_Success(t *testing.T) {
@@ -616,8 +552,6 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 
 	SetAppConfig(&ApplicationConfiguration{
 		SensorCollectionInterval:      120,
-		SensorDiscoverySkip:           false,
-		OpenAPILocation:               "/test/openapi.yaml",
 		HealthHistoryRetentionDays:    90,
 		SensorDataRetentionDays:       180,
 		DataCleanupIntervalHours:      12,
@@ -801,8 +735,6 @@ func TestLoadConfigurationFromMaps_InvalidOAuthTokenRefreshInterval(t *testing.T
 func TestConvertConfigurationToMaps_OAuthConfig(t *testing.T) {
 	cfg := &ApplicationConfiguration{
 		SensorCollectionInterval:         300,
-		SensorDiscoverySkip:              true,
-		OpenAPILocation:                  "/path/to/openapi.yaml",
 		HealthHistoryRetentionDays:       180,
 		SensorDataRetentionDays:          365,
 		DataCleanupIntervalHours:         24,

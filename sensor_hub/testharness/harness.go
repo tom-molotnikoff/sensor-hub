@@ -111,7 +111,7 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 
 	// Write minimal config files
 	appPropsContent := fmt.Sprintf(
-		"sensor.collection.interval=300\nsensor.discovery.skip=true\ndatabase.path=%s\nlog.level=debug\nauth.bcrypt.cost=4\nmqtt.broker.enabled=false\n", dbPath)
+		"sensor.collection.interval=300\ndatabase.path=%s\nlog.level=debug\nauth.bcrypt.cost=4\nmqtt.broker.enabled=false\n", dbPath)
 	writeFileOrErr(filepath.Join(configDir, "application.properties"), appPropsContent)
 	writeFileOrErr(filepath.Join(configDir, "database.properties"), fmt.Sprintf("database.path=%s\n", dbPath))
 	writeFileOrErr(filepath.Join(configDir, "smtp.properties"), "smtp.user=\n")

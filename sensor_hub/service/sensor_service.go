@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
 	"example/sensorHub/drivers"
@@ -14,13 +13,11 @@ import (
 	"example/sensorHub/telemetry"
 	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	"gopkg.in/yaml.v3"
 )
 
 type AlreadyExistsError struct {
@@ -364,55 +361,6 @@ func (s *SensorService) ServiceCollectReadingToValidateSensor(ctx context.Contex
 		return fmt.Errorf("unsupported sensor driver %s for sensor %s", sensor.SensorDriver, sensor.Name)
 	}
 	return driver.ValidateSensor(ctx, sensor)
-}
-
-func (s *SensorService) ServiceDiscoverSensors(ctx context.Context) error {
-	cfg := appProps.AppConfig()
-
-	if cfg.SensorDiscoverySkip {
-		s.logger.Info("skipping sensor discovery as per configuration")
-		return nil
-	}
-
-	fileData, err := os.ReadFile(cfg.OpenAPILocation)
-	if err != nil {
-		return fmt.Errorf("cannot find the openapi.yaml file for the temperature sensors: %w", err)
-	}
-	var servers SensorServers
-
-	err = yaml.Unmarshal(fileData, &servers)
-	if err != nil {
-		return fmt.Errorf("cannot unmarshal the yaml into a map: %w", err)
-	}
-
-	for _, value := range servers.Servers {
-		sensorName := value.Variables["sensor_name"].Default
-		url := value.Url
-		sensorType := value.Variables["sensor_type"].Default
-
-		sensor := gen.Sensor{
-			Name:         sensorName,
-			SensorDriver: sensorType,
-			Config:       map[string]string{"url": url},
-		}
-		err = s.ServiceAddSensor(ctx, sensor)
-		if err != nil {
-			s.logger.Warn("error adding sensor during discovery", "sensor", sensorName, "error", err)
-			var alreadyExistsErr *AlreadyExistsError
-			if errors.As(err, &alreadyExistsErr) {
-				s.logger.Info("sensor already exists, updating", "sensor", sensorName)
-				err = s.ServiceUpdateSensorById(ctx, sensor, false)
-				if err != nil {
-					s.logger.Error("error updating sensor during discovery", "sensor", sensorName, "error", err)
-				} else {
-					s.logger.Info("sensor updated during discovery", "sensor", sensor.Name)
-				}
-			}
-			continue
-		}
-		s.logger.Info("sensor discovered and added", "sensor", sensor.Name)
-	}
-	return nil
 }
 
 func (s *SensorService) ServiceStartPeriodicSensorCollection(ctx context.Context) {

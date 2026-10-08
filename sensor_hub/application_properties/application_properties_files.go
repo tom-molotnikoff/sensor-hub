@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 )
 
-var applicationProperties map[string]string
 var smtpProperties map[string]string
 var databaseProperties map[string]string
 
@@ -32,22 +31,6 @@ func GetConfigDir() string {
 	return configDir
 }
 
-// validateApplicationProperties checks cross-field rules that can't be
-// expressed as per-field struct tags.
-func validateApplicationProperties() error {
-	sensorDiscoverySkip := applicationProperties["sensor.discovery.skip"]
-	if sensorDiscoverySkip != "true" && sensorDiscoverySkip != "false" {
-		return fmt.Errorf("invalid sensor discovery skip value: %s. must be 'true' or 'false'", sensorDiscoverySkip)
-	}
-
-	openAPILocation := applicationProperties["openapi.yaml.location"]
-	if openAPILocation == "" && sensorDiscoverySkip == "false" {
-		return fmt.Errorf("openapi.yaml.location cannot be empty if sensor discovery is not skipped")
-	}
-
-	return nil
-}
-
 func validateSMTPProperties() error {
 	if smtpProperties["smtp.user"] == "" {
 		slog.Warn("smtp.user is empty, email alerts will not be sent; check smtp.properties file")
@@ -56,8 +39,7 @@ func validateSMTPProperties() error {
 }
 
 func ReadApplicationPropertiesFile() (map[string]string, error) {
-	appDefaults, _, _ := BuildDefaults()
-	applicationProperties = appDefaults
+	applicationProperties, _, _ := BuildDefaults()
 	propertiesFromFile, err := utils.ReadPropertiesFile(applicationPropertiesFilePath)
 
 	if err != nil {
@@ -66,10 +48,6 @@ func ReadApplicationPropertiesFile() (map[string]string, error) {
 
 	for k, v := range propertiesFromFile {
 		applicationProperties[k] = v
-	}
-
-	if err := validateApplicationProperties(); err != nil {
-		return nil, fmt.Errorf("validation failed on application properties: %w", err)
 	}
 
 	return applicationProperties, nil

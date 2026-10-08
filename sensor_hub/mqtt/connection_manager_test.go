@@ -75,9 +75,6 @@ func (m *MockSensorService) ServiceCollectReadingToValidateSensor(ctx context.Co
 func (m *MockSensorService) ServiceStartPeriodicSensorCollection(ctx context.Context) {
 	m.Called(ctx)
 }
-func (m *MockSensorService) ServiceDiscoverSensors(ctx context.Context) error {
-	return m.Called(ctx).Error(0)
-}
 func (m *MockSensorService) ServiceValidateSensorConfig(ctx context.Context, sensor gen.Sensor) error {
 	return m.Called(ctx, sensor).Error(0)
 }
