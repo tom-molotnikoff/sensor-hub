@@ -37,7 +37,31 @@ ssl_certificate     /path/to/sensor-hub.pem;
 ssl_certificate_key /path/to/sensor-hub-key.pem;
 ```
 
-The example configuration proxies all requests from port 443 to `http://127.0.0.1:8080` with WebSocket upgrade support.
+The example configuration proxies all requests from port 443 to `http://127.0.0.1:8080` with WebSocket upgrade support, except `/metrics`, which it does not proxy.
+
+## What sensor-hub expects of nginx
+
+Three properties in `/etc/sensor-hub/application.properties` decide how nginx and sensor-hub fit together. See [Configuration](configuration) for each.
+
+| Property | Packaged value | Why |
+|---|---|---|
+| `http.listen.address` | `127.0.0.1:8080` (default) | Only nginx, on the same machine, reaches the hub. Everything else goes through nginx |
+| `http.trusted.proxies` | `127.0.0.1,::1` | The hub believes the client address nginx forwards, so the login backoff applies to each client, not to nginx |
+| `metrics.listen.address` | `127.0.0.1:9464` (default) | `/metrics` has no authentication, so it has its own listener and nginx never serves it. See [Telemetry](telemetry#prometheus-metrics) |
+
+### Client addresses
+
+nginx passes the client's address on in `X-Forwarded-For` and `X-Real-IP`. Sensor Hub believes those headers only when the request comes from an address in `http.trusted.proxies`, so nginx's own address must be in that list. The packaged value covers nginx on the same machine.
+
+If `http.trusted.proxies` is empty, every request appears to come from nginx. One person failing to log in then puts every user under the login backoff.
+
+If nginx runs on another host:
+
+1. Set `http.listen.address` to an address nginx can reach, such as `0.0.0.0:8080`, and change `proxy_pass` to match.
+2. Set `http.trusted.proxies` to nginx's address, such as `192.168.1.20`.
+3. Restart sensor-hub: `sudo systemctl restart sensor-hub`.
+
+Never list an address that untrusted clients can connect from: a client sending from it could claim any address it liked.
 
 ## TLS certificates
 

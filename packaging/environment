@@ -5,12 +5,13 @@
 # TLS_CERT_FILE=/etc/ssl/certs/sensor-hub.pem
 # TLS_KEY_FILE=/etc/ssl/private/sensor-hub-key.pem
 
-# Allow CORS from a specific origin (only needed for separate UI dev server)
+# Allow CORS and WebSocket connections from a specific origin (only needed for a separate UI dev server)
 # SENSOR_HUB_ALLOWED_ORIGIN=http://localhost:3000
 
 # --- OpenTelemetry ---
 # Uncomment to export telemetry to an OpenTelemetry Collector.
-# Without these, telemetry is local-only (logs to file/stdout, Prometheus at /metrics).
+# Without these, telemetry is local-only (logs to file/stdout, Prometheus at
+# http://127.0.0.1:9464/metrics, set by metrics.listen.address).
 #
 # OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 # OTEL_EXPORTER_OTLP_PROTOCOL=grpc

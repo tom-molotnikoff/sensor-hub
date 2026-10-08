@@ -135,6 +135,12 @@ func (c *Client) GetRaw(path string, headers http.Header) (*http.Response, []byt
 }
 
 func (c *Client) DialWebSocket(path string) (*websocket.Conn, *http.Response, error) {
+	return c.DialWebSocketWithHeaders(path, nil)
+}
+
+// DialWebSocketWithHeaders dials with the session cookie and headers, such as
+// the Origin a browser would send.
+func (c *Client) DialWebSocketWithHeaders(path string, headers http.Header) (*websocket.Conn, *http.Response, error) {
 	base, err := url.Parse(c.baseURL)
 	if err != nil {
 		return nil, nil, err
@@ -150,7 +156,10 @@ func (c *Client) DialWebSocket(path string) (*websocket.Conn, *http.Response, er
 		Path:   path,
 	}
 
-	headers := http.Header{}
+	headers = headers.Clone()
+	if headers == nil {
+		headers = http.Header{}
+	}
 	for _, cookie := range c.http.Jar.Cookies(base) {
 		headers.Add("Cookie", cookie.String())
 	}
@@ -162,10 +171,24 @@ func (c *Client) DialWebSocket(path string) (*websocket.Conn, *http.Response, er
 
 // Login authenticates and stores the session cookie + CSRF token.
 func (c *Client) Login(username, password string) int {
+	return c.LoginWithHeaders(username, password, nil)
+}
+
+// LoginWithHeaders is Login with extra request headers, such as the
+// X-Forwarded-For a reverse proxy adds.
+func (c *Client) LoginWithHeaders(username, password string, headers http.Header) int {
+	setHeaders := func(_ context.Context, req *http.Request) error {
+		for name, values := range headers {
+			for _, value := range values {
+				req.Header.Add(name, value)
+			}
+		}
+		return nil
+	}
 	body, status := c.consume(c.gen.Login(c.ctx(), gen.LoginJSONRequestBody{
 		Username: username,
 		Password: password,
-	}))
+	}, setHeaders))
 	if status == http.StatusOK {
 		var loginResp struct {
 			CSRFToken string `json:"csrf_token"`
@@ -182,6 +205,16 @@ func (c *Client) LoginAdmin(env *Env) {
 	if status := c.Login(env.AdminUser, env.AdminPass); status != http.StatusOK {
 		c.fatalf("admin login failed with status %d", status)
 	}
+}
+
+// Cookies returns the cookies the server has set on this client, such as the
+// session cookie issued at login.
+func (c *Client) Cookies() []*http.Cookie {
+	base, err := url.Parse(c.baseURL)
+	if err != nil {
+		c.fatalf("invalid base URL %q: %v", c.baseURL, err)
+	}
+	return c.http.Jar.Cookies(base)
 }
 
 func (c *Client) GetMe() (json.RawMessage, int) {

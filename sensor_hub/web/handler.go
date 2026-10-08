@@ -31,6 +31,11 @@ func RegisterSPAHandlerFS(router *gin.Engine, ui fs.FS) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
+		// Metrics are served on metrics.listen.address, never on this port
+		if path == "/metrics" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
 
 		// Try to serve the exact file (JS, CSS, images, etc.)
 		if f, err := ui.Open(strings.TrimPrefix(path, "/")); err == nil {

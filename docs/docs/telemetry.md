@@ -8,7 +8,7 @@ Sensor Hub includes built-in observability powered by [OpenTelemetry](https://op
 |-------------|-----------------------------------|----------------------------------|
 | **Logs**    | JSON to stdout + log file         | Also exported via OTLP           |
 | **Traces**  | Not exported                      | Exported via OTLP gRPC           |
-| **Metrics** | Prometheus endpoint at `/metrics` | Also exported via OTLP           |
+| **Metrics** | Prometheus endpoint at `http://127.0.0.1:9464/metrics` | Also exported via OTLP           |
 
 When no collector is configured, Sensor Hub operates in **local-only mode** — logs go to stdout and the configured log file, and metrics are available at the Prometheus endpoint. No data leaves the machine.
 
@@ -79,7 +79,9 @@ Traces use the W3C Trace Context propagation format. The trace ID appears in HTT
 
 ## Prometheus Metrics
 
-Metrics are always available at `GET /metrics` (no authentication required). This endpoint is compatible with Prometheus, Grafana Agent, or any OpenMetrics-compatible scraper.
+Metrics are served at `GET /metrics` by a listener of their own, apart from the API. The endpoint has no authentication, so it is never on the API port: `GET /metrics` there returns 404, and the example nginx configuration does not proxy it. It is compatible with Prometheus, Grafana Agent, or any OpenMetrics-compatible scraper.
+
+The listener's address is the `metrics.listen.address` property. The default, `127.0.0.1:9464`, takes scrapes from the same machine only. To scrape from another host, set it to an address that host can reach, such as `0.0.0.0:9464`, and limit who can reach that port with a firewall. Set it to empty to turn the endpoint off. A change applies when the service restarts.
 
 ### Prometheus Scrape Config
 
@@ -87,10 +89,12 @@ Metrics are always available at `GET /metrics` (no authentication required). Thi
 scrape_configs:
   - job_name: sensor-hub
     static_configs:
-      - targets: ['localhost:8080']
+      - targets: ['localhost:9464']
     metrics_path: /metrics
     scrape_interval: 15s
 ```
+
+Replace `localhost:9464` with the hub's address and port when Prometheus runs on another host.
 
 ## Grafana Integration
 
