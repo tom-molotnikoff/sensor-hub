@@ -5,6 +5,7 @@ import (
 	"errors"
 	appProps "example/sensorHub/application_properties"
 	database "example/sensorHub/db"
+	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
 	"fmt"
 	"io"
@@ -50,6 +51,10 @@ func runLocalAdminCreate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	hash, err := service.HashFirstAdminPassword(password)
+	if err != nil {
+		return err
+	}
 
 	db, err := database.Open(appProps.AppConfig(), logger)
 	if err != nil {
@@ -59,7 +64,8 @@ func runLocalAdminCreate(cmd *cobra.Command, args []string) error {
 
 	username := args[0]
 	users := database.NewUserRepository(db, logger)
-	if err := service.CreateFirstAdmin(cmd.Context(), users, username, adminCreateEmail, password, adminCreateMustChangePassword); err != nil {
+	admin := gen.User{Username: username, Email: adminCreateEmail, MustChangePassword: adminCreateMustChangePassword}
+	if _, err := users.CreateFirstAdmin(cmd.Context(), admin, hash); err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), username)

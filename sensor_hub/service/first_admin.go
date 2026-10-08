@@ -1,10 +1,7 @@
 package service
 
 import (
-	"context"
 	appProps "example/sensorHub/application_properties"
-	database "example/sensorHub/db"
-	gen "example/sensorHub/gen"
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
@@ -15,9 +12,9 @@ const (
 	minAdminBcryptCost     = 10
 )
 
-func CreateFirstAdmin(ctx context.Context, users database.UserRepository, username, email, password string, mustChangePassword bool) error {
+func HashFirstAdminPassword(password string) (string, error) {
 	if len(password) < minAdminPasswordLength {
-		return fmt.Errorf("password must be at least %d characters", minAdminPasswordLength)
+		return "", fmt.Errorf("password must be at least %d characters", minAdminPasswordLength)
 	}
 	cost := minAdminBcryptCost
 	if cfg := appProps.AppConfig(); cfg != nil && cfg.AuthBcryptCost > cost {
@@ -25,9 +22,7 @@ func CreateFirstAdmin(ctx context.Context, users database.UserRepository, userna
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), cost)
 	if err != nil {
-		return err
+		return "", err
 	}
-	user := gen.User{Username: username, Email: email, MustChangePassword: mustChangePassword}
-	_, err = users.CreateFirstAdmin(ctx, user, string(hash))
-	return err
+	return string(hash), nil
 }

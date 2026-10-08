@@ -85,4 +85,4 @@ The Go backend follows a three-layer architecture:
 
 ## Application Entry Point
 
-The `serve` command (`cmd/serve.go`) is the main entry point for the application.
+The `local serve` command (`cmd/local_serve.go`) is the main entry point for the application.

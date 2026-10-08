@@ -120,10 +120,7 @@ func TestLocalAdminCreate_RejectsAShortPassword(t *testing.T) {
 	_, stderr, err := runSensorHub(t, "short\n", "local", "admin", "create", "someone", "--config-dir", configDir)
 	require.Error(t, err)
 	assert.Contains(t, stderr, "at least 8 characters")
-
-	var users int
-	require.NoError(t, openSQLite(t, dbPath).QueryRow("SELECT COUNT(*) FROM users").Scan(&users))
-	assert.Equal(t, 0, users)
+	assert.NoFileExists(t, dbPath)
 }
 
 func TestLocalDbBackup_CopiesTheLiveDatabaseAndNeverOverwrites(t *testing.T) {
