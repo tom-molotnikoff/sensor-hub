@@ -30,7 +30,7 @@ Removing the package stops the service and removes the binary and the systemd un
 sudo apt purge sensor-hub
 ```
 
-Purging also removes the configuration files the package created in `/etc/sensor-hub/`: `environment`, `application.properties`, `database.properties` and `smtp.properties`. It keeps the database in `/var/lib/sensor-hub/` and the logs, and so it keeps the secret-store key too (`/etc/sensor-hub/secrets.key`, or `/etc/sensor-hub/secrets.key.cred` and its drop-in `/etc/systemd/system/sensor-hub.service.d/secrets-key.conf`), because a database without its key has lost every stored secret. RPM has no purge, so on Fedora and RHEL `dnf remove` keeps everything.
+Purging also removes the configuration files the package created in `/etc/sensor-hub/`: `environment`, `application.properties` and `database.properties`, and the `smtp.properties` an install upgraded from 1.5.x may still have. It keeps the database in `/var/lib/sensor-hub/` and the logs, and so it keeps the secret-store key too (`/etc/sensor-hub/secrets.key`, or `/etc/sensor-hub/secrets.key.cred` and its drop-in `/etc/systemd/system/sensor-hub.service.d/secrets-key.conf`), because a database without its key has lost every stored secret. RPM has no purge, so on Fedora and RHEL `dnf remove` keeps everything.
 
 ## Full cleanup (optional)
 

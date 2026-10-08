@@ -629,9 +629,9 @@ func TestHubTimezoneChange_RecomputesNextFireTimesStraightAway(t *testing.T) {
 
 	original := appProps.AppConfig()
 	t.Cleanup(func() { appProps.SetAppConfig(original) })
-	application, smtp, db := appProps.BuildDefaults()
+	application, db := appProps.BuildDefaults()
 	application["hub.timezone"] = "Asia/Tokyo"
-	require.NoError(t, appProps.ReloadConfig(application, smtp, db))
+	require.NoError(t, appProps.ReloadConfig(application, db))
 
 	moved, err := f.service.Get(context.Background(), created.Id)
 	require.NoError(t, err)

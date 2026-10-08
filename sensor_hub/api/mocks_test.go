@@ -429,36 +429,3 @@ func (m *MockApiKeyService) ValidateApiKey(ctx context.Context, rawKey string) (
 	}
 	return args.Get(0).(*gen.User), args.Error(1)
 }
-
-// ============================================================================
-// MockOAuthService
-// ============================================================================
-
-type MockOAuthService struct {
-	mock.Mock
-}
-
-func (m *MockOAuthService) GetStatus(ctx context.Context) map[string]interface{} {
-	args := m.Called(ctx)
-	return args.Get(0).(map[string]interface{})
-}
-
-func (m *MockOAuthService) GetAuthURL(ctx context.Context, state string) (string, error) {
-	args := m.Called(ctx, state)
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockOAuthService) ExchangeCode(ctx context.Context, code string) error {
-	args := m.Called(ctx, code)
-	return args.Error(0)
-}
-
-func (m *MockOAuthService) IsReady(ctx context.Context) bool {
-	args := m.Called(ctx)
-	return args.Bool(0)
-}
-
-func (m *MockOAuthService) Reload(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}

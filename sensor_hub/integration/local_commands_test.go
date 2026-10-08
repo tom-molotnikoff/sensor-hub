@@ -66,7 +66,6 @@ func freshConfigDir(t *testing.T) (configDir, dbPath string) {
 	files := map[string]string{
 		"application.properties": "auth.bcrypt.cost=4\n",
 		"database.properties":    fmt.Sprintf("database.path=%s\n", dbPath),
-		"smtp.properties":        "smtp.user=\n",
 	}
 	for name, content := range files {
 		require.NoError(t, os.WriteFile(filepath.Join(configDir, name), []byte(content), 0o600))

@@ -126,7 +126,7 @@ func TestSecretFailure_AHubStartedWithAnotherKeyRunsWithoutTheSecretUntilItIsEnt
 		require.NotNil(t, broker.PasswordStatus)
 		return *broker.PasswordStatus
 	}
-	assert.Equal(t, gen.NeedsReentry, brokerStatus())
+	assert.Equal(t, gen.MQTTBrokerPasswordStatusNeedsReentry, brokerStatus())
 	assert.Never(t, func() bool { return external.Connected(clientID) }, 2*time.Second, 100*time.Millisecond,
 		"a broker whose password does not decrypt stays disconnected")
 
@@ -143,7 +143,7 @@ func TestSecretFailure_AHubStartedWithAnotherKeyRunsWithoutTheSecretUntilItIsEnt
 		Username: ptrStr(reconnectUsername), Password: ptrStr(brokerPassword), Enabled: true,
 	})
 	require.Equal(t, http.StatusOK, status, "body: %s", resp)
-	assert.Equal(t, gen.Set, brokerStatus())
+	assert.Equal(t, gen.MQTTBrokerPasswordStatusSet, brokerStatus())
 	assert.Eventually(t, func() bool { return external.Connected(clientID) }, reconnectWithin, 100*time.Millisecond,
 		"the broker reconnects once its password is entered again")
 	assert.Equal(t, 0, decryptFailuresGauge(t, metricsAddress))

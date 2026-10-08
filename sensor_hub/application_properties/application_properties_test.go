@@ -14,34 +14,25 @@ import (
 // validAppPropsMap returns a complete valid application properties map
 func validAppPropsMap() map[string]string {
 	return map[string]string{
-		"sensor.collection.interval":           "300",
-		"health.history.retention.days":        "180",
-		"sensor.data.retention.days":           "365",
-		"data.cleanup.interval.hours":          "24",
-		"failed.login.retention.days":          "2",
-		"auth.bcrypt.cost":                     "12",
-		"auth.session.ttl.minutes":             "43200",
-		"auth.session.cookie.name":             "sensor_hub_session",
-		"auth.login.backoff.window.minutes":    "15",
-		"auth.login.backoff.threshold":         "5",
-		"auth.login.backoff.base.seconds":      "2",
-		"auth.login.backoff.max.seconds":       "300",
-		"oauth.credentials.file.path":          "configuration/credentials.json",
-		"oauth.token.file.path":                "configuration/token.json",
-		"oauth.token.refresh.interval.minutes": "30",
-		"mqtt.broker.enabled":                  "true",
-		"mqtt.broker.port":                     "1883",
-		"hub.timezone":                         "Europe/London",
-		"http.listen.address":                  "127.0.0.1:8080",
-		"mqtt.broker.listen.address":           "127.0.0.1",
-		"automation.loop.max.chain":            "5",
-		"actuator.command.timeout_seconds":     "10",
-	}
-}
-
-func validSmtpPropsMap() map[string]string {
-	return map[string]string{
-		"smtp.user": "user@example.com",
+		"sensor.collection.interval":        "300",
+		"health.history.retention.days":     "180",
+		"sensor.data.retention.days":        "365",
+		"data.cleanup.interval.hours":       "24",
+		"failed.login.retention.days":       "2",
+		"auth.bcrypt.cost":                  "12",
+		"auth.session.ttl.minutes":          "43200",
+		"auth.session.cookie.name":          "sensor_hub_session",
+		"auth.login.backoff.window.minutes": "15",
+		"auth.login.backoff.threshold":      "5",
+		"auth.login.backoff.base.seconds":   "2",
+		"auth.login.backoff.max.seconds":    "300",
+		"mqtt.broker.enabled":               "true",
+		"mqtt.broker.port":                  "1883",
+		"hub.timezone":                      "Europe/London",
+		"http.listen.address":               "127.0.0.1:8080",
+		"mqtt.broker.listen.address":        "127.0.0.1",
+		"automation.loop.max.chain":         "5",
+		"actuator.command.timeout_seconds":  "10",
 	}
 }
 
@@ -54,10 +45,9 @@ func validDbPropsMap() map[string]string {
 
 func TestLoadConfigurationFromMaps_Success(t *testing.T) {
 	appProps := validAppPropsMap()
-	smtpProps := validSmtpPropsMap()
 	dbProps := validDbPropsMap()
 
-	cfg, err := LoadConfigurationFromMaps(appProps, smtpProps, dbProps)
+	cfg, err := LoadConfigurationFromMaps(appProps, dbProps)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, cfg)
@@ -73,13 +63,12 @@ func TestLoadConfigurationFromMaps_Success(t *testing.T) {
 	assert.Equal(t, 5, cfg.AuthLoginBackoffThreshold)
 	assert.Equal(t, 2, cfg.AuthLoginBackoffBaseSeconds)
 	assert.Equal(t, 300, cfg.AuthLoginBackoffMaxSeconds)
-	assert.Equal(t, "user@example.com", cfg.SMTPUser)
 	assert.Equal(t, "test/sensor_hub.db", cfg.DatabasePath)
 	assert.Equal(t, 10, cfg.ActuatorCommandTimeoutSeconds)
 }
 
 func TestLoadConfigurationFromMaps_EmptyMaps(t *testing.T) {
-	cfg, err := LoadConfigurationFromMaps(map[string]string{}, map[string]string{}, map[string]string{})
+	cfg, err := LoadConfigurationFromMaps(map[string]string{}, map[string]string{})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, cfg)
@@ -90,7 +79,7 @@ func TestLoadConfigurationFromMaps_RuleFailureNamesTheKey(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["sensor.collection.interval"] = "-5"
 
-	_, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	_, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	var vErr *ValidationError
 	assert.ErrorAs(t, err, &vErr)
@@ -101,7 +90,7 @@ func TestLoadConfigurationFromMaps_ParseFailureNamesTheKey(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["sensor.collection.interval"] = "abc"
 
-	_, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	_, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	var vErr *ValidationError
 	assert.ErrorAs(t, err, &vErr)
@@ -112,7 +101,7 @@ func TestLoadConfigurationFromMaps_EmptyStringRuleFailureNamesTheKey(t *testing.
 	dbProps := validDbPropsMap()
 	dbProps["database.path"] = ""
 
-	_, err := LoadConfigurationFromMaps(validAppPropsMap(), validSmtpPropsMap(), dbProps)
+	_, err := LoadConfigurationFromMaps(validAppPropsMap(), dbProps)
 
 	var vErr *ValidationError
 	assert.ErrorAs(t, err, &vErr)
@@ -123,7 +112,7 @@ func TestLoadConfigurationFromMaps_InvalidSensorCollectionInterval(t *testing.T)
 	appProps := validAppPropsMap()
 	appProps["sensor.collection.interval"] = "abc"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -133,7 +122,7 @@ func TestLoadConfigurationFromMaps_InvalidReadingsAggregationEnabled(t *testing.
 	appProps := validAppPropsMap()
 	appProps["readings.aggregation.enabled"] = "notabool"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -143,7 +132,7 @@ func TestLoadConfigurationFromMaps_InvalidHealthHistoryRetentionDays(t *testing.
 	appProps := validAppPropsMap()
 	appProps["health.history.retention.days"] = "not-int"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -153,7 +142,7 @@ func TestLoadConfigurationFromMaps_InvalidSensorDataRetentionDays(t *testing.T) 
 	appProps := validAppPropsMap()
 	appProps["sensor.data.retention.days"] = "xxx"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -163,7 +152,7 @@ func TestLoadConfigurationFromMaps_InvalidDataCleanupIntervalHours(t *testing.T)
 	appProps := validAppPropsMap()
 	appProps["data.cleanup.interval.hours"] = "bad"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -173,7 +162,7 @@ func TestLoadConfigurationFromMaps_LegacyHealthHistoryDefaultResponseNumberIgnor
 	appProps := validAppPropsMap()
 	appProps["health.history.default.response.number"] = "nope"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.NoError(t, err)
 	assert.NotNil(t, cfg)
@@ -183,7 +172,7 @@ func TestLoadConfigurationFromMaps_InvalidFailedLoginRetentionDays(t *testing.T)
 	appProps := validAppPropsMap()
 	appProps["failed.login.retention.days"] = "invalid"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -193,7 +182,7 @@ func TestLoadConfigurationFromMaps_InvalidAuthBcryptCost(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["auth.bcrypt.cost"] = "high"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -205,7 +194,7 @@ func TestLoadConfigurationFromMaps_BcryptCostOutsideTenToThirtyOneNamesTheKey(t 
 			appProps := validAppPropsMap()
 			appProps["auth.bcrypt.cost"] = value
 
-			_, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+			_, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 			if accepted {
 				assert.NoError(t, err)
@@ -222,7 +211,7 @@ func TestLoadConfigurationFromMaps_InvalidAuthSessionTTLMinutes(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["auth.session.ttl.minutes"] = "forever"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -232,7 +221,7 @@ func TestLoadConfigurationFromMaps_InvalidAuthLoginBackoffWindowMinutes(t *testi
 	appProps := validAppPropsMap()
 	appProps["auth.login.backoff.window.minutes"] = "bad"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -242,7 +231,7 @@ func TestLoadConfigurationFromMaps_InvalidAuthLoginBackoffThreshold(t *testing.T
 	appProps := validAppPropsMap()
 	appProps["auth.login.backoff.threshold"] = "x"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -252,7 +241,7 @@ func TestLoadConfigurationFromMaps_InvalidAuthLoginBackoffBaseSeconds(t *testing
 	appProps := validAppPropsMap()
 	appProps["auth.login.backoff.base.seconds"] = "slow"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -262,7 +251,7 @@ func TestLoadConfigurationFromMaps_InvalidAuthLoginBackoffMaxSeconds(t *testing.
 	appProps := validAppPropsMap()
 	appProps["auth.login.backoff.max.seconds"] = "max"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -272,7 +261,7 @@ func TestLoadConfigurationFromMaps_ZeroSensorCollectionInterval(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["sensor.collection.interval"] = "0"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -282,7 +271,7 @@ func TestLoadConfigurationFromMaps_NegativeSensorCollectionInterval(t *testing.T
 	appProps := validAppPropsMap()
 	appProps["sensor.collection.interval"] = "-5"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -292,7 +281,7 @@ func TestLoadConfigurationFromMaps_ZeroRetentionDays_NonNegative_OK(t *testing.T
 	appProps := validAppPropsMap()
 	appProps["health.history.retention.days"] = "0"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.NoError(t, err)
 	assert.Equal(t, 0, cfg.HealthHistoryRetentionDays)
@@ -302,7 +291,7 @@ func TestLoadConfigurationFromMaps_NegativeRetentionDays(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["sensor.data.retention.days"] = "-1"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -312,7 +301,7 @@ func TestLoadConfigurationFromMaps_ZeroCleanupInterval(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["data.cleanup.interval.hours"] = "0"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -333,12 +322,11 @@ func TestConvertConfigurationToMaps_Success(t *testing.T) {
 		AuthLoginBackoffThreshold:     5,
 		AuthLoginBackoffBaseSeconds:   2,
 		AuthLoginBackoffMaxSeconds:    300,
-		SMTPUser:                      "user@test.com",
 		DatabasePath:                  "test/path.db",
 		ActuatorCommandTimeoutSeconds: 12,
 	}
 
-	appProps, smtpProps, dbProps := ConvertConfigurationToMaps(cfg)
+	appProps, dbProps := ConvertConfigurationToMaps(cfg)
 
 	assert.Equal(t, "300", appProps["sensor.collection.interval"])
 	assert.Equal(t, "true", appProps["readings.aggregation.enabled"])
@@ -357,8 +345,6 @@ func TestConvertConfigurationToMaps_Success(t *testing.T) {
 	_, hasLegacyHealthHistoryLimit := appProps["health.history.default.response.number"]
 	assert.False(t, hasLegacyHealthHistoryLimit)
 
-	assert.Equal(t, "user@test.com", smtpProps["smtp.user"])
-
 	assert.Equal(t, "test/path.db", dbProps["database.path"])
 	assert.Equal(t, "12", appProps["actuator.command.timeout_seconds"])
 }
@@ -366,11 +352,10 @@ func TestConvertConfigurationToMaps_Success(t *testing.T) {
 func TestConvertConfigurationToMaps_ZeroValues(t *testing.T) {
 	cfg := &ApplicationConfiguration{}
 
-	appProps, smtpProps, dbProps := ConvertConfigurationToMaps(cfg)
+	appProps, dbProps := ConvertConfigurationToMaps(cfg)
 
 	assert.Equal(t, "0", appProps["sensor.collection.interval"])
 	assert.Equal(t, "false", appProps["readings.aggregation.enabled"])
-	assert.Equal(t, "", smtpProps["smtp.user"])
 	assert.Equal(t, "", dbProps["database.path"])
 }
 
@@ -389,7 +374,6 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 		AuthLoginBackoffThreshold:     10,
 		AuthLoginBackoffBaseSeconds:   5,
 		AuthLoginBackoffMaxSeconds:    600,
-		SMTPUser:                      "smtp@test.com",
 		DatabasePath:                  "test/roundtrip.db",
 		DatabaseReaderConnections:     4,
 		MQTTBrokerPort:                1883,
@@ -401,14 +385,13 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 		MQTTBrokerConnectRateLimit:    7,
 	}
 
-	appProps, smtpProps, dbProps := ConvertConfigurationToMaps(original)
-	restored, err := LoadConfigurationFromMaps(appProps, smtpProps, dbProps)
+	appProps, dbProps := ConvertConfigurationToMaps(original)
+	restored, err := LoadConfigurationFromMaps(appProps, dbProps)
 
 	assert.NoError(t, err)
 	assert.Equal(t, original.SensorCollectionInterval, restored.SensorCollectionInterval)
 	assert.Equal(t, original.ReadingsAggregationEnabled, restored.ReadingsAggregationEnabled)
 	assert.Equal(t, original.AuthBcryptCost, restored.AuthBcryptCost)
-	assert.Equal(t, original.SMTPUser, restored.SMTPUser)
 	assert.Equal(t, original.DatabasePath, restored.DatabasePath)
 	assert.Equal(t, original.DatabaseReaderConnections, restored.DatabaseReaderConnections)
 	assert.Equal(t, original.HubTimezone, restored.HubTimezone)
@@ -419,33 +402,13 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 // Validation function tests
 // ============================================================================
 
-// Tests for validateSMTPProperties
-
-func TestValidateSMTPProperties_ValidConfig(t *testing.T) {
-	smtpProperties = validSmtpPropsMap()
-
-	err := validateSMTPProperties()
-
-	assert.NoError(t, err)
-}
-
-func TestValidateSMTPProperties_EmptyValues(t *testing.T) {
-	smtpProperties = map[string]string{
-		"smtp.user": "",
-	}
-
-	err := validateSMTPProperties()
-
-	assert.NoError(t, err)
-}
-
 // Tests for LoadConfigurationFromMaps with empty database path
 
 func TestLoadConfigurationFromMaps_EmptyDatabasePath(t *testing.T) {
 	appProps := validAppPropsMap()
 	dbProps := map[string]string{"database.path": ""}
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), dbProps)
+	cfg, err := LoadConfigurationFromMaps(appProps, dbProps)
 
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
@@ -537,37 +500,6 @@ func TestReadDatabasePropertiesFile_FileReadError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to read database properties file")
 }
 
-func TestReadSMTPPropertiesFile_Success(t *testing.T) {
-	originalReadPropertiesFile := utils.ReadPropertiesFile
-	defer func() { utils.ReadPropertiesFile = originalReadPropertiesFile }()
-
-	utils.ReadPropertiesFile = func(path string) (map[string]string, error) {
-		return map[string]string{
-			"smtp.user": "sender@test.com",
-		}, nil
-	}
-
-	props, err := ReadSMTPPropertiesFile()
-
-	assert.NoError(t, err)
-	assert.Equal(t, "sender@test.com", props["smtp.user"])
-}
-
-func TestReadSMTPPropertiesFile_FileReadError(t *testing.T) {
-	originalReadPropertiesFile := utils.ReadPropertiesFile
-	defer func() { utils.ReadPropertiesFile = originalReadPropertiesFile }()
-
-	utils.ReadPropertiesFile = func(path string) (map[string]string, error) {
-		return nil, os.ErrNotExist
-	}
-
-	props, err := ReadSMTPPropertiesFile()
-
-	assert.Error(t, err)
-	assert.Nil(t, props)
-	assert.Contains(t, err.Error(), "failed to read SMTP properties file")
-}
-
 // ============================================================================
 // SaveConfigurationToFiles tests (with temp directory)
 // ============================================================================
@@ -578,16 +510,13 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	origAppPath := applicationPropertiesFilePath
-	origSmtpPath := smtpPropertiesFilePath
 	origDbPath := databasePropertiesFilePath
 	defer func() {
 		applicationPropertiesFilePath = origAppPath
-		smtpPropertiesFilePath = origSmtpPath
 		databasePropertiesFilePath = origDbPath
 	}()
 
 	applicationPropertiesFilePath = filepath.Join(tempDir, "application.properties")
-	smtpPropertiesFilePath = filepath.Join(tempDir, "smtp.properties")
 	databasePropertiesFilePath = filepath.Join(tempDir, "database.properties")
 
 	origConfig := AppConfig()
@@ -606,7 +535,6 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 		AuthLoginBackoffThreshold:     3,
 		AuthLoginBackoffBaseSeconds:   1,
 		AuthLoginBackoffMaxSeconds:    60,
-		SMTPUser:                      "test@smtp.com",
 		DatabasePath:                  "test/save.db",
 		ActuatorCommandTimeoutSeconds: 9,
 	})
@@ -617,8 +545,8 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 
 	_, err = os.Stat(applicationPropertiesFilePath)
 	assert.NoError(t, err)
-	_, err = os.Stat(smtpPropertiesFilePath)
-	assert.NoError(t, err)
+	_, err = os.Stat(filepath.Join(tempDir, "smtp.properties"))
+	assert.ErrorIs(t, err, os.ErrNotExist, "smtp.properties is no longer written")
 	_, err = os.Stat(databasePropertiesFilePath)
 	assert.NoError(t, err)
 
@@ -626,10 +554,6 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(appContent), "sensor.collection.interval=120")
 	assert.Contains(t, string(appContent), "actuator.command.timeout_seconds=9")
-
-	smtpContent, err := os.ReadFile(smtpPropertiesFilePath)
-	assert.NoError(t, err)
-	assert.Contains(t, string(smtpContent), "smtp.user=test@smtp.com")
 
 	dbContent, err := os.ReadFile(databasePropertiesFilePath)
 	assert.NoError(t, err)
@@ -641,17 +565,16 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 func TestSaveConfigurationToFiles_WritesFilesAtMode0640(t *testing.T) {
 	tempDir := t.TempDir()
 
-	origAppPath, origSmtpPath, origDbPath := applicationPropertiesFilePath, smtpPropertiesFilePath, databasePropertiesFilePath
+	origAppPath, origDbPath := applicationPropertiesFilePath, databasePropertiesFilePath
 	defer func() {
-		applicationPropertiesFilePath, smtpPropertiesFilePath, databasePropertiesFilePath = origAppPath, origSmtpPath, origDbPath
+		applicationPropertiesFilePath, databasePropertiesFilePath = origAppPath, origDbPath
 	}()
 	applicationPropertiesFilePath = filepath.Join(tempDir, "application.properties")
-	smtpPropertiesFilePath = filepath.Join(tempDir, "smtp.properties")
 	databasePropertiesFilePath = filepath.Join(tempDir, "database.properties")
 
 	require.NoError(t, os.WriteFile(applicationPropertiesFilePath, []byte("stale=1\n"), 0o644))
 	require.NoError(t, os.Chmod(applicationPropertiesFilePath, 0o644))
-	require.NoError(t, os.WriteFile(smtpPropertiesFilePath, []byte("stale=1\n"), 0o600))
+	require.NoError(t, os.WriteFile(databasePropertiesFilePath, []byte("stale=1\n"), 0o600))
 
 	origConfig := AppConfig()
 	defer func() { SetAppConfig(origConfig) }()
@@ -661,7 +584,6 @@ func TestSaveConfigurationToFiles_WritesFilesAtMode0640(t *testing.T) {
 
 	modes := map[string]os.FileMode{
 		applicationPropertiesFilePath: 0o640,
-		smtpPropertiesFilePath:        0o640,
 		databasePropertiesFilePath:    0o640,
 	}
 	for path, want := range modes {
@@ -713,10 +635,9 @@ func TestReloadConfig_Success(t *testing.T) {
 	defer func() { SetAppConfig(origConfig) }()
 
 	appProps := validAppPropsMap()
-	smtpProps := validSmtpPropsMap()
 	dbProps := validDbPropsMap()
 
-	ReloadConfig(appProps, smtpProps, dbProps)
+	ReloadConfig(appProps, dbProps)
 
 	assert.NotNil(t, AppConfig())
 	assert.Equal(t, 300, AppConfig().SensorCollectionInterval)
@@ -732,13 +653,13 @@ func TestReloadConfig_InvalidConfig(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["sensor.collection.interval"] = "invalid"
 
-	ReloadConfig(appProps, validSmtpPropsMap(), validDbPropsMap())
+	ReloadConfig(appProps, validDbPropsMap())
 
 	assert.Equal(t, 100, AppConfig().SensorCollectionInterval)
 }
 
 func TestApplicationPropertiesDefaults_HasExpectedKeys(t *testing.T) {
-	appDefaults, _, _ := BuildDefaults()
+	appDefaults, _ := BuildDefaults()
 
 	_, hasInterval := appDefaults["sensor.collection.interval"]
 	_, hasBcryptCost := appDefaults["auth.bcrypt.cost"]
@@ -748,15 +669,8 @@ func TestApplicationPropertiesDefaults_HasExpectedKeys(t *testing.T) {
 	assert.True(t, hasCookieName)
 }
 
-func TestSmtpPropertiesDefaults_Initial(t *testing.T) {
-	_, smtpDefaults, _ := BuildDefaults()
-
-	_, hasUser := smtpDefaults["smtp.user"]
-	assert.True(t, hasUser)
-}
-
 func TestDatabasePropertiesDefaults_Initial(t *testing.T) {
-	_, _, dbDefaults := BuildDefaults()
+	_, dbDefaults := BuildDefaults()
 
 	_, hasPath := dbDefaults["database.path"]
 	assert.True(t, hasPath)
@@ -767,7 +681,7 @@ func TestLoadConfigurationFromMaps_ReaderConnectionsOverridesTheDefault(t *testi
 	dbProps := validDbPropsMap()
 	dbProps["database.reader.connections"] = "2"
 
-	cfg, err := LoadConfigurationFromMaps(validAppPropsMap(), validSmtpPropsMap(), dbProps)
+	cfg, err := LoadConfigurationFromMaps(validAppPropsMap(), dbProps)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 2, cfg.DatabaseReaderConnections)
@@ -778,143 +692,46 @@ func TestLoadConfigurationFromMaps_NonPositiveReaderConnections(t *testing.T) {
 		dbProps := validDbPropsMap()
 		dbProps["database.reader.connections"] = raw
 
-		cfg, err := LoadConfigurationFromMaps(validAppPropsMap(), validSmtpPropsMap(), dbProps)
+		cfg, err := LoadConfigurationFromMaps(validAppPropsMap(), dbProps)
 
 		assert.Error(t, err, "reader connections of %s is rejected", raw)
 		assert.Nil(t, cfg)
 	}
 }
 
-func TestLoadConfigurationFromMaps_OAuthConfig(t *testing.T) {
+// A 1.5.x install keeps oauth.* keys in application.properties, which its
+// saver wrote, and smtp.user in smtp.properties. 2.0 has no such properties:
+// it ignores the keys and its next save drops them.
+func TestLoadConfigurationFromMaps_IgnoresTheKeys15xLeftBehind(t *testing.T) {
 	appProps := validAppPropsMap()
-	appProps["oauth.credentials.file.path"] = "/custom/creds.json"
-	appProps["oauth.token.file.path"] = "/custom/token.json"
-	appProps["oauth.token.refresh.interval.minutes"] = "45"
-	smtpProps := validSmtpPropsMap()
-	dbProps := validDbPropsMap()
-
-	cfg, err := LoadConfigurationFromMaps(appProps, smtpProps, dbProps)
-
-	assert.NoError(t, err)
-	assert.Equal(t, "/custom/creds.json", cfg.OAuthCredentialsFilePath)
-	assert.Equal(t, "/custom/token.json", cfg.OAuthTokenFilePath)
-	assert.Equal(t, 45, cfg.OAuthTokenRefreshIntervalMinutes)
-}
-
-func TestLoadConfigurationFromMaps_InvalidOAuthTokenRefreshInterval(t *testing.T) {
-	appProps := validAppPropsMap()
+	appProps["oauth.credentials.file.path"] = "credentials.json"
+	appProps["oauth.token.file.path"] = "token.json"
 	appProps["oauth.token.refresh.interval.minutes"] = "not-a-number"
-	smtpProps := validSmtpPropsMap()
-	dbProps := validDbPropsMap()
+	appProps["smtp.user"] = "alerts@example.com"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, smtpProps, dbProps)
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
-	assert.Error(t, err)
-	assert.Nil(t, cfg)
-}
-
-func TestConvertConfigurationToMaps_OAuthConfig(t *testing.T) {
-	cfg := &ApplicationConfiguration{
-		SensorCollectionInterval:         300,
-		HealthHistoryRetentionDays:       180,
-		SensorDataRetentionDays:          365,
-		DataCleanupIntervalHours:         24,
-		FailedLoginRetentionDays:         2,
-		AuthBcryptCost:                   12,
-		AuthSessionTTLMinutes:            43200,
-		AuthSessionCookieName:            "sensor_hub_session",
-		AuthLoginBackoffWindowMinutes:    15,
-		AuthLoginBackoffThreshold:        5,
-		AuthLoginBackoffBaseSeconds:      2,
-		AuthLoginBackoffMaxSeconds:       300,
-		OAuthCredentialsFilePath:         "/my/creds.json",
-		OAuthTokenFilePath:               "/my/token.json",
-		OAuthTokenRefreshIntervalMinutes: 60,
-		SMTPUser:                         "user@example.com",
-		DatabasePath:                     "test/oauth.db",
+	require.NoError(t, err)
+	saved, _ := ConvertConfigurationToMaps(cfg)
+	for key := range saved {
+		assert.NotContains(t, key, "oauth.")
+		assert.NotContains(t, key, "smtp.")
 	}
-
-	appProps, _, _ := ConvertConfigurationToMaps(cfg)
-
-	assert.Equal(t, "/my/creds.json", appProps["oauth.credentials.file.path"])
-	assert.Equal(t, "/my/token.json", appProps["oauth.token.file.path"])
-	assert.Equal(t, "60", appProps["oauth.token.refresh.interval.minutes"])
 }
 
-// Bug #44: LoadConfigurationFromMaps used to mutate relative OAuth paths in
-// place by prepending the config directory, which made the operation
-// non-idempotent — every reload added another configDir prefix. The struct
-// must now retain the raw user-supplied value; resolution happens on demand.
-func TestLoadConfigurationFromMaps_PreservesRawRelativeOAuthPaths(t *testing.T) {
-	appProps := validAppPropsMap()
-	appProps["oauth.credentials.file.path"] = "credentials.json"
-	appProps["oauth.token.file.path"] = "token.json"
-	smtpProps := validSmtpPropsMap()
-	dbProps := validDbPropsMap()
+func TestInitialiseConfig_NeedsNoSMTPProperties(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "application.properties"),
+		[]byte("sensor.collection.interval=300\noauth.token.file.path=token.json\n"), 0o640))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "database.properties"), []byte("database.path=data/test.db\n"), 0o640))
+	oldDir, oldCfg := GetConfigDir(), AppConfig()
+	t.Cleanup(func() {
+		setConfigPaths(oldDir)
+		SetAppConfig(oldCfg)
+	})
 
-	cfg, err := LoadConfigurationFromMaps(appProps, smtpProps, dbProps)
+	require.NoError(t, InitialiseConfig(dir))
 
-	assert.NoError(t, err)
-	assert.Equal(t, "credentials.json", cfg.OAuthCredentialsFilePath,
-		"raw relative path must be preserved (issue #44)")
-	assert.Equal(t, "token.json", cfg.OAuthTokenFilePath,
-		"raw relative path must be preserved (issue #44)")
-}
-
-// Bug #44: a load → convert → load cycle simulates what happens when
-// SaveConfigurationToFiles writes to disk and the watcher reloads. The path
-// must remain stable across cycles (no accumulating "configuration/" prefix).
-func TestLoadConfigurationFromMaps_OAuthPathsAreIdempotentAcrossReloads(t *testing.T) {
-	appProps := validAppPropsMap()
-	appProps["oauth.credentials.file.path"] = "credentials.json"
-	appProps["oauth.token.file.path"] = "token.json"
-	smtpProps := validSmtpPropsMap()
-	dbProps := validDbPropsMap()
-
-	cfg1, err := LoadConfigurationFromMaps(appProps, smtpProps, dbProps)
-	assert.NoError(t, err)
-
-	app2, smtp2, db2 := ConvertConfigurationToMaps(cfg1)
-	cfg2, err := LoadConfigurationFromMaps(app2, smtp2, db2)
-	assert.NoError(t, err)
-
-	app3, smtp3, db3 := ConvertConfigurationToMaps(cfg2)
-	cfg3, err := LoadConfigurationFromMaps(app3, smtp3, db3)
-	assert.NoError(t, err)
-
-	assert.Equal(t, "credentials.json", cfg3.OAuthCredentialsFilePath,
-		"OAuth credentials path must not accumulate configDir prefixes across reloads (issue #44)")
-	assert.Equal(t, "token.json", cfg3.OAuthTokenFilePath,
-		"OAuth token path must not accumulate configDir prefixes across reloads (issue #44)")
-}
-
-// Bug #44: relative OAuth paths are resolved against the config directory at
-// consumption time, not by mutating the configuration struct.
-func TestApplicationConfiguration_ResolvedOAuthPaths_RelativeJoinsConfigDir(t *testing.T) {
-	cfg := &ApplicationConfiguration{
-		OAuthCredentialsFilePath: "credentials.json",
-		OAuthTokenFilePath:       "token.json",
-	}
-
-	assert.Equal(t, filepath.Join(GetConfigDir(), "credentials.json"),
-		cfg.ResolvedOAuthCredentialsPath())
-	assert.Equal(t, filepath.Join(GetConfigDir(), "token.json"),
-		cfg.ResolvedOAuthTokenPath())
-}
-
-func TestApplicationConfiguration_ResolvedOAuthPaths_AbsolutePassesThrough(t *testing.T) {
-	cfg := &ApplicationConfiguration{
-		OAuthCredentialsFilePath: "/etc/sensor_hub/creds.json",
-		OAuthTokenFilePath:       "/etc/sensor_hub/token.json",
-	}
-
-	assert.Equal(t, "/etc/sensor_hub/creds.json", cfg.ResolvedOAuthCredentialsPath())
-	assert.Equal(t, "/etc/sensor_hub/token.json", cfg.ResolvedOAuthTokenPath())
-}
-
-func TestApplicationConfiguration_ResolvedOAuthPaths_EmptyReturnsEmpty(t *testing.T) {
-	cfg := &ApplicationConfiguration{}
-
-	assert.Equal(t, "", cfg.ResolvedOAuthCredentialsPath())
-	assert.Equal(t, "", cfg.ResolvedOAuthTokenPath())
+	assert.Equal(t, 300, AppConfig().SensorCollectionInterval)
+	assert.Equal(t, []string{filepath.Join(dir, "application.properties"), filepath.Join(dir, "database.properties")}, ConfigFilePaths())
 }

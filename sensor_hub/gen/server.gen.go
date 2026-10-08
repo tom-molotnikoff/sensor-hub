@@ -118,6 +118,15 @@ type ServerInterface interface {
 	// List available sensor drivers
 	// (GET /drivers)
 	ListDrivers(c *gin.Context, params ListDriversParams)
+	// Get the SMTP settings
+	// (GET /email/smtp)
+	GetEmailSettings(c *gin.Context)
+	// Update the SMTP settings
+	// (PUT /email/smtp)
+	UpdateEmailSettings(c *gin.Context)
+	// Send a test email
+	// (POST /email/smtp/test)
+	SendTestEmail(c *gin.Context)
 	// Health check
 	// (GET /health)
 	GetHealth(c *gin.Context)
@@ -202,18 +211,6 @@ type ServerInterface interface {
 	// Mark notification as read
 	// (POST /notifications/{id}/read)
 	MarkAsRead(c *gin.Context, id int)
-	// Get OAuth authorization URL
-	// (GET /oauth/authorize)
-	GetOAuthAuthorizeUrl(c *gin.Context)
-	// Reload OAuth configuration
-	// (POST /oauth/reload)
-	ReloadOAuth(c *gin.Context)
-	// Get OAuth status
-	// (GET /oauth/status)
-	GetOAuthStatus(c *gin.Context)
-	// Submit OAuth authorization code
-	// (POST /oauth/submit-code)
-	SubmitOAuthCode(c *gin.Context)
 	// Get OpenAPI specification
 	// (GET /openapi.yaml)
 	GetOpenApiSpec(c *gin.Context)
@@ -1300,6 +1297,63 @@ func (siw *ServerInterfaceWrapper) ListDrivers(c *gin.Context) {
 	siw.Handler.ListDrivers(c, params)
 }
 
+// GetEmailSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetEmailSettings(c *gin.Context) {
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetEmailSettings(c)
+}
+
+// UpdateEmailSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateEmailSettings(c *gin.Context) {
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateEmailSettings(c)
+}
+
+// SendTestEmail operation middleware
+func (siw *ServerInterfaceWrapper) SendTestEmail(c *gin.Context) {
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SendTestEmail(c)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(c *gin.Context) {
 
@@ -2011,82 +2065,6 @@ func (siw *ServerInterfaceWrapper) MarkAsRead(c *gin.Context) {
 	}
 
 	siw.Handler.MarkAsRead(c, id)
-}
-
-// GetOAuthAuthorizeUrl operation middleware
-func (siw *ServerInterfaceWrapper) GetOAuthAuthorizeUrl(c *gin.Context) {
-
-	c.Set(CookieAuthScopes, []string{})
-
-	c.Set(CsrfTokenScopes, []string{})
-
-	c.Set(ApiKeyAuthScopes, []string{})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.GetOAuthAuthorizeUrl(c)
-}
-
-// ReloadOAuth operation middleware
-func (siw *ServerInterfaceWrapper) ReloadOAuth(c *gin.Context) {
-
-	c.Set(CookieAuthScopes, []string{})
-
-	c.Set(CsrfTokenScopes, []string{})
-
-	c.Set(ApiKeyAuthScopes, []string{})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.ReloadOAuth(c)
-}
-
-// GetOAuthStatus operation middleware
-func (siw *ServerInterfaceWrapper) GetOAuthStatus(c *gin.Context) {
-
-	c.Set(CookieAuthScopes, []string{})
-
-	c.Set(CsrfTokenScopes, []string{})
-
-	c.Set(ApiKeyAuthScopes, []string{})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.GetOAuthStatus(c)
-}
-
-// SubmitOAuthCode operation middleware
-func (siw *ServerInterfaceWrapper) SubmitOAuthCode(c *gin.Context) {
-
-	c.Set(CookieAuthScopes, []string{})
-
-	c.Set(CsrfTokenScopes, []string{})
-
-	c.Set(ApiKeyAuthScopes, []string{})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.SubmitOAuthCode(c)
 }
 
 // GetOpenApiSpec operation middleware
@@ -3264,6 +3242,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PUT(options.BaseURL+"/dashboards/:id/default", wrapper.SetDefaultDashboard)
 	router.POST(options.BaseURL+"/dashboards/:id/share", wrapper.ShareDashboard)
 	router.GET(options.BaseURL+"/drivers", wrapper.ListDrivers)
+	router.GET(options.BaseURL+"/email/smtp", wrapper.GetEmailSettings)
+	router.PUT(options.BaseURL+"/email/smtp", wrapper.UpdateEmailSettings)
+	router.POST(options.BaseURL+"/email/smtp/test", wrapper.SendTestEmail)
 	router.GET(options.BaseURL+"/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/measurement-types", wrapper.GetAllMeasurementTypes)
 	router.GET(options.BaseURL+"/mqtt/brokers", wrapper.ListMqttBrokers)
@@ -3292,10 +3273,6 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/notifications/ws", wrapper.NotificationsWebSocket)
 	router.POST(options.BaseURL+"/notifications/:id/dismiss", wrapper.DismissNotification)
 	router.POST(options.BaseURL+"/notifications/:id/read", wrapper.MarkAsRead)
-	router.GET(options.BaseURL+"/oauth/authorize", wrapper.GetOAuthAuthorizeUrl)
-	router.POST(options.BaseURL+"/oauth/reload", wrapper.ReloadOAuth)
-	router.GET(options.BaseURL+"/oauth/status", wrapper.GetOAuthStatus)
-	router.POST(options.BaseURL+"/oauth/submit-code", wrapper.SubmitOAuthCode)
 	router.GET(options.BaseURL+"/openapi.yaml", wrapper.GetOpenApiSpec)
 	router.GET(options.BaseURL+"/properties", wrapper.GetProperties)
 	router.PATCH(options.BaseURL+"/properties", wrapper.UpdateProperties)

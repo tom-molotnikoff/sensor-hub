@@ -3,7 +3,8 @@
 # files belonged to the package, so removing the old package during the
 # upgrade deletes the unchanged ones and saves a changed one as .rpmsave. A
 # checksum of each file now lets the posttrans script tell the .rpmsave this
-# upgrade made from an older one.
+# upgrade made from an older one. smtp.properties is among them: 2.0 no longer
+# ships it, but reads smtp.user from it once, so a changed one is put back.
 CONFIG_DIR=/etc/sensor-hub
 STATE_DIR=/run/sensor-hub-package
 

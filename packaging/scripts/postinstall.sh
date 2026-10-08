@@ -4,7 +4,10 @@ install -d -m 0750 -o sensor-hub -g sensor-hub /var/log/sensor-hub
 
 CONFIG_DIR=/etc/sensor-hub
 DEFAULTS_DIR=/usr/share/sensor-hub/defaults
-CONFIG_FILES="environment application.properties database.properties smtp.properties"
+# 1.5.x also shipped smtp.properties. 2.0 neither ships nor reads it, past
+# carrying its smtp.user into the email settings, and leaves an existing one
+# where it is.
+CONFIG_FILES="environment application.properties database.properties"
 # The rpm posttrans script reads what this one leaves here.
 RPM_STATE_DIR=/run/sensor-hub-package
 # init-key exits with this status when a key already exists in any form.
@@ -35,6 +38,17 @@ update_unchanged_dpkg_conffiles() {
     case " $CONFIG_FILES " in *" $name "*) ;; *) continue ;; esac
     [ -f "$path" ] && [ "$(md5sum < "$path" | cut -d' ' -f1)" = "$md5" ] || continue
     install_default "$name"
+  done
+}
+
+# Up to 1.5.x email went through Gmail OAuth, with its client secret and
+# token in the configuration directory. 2.0 sends through SMTP and never
+# reads them. The hub deletes them too, but cannot here: the directory
+# belongs to root.
+delete_gmail_oauth_files() {
+  for name in credentials.json token.json; do
+    [ -f "$CONFIG_DIR/$name" ] || continue
+    rm -f "$CONFIG_DIR/$name" && echo "Deleted $CONFIG_DIR/$name: email no longer uses Gmail OAuth."
   done
 }
 
@@ -83,6 +97,7 @@ if [ "$1" = "configure" ]; then
   update_unchanged_dpkg_conffiles
 fi
 create_missing_config
+delete_gmail_oauth_files
 ensure_secrets_key
 
 systemctl daemon-reload

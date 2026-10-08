@@ -158,7 +158,7 @@ describe('AppNav', () => {
     ['view_alerts', ['Alerts & Notifications']],
     ['view_notifications', ['Alerts & Notifications']],
     ['manage_notifications', ['Alerts & Notifications']],
-    ['manage_oauth', ['Alerts & Notifications']],
+    ['manage_email', ['Alerts & Notifications']],
     ['view_users', ['User Management']],
     ['view_roles', ['User Management']],
   ])('gates items on %s', (permission, items) => {

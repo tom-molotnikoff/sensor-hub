@@ -24,7 +24,7 @@ type Server struct {
 	propertiesService   service.PropertiesServiceInterface
 	mqttService         service.MQTTServiceInterface
 	mqttClientService   service.MQTTClientServiceInterface
-	oauthService        OAuthAPIServiceInterface
+	emailService        EmailServiceInterface
 	mqttStatsProvider   MQTTStatsProvider
 	automationService   AutomationServiceInterface
 }
@@ -44,7 +44,7 @@ func NewServer(
 	propertiesService service.PropertiesServiceInterface,
 	mqttService service.MQTTServiceInterface,
 	mqttClientService service.MQTTClientServiceInterface,
-	oauthService OAuthAPIServiceInterface,
+	emailService EmailServiceInterface,
 	mqttStatsProvider MQTTStatsProvider,
 	automationService AutomationServiceInterface,
 ) *Server {
@@ -62,7 +62,7 @@ func NewServer(
 		propertiesService:   propertiesService,
 		mqttService:         mqttService,
 		mqttClientService:   mqttClientService,
-		oauthService:        oauthService,
+		emailService:        emailService,
 		mqttStatsProvider:   mqttStatsProvider,
 		automationService:   automationService,
 	}

@@ -1,6 +1,6 @@
-//go:build integration
-
-package testharness
+// Package testca makes a self-signed certificate authority for tests that
+// need a TLS server whose certificate the code under test must verify.
+package testca
 
 import (
 	"crypto/ecdsa"
@@ -16,17 +16,17 @@ import (
 	"time"
 )
 
-// TestCA is a self-signed certificate authority that issues server
-// certificates for TLS test brokers.
-type TestCA struct {
+// CA is a self-signed certificate authority that issues server
+// certificates for TLS test servers.
+type CA struct {
 	// PEM is the CA certificate as an operator would paste it.
 	PEM  string
 	cert *x509.Certificate
 	key  *ecdsa.PrivateKey
 }
 
-// NewTestCA creates a self-signed CA with the given common name.
-func NewTestCA(name string) (*TestCA, error) {
+// New creates a self-signed CA with the given common name.
+func New(name string) (*CA, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate the CA key: %w", err)
@@ -48,7 +48,7 @@ func NewTestCA(name string) (*TestCA, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TestCA{
+	return &CA{
 		PEM:  string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
 		cert: cert,
 		key:  key,
@@ -57,7 +57,7 @@ func NewTestCA(name string) (*TestCA, error) {
 
 // ServerCertificate issues a server certificate, signed by the CA, valid for
 // the given IP addresses and DNS names.
-func (ca *TestCA) ServerCertificate(hosts ...string) (tls.Certificate, error) {
+func (ca *CA) ServerCertificate(hosts ...string) (tls.Certificate, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("failed to generate the server key: %w", err)
@@ -82,4 +82,12 @@ func (ca *TestCA) ServerCertificate(hosts ...string) (tls.Certificate, error) {
 		return tls.Certificate{}, fmt.Errorf("failed to create the server certificate: %w", err)
 	}
 	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}, nil
+}
+
+// Pool is a certificate pool holding only the CA, for a client that is to
+// trust what it issued.
+func (ca *CA) Pool() *x509.CertPool {
+	pool := x509.NewCertPool()
+	pool.AddCert(ca.cert)
+	return pool
 }

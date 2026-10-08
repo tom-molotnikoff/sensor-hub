@@ -558,7 +558,7 @@ export interface paths {
         /**
          * Update application properties
          * @description Update one or more properties. Pass a JSON object where keys are the property names and values are the desired string values.
-         *     The update will be validated, applied to the in-memory configuration, and persisted to configuration files asynchronously. A broadcast is sent to the properties WebSocket topic after the update. Note: there is no separate endpoint for editing `smtp.properties` or `database.properties` — they are updated by key through this same API.
+         *     The update will be validated, applied to the in-memory configuration, and persisted to configuration files asynchronously. A broadcast is sent to the properties WebSocket topic after the update. Note: `database.properties` has no endpoint of its own; its keys are updated through this same API.
          */
         patch: operations["updateProperties"];
         trace?: never;
@@ -1167,7 +1167,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/oauth/status": {
+    "/email/smtp": {
         parameters: {
             query?: never;
             header?: never;
@@ -1175,31 +1175,15 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get OAuth status
-         * @description Returns the current OAuth configuration status. Requires manage_oauth permission.
+         * Get the SMTP settings
+         * @description Returns the SMTP server alert and notification emails are sent through, whether a password is stored, and how the last send went. The password itself is never returned.
          */
-        get: operations["getOAuthStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/oauth/authorize": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
+        get: operations["getEmailSettings"];
         /**
-         * Get OAuth authorization URL
-         * @description Returns an OAuth authorization URL with CSRF state token. Used to initiate OAuth flow for Gmail integration. Requires manage_oauth permission.
+         * Update the SMTP settings
+         * @description Replaces the SMTP settings. The password is held encrypted in the secret store: a non-empty value other than "****" sets it, an empty string clears it, and omitting it or sending "****" leaves it unchanged.
          */
-        get: operations["getOAuthAuthorizeUrl"];
-        put?: never;
+        put: operations["updateEmailSettings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1207,7 +1191,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/oauth/submit-code": {
+    "/email/smtp/test": {
         parameters: {
             query?: never;
             header?: never;
@@ -1217,30 +1201,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Submit OAuth authorization code
-         * @description Submits the authorization code received from OAuth provider. Used with out-of-band OAuth flow. Requires manage_oauth permission.
+         * Send a test email
+         * @description Sends a message titled "Sensor Hub test email" to the caller's own email address through the stored SMTP settings, and records the outcome as a send.
          */
-        post: operations["submitOAuthCode"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/oauth/reload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reload OAuth configuration
-         * @description Reloads OAuth credentials and token from disk. Requires manage_oauth permission.
-         */
-        post: operations["reloadOAuth"];
+        post: operations["sendTestEmail"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2411,7 +2375,7 @@ export interface components {
         /**
          * @description Flat map of configuration keys to values (all values as strings).
          * @example {
-         *       "smtp.user": "admin@example.com",
+         *       "weather.location.name": "Sheffield",
          *       "database.path": "data/sensor_hub.db",
          *       "sensor.collection.interval": "300"
          *     }
@@ -2422,7 +2386,7 @@ export interface components {
         /**
          * @description Map of properties to update. Every value is written through as supplied.
          * @example {
-         *       "smtp.user": "new-user@example.com",
+         *       "weather.location.name": "Leeds",
          *       "sensor.collection.interval": "300"
          *     }
          */
@@ -2468,7 +2432,7 @@ export interface components {
             unit?: string;
             /** @description When present, the only values the property accepts; render a select. */
             enum?: string[];
-            /** @description How a saved change takes effect: "live", "next-cycle", "readonly", or "action:<id>" naming a required user action ("action:service-restart" or "action:oauth-reload"). */
+            /** @description How a saved change takes effect: "live", "next-cycle", "readonly", or "action:<id>" naming a required user action ("action:service-restart"). */
             apply: string;
             /** @description Validation rule: "positive", "non_negative" or "non_empty", checked client-side, or "timezone" (an IANA zone name), "listen_address" (host:port), "listen_address_or_empty", "listen_host" (a host name or IP address without a port) or "ip_list" (comma-separated IPs or CIDR ranges), checked on save. An int property can instead carry comma-separated bounds, "min:<n>" and "max:<n>" (inclusive), checked on save, such as "min:10,max:31". */
             validate?: string;
@@ -2643,30 +2607,45 @@ export interface components {
             email_enabled?: boolean;
             inapp_enabled?: boolean;
         };
-        /**
-         * @description OAuth configuration status
-         * @example {
-         *       "ready": true,
-         *       "has_credentials": true,
-         *       "has_token": true
-         *     }
-         */
-        OAuthStatus: {
-            [key: string]: unknown;
-        };
-        /** @description OAuth authorization URL response */
-        OAuthAuthorizeResponse: {
-            /** @description URL to redirect user for authorization */
-            auth_url: string;
-            /** @description CSRF state token */
-            state: string;
-        };
-        /** @description OAuth code submission request */
-        OAuthSubmitCodeRequest: {
-            /** @description Authorization code from OAuth provider */
-            code: string;
-            /** @description CSRF state token from authorize response */
-            state: string;
+        /** @description The SMTP server alert and notification emails are sent through. The hub sends nothing until a host is set and a password is stored. */
+        EmailSettings: {
+            /**
+             * @description SMTP server host name.
+             * @example email-smtp.eu-west-1.amazonaws.com
+             */
+            host: string;
+            /**
+             * @description SMTP server port, usually 587 for starttls and 465 for implicit_tls.
+             * @example 587
+             */
+            port: number;
+            /**
+             * @description How the connection is protected. starttls upgrades a plain connection with STARTTLS and fails if the server does not offer it; implicit_tls opens TLS first. Both verify the server's certificate against the system's trusted roots and that it was issued for the host. none sends everything, the password included, unencrypted.
+             * @default starttls
+             * @enum {string}
+             */
+            security: "starttls" | "implicit_tls" | "none";
+            /** @description Login name for SMTP authentication. When empty the hub does not authenticate. */
+            username: string;
+            /**
+             * @description Address the emails are sent from, such as alerts@example.com. Empty until it is set.
+             * @example alerts@example.com
+             */
+            from_address: string;
+            /** @description SMTP password, write-only: no response carries it. It is held encrypted in the secret store. A non-empty value other than "****" sets it, an empty string clears it, and omitting it or sending "****" leaves the stored password unchanged. */
+            password?: string;
+            /**
+             * @description Whether a password is stored. needs_reentry means the stored password does not decrypt under the hub's current key and has to be entered again; until then nothing is sent.
+             * @enum {string}
+             */
+            readonly password_status?: "unset" | "set" | "needs_reentry";
+            /** @description The error the last send failed with, or null when the last send succeeded or none was tried. */
+            readonly last_error?: string | null;
+            /**
+             * Format: date-time
+             * @description When an email was last sent successfully, or null if none has been.
+             */
+            readonly last_sent_at?: string | null;
         };
         /** @description A user's saved dashboard configuration */
         Dashboard: {
@@ -5969,7 +5948,7 @@ export interface operations {
             };
         };
     };
-    getOAuthStatus: {
+    getEmailSettings: {
         parameters: {
             query?: never;
             header?: never;
@@ -5978,13 +5957,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OAuth status */
+            /** @description The SMTP settings */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OAuthStatus"];
+                    "application/json": components["schemas"]["EmailSettings"];
                 };
             };
             /** @description Not authenticated */
@@ -6001,50 +5980,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description OAuth not configured */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    getOAuthAuthorizeUrl: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Authorization URL and state */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthAuthorizeResponse"];
-                };
-            };
-            /** @description Not authenticated */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Insufficient permissions */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Failed to generate state or URL */
+            /** @description Server error */
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -6053,18 +5989,9 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description OAuth not configured */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
-    submitOAuthCode: {
+    updateEmailSettings: {
         parameters: {
             query?: never;
             header?: never;
@@ -6073,20 +6000,20 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["OAuthSubmitCodeRequest"];
+                "application/json": components["schemas"]["EmailSettings"];
             };
         };
         responses: {
-            /** @description Authorization successful */
+            /** @description The updated SMTP settings */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SuccessMessage"];
+                    "application/json": components["schemas"]["EmailSettings"];
                 };
             };
-            /** @description Invalid request or expired state */
+            /** @description Invalid settings: an empty host, a port outside 1 to 65535, an unknown security mode or a from address that is not an email address. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6109,17 +6036,8 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Failed to exchange code */
+            /** @description Server error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description OAuth not configured */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6129,7 +6047,7 @@ export interface operations {
             };
         };
     };
-    reloadOAuth: {
+    sendTestEmail: {
         parameters: {
             query?: never;
             header?: never;
@@ -6138,13 +6056,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Configuration reloaded */
+            /** @description The SMTP server accepted the test email */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["SuccessMessage"];
+                };
+            };
+            /** @description The caller has no email address, or the SMTP settings have no host or no usable password, so nothing was sent. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Not authenticated */
@@ -6161,17 +6088,8 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Failed to reload */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description OAuth not configured */
-            503: {
+            /** @description The send failed; `message` holds the SMTP server's error. */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

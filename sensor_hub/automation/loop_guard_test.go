@@ -23,9 +23,9 @@ func (f *fixture) maxCauseChain(t *testing.T, limit string) {
 	t.Helper()
 	original := appProps.AppConfig()
 	t.Cleanup(func() { appProps.SetAppConfig(original) })
-	application, smtp, db := appProps.BuildDefaults()
+	application, db := appProps.BuildDefaults()
 	application["automation.loop.max.chain"] = limit
-	require.NoError(t, appProps.ReloadConfig(application, smtp, db))
+	require.NoError(t, appProps.ReloadConfig(application, db))
 }
 
 func TestLoopGuard_ARunStartedByAReadingRecordsTheRunWhoseCommandItAcknowledged(t *testing.T) {

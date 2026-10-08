@@ -15,7 +15,7 @@ var watchInterval = 2 * time.Second
 // changes that the application itself just wrote.
 const cooldownAfterWrite = 3 * time.Second
 
-// WatchConfigFiles polls the three property files for modification-time changes
+// WatchConfigFiles polls the property files for modification-time changes
 // and reloads configuration when an external change is detected. It is aware of
 // the application's own writes (via SaveConfigurationToFiles) and ignores them.
 // onReload, if non-nil, is called after each successful reload.
@@ -74,13 +74,6 @@ func WatchConfigFiles(ctx context.Context, onReload func()) {
 					continue
 				}
 
-				smtpProps, err := ReadSMTPPropertiesFile()
-				if err != nil {
-					slog.Error("failed to re-read SMTP properties", "error", err)
-					modTimes = current
-					continue
-				}
-
 				dbProps, err := ReadDatabasePropertiesFile()
 				if err != nil {
 					slog.Error("failed to re-read database properties", "error", err)
@@ -88,7 +81,7 @@ func WatchConfigFiles(ctx context.Context, onReload func()) {
 					continue
 				}
 
-				reloadErr := ReloadConfig(appProps, smtpProps, dbProps)
+				reloadErr := ReloadConfig(appProps, dbProps)
 				modTimes = current
 
 				if reloadErr == nil && onReload != nil {
@@ -101,7 +94,7 @@ func WatchConfigFiles(ctx context.Context, onReload func()) {
 
 // snapshotModTimes returns the current modification times of all config files.
 func snapshotModTimes() map[string]time.Time {
-	times := make(map[string]time.Time, 3)
+	times := make(map[string]time.Time, 2)
 	for _, path := range ConfigFilePaths() {
 		info, err := os.Stat(path)
 		if err != nil {

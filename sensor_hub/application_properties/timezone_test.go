@@ -12,7 +12,7 @@ func TestLoadConfigurationFromMaps_RejectsAZoneThatDoesNotLoad(t *testing.T) {
 		appProps := validAppPropsMap()
 		appProps["hub.timezone"] = zone
 
-		_, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+		_, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 		var vErr *ValidationError
 		require.ErrorAs(t, err, &vErr, "zone %q", zone)
@@ -24,7 +24,7 @@ func TestLoadConfigurationFromMaps_AcceptsAnIANAZone(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["hub.timezone"] = "Europe/London"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	require.NoError(t, err)
 	assert.Equal(t, "Europe/London", cfg.HubLocation().String())

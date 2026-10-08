@@ -1214,9 +1214,9 @@ paths:
 
         The update will be validated, applied to the in-memory configuration,
         and persisted to configuration files asynchronously. A broadcast is
-        sent to the properties WebSocket topic after the update. Note: there is
-        no separate endpoint for editing `smtp.properties` or `database.properties` —
-        they are updated by key through this same API.
+        sent to the properties WebSocket topic after the update. Note:
+        `database.properties` has no endpoint of its own; its keys are updated
+        through this same API.
       operationId: updateProperties
       x-required-permission: manage_properties
       requestBody:
@@ -1278,7 +1278,7 @@ paths:
             example:
               timestamp: "2026-01-10T12:00:00Z"
               properties:
-                smtp.user: "admin@example.com"
+                weather.location.name: "Sheffield"
                 sensor.collection.interval: "300"
 
   /properties/definitions:
@@ -2510,94 +2510,102 @@ paths:
           Messages are UserNotification objects.
 
   # ============================================================================
-  # OAuth Endpoints
+  # Email Endpoints
   # ============================================================================
-  /oauth/status:
+  /email/smtp:
     get:
       tags:
-        - oauth
-      summary: Get OAuth status
-      description: Returns the current OAuth configuration status. Requires manage_oauth permission.
-      operationId: getOAuthStatus
-      x-required-permission: manage_oauth
-      responses:
-        '200':
-          description: OAuth status
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OAuthStatus'
-        '401':
-          description: Not authenticated
-        '403':
-          description: Insufficient permissions
-        '503':
-          description: OAuth not configured
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /oauth/authorize:
-    get:
-      tags:
-        - oauth
-      summary: Get OAuth authorization URL
+        - email
+      summary: Get the SMTP settings
       description: >-
-        Returns an OAuth authorization URL with CSRF state token.
-        Used to initiate OAuth flow for Gmail integration.
-        Requires manage_oauth permission.
-      operationId: getOAuthAuthorizeUrl
-      x-required-permission: manage_oauth
+        Returns the SMTP server alert and notification emails are sent
+        through, whether a password is stored, and how the last send went.
+        The password itself is never returned.
+      operationId: getEmailSettings
+      x-required-permission: manage_email
       responses:
         '200':
-          description: Authorization URL and state
+          description: The SMTP settings
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OAuthAuthorizeResponse'
+                $ref: '#/components/schemas/EmailSettings'
         '401':
           description: Not authenticated
         '403':
           description: Insufficient permissions
         '500':
-          description: Failed to generate state or URL
+          description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: OAuth not configured
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /oauth/submit-code:
-    post:
+    put:
       tags:
-        - oauth
-      summary: Submit OAuth authorization code
+        - email
+      summary: Update the SMTP settings
       description: >-
-        Submits the authorization code received from OAuth provider.
-        Used with out-of-band OAuth flow. Requires manage_oauth permission.
-      operationId: submitOAuthCode
-      x-required-permission: manage_oauth
+        Replaces the SMTP settings. The password is held encrypted in the
+        secret store: a non-empty value other than "****" sets it, an empty
+        string clears it, and omitting it or sending "****" leaves it
+        unchanged.
+      operationId: updateEmailSettings
+      x-required-permission: manage_email
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OAuthSubmitCodeRequest'
+              $ref: '#/components/schemas/EmailSettings'
       responses:
         '200':
-          description: Authorization successful
+          description: The updated SMTP settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+        '400':
+          description: >-
+            Invalid settings: an empty host, a port outside 1 to 65535, an
+            unknown security mode or a from address that is not an email
+            address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /email/smtp/test:
+    post:
+      tags:
+        - email
+      summary: Send a test email
+      description: >-
+        Sends a message titled "Sensor Hub test email" to the caller's own
+        email address through the stored SMTP settings, and records the
+        outcome as a send.
+      operationId: sendTestEmail
+      x-required-permission: manage_email
+      responses:
+        '200':
+          description: The SMTP server accepted the test email
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessMessage'
         '400':
-          description: Invalid request or expired state
+          description: >-
+            The caller has no email address, or the SMTP settings have no host
+            or no usable password, so nothing was sent.
           content:
             application/json:
               schema:
@@ -2606,53 +2614,12 @@ paths:
           description: Not authenticated
         '403':
           description: Insufficient permissions
-        '500':
-          description: Failed to exchange code
+        '502':
+          description: The send failed; `message` holds the SMTP server's error.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: OAuth not configured
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /oauth/reload:
-    post:
-      tags:
-        - oauth
-      summary: Reload OAuth configuration
-      description: >-
-        Reloads OAuth credentials and token from disk.
-        Requires manage_oauth permission.
-      operationId: reloadOAuth
-      x-required-permission: manage_oauth
-      responses:
-        '200':
-          description: Configuration reloaded
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessMessage'
-        '401':
-          description: Not authenticated
-        '403':
-          description: Insufficient permissions
-        '500':
-          description: Failed to reload
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: OAuth not configured
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
 
   /dashboards:
     get:
@@ -4984,7 +4951,7 @@ components:
       additionalProperties:
         type: string
       example:
-        smtp.user: "admin@example.com"
+        weather.location.name: "Sheffield"
         database.path: "data/sensor_hub.db"
         sensor.collection.interval: "300"
 
@@ -4994,7 +4961,7 @@ components:
       additionalProperties:
         type: string
       example:
-        smtp.user: "new-user@example.com"
+        weather.location.name: "Leeds"
         sensor.collection.interval: "300"
 
     PropertiesErrorResponse:
@@ -5074,7 +5041,7 @@ components:
           description: >-
             How a saved change takes effect: "live", "next-cycle", "readonly",
             or "action:<id>" naming a required user action
-            ("action:service-restart" or "action:oauth-reload").
+            ("action:service-restart").
         validate:
           type: string
           description: >-
@@ -5467,44 +5434,79 @@ components:
         - category
 
     # =========================================================================
-    # OAuth Schemas
+    # Email Schemas
     # =========================================================================
-    OAuthStatus:
+    EmailSettings:
       type: object
-      description: OAuth configuration status
-      additionalProperties: true
-      example:
-        ready: true
-        has_credentials: true
-        has_token: true
-
-    OAuthAuthorizeResponse:
-      type: object
-      description: OAuth authorization URL response
+      description: >-
+        The SMTP server alert and notification emails are sent through. The
+        hub sends nothing until a host is set and a password is stored.
       properties:
-        auth_url:
+        host:
           type: string
-          description: URL to redirect user for authorization
-        state:
+          description: SMTP server host name.
+          example: "email-smtp.eu-west-1.amazonaws.com"
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          description: SMTP server port, usually 587 for starttls and 465 for implicit_tls.
+          example: 587
+        security:
           type: string
-          description: CSRF state token
+          enum: [starttls, implicit_tls, none]
+          default: starttls
+          description: >-
+            How the connection is protected. starttls upgrades a plain
+            connection with STARTTLS and fails if the server does not offer
+            it; implicit_tls opens TLS first. Both verify the server's
+            certificate against the system's trusted roots and that it was
+            issued for the host. none sends everything, the password
+            included, unencrypted.
+        username:
+          type: string
+          description: >-
+            Login name for SMTP authentication. When empty the hub does not
+            authenticate.
+        from_address:
+          type: string
+          description: >-
+            Address the emails are sent from, such as alerts@example.com.
+            Empty until it is set.
+          example: "alerts@example.com"
+        password:
+          type: string
+          writeOnly: true
+          description: >-
+            SMTP password, write-only: no response carries it. It is held
+            encrypted in the secret store. A non-empty value other than "****"
+            sets it, an empty string clears it, and omitting it or sending
+            "****" leaves the stored password unchanged.
+        password_status:
+          type: string
+          readOnly: true
+          enum: [unset, set, needs_reentry]
+          description: >-
+            Whether a password is stored. needs_reentry means the stored
+            password does not decrypt under the hub's current key and has to
+            be entered again; until then nothing is sent.
+        last_error:
+          type: string
+          readOnly: true
+          nullable: true
+          description: The error the last send failed with, or null when the last send succeeded or none was tried.
+        last_sent_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: When an email was last sent successfully, or null if none has been.
       required:
-        - auth_url
-        - state
-
-    OAuthSubmitCodeRequest:
-      type: object
-      description: OAuth code submission request
-      properties:
-        code:
-          type: string
-          description: Authorization code from OAuth provider
-        state:
-          type: string
-          description: CSRF state token from authorize response
-      required:
-        - code
-        - state
+        - host
+        - port
+        - security
+        - username
+        - from_address
 
     # =========================================================================
     # Dashboard Schemas
@@ -6166,7 +6168,7 @@ components:
     - name: sensors
       description: Endpoints related to sensor metadata and control
     - name: properties
-      description: Endpoints to read and update application, SMTP, and database properties
+      description: Endpoints to read and update application and database properties
     - name: auth
       description: Authentication and session management endpoints
     - name: users
@@ -6177,8 +6179,8 @@ components:
       description: Alert rule configuration and history endpoints
     - name: notifications
       description: In-app notification management and real-time updates
-    - name: oauth
-      description: OAuth configuration for Gmail integration
+    - name: email
+      description: SMTP settings for alert and notification emails
     - name: dashboards
       description: Dashboard CRUD and sharing endpoints
     - name: api-keys

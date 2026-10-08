@@ -35,7 +35,7 @@ const mainEntries: NavEntry[] = [
     label: 'Alerts & Notifications',
     path: '/notifications',
     icon: <NotificationsActiveIcon />,
-    permissions: ['view_alerts', 'view_notifications', 'manage_notifications', 'manage_oauth'],
+    permissions: ['view_alerts', 'view_notifications', 'manage_notifications', 'manage_email'],
   },
   { label: 'User Management', path: '/admin', icon: <PeopleIcon />, permissions: ['view_users', 'view_roles'] },
 ];

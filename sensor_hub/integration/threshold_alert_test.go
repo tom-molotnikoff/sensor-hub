@@ -5,6 +5,8 @@ package integration
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,7 +19,7 @@ import (
 
 // TestThresholdAlert_EndToEnd verifies the full alert-firing flow:
 // rule evaluation → alert_sent_history row → notification row →
-// user_notification assignment → WS broadcast → email dispatch.
+// user_notification assignment → WS broadcast → email through the SMTP server.
 func TestThresholdAlert_EndToEnd(t *testing.T) {
 	ensureSensorsRegistered(t)
 
@@ -82,9 +84,13 @@ func TestThresholdAlert_EndToEnd(t *testing.T) {
 		require.Equal(t, http.StatusOK, updateStatus, "failed to update existing alert rule to fire threshold")
 	}
 
+	// Email goes through the harness's SMTP server.
+	_, emailStatus := client.UpdateEmailSettings(env.SMTPSettings(testharness.SMTPPassword))
+	require.Equal(t, http.StatusOK, emailStatus)
+
 	// Reset captures so earlier test runs don't pollute assertions.
 	env.WSCapture.Reset()
-	env.EmailCapture.Reset()
+	env.SMTP.Reset()
 
 	// Trigger collection — this is what fires the alert.
 	_, status := client.CollectByName("Mock Sensor 1")
@@ -119,10 +125,15 @@ func TestThresholdAlert_EndToEnd(t *testing.T) {
 	// WS broadcast is synchronous inside ProcessReading, so no sleep needed.
 	assert.NotEmpty(t, env.WSCapture.UserIDs(), "WS broadcast should have fired for at least one user")
 
-	// --- Assert email dispatch ---
-	// Email is sent in a background goroutine; allow a short window for it to complete.
+	// --- Assert email delivery ---
+	// Email is sent in a background goroutine; allow a window for it to reach
+	// the SMTP server.
 	assert.Eventually(t, func() bool {
-		return len(env.EmailCapture.Recipients()) > 0
-	}, 500*time.Millisecond, 20*time.Millisecond, "email should be dispatched to at least one recipient")
-	assert.Contains(t, env.EmailCapture.Recipients(), alertTestEmail)
+		for _, message := range env.SMTP.Messages() {
+			if slices.Contains(message.To, alertTestEmail) && strings.Contains(message.Data, "Subject: [threshold_alert]") {
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second, 20*time.Millisecond, "the alert email should reach the SMTP server for %s", alertTestEmail)
 }

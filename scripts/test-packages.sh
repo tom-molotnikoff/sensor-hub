@@ -166,6 +166,7 @@ ADMIN_PASSWORD="package-test-password"
 OPERATOR_SETTING="SENSOR_HUB_PACKAGE_TEST=kept"
 COLLECTION_INTERVAL="123"
 BROKER_PASSWORD="package-test-broker-secret"
+SMTP_USER="package-test@example.com"
 
 # api METHOD PATH [BODY] calls the hub as the admin, keeping the session in a
 # cookie jar on the host under test.
@@ -202,6 +203,12 @@ seed_old_install() {
   check "the hub saved the property" "yes" \
     "$(on_host "grep -qx 'sensor.collection.interval=$COLLECTION_INTERVAL' /etc/sensor-hub/application.properties && echo yes || echo no")"
   api POST /mqtt/brokers "{\"name\":\"home\",\"type\":\"external\",\"host\":\"192.0.2.1\",\"port\":1883,\"username\":\"hub\",\"password\":\"$BROKER_PASSWORD\",\"enabled\":false}" >/dev/null
+  # Email went through Gmail: the sender in smtp.properties, and the OAuth
+  # client and token beside it.
+  api PATCH /properties "{\"smtp.user\":\"$SMTP_USER\"}" >/dev/null
+  check "the hub saved smtp.user" "yes" \
+    "$(on_host "grep -qx 'smtp.user=$SMTP_USER' /etc/sensor-hub/smtp.properties && echo yes || echo no")"
+  on_host 'cd /etc/sensor-hub && echo "{}" > credentials.json && echo "{}" > token.json && chown sensor-hub:sensor-hub credentials.json token.json'
 }
 
 # The upgrade runs with no terminal, as an unattended upgrade does, so a
@@ -217,6 +224,7 @@ check_configuration_kept() {
     "$(on_host "tr '\\0' '\\n' < /proc/\$(systemctl show -p MainPID --value sensor-hub)/environ | grep -qx '$OPERATOR_SETTING' && echo yes || echo no")"
   check "the property the hub saved is in effect" "$COLLECTION_INTERVAL" \
     "$(api GET /properties | jq -r '."sensor.collection.interval"')"
+  # 2.0 no longer ships smtp.properties, but leaves the 1.5.x one in place.
   check "the configuration files" \
     "640 sensor-hub:sensor-hub application.properties
 640 sensor-hub:sensor-hub database.properties
@@ -236,6 +244,10 @@ check_upgraded_install() {
     "$(api GET /mqtt/brokers | jq -r '.[] | select(.name == "home") | .password_status')"
   check "the plaintext password is gone from the database and its WAL" "0" \
     "$(on_host "cat /var/lib/sensor-hub/sensor_hub.db* | grep -ac '$BROKER_PASSWORD' || true")"
+  check "smtp.user is carried into the email settings" "$SMTP_USER $SMTP_USER" \
+    "$(api GET /email/smtp | jq -r '"\(.username) \(.from_address)"')"
+  check "the Gmail OAuth files are deleted" "" \
+    "$(on_host 'cd /etc/sensor-hub && ls credentials.json token.json 2>/dev/null | xargs')"
   on_host 'systemctl restart sensor-hub'
   wait_healthy || return 1
   login >/dev/null || return 1
@@ -342,8 +354,10 @@ remove_package() {
     on_host 'DEBIAN_FRONTEND=noninteractive dpkg --purge sensor-hub </dev/null' >/dev/null
     config_after=""
   else
+    # rpm -e keeps the configuration, and the smtp.properties a 1.5.x install
+    # left, which no package owns.
+    config_after="application.properties database.properties environment$(on_host 'test -e /etc/sensor-hub/smtp.properties && echo " smtp.properties"' || true)"
     on_host 'rpm -e sensor-hub </dev/null' >/dev/null
-    config_after="application.properties database.properties environment smtp.properties"
   fi
   check "the configuration files after removal" "$config_after" \
     "$(on_host 'cd /etc/sensor-hub && ls application.properties database.properties environment smtp.properties 2>/dev/null | xargs')"
@@ -385,7 +399,7 @@ wait_healthy
 upgrade_package
 wait_healthy
 # Files nobody changed take the new defaults, as a config file upgrade did.
-for name in environment application.properties database.properties smtp.properties; do
+for name in environment application.properties database.properties; do
   check "$name is the new default" "same" \
     "$(on_host "cmp -s /etc/sensor-hub/$name /usr/share/sensor-hub/defaults/$name && echo same || echo different")"
 done

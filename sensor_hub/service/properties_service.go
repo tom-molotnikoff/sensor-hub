@@ -39,15 +39,13 @@ func (ps *PropertiesService) waitForBackgroundWork() {
 }
 
 func (ps *PropertiesService) ServiceUpdateProperties(ctx context.Context, properties map[string]string) error {
-	appProperties, smtpProperties, dbProperties := appProps.ConvertConfigurationToMaps(appProps.AppConfig())
+	appProperties, dbProperties := appProps.ConvertConfigurationToMaps(appProps.AppConfig())
 
 	for key, value := range properties {
 		if _, ok := appProperties[key]; ok {
 			appProperties[key] = value
 		} else if _, ok := dbProperties[key]; ok {
 			dbProperties[key] = value
-		} else if _, ok := smtpProperties[key]; ok {
-			smtpProperties[key] = value
 		}
 	}
 
@@ -56,11 +54,11 @@ func (ps *PropertiesService) ServiceUpdateProperties(ctx context.Context, proper
 	// ignored below because the same maps were just validated here. Running
 	// both is safe — the load step no longer mutates the configuration
 	// (issue #44).
-	if _, err := appProps.LoadConfigurationFromMaps(appProperties, smtpProperties, dbProperties); err != nil {
+	if _, err := appProps.LoadConfigurationFromMaps(appProperties, dbProperties); err != nil {
 		return err
 	}
 
-	appProps.ReloadConfig(appProperties, smtpProperties, dbProperties)
+	appProps.ReloadConfig(appProperties, dbProperties)
 
 	ps.inBackground(func() {
 		err := appProps.SaveConfigurationToFiles()
@@ -91,15 +89,12 @@ func (ps *PropertiesService) BroadcastProperties(ctx context.Context) {
 func (ps *PropertiesService) ServiceGetProperties(ctx context.Context) (map[string]interface{}, error) {
 	propertiesMap := make(map[string]interface{})
 
-	appProperties, smtpProperties, dbProperties := appProps.ConvertConfigurationToMaps(appProps.AppConfig())
+	appProperties, dbProperties := appProps.ConvertConfigurationToMaps(appProps.AppConfig())
 
 	for key, value := range appProperties {
 		propertiesMap[key] = value
 	}
 	for key, value := range dbProperties {
-		propertiesMap[key] = value
-	}
-	for key, value := range smtpProperties {
 		propertiesMap[key] = value
 	}
 

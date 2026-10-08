@@ -30,7 +30,7 @@ func setupPropertiesServiceTestConfig() func() {
 		SensorDataRetentionDays:       90,
 		DataCleanupIntervalHours:      24,
 		FailedLoginRetentionDays:      2,
-		SMTPUser:                      "testuser",
+		WeatherLocationName:           "Sheffield",
 		DatabasePath:                  "data/sensor_hub.db",
 		DatabaseReaderConnections:     4,
 		MQTTBrokerPort:                1883,
@@ -71,7 +71,7 @@ func TestPropertiesService_ServiceGetProperties_ReturnsTheStoredValue(t *testing
 	defer cleanup()
 
 	cfgCopy := *appProps.AppConfig()
-	cfgCopy.SMTPUser = "admin@example.com"
+	cfgCopy.WeatherLocationName = "Leeds"
 	appProps.SetAppConfig(&cfgCopy)
 
 	service := NewPropertiesService(slog.Default())
@@ -79,7 +79,7 @@ func TestPropertiesService_ServiceGetProperties_ReturnsTheStoredValue(t *testing
 	result, err := service.ServiceGetProperties(context.Background())
 
 	assert.NoError(t, err)
-	assert.Equal(t, "admin@example.com", result["smtp.user"])
+	assert.Equal(t, "Leeds", result["weather.location.name"])
 }
 
 func TestPropertiesService_ServiceGetProperties_IncludesAllPropertyTypes(t *testing.T) {
@@ -94,9 +94,6 @@ func TestPropertiesService_ServiceGetProperties_IncludesAllPropertyTypes(t *test
 
 	// Should include app properties
 	assert.Contains(t, result, "sensor.collection.interval")
-
-	// Should include SMTP properties (if configured)
-	assert.Contains(t, result, "smtp.user")
 
 	// Should include database properties
 	assert.Contains(t, result, "database.path")
@@ -129,7 +126,7 @@ func TestPropertiesService_ServiceUpdateProperties_Success(t *testing.T) {
 }
 
 func TestPropertiesService_ServiceUpdateProperties_StoresTheSuppliedValue(t *testing.T) {
-	values := []string{"admin@example.com", "*****", "", "  spaced  "}
+	values := []string{"Leeds", "*****", "", "  spaced  "}
 
 	for _, value := range values {
 		t.Run(fmt.Sprintf("%q", value), func(t *testing.T) {
@@ -139,11 +136,11 @@ func TestPropertiesService_ServiceUpdateProperties_StoresTheSuppliedValue(t *tes
 			service := NewPropertiesService(slog.Default())
 
 			err := service.ServiceUpdateProperties(context.Background(), map[string]string{
-				"smtp.user": value,
+				"weather.location.name": value,
 			})
 
 			assert.NoError(t, err)
-			assert.Equal(t, value, appProps.AppConfig().SMTPUser)
+			assert.Equal(t, value, appProps.AppConfig().WeatherLocationName)
 
 			service.waitForBackgroundWork()
 		})

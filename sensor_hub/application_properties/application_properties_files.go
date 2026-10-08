@@ -8,12 +8,10 @@ import (
 	"path/filepath"
 )
 
-var smtpProperties map[string]string
 var databaseProperties map[string]string
 
 var configDir = "configuration"
 var applicationPropertiesFilePath string
-var smtpPropertiesFilePath string
 var databasePropertiesFilePath string
 
 func init() {
@@ -23,7 +21,6 @@ func init() {
 func setConfigPaths(dir string) {
 	configDir = dir
 	applicationPropertiesFilePath = filepath.Join(dir, "application.properties")
-	smtpPropertiesFilePath = filepath.Join(dir, "smtp.properties")
 	databasePropertiesFilePath = filepath.Join(dir, "database.properties")
 }
 
@@ -31,15 +28,8 @@ func GetConfigDir() string {
 	return configDir
 }
 
-func validateSMTPProperties() error {
-	if smtpProperties["smtp.user"] == "" {
-		slog.Warn("smtp.user is empty, email alerts will not be sent; check smtp.properties file")
-	}
-	return nil
-}
-
 func ReadApplicationPropertiesFile() (map[string]string, error) {
-	applicationProperties, _, _ := BuildDefaults()
+	applicationProperties, _ := BuildDefaults()
 	propertiesFromFile, err := utils.ReadPropertiesFile(applicationPropertiesFilePath)
 
 	if err != nil {
@@ -55,7 +45,7 @@ func ReadApplicationPropertiesFile() (map[string]string, error) {
 }
 
 func ReadDatabasePropertiesFile() (map[string]string, error) {
-	_, _, dbDefaults := BuildDefaults()
+	_, dbDefaults := BuildDefaults()
 	databaseProperties = dbDefaults
 	propertiesFromFile, err := utils.ReadPropertiesFile(databasePropertiesFilePath)
 
@@ -69,26 +59,6 @@ func ReadDatabasePropertiesFile() (map[string]string, error) {
 	clampToBounds("database", databaseProperties)
 
 	return databaseProperties, nil
-}
-
-func ReadSMTPPropertiesFile() (map[string]string, error) {
-	_, smtpDefaults, _ := BuildDefaults()
-	smtpProperties = smtpDefaults
-	propertiesFromFile, err := utils.ReadPropertiesFile(smtpPropertiesFilePath)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to read SMTP properties file: %w", err)
-	}
-
-	for k, v := range propertiesFromFile {
-		smtpProperties[k] = v
-	}
-
-	if err := validateSMTPProperties(); err != nil {
-		return nil, fmt.Errorf("validation failed on SMTP properties: %w", err)
-	}
-
-	return smtpProperties, nil
 }
 
 func SaveConfigurationToFiles() error {
@@ -107,7 +77,6 @@ func SaveConfigurationToFiles() error {
 func ConfigFilePaths() []string {
 	return []string{
 		applicationPropertiesFilePath,
-		smtpPropertiesFilePath,
 		databasePropertiesFilePath,
 	}
 }

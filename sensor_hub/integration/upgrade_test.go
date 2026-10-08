@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -13,12 +14,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
 
 	database "example/sensorHub/db"
+	gen "example/sensorHub/gen"
 	"example/sensorHub/secrets"
+	"example/sensorHub/testharness"
 
 	"github.com/golang-migrate/migrate/v4"
 	sqlite_migrate "github.com/golang-migrate/migrate/v4/database/sqlite"
@@ -30,6 +34,9 @@ import (
 // schemaVersionOf15 is the last migration a 1.5.x release shipped.
 const schemaVersionOf15 = 24
 
+// smtpUserOf15 is the Gmail address a 1.5.x install sent its emails from.
+const smtpUserOf15 = "home-alerts@gmail.com"
+
 // install15 is a 1.5.x install about to be upgraded.
 type install15 struct {
 	configDir   string
@@ -40,6 +47,9 @@ type install15 struct {
 
 // seed15Install lays out a 1.5.x install: its configuration directory and a
 // database at the 1.5.x schema holding an outbound broker with a password.
+// The configuration is as a 1.5.x hub that sent email through Gmail left it:
+// smtp.user set, the oauth.* keys its saver wrote, and the OAuth credentials
+// and token.
 func seed15Install(t *testing.T, brokerPassword string) install15 {
 	t.Helper()
 	root := t.TempDir()
@@ -75,9 +85,12 @@ func seed15Install(t *testing.T, brokerPassword string) install15 {
 	require.NoError(t, listen.Close())
 
 	files := map[string]string{
-		"application.properties": fmt.Sprintf("http.listen.address=%s\nmetrics.listen.address=\nmqtt.broker.enabled=false\n", httpAddress),
-		"database.properties":    fmt.Sprintf("database.path=%s\n", dbPath),
-		"smtp.properties":        "smtp.user=\n",
+		"application.properties": fmt.Sprintf("http.listen.address=%s\nmetrics.listen.address=\nmqtt.broker.enabled=false\n", httpAddress) +
+			"oauth.credentials.file.path=credentials.json\noauth.token.file.path=token.json\noauth.token.refresh.interval.minutes=30\n",
+		"database.properties": fmt.Sprintf("database.path=%s\n", dbPath),
+		"smtp.properties":     "smtp.user=" + smtpUserOf15 + "\n",
+		"credentials.json":    `{"installed":{"client_id":"1.apps.googleusercontent.com","client_secret":"gmail-client-secret"}}`,
+		"token.json":          `{"access_token":"ya29.access","refresh_token":"1//gmail-refresh-token"}`,
 	}
 	for name, content := range files {
 		require.NoError(t, os.WriteFile(filepath.Join(configDir, name), []byte(content), 0o640))
@@ -165,4 +178,84 @@ func TestUpgradeFrom15_EncryptsBrokerPasswordsAndScrubsThePlaintext(t *testing.T
 	require.NoError(t, readOnly.QueryRow(
 		"SELECT COUNT(*) FROM pragma_table_info('mqtt_brokers') WHERE name = 'password'").Scan(&passwordColumns))
 	assert.Zero(t, passwordColumns)
+}
+
+// The move from Gmail OAuth to SMTP needs nothing of the operator: the hub
+// starts with the 1.5.x leftovers in place, carries smtp.user into the email
+// settings, and deletes the OAuth credentials and token. The SMTP password
+// later entered is held encrypted like any other secret: its bytes never reach
+// the database or the WAL, and after the key is replaced it is entered again
+// under the new key.
+func TestUpgradeFrom15_MovesEmailToSMTPAndKeepsTheSMTPPasswordEncrypted(t *testing.T) {
+	const adminPassword = "upgrade-admin-password"
+	const smtpPassword = "plaintext-smtp-password-5c1d"
+	install := seed15Install(t, "broker-password-not-under-test")
+
+	hub := startHub(t, install.configDir, install.httpAddress)
+
+	output := hub.output.String()
+	for _, name := range []string{"credentials.json", "token.json"} {
+		path := filepath.Join(install.configDir, name)
+		assert.NoFileExists(t, path)
+		assert.Equal(t, 1, strings.Count(output, path), "one log line names %s:\n%s", name, output)
+	}
+	assert.FileExists(t, filepath.Join(install.configDir, "smtp.properties"), "the old file is left on disk")
+	readOnly, err := sql.Open("sqlite", "file:"+install.dbPath+"?mode=ro")
+	require.NoError(t, err)
+	t.Cleanup(func() { readOnly.Close() })
+	var host, security, username, fromAddress string
+	var port int
+	require.NoError(t, readOnly.QueryRow(
+		"SELECT host, port, security, username, from_address FROM email_settings WHERE id = 1",
+	).Scan(&host, &port, &security, &username, &fromAddress))
+	assert.Equal(t, []any{"smtp.gmail.com", 587, "starttls", smtpUserOf15, smtpUserOf15}, []any{host, port, security, username, fromAddress})
+	var managers int
+	require.NoError(t, readOnly.QueryRow(`SELECT COUNT(*) FROM role_permissions rp
+		JOIN permissions p ON p.id = rp.permission_id JOIN roles r ON r.id = rp.role_id
+		WHERE p.name = 'manage_email' AND r.name = 'admin'`).Scan(&managers))
+	assert.Equal(t, 1, managers, "admins keep the grant manage_oauth gave them")
+	hub.stop()
+
+	// An admin enters the SMTP password.
+	_, stderr, err := runSensorHub(t, adminPassword+"\n", "local", "admin", "create", "admin", "--config-dir", install.configDir)
+	require.NoError(t, err, stderr)
+	baseURL := "http://" + install.httpAddress
+	setPassword := func(wantStatus gen.EmailSettingsPasswordStatus) {
+		t.Helper()
+		admin := testharness.NewClient(t, baseURL)
+		require.Equal(t, http.StatusOK, admin.Login("admin", adminPassword))
+		resp, status := admin.GetEmailSettings()
+		require.Equal(t, http.StatusOK, status, "body: %s", resp)
+		var settings gen.EmailSettings
+		require.NoError(t, json.Unmarshal(resp, &settings))
+		assert.Equal(t, wantStatus, *settings.PasswordStatus)
+		settings.Password = ptrStr(smtpPassword)
+		resp, status = admin.UpdateEmailSettings(settings)
+		require.Equal(t, http.StatusOK, status, "body: %s", resp)
+		assert.NotContains(t, string(resp), smtpPassword)
+	}
+	hub = startHub(t, install.configDir, install.httpAddress)
+	setPassword(gen.EmailSettingsPasswordStatusUnset)
+	hub.stop()
+	assert.NotContains(t, hub.output.String(), smtpPassword, "the hub never logs the SMTP password")
+	assert.False(t, fileHolds(t, install.dbPath, smtpPassword), "the SMTP password is not in the database file")
+	assert.False(t, fileHolds(t, install.dbPath+"-wal", smtpPassword), "the SMTP password is not in the WAL")
+
+	// The key is replaced, so the password is entered again under the new one.
+	newKey, err := secrets.GenerateKey()
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(install.configDir, "secrets.key"), []byte(newKey.Encode()+"\n"), 0o600))
+	hub = startHub(t, install.configDir, install.httpAddress)
+	setPassword(gen.EmailSettingsPasswordStatusNeedsReentry)
+	hub.stop()
+	assert.NotContains(t, hub.output.String(), smtpPassword, "the hub never logs the SMTP password")
+	assert.False(t, fileHolds(t, install.dbPath, smtpPassword), "the SMTP password is not in the database file")
+	assert.False(t, fileHolds(t, install.dbPath+"-wal", smtpPassword), "the SMTP password is not in the WAL")
+
+	store, err := secrets.NewStore(database.NewSecretRepository(&database.Handles{Reader: readOnly, Writer: readOnly}), newKey, slog.Default())
+	require.NoError(t, err)
+	value, status, err := store.Get(context.Background(), database.SMTPSecretOwner, database.SMTPPasswordSecret)
+	require.NoError(t, err)
+	assert.Equal(t, secrets.StatusSet, status)
+	assert.Equal(t, smtpPassword, value, "the password is stored under the current key")
 }

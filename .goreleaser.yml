@@ -73,9 +73,6 @@ nfpms:
       - src: packaging/defaults/database.properties
         dst: /usr/share/sensor-hub/defaults/database.properties
 
-      - src: packaging/defaults/smtp.properties
-        dst: /usr/share/sensor-hub/defaults/smtp.properties
-
     scripts:
       preinstall: packaging/scripts/preinstall.sh
       postinstall: packaging/scripts/postinstall.sh

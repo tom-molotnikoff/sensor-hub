@@ -39,7 +39,7 @@ The struct tags define the behaviour for this new property:
 |-------------|----------|-----------------------------------------------|-------------------------------------------------------|
 | `prop`      | yes      | Dotted key, e.g. `sensor.collection.interval` | Property key in the `.properties` file                |
 | `default`   | yes      | String representation of the default value    | Written to file if absent; used as fallback           |
-| `file`      | yes      | `application`, `smtp`, or `database`          | Which property file this setting belongs to           |
+| `file`      | yes      | `application` or `database`                   | Which property file this setting belongs to           |
 | `validate`  | no       | `positive`, `non_negative`, or `non_empty` | Per-field validation applied during loading          |
 
 ### Post-Processing Hooks

@@ -123,7 +123,6 @@ var configFiles = map[string]string{
 	"environment":            "environment",
 	"application.properties": filepath.Join("defaults", "application.properties"),
 	"database.properties":    filepath.Join("defaults", "database.properties"),
-	"smtp.properties":        filepath.Join("defaults", "smtp.properties"),
 }
 
 // operatorChange is a line an operator or the hub's properties saver might
@@ -351,19 +350,31 @@ func TestPostinstall_CreatesTheConfigurationFilesOnAFreshInstall(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, string(shipped), h.read(path), path)
 	}
+	assert.Equal(t, "no", strings.TrimSpace(h.mustRun("test -e /etc/sensor-hub/smtp.properties && echo yes || echo no")),
+		"2.0 has no smtp.properties")
 }
 
 func TestPostinstall_LeavesTheConfigurationFilesOfAnUpgradeAlone(t *testing.T) {
 	t.Parallel()
 	h := startPackageHost(t, "", true)
-	h.mustRun("rm /etc/sensor-hub/smtp.properties")
-	kept := "cd /etc/sensor-hub && stat -c '%n %a %U:%G %Y' application.properties database.properties environment" +
-		" && md5sum application.properties database.properties environment"
+	h.mustRun("rm /etc/sensor-hub/environment")
+	// 1.5.x shipped smtp.properties too, and an upgrade leaves it in place.
+	h.mustRun("printf 'smtp.user=alerts@example.com\n' > /etc/sensor-hub/smtp.properties" +
+		" && chown sensor-hub:sensor-hub /etc/sensor-hub/smtp.properties && chmod 0640 /etc/sensor-hub/smtp.properties")
+	kept := "cd /etc/sensor-hub && stat -c '%n %a %U:%G %Y' application.properties database.properties smtp.properties" +
+		" && md5sum application.properties database.properties smtp.properties"
+	// And the Gmail OAuth files, which the hub cannot delete from a directory
+	// root owns.
+	h.mustRun("cd /etc/sensor-hub && echo '{}' > credentials.json && echo '{}' > token.json")
 	before := h.mustRun(kept)
 
-	h.postinstall()
+	out := h.postinstall()
 
 	assert.Equal(t, before, h.mustRun(kept), "files that exist are not changed")
+	assert.Equal(t, "", strings.TrimSpace(h.mustRun("cd /etc/sensor-hub && ls credentials.json token.json 2>/dev/null || true")),
+		"the Gmail OAuth files are deleted")
+	assert.Contains(t, out, "Deleted /etc/sensor-hub/credentials.json")
+	assert.Contains(t, out, "Deleted /etc/sensor-hub/token.json")
 	assert.Contains(t, h.read("/etc/sensor-hub/application.properties"), operatorChange)
-	assert.Equal(t, "640 sensor-hub:sensor-hub", h.modeAndOwner("/etc/sensor-hub/smtp.properties"), "a missing file is created")
+	assert.Equal(t, "640 sensor-hub:sensor-hub", h.modeAndOwner("/etc/sensor-hub/environment"), "a missing file is created")
 }

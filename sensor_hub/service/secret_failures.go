@@ -60,6 +60,9 @@ func NotifySecretFailures(ctx context.Context, failed []secrets.Ref, replaced *s
 // secretOwnerDisplayName names a secret's owner as the UI does. An owner
 // that cannot be looked up is shown as stored.
 func secretOwnerDisplayName(ctx context.Context, owner string, brokers SecretOwnerBrokers, logger *slog.Logger) string {
+	if owner == database.SMTPSecretOwner {
+		return "the email (SMTP) settings"
+	}
 	brokerID, ok := database.BrokerIDOfSecretOwner(owner)
 	if !ok {
 		return owner

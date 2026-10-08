@@ -10,13 +10,14 @@ Sensor Hub is configured through property files, environment variables, and CLI 
 
 ## Configuration files
 
-Configuration files are located in `/etc/sensor-hub/`. There are three property files:
+Configuration files are located in `/etc/sensor-hub/`. There are two property files:
 
-| File                     | Purpose                                                                  |
-|--------------------------|--------------------------------------------------------------------------|
-| `application.properties` | Application behavior, sensor polling, authentication, and OAuth settings |
-| `database.properties`    | Database connection details                                              |
-| `smtp.properties`        | Email sender configuration                                               |
+| File                     | Purpose                                                    |
+|--------------------------|------------------------------------------------------------|
+| `application.properties` | Application behavior, sensor polling and authentication    |
+| `database.properties`    | Database connection details                                |
+
+The email settings are not in a file: they are kept in the database and set on the Alerts & Notifications page (see [Email](alerts-and-notifications#email)). An install upgraded from 1.5.x may still have `smtp.properties`, and `oauth.*` keys in `application.properties`. The hub ignores both, and its next save of the properties drops the keys.
 
 Files use a simple `KEY=VALUE` format, one property per line.
 
@@ -25,8 +26,6 @@ Additional files in `/etc/sensor-hub/`:
 | File                   | Purpose                                           |
 |------------------------|---------------------------------------------------|
 | `environment`          | Environment variables loaded by the systemd unit  |
-| `credentials.json`     | Google OAuth credentials (email alerts)           |
-| `token.json`           | Stored OAuth token (created during authorization) |
 | `nginx.conf.example`   | Example nginx reverse proxy configuration         |
 | `secrets.key`          | The secret-store key, unless it is kept elsewhere (see [Secret-store key](#secret-store-key)) |
 | `secrets.key.cred`     | The secret-store key sealed with the TPM, when sealed |
