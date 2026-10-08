@@ -113,9 +113,28 @@ type Service struct {
 	rechecking sync.Mutex
 }
 
-func NewService(store Store, sensors SensorLookup, commands CommandSender, notifier Notifier, readings *ReadingConsumer, history ReadingHistory, logger *slog.Logger) *Service {
+// Option configures a Service.
+type Option func(*serviceOptions)
+
+type serviceOptions struct {
+	now func() time.Time
+}
+
+// WithClock makes the service read the time from now instead of the system
+// clock. Schedules come due, runs start and waits end by it, while timers
+// still measure real elapsed time, so a clock running at the real rate from a
+// chosen point behaves as the system clock would there.
+func WithClock(now func() time.Time) Option {
+	return func(o *serviceOptions) { o.now = now }
+}
+
+func NewService(store Store, sensors SensorLookup, commands CommandSender, notifier Notifier, readings *ReadingConsumer, history ReadingHistory, logger *slog.Logger, opts ...Option) *Service {
 	logger = logger.With("component", "automation")
-	now := func() time.Time { return time.Now().UTC() }
+	options := serviceOptions{now: time.Now}
+	for _, opt := range opts {
+		opt(&options)
+	}
+	now := func() time.Time { return options.now().UTC() }
 	executor := &executor{
 		store:     store,
 		sensors:   sensors,

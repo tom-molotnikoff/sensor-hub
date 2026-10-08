@@ -56,6 +56,9 @@ type Env struct {
 	MQTTBrokerAddress string
 	MQTTClient        fixtures.MQTTClient
 
+	// Clock is the time automations run by. It survives a restart.
+	Clock *Clock
+
 	ui         fs.FS
 	listenAddr string
 	stop       func()
@@ -147,6 +150,7 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		ConfigDir:         configDir,
 		MQTTBrokerAddress: fmt.Sprintf("127.0.0.1:%d", mqttBrokerPort),
 		MQTTClient:        DefaultMQTTClient,
+		Clock:             &Clock{},
 		ui:                opts.ui,
 	}
 	listenAddr := opts.listenAddr
@@ -281,7 +285,8 @@ func (e *Env) boot(listenAddr string) error {
 		db.Close()
 		return fmt.Errorf("failed to recover pending commands: %w", err)
 	}
-	automationService := automation.NewService(automationRepo, sensorService, commandService, notificationService, automationReadings, readingsRepo, logger)
+	automationService := automation.NewService(automationRepo, sensorService, commandService, notificationService, automationReadings, readingsRepo, logger,
+		automation.WithClock(e.Clock.Now))
 	sensorService.SetSensorObserver(automationService)
 
 	server := api.NewServer(
