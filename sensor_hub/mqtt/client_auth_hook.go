@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 
 	"example/sensorHub/service"
-	"example/sensorHub/telemetry"
 
 	mochi "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
@@ -40,10 +39,7 @@ type clientAuthHook struct {
 }
 
 func newClientAuthHook(server *mochi.Server, authenticator Authenticator, logger *slog.Logger) *clientAuthHook {
-	refused, _ := telemetry.Meter("mqtt").Int64Counter("sensor_hub.mqtt.connect.refused",
-		metric.WithDescription("CONNECTs the embedded broker refused, by reason"),
-		metric.WithUnit("{connection}"))
-	return &clientAuthHook{server: server, authenticator: authenticator, refused: refused, logger: logger}
+	return &clientAuthHook{server: server, authenticator: authenticator, refused: connectRefusedCounter(), logger: logger}
 }
 
 func (h *clientAuthHook) ID() string {

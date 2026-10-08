@@ -46,6 +46,48 @@ For the driver to receive messages, you need an MQTT subscription that routes Zi
 
 Sensor Hub includes an embedded MQTT broker (enabled by default on port 1883). Point Zigbee2MQTT at this broker and no external MQTT infrastructure is needed.
 
+## Connect Zigbee2MQTT to the broker
+
+The broker only accepts devices with a credential. Create an MQTT client named `zigbee2mqtt` with the topic prefix `zigbee2mqtt/`, as described in [Connecting your home](../connecting-your-home#create-a-credential-for-the-device), and keep the password it shows you. The prefix must match Zigbee2MQTT's `base_topic`: the client can publish and subscribe under that prefix and nowhere else.
+
+Then set the `mqtt:` block in Zigbee2MQTT's `configuration.yaml` for the way your home connects to the hub. Use the generated password in place of `GENERATED_PASSWORD`.
+
+**Through a tunnel** (preferred), where the hub's end of the tunnel is `10.8.0.1`:
+
+```yaml
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://10.8.0.1:1883
+  user: zigbee2mqtt
+  password: GENERATED_PASSWORD
+```
+
+With an SSH port forward instead, `server` is `mqtt://localhost:1883`, the forward's end on the home machine.
+
+**Through the public port**, where nginx accepts MQTT over TLS on `8883` for `hub.example.com`:
+
+```yaml
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtts://hub.example.com:8883
+  user: zigbee2mqtt
+  password: GENERATED_PASSWORD
+```
+
+If the hub's certificate is not from a public authority, for example one made with mkcert, copy the authority's certificate to the Zigbee2MQTT machine and add `ca: /app/data/rootCA.pem` (its path as Zigbee2MQTT sees it) to the block.
+
+**Over the LAN**, with the hub at home on `192.168.1.10` and `mqtt.broker.listen.address` widened as [Connecting your home](../connecting-your-home#over-the-lan-hub-at-home) describes:
+
+```yaml
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://192.168.1.10:1883
+  user: zigbee2mqtt
+  password: GENERATED_PASSWORD
+```
+
+Restart Zigbee2MQTT after editing the file. Its log shows `Connected to MQTT server` once the broker accepts it. A refused credential shows as `Not authorized`: check the user and password, and that the client is enabled.
+
 ### Creating the subscription
 
 **Web UI:**

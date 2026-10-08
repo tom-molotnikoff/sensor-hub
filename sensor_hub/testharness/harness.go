@@ -202,7 +202,8 @@ func (e *Env) boot(listenAddr string) error {
 	}
 	mqttClientService := service.NewMQTTClientService(mqttClientRepo, logger)
 	embeddedBroker := mqttpkg.NewEmbeddedBroker(mqttpkg.BrokerConfig{
-		TCPAddress: fmt.Sprintf(":%d", appProps.AppConfig().MQTTBrokerPort),
+		TCPAddress:       appProps.AppConfig().MQTTBrokerAddress(),
+		ConnectRateLimit: appProps.AppConfig().MQTTBrokerConnectRateLimit,
 	}, mqttClientService, logger)
 	mqttClientService.SetSessions(embeddedBroker)
 	if err := embeddedBroker.Start(); err != nil {

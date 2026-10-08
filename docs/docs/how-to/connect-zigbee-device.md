@@ -15,7 +15,8 @@ You will need:
 - A running Sensor Hub instance with MQTT enabled (`mqtt.broker.enabled=true`, the default)
 - A Zigbee USB coordinator (e.g. SONOFF Zigbee 3.0 Dongle Plus ZBDongle-E, ConBee II, or similar)
 - A Zigbee-compatible device (e.g. SONOFF S40 Lite smart plug, Aqara temperature sensor, SONOFF SNZB-02 sensor)
-- A machine to run Zigbee2MQTT (the same machine as Sensor Hub, or any machine on the same network)
+- A machine to run Zigbee2MQTT, with the coordinator plugged in
+- A way for that machine to reach Sensor Hub's broker: a tunnel, the public MQTT port, or the same network as a hub at home. See [Connecting your home](../connecting-your-home)
 
 ## Step 1 — Install Zigbee2MQTT
 
@@ -112,12 +113,22 @@ sudo systemctl enable --now zigbee2mqtt
 
 ## Step 2 — Configure Zigbee2MQTT to publish to Sensor Hub
 
+Create the credential Zigbee2MQTT connects with. In the Sensor Hub web UI, open the **MQTT** page and click **Add Client** on the **MQTT Clients** card, with the name `zigbee2mqtt` and the topic prefix `zigbee2mqtt/`. Or with the CLI:
+
+```bash
+sensor-hub mqtt clients create --name zigbee2mqtt --topic-prefix zigbee2mqtt/
+```
+
+The password is shown once, so copy it now.
+
 Edit the Zigbee2MQTT configuration file (`zigbee2mqtt-data/configuration.yaml`) to point at Sensor Hub's MQTT broker:
 
 ```yaml
 mqtt:
   base_topic: zigbee2mqtt
-  server: mqtt://SENSOR_HUB_HOST:1883
+  server: mqtt://SENSOR_HUB_BROKER:1883
+  user: zigbee2mqtt
+  password: GENERATED_PASSWORD
 
 serial:
   port: /dev/ttyUSB0
@@ -130,12 +141,10 @@ advanced:
   log_level: info
 ```
 
-Replace `SENSOR_HUB_HOST` with the IP address or hostname of your Sensor Hub machine. The `serial.port` should match the right-hand side of the Docker `devices` mapping (i.e. `/dev/ttyUSB0` or `/dev/ttyACM0` depending on your coordinator). If you are running Zigbee2MQTT without Docker, use the full `/dev/serial/by-id/...` path instead.
+Replace `GENERATED_PASSWORD` with the password from the step above, and set `server` for the way your home reaches the hub: the hub's tunnel address, `mqtts://hub.example.com:8883` for the public port, or the hub's LAN address for a hub at home. [Zigbee (via Zigbee2MQTT)](../sensors/zigbee#connect-zigbee2mqtt-to-the-broker) shows the full block for each. The `serial.port` should match the right-hand side of the Docker `devices` mapping (i.e. `/dev/ttyUSB0` or `/dev/ttyACM0` depending on your coordinator). If you are running Zigbee2MQTT without Docker, use the full `/dev/serial/by-id/...` path instead.
 
-:::tip[Same machine? Use `host.docker.internal`]
-If Zigbee2MQTT is running in Docker on the **same machine** as Sensor Hub, use `mqtt://host.docker.internal:1883` instead of `localhost`. Docker containers cannot reach the host's `localhost` — the `extra_hosts` entry in the docker-compose file maps `host.docker.internal` to the host machine's network.
-
-If you are running Zigbee2MQTT **natively** (not in Docker) on the same machine, `mqtt://localhost:1883` works fine.
+:::tip[Same machine as Sensor Hub?]
+The broker listens on `127.0.0.1` by default, so Zigbee2MQTT on the same machine connects to `mqtt://localhost:1883`. Running natively, that works as it is. In Docker, the container must share the host's network: replace the `ports` and `extra_hosts` entries with `network_mode: host`, and move the Zigbee2MQTT frontend off port 8080 with `frontend.port: 8081`, since Sensor Hub uses 8080.
 :::
 
 Restart Zigbee2MQTT after editing the configuration.
@@ -211,6 +220,8 @@ All devices also report **Link Quality** (lqi), which indicates Zigbee signal st
 **Device does not appear in Sensor Hub:**
 
 - Check that Zigbee2MQTT is connected to the MQTT broker — the Zigbee2MQTT log should show `Connected to MQTT server`
+- `Not authorized` in the Zigbee2MQTT log means the broker refused the credential: check `user` and `password`, and that the client is enabled on the **MQTT** page
+- A connection that times out or is refused means Zigbee2MQTT cannot reach the broker: check the tunnel or nginx, and `mqtt.broker.listen.address` (see [Connecting your home](../connecting-your-home))
 - Verify the subscription topic matches: the default Zigbee2MQTT base topic is `zigbee2mqtt`, so `zigbee2mqtt/#` should catch everything
 - Check the MQTT Broker Stats page in Sensor Hub to confirm messages are being received
 

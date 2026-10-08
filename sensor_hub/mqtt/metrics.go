@@ -47,3 +47,13 @@ func newMQTTInstruments() *mqttInstruments {
 		processingTime:    processingTime,
 	}
 }
+
+// connectRefusedCounter counts the CONNECTs the embedded broker refuses, with
+// a "reason" attribute: "auth", "disabled" or "rate_limit". Prometheus shows
+// it as sensor_hub_mqtt_connect_refused_total.
+func connectRefusedCounter() metric.Int64Counter {
+	refused, _ := telemetry.Meter("mqtt").Int64Counter("sensor_hub.mqtt.connect.refused",
+		metric.WithDescription("CONNECTs the embedded broker refused, by reason"),
+		metric.WithUnit("{connection}"))
+	return refused
+}

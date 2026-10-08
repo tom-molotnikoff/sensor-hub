@@ -38,6 +38,7 @@ func setupPropertiesServiceTestConfig() func() {
 		AutomationLoopMaxChain:        5,
 		ActuatorCommandTimeoutSeconds: 10,
 		HTTPListenAddress:             "127.0.0.1:8080",
+		MQTTBrokerListenAddress:       "127.0.0.1",
 	})
 
 	return func() {

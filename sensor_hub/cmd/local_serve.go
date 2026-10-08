@@ -94,7 +94,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	// the MQTT clients in the database, so it starts once the database is open.
 	mqttClientService := service.NewMQTTClientService(database.NewMQTTClientRepository(db, logger), logger)
 	embeddedBroker := mqttBrokerPkg.NewEmbeddedBroker(mqttBrokerPkg.BrokerConfig{
-		TCPAddress: fmt.Sprintf(":%d", bootCfg.MQTTBrokerPort),
+		TCPAddress:       bootCfg.MQTTBrokerAddress(),
+		ConnectRateLimit: bootCfg.MQTTBrokerConnectRateLimit,
 	}, mqttClientService, logger)
 	mqttClientService.SetSessions(embeddedBroker)
 
