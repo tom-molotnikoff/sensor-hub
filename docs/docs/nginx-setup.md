@@ -63,6 +63,10 @@ If nginx runs on another host:
 
 Never list an address that untrusted clients can connect from: a client sending from it could claim any address it liked.
 
+### WebSocket origin
+
+Sensor Hub refuses a browser WebSocket whose `Origin` host and port differ from the request's `Host`. The example sets `proxy_set_header Host $http_host;`, which passes on the host and port the browser used, so this holds on any port nginx listens on. `$host` drops the port, so with nginx on a port other than 443 every WebSocket would be refused.
+
 ## TLS certificates
 
 ### Self-signed with mkcert

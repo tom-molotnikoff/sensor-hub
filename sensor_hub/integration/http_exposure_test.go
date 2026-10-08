@@ -5,6 +5,7 @@ package integration
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -78,9 +79,15 @@ func TestWebSocket_RefusesAnOriginFromAnotherSite(t *testing.T) {
 
 func TestWebSocket_UpgradeLogLeavesOutTheSessionCookie(t *testing.T) {
 	logs := &lockedBuffer{}
-	previous := slog.Default()
+	// Setting a slog default also redirects the log package, which restoring
+	// the previous slog default does not undo.
+	previous, previousWriter, previousFlags := slog.Default(), log.Writer(), log.Flags()
 	slog.SetDefault(slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	t.Cleanup(func() { slog.SetDefault(previous) })
+	t.Cleanup(func() {
+		slog.SetDefault(previous)
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	})
 
 	conn, _, err := client.DialWebSocket("/api/readings/ws/current")
 	require.NoError(t, err)

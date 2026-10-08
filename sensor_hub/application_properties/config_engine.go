@@ -284,6 +284,18 @@ func validateString(def PropertyDef, value string) error {
 		if !isIANAZone(value) {
 			return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must be an IANA zone name such as Europe/London, got %q", def.Key, value)}
 		}
+	case "listen_address":
+		if !isListenAddress(value) {
+			return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must be host:port, such as 127.0.0.1:8080, got %q", def.Key, value)}
+		}
+	case "listen_address_or_empty":
+		if value != "" && !isListenAddress(value) {
+			return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must be host:port, such as 127.0.0.1:9464, or empty, got %q", def.Key, value)}
+		}
+	case "ip_list":
+		if !isIPOrCIDRList(value) {
+			return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must be comma-separated IP addresses or CIDR ranges, such as 127.0.0.1,::1, got %q", def.Key, value)}
+		}
 	}
 	return nil
 }

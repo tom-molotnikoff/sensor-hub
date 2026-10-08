@@ -2438,7 +2438,7 @@ export interface components {
             enum?: string[];
             /** @description How a saved change takes effect: "live", "next-cycle", "readonly", or "action:<id>" naming a required user action ("action:service-restart" or "action:oauth-reload"). */
             apply: string;
-            /** @description Validation rule: "positive", "non_negative" or "non_empty", checked client-side, or "timezone" (an IANA zone name), checked on save. */
+            /** @description Validation rule: "positive", "non_negative" or "non_empty", checked client-side, or "timezone" (an IANA zone name), "listen_address" (host:port), "listen_address_or_empty" or "ip_list" (comma-separated IPs or CIDR ranges), checked on save. */
             validate?: string;
             /** @description True when the property is not editable at runtime. */
             readOnly: boolean;

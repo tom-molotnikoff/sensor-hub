@@ -37,6 +37,7 @@ func setupPropertiesServiceTestConfig() func() {
 		HubTimezone:                   "UTC",
 		AutomationLoopMaxChain:        5,
 		ActuatorCommandTimeoutSeconds: 10,
+		HTTPListenAddress:             "127.0.0.1:8080",
 	})
 
 	return func() {

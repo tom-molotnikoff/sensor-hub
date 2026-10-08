@@ -31,6 +31,7 @@ func validAppPropsMap() map[string]string {
 		"mqtt.broker.enabled":                  "true",
 		"mqtt.broker.port":                     "1883",
 		"hub.timezone":                         "Europe/London",
+		"http.listen.address":                  "127.0.0.1:8080",
 		"automation.loop.max.chain":            "5",
 		"actuator.command.timeout_seconds":     "10",
 	}
@@ -374,6 +375,7 @@ func TestConvertConfigurationToMaps_RoundTrip(t *testing.T) {
 		HubTimezone:                   "Europe/London",
 		AutomationLoopMaxChain:        3,
 		ActuatorCommandTimeoutSeconds: 25,
+		HTTPListenAddress:             "127.0.0.1:8080",
 	}
 
 	appProps, smtpProps, dbProps := ConvertConfigurationToMaps(original)

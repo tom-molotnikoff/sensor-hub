@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"example/sensorHub/api/middleware"
@@ -25,30 +24,20 @@ import (
 //go:embed openapi.yaml
 var openapiSpec []byte
 
-// NewEngine returns the base router. trustedProxies is the comma-separated
-// http.trusted.proxies value: only a request from one of those addresses has
-// its X-Forwarded-For and X-Real-IP believed, and c.ClientIP() is then the
-// rightmost address in the chain that is not a trusted proxy. Empty trusts no
-// proxy, so c.ClientIP() is always the connecting peer.
-func NewEngine(trustedProxies string) (*gin.Engine, error) {
+// NewEngine returns the base router. Only a request from one of
+// trustedProxies, IPs or CIDR ranges, has its X-Forwarded-For and X-Real-IP
+// believed, and c.ClientIP() is then the rightmost address in the chain that
+// is not a trusted proxy. None trusts no proxy, so c.ClientIP() is always the
+// connecting peer.
+func NewEngine(trustedProxies []string) (*gin.Engine, error) {
 	router := gin.New()
 	router.RedirectTrailingSlash = false
 	router.UseRawPath = true
-	if err := router.SetTrustedProxies(splitList(trustedProxies)); err != nil {
+	if err := router.SetTrustedProxies(trustedProxies); err != nil {
 		return nil, fmt.Errorf("invalid http.trusted.proxies: %w", err)
 	}
 	router.Use(gin.Recovery())
 	return router, nil
-}
-
-func splitList(s string) []string {
-	var items []string
-	for _, item := range strings.Split(s, ",") {
-		if item = strings.TrimSpace(item); item != "" {
-			items = append(items, item)
-		}
-	}
-	return items
 }
 
 func RegisterAPIRoutes(router *gin.Engine, server *Server) {
@@ -60,7 +49,7 @@ func RegisterAPIRoutes(router *gin.Engine, server *Server) {
 	})
 }
 
-func newRouter(logger *slog.Logger, trustedProxies string, server *Server) (*gin.Engine, error) {
+func newRouter(logger *slog.Logger, trustedProxies []string, server *Server) (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)
 	router, err := NewEngine(trustedProxies)
 	if err != nil {
@@ -108,7 +97,7 @@ func newMetricsServer(addr string, prometheusHandler http.Handler) *http.Server 
 func InitialiseAndListen(ctx context.Context, logger *slog.Logger, cfg *appProps.ApplicationConfiguration, prometheusHandler http.Handler, server *Server) error {
 	logger.Info("API server starting")
 
-	router, err := newRouter(logger, cfg.HTTPTrustedProxies, server)
+	router, err := newRouter(logger, cfg.TrustedProxies(), server)
 	if err != nil {
 		return err
 	}

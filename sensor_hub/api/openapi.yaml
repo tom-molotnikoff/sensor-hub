@@ -4957,7 +4957,9 @@ components:
           type: string
           description: >-
             Validation rule: "positive", "non_negative" or "non_empty", checked
-            client-side, or "timezone" (an IANA zone name), checked on save.
+            client-side, or "timezone" (an IANA zone name), "listen_address"
+            (host:port), "listen_address_or_empty" or "ip_list"
+            (comma-separated IPs or CIDR ranges), checked on save.
         readOnly:
           type: boolean
           description: True when the property is not editable at runtime.

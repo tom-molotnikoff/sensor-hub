@@ -1467,7 +1467,7 @@ type PropertyDefinition struct {
 	// Unit Unit shown as an input suffix, e.g. "seconds".
 	Unit *string `json:"unit,omitempty"`
 
-	// Validate Validation rule: "positive", "non_negative" or "non_empty", checked client-side, or "timezone" (an IANA zone name), checked on save.
+	// Validate Validation rule: "positive", "non_negative" or "non_empty", checked client-side, or "timezone" (an IANA zone name), "listen_address" (host:port), "listen_address_or_empty" or "ip_list" (comma-separated IPs or CIDR ranges), checked on save.
 	Validate *string `json:"validate,omitempty"`
 }
 

@@ -283,7 +283,7 @@ func (e *Env) boot(listenAddr string) error {
 	)
 
 	gin.SetMode(gin.TestMode)
-	router, err := api.NewEngine(appProps.AppConfig().HTTPTrustedProxies)
+	router, err := api.NewEngine(appProps.AppConfig().TrustedProxies())
 	if err != nil {
 		_ = embeddedBroker.Stop()
 		db.Close()

@@ -42,7 +42,7 @@ func TestInitialiseAndListen_ServesMetricsOnlyOnTheMetricsAddress(t *testing.T) 
 
 func TestNewEngine_NoTrustedProxiesIgnoresForwardingHeaders(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router, err := NewEngine("")
+	router, err := NewEngine(nil)
 	require.NoError(t, err)
 	router.GET("/ip", func(c *gin.Context) { c.String(http.StatusOK, c.ClientIP()) })
 
