@@ -3,6 +3,6 @@ tmp_dir = "tmp"
 
 [build]
 cmd = "go build -ldflags=\"-s -w\" -o ./tmp/main ."
-entrypoint = ["./tmp/main", "serve"]
+entrypoint = ["./tmp/main", "local", "serve", "--config-dir=configuration"]
 delay = 100
 exclude_dir = ["ui", "web/docs", "tmp", "data", "devstack"]

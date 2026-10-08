@@ -17,8 +17,9 @@ import (
 )
 
 var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Manage CLI configuration",
+	Use:     "config",
+	GroupID: hubGroupID,
+	Short:   "Manage CLI configuration",
 }
 
 var configInitCmd = &cobra.Command{

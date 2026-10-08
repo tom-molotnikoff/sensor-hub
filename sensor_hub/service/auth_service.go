@@ -20,7 +20,6 @@ type AuthServiceInterface interface {
 	ValidateSession(ctx context.Context, rawToken string) (*gen.User, error)
 	Logout(ctx context.Context, rawToken string) error
 	ChangePassword(ctx context.Context, userId int, newPassword string) error
-	CreateInitialAdminIfNone(ctx context.Context, username, password string) error
 	ListSessionsForUser(ctx context.Context, userId int) ([]database.SessionInfo, error)
 	RevokeSessionById(ctx context.Context, sessionId int64) error
 	RevokeSessionByIdWithActor(ctx context.Context, sessionId int64, revokedByUserId *int, reason *string) error
@@ -248,30 +247,6 @@ func (a *AuthService) ChangePassword(ctx context.Context, userId int, newPasswor
 		return err
 	}
 	return a.userRepo.UpdatePassword(ctx, userId, hash, false)
-}
-
-func (a *AuthService) CreateInitialAdminIfNone(ctx context.Context, username, password string) error {
-	users, err := a.userRepo.ListUsers(ctx)
-	if err != nil {
-		return err
-	}
-	if len(users) > 0 {
-		return nil // already users present
-	}
-	hash, err := a.bcryptHash(password)
-	if err != nil {
-		return err
-	}
-	user := gen.User{Username: username, Email: "", Disabled: false, MustChangePassword: true, Roles: []string{RoleAdmin}}
-	id, err := a.userRepo.CreateUser(ctx, user, hash)
-	if err != nil {
-		return err
-	}
-	err = a.userRepo.AssignRoleToUser(ctx, id, RoleAdmin)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (a *AuthService) ListSessionsForUser(ctx context.Context, userId int) ([]database.SessionInfo, error) {

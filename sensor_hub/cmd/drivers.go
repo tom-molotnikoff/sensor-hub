@@ -5,8 +5,9 @@ import (
 )
 
 var driversCmd = &cobra.Command{
-	Use:   "drivers",
-	Short: "Manage sensor drivers",
+	Use:     "drivers",
+	GroupID: hubGroupID,
+	Short:   "Manage sensor drivers",
 }
 
 var driversListCmd = &cobra.Command{

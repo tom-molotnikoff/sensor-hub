@@ -59,8 +59,9 @@ API keys are hashed before storage.
 
 ## Must Change Password
 
-When a user is created (including the initial admin), `must_change_password` is
-set to `true`. This forces the user to change their password on first login. During this time,
+When a user is created through the API, `must_change_password` is set to
+`true`. The first admin created with `local admin create` gets it only with
+`--must-change-password`. This forces the user to change their password on first login. During this time,
 All other endpoints return 403 Forbidden. The flag is cleared after the user
 changes their password.
 

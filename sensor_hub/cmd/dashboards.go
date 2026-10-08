@@ -9,8 +9,9 @@ import (
 )
 
 var dashboardsCmd = &cobra.Command{
-	Use:   "dashboards",
-	Short: "Manage dashboards",
+	Use:     "dashboards",
+	GroupID: hubGroupID,
+	Short:   "Manage dashboards",
 }
 
 func init() {

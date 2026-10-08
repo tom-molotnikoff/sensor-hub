@@ -9,10 +9,24 @@ import (
 
 var Version = "dev"
 
+const (
+	localGroupID = "local"
+	hubGroupID   = "hub"
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "sensor-hub",
 	Short: "Home temperature monitoring system",
-	Long:  "Sensor Hub — a home temperature monitoring system.\nRun as a server with 'serve' or use CLI commands to interact with a remote instance.",
+	Long:  "Sensor Hub — a home temperature monitoring system.\nRun the server with 'local serve' or use the other commands to interact with a hub.",
+}
+
+func init() {
+	rootCmd.AddGroup(
+		&cobra.Group{ID: localGroupID, Title: "Commands that act on this machine's install:"},
+		&cobra.Group{ID: hubGroupID, Title: "Commands that talk to a hub:"},
+	)
+	rootCmd.SetHelpCommandGroupID(hubGroupID)
+	rootCmd.SetCompletionCommandGroupID(hubGroupID)
 }
 
 func Execute(version string) {

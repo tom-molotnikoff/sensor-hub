@@ -25,10 +25,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var configDir string
 var logFile string
 
-var serveCmd = &cobra.Command{
+var localServeCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start the Sensor Hub server",
 	Long:  "Starts the HTTP API server, periodic collection, and serves the embedded UI.",
@@ -36,16 +35,15 @@ var serveCmd = &cobra.Command{
 }
 
 func init() {
-	serveCmd.Flags().StringVar(&configDir, "config-dir", "configuration", "Path to configuration directory")
-	serveCmd.Flags().StringVar(&logFile, "log-file", "", "Path to log file (default: stdout)")
-	rootCmd.AddCommand(serveCmd)
+	localServeCmd.Flags().StringVar(&logFile, "log-file", "", "Path to log file (default: stdout)")
+	localCmd.AddCommand(localServeCmd)
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	err := appProps.InitialiseConfig(configDir)
+	err := appProps.InitialiseConfig(localConfigDir)
 	if err != nil {
 		return fmt.Errorf("failed to initialise application configuration: %w", err)
 	}
@@ -61,6 +59,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 	defer tel.Shutdown()
 
 	logger := tel.Logger
+
+	if os.Getenv("SENSOR_HUB_INITIAL_ADMIN") != "" {
+		logger.Warn("SENSOR_HUB_INITIAL_ADMIN is ignored since 2.0; remove it from the environment and create the first admin with 'sensor-hub local admin create'")
+	}
 
 	// Start embedded MQTT broker if enabled
 	bootCfg := appProps.AppConfig()
@@ -179,25 +181,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	middleware.InitAuthMiddleware(authService)
 	middleware.InitApiKeyMiddleware(apiKeyService)
-
-	initialAdmin := os.Getenv("SENSOR_HUB_INITIAL_ADMIN")
-	if initialAdmin != "" {
-		var username, password string
-		for i, c := range initialAdmin {
-			if c == ':' {
-				username = initialAdmin[:i]
-				password = initialAdmin[i+1:]
-				break
-			}
-		}
-		if username != "" && password != "" {
-			err = authService.CreateInitialAdminIfNone(context.Background(), username, password)
-			if err != nil {
-				return fmt.Errorf("failed to create initial admin user: %w", err)
-			}
-			logger.Info("initial admin user ready", "username", username)
-		}
-	}
 
 	// Start MQTT connection manager (connects to all enabled brokers)
 	if err := connManager.Start(ctx); err != nil {

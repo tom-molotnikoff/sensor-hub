@@ -6,7 +6,7 @@ sidebar_position: 7
 
 # CLI Tool
 
-Sensor Hub ships as a single binary that can run as a **server** (`sensor-hub serve`) or as a **command-line client** for interacting with a remote Sensor Hub instance.
+Sensor Hub ships as a single binary. Its [local commands](#local-commands) act on the install on the machine they run on, including running the **server** (`sensor-hub local serve`). Every other command is a **command-line client** for interacting with a remote Sensor Hub instance.
 
 ## Installation
 
@@ -76,6 +76,56 @@ All commands accept `--server`, `--api-key`, and `--insecure` flags, which overr
 ```bash
 sensor-hub sensors list --server https://home.sensor-hub --api-key shk_... --insecure
 ```
+
+## Local commands
+
+Commands under `sensor-hub local` act on the Sensor Hub install on the machine they run on. They read its configuration directory and database directly rather than talking to a hub over HTTP, so they need no server URL or API key. `sensor-hub --help` lists them apart from the commands that talk to a hub.
+
+| Command | What it does |
+|---|---|
+| `local serve` | Run the server: the HTTP API, the embedded UI and sensor collection |
+| `local admin create <username>` | Create the first admin user directly in the database |
+| `local db backup <path>` | Write a consistent copy of the live database to a new file |
+
+Every local command takes `--config-dir`, the directory holding `application.properties` and `database.properties`. It defaults to `/etc/sensor-hub`, where the package installs them. When either file is missing the command exits with an error naming the directory and the file. `local serve` also takes `--log-file`, which defaults to stdout.
+
+On a package install, run local commands as the `sensor-hub` user so that any file they create stays usable by the service.
+
+### Run the server
+
+The packaged systemd unit runs:
+
+```bash
+/usr/bin/sensor-hub local serve --config-dir=/etc/sensor-hub --log-file=/var/log/sensor-hub/sensor-hub.log
+```
+
+In development, from `sensor_hub/`, the configuration lives in `configuration/`:
+
+```bash
+go run . local serve --config-dir=configuration
+```
+
+### Create the first admin
+
+```bash
+sudo -u sensor-hub sensor-hub local admin create admin --email admin@example.com
+```
+
+On a terminal it asks for the password twice. Otherwise it reads one line from stdin, so a script can pipe the password in without it landing in a file, the environment or the process list:
+
+```bash
+printf '%s\n' "$ADMIN_PASSWORD" | sudo -u sensor-hub sensor-hub local admin create admin
+```
+
+The password must be at least 8 characters. It is hashed with bcrypt at `auth.bcrypt.cost`, raised to 10 when that is set lower. The admin is asked to change the password at first login only when `--must-change-password` is given. The server does not need to be running. Once any user holds the admin role the command refuses with "an admin already exists" and changes nothing; add further users from the web UI or with `users create`.
+
+### Back up the database
+
+```bash
+sudo -u sensor-hub sensor-hub local db backup /var/lib/sensor-hub/backup.db
+```
+
+The copy is taken with SQLite's `VACUUM INTO` while the server keeps running, so it is consistent and includes writes not yet checkpointed out of the `-wal` file. The file is created with mode 0600, and an existing file is never overwritten. Keep the backup together with a copy of `/etc/sensor-hub`.
 
 ## Automations
 

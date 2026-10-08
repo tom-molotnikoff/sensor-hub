@@ -48,11 +48,6 @@ func (m *MockAuthService) ChangePassword(ctx context.Context, userId int, newPas
 	return args.Error(0)
 }
 
-func (m *MockAuthService) CreateInitialAdminIfNone(ctx context.Context, username, password string) error {
-	args := m.Called(ctx, username, password)
-	return args.Error(0)
-}
-
 func (m *MockAuthService) ListSessionsForUser(ctx context.Context, userId int) ([]db.SessionInfo, error) {
 	args := m.Called(ctx, userId)
 	return args.Get(0).([]db.SessionInfo), args.Error(1)

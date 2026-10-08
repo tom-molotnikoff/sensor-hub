@@ -7,8 +7,9 @@ import (
 )
 
 var readingsCmd = &cobra.Command{
-	Use:   "readings",
-	Short: "Query sensor readings",
+	Use:     "readings",
+	GroupID: hubGroupID,
+	Short:   "Query sensor readings",
 }
 
 func init() {

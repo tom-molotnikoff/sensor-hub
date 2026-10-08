@@ -9,9 +9,10 @@ import (
 )
 
 var healthCmd = &cobra.Command{
-	Use:   "health",
-	Short: "Check connectivity to a Sensor Hub server",
-	RunE:  runHealth,
+	Use:     "health",
+	GroupID: hubGroupID,
+	Short:   "Check connectivity to a Sensor Hub server",
+	RunE:    runHealth,
 }
 
 func init() {

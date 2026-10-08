@@ -331,46 +331,6 @@ func TestAuthService_ChangePassword_DBError(t *testing.T) {
 }
 
 // ============================================================================
-// CreateInitialAdminIfNone tests
-// ============================================================================
-
-func TestAuthService_CreateInitialAdminIfNone_CreatesAdmin(t *testing.T) {
-	defer setupTestConfig()()
-
-	service, userRepo, _, _ := setupAuthService()
-
-	userRepo.On("ListUsers", mock.Anything).Return([]gen.User{}, nil)
-	userRepo.On("CreateUser", mock.Anything, mock.Anything, mock.Anything).Return(1, nil)
-	userRepo.On("AssignRoleToUser", mock.Anything, 1, RoleAdmin).Return(nil)
-
-	err := service.CreateInitialAdminIfNone(context.Background(), "admin", "password")
-
-	assert.NoError(t, err)
-	userRepo.AssertExpectations(t)
-}
-
-func TestAuthService_CreateInitialAdminIfNone_SkipsIfUsersExist(t *testing.T) {
-	service, userRepo, _, _ := setupAuthService()
-
-	userRepo.On("ListUsers", mock.Anything).Return([]gen.User{{Id: 1, Username: "existing"}}, nil)
-
-	err := service.CreateInitialAdminIfNone(context.Background(), "admin", "password")
-
-	assert.NoError(t, err)
-	userRepo.AssertNotCalled(t, "CreateUser")
-}
-
-func TestAuthService_CreateInitialAdminIfNone_ListUsersError(t *testing.T) {
-	service, userRepo, _, _ := setupAuthService()
-
-	userRepo.On("ListUsers", mock.Anything).Return([]gen.User{}, errors.New("database error"))
-
-	err := service.CreateInitialAdminIfNone(context.Background(), "admin", "password")
-
-	assert.Error(t, err)
-}
-
-// ============================================================================
 // ListSessionsForUser tests
 // ============================================================================
 

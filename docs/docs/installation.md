@@ -50,16 +50,6 @@ Set the Gmail address used as the sender for email notifications (only required 
 smtp.user=your-email@gmail.com
 ```
 
-## Set the initial admin user
-
-Edit `/etc/sensor-hub/environment` and uncomment the admin line:
-
-```bash
-SENSOR_HUB_INITIAL_ADMIN=admin:yourpassword
-```
-
-This creates an admin user with full permissions on first startup, only if no users exist in the database. Comment it out or remove the value after the first start.
-
 ## Start the service
 
 ```bash
@@ -70,6 +60,14 @@ On first start:
 
 1. Embedded migrations create the SQLite database and schema automatically
 2. The binary starts serving the API and embedded React UI on port 8080
+
+## Create the first admin user
+
+```bash
+sudo -u sensor-hub sensor-hub local admin create admin
+```
+
+It asks for the password twice and writes the admin straight to the database, so the password never lands in a file or the environment. To script it, pipe the password in on stdin instead. The command refuses once an admin exists. See [Local commands](cli-tool#create-the-first-admin) for its options.
 
 ## Set up nginx
 

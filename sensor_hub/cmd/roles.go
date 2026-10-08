@@ -10,8 +10,9 @@ import (
 )
 
 var rolesCmd = &cobra.Command{
-	Use:   "roles",
-	Short: "Manage roles and permissions",
+	Use:     "roles",
+	GroupID: hubGroupID,
+	Short:   "Manage roles and permissions",
 }
 
 func init() {

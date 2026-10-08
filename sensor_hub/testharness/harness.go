@@ -4,6 +4,7 @@ package testharness
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -281,7 +282,8 @@ func (e *Env) boot(listenAddr string) error {
 	e.WSCapture = wsCapture
 	e.EmailCapture = emailCapture
 
-	if err := authService.CreateInitialAdminIfNone(context.Background(), DefaultAdminUser, DefaultAdminPass); err != nil {
+	err = service.CreateFirstAdmin(context.Background(), userRepo, DefaultAdminUser, "", DefaultAdminPass, true)
+	if err != nil && !errors.Is(err, database.ErrAdminExists) {
 		e.stop()
 		return fmt.Errorf("failed to create admin user: %w", err)
 	}
