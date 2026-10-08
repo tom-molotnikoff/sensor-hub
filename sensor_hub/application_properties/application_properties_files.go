@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 )
 
-var applicationProperties map[string]string
 var smtpProperties map[string]string
 var databaseProperties map[string]string
 
@@ -40,8 +39,7 @@ func validateSMTPProperties() error {
 }
 
 func ReadApplicationPropertiesFile() (map[string]string, error) {
-	appDefaults, _, _ := BuildDefaults()
-	applicationProperties = appDefaults
+	applicationProperties, _, _ := BuildDefaults()
 	propertiesFromFile, err := utils.ReadPropertiesFile(applicationPropertiesFilePath)
 
 	if err != nil {
