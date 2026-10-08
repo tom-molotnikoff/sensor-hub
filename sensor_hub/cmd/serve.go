@@ -31,7 +31,7 @@ var logFile string
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start the Sensor Hub server",
-	Long:  "Starts the HTTP API server, sensor discovery, periodic collection, and serves the embedded UI.",
+	Long:  "Starts the HTTP API server, periodic collection, and serves the embedded UI.",
 	RunE:  runServe,
 }
 
@@ -197,11 +197,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 			}
 			logger.Info("initial admin user ready", "username", username)
 		}
-	}
-
-	err = sensorService.ServiceDiscoverSensors(context.Background())
-	if err != nil {
-		return fmt.Errorf("failed to discover sensors: %w", err)
 	}
 
 	// Start MQTT connection manager (connects to all enabled brokers)

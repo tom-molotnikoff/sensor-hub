@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const validAppPropsContent = "sensor.collection.interval=300\nsensor.discovery.skip=true\n"
+const validAppPropsContent = "sensor.collection.interval=300\n"
 
 // setupWatcherConfigDir points the config engine at a temp directory holding
 // valid property files, and restores the previous paths and config afterwards.
@@ -68,7 +68,7 @@ func TestWatchConfigFiles_ExternalEditReloadsAndNotifies(t *testing.T) {
 	notified := make(chan struct{}, 1)
 	startFastWatcher(t, func() { notify(notified) })
 
-	edited := "sensor.collection.interval=123\nsensor.discovery.skip=true\n"
+	edited := "sensor.collection.interval=123\n"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "application.properties"), []byte(edited), 0644))
 
 	select {
@@ -86,7 +86,7 @@ func TestWatchConfigFiles_FailedReloadSendsNoNotification(t *testing.T) {
 	notified := make(chan struct{}, 1)
 	startFastWatcher(t, func() { notify(notified) })
 
-	broken := "sensor.collection.interval=not-a-number\nsensor.discovery.skip=true\n"
+	broken := "sensor.collection.interval=not-a-number\n"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "application.properties"), []byte(broken), 0644))
 
 	select {

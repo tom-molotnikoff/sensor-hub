@@ -4,9 +4,9 @@ import { buildSections } from './propertySections';
 
 function makeDefinition(overrides: Partial<PropertyDefinition> = {}): PropertyDefinition {
   return {
-    key: 'sensor.discovery.skip',
-    label: 'Skip sensor discovery',
-    description: "Don't try to auto-discover sensors at startup.",
+    key: 'readings.aggregation.enabled',
+    label: 'Readings aggregation',
+    description: 'Whether readings are downsampled into aggregation tiers.',
     type: 'bool',
     default: 'false',
     group: 'sensors',
@@ -29,7 +29,7 @@ const response: PropertyDefinitionsResponse = {
 
 describe('buildSections', () => {
   it('orders the groups by order and puts each definition under the group it names', () => {
-    const sections = buildSections(response, ['sensor.discovery.skip', 'database.path']);
+    const sections = buildSections(response, ['readings.aggregation.enabled', 'database.path']);
 
     expect(sections.map((section) => section.group.id)).toEqual(['sensors', 'advanced']);
     expect(sections[0].rows).toEqual([{ definition: response.definitions[0], described: true }]);
@@ -49,7 +49,7 @@ describe('buildSections', () => {
   });
 
   it('puts a value with no definition into Ungrouped as an editable string carrying its raw key', () => {
-    const sections = buildSections(response, ['sensor.discovery.skip', 'unknown.key']);
+    const sections = buildSections(response, ['readings.aggregation.enabled', 'unknown.key']);
 
     const ungrouped = sections[sections.length - 1];
     expect(ungrouped.group.id).toBe('ungrouped');
@@ -71,19 +71,19 @@ describe('buildSections', () => {
   });
 
   it('collects every value into one Ungrouped section, sorted, when there are no definitions at all', () => {
-    const sections = buildSections(null, ['sensor.discovery.skip', 'database.path']);
+    const sections = buildSections(null, ['readings.aggregation.enabled', 'database.path']);
 
     expect(sections).toHaveLength(1);
     expect(sections[0].group.label).toBe('Ungrouped');
     expect(sections[0].rows.map((row) => row.definition.key)).toEqual([
       'database.path',
-      'sensor.discovery.skip',
+      'readings.aggregation.enabled',
     ]);
     expect(sections[0].rows.every((row) => !row.described)).toBe(true);
   });
 
   it('adds no Ungrouped section when every definition has a group and every value has a definition', () => {
-    const sections = buildSections(response, ['sensor.discovery.skip', 'database.path']);
+    const sections = buildSections(response, ['readings.aggregation.enabled', 'database.path']);
 
     expect(sections.map((section) => section.group.id)).not.toContain('ungrouped');
   });

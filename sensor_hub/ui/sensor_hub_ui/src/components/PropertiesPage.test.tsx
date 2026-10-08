@@ -49,9 +49,9 @@ vi.mock('../gen/client', () => ({
 const definitionsResponse: PropertyDefinitionsResponse = {
   definitions: [
     {
-      key: 'sensor.discovery.skip',
-      label: 'Skip sensor discovery',
-      description: "Don't try to auto-discover sensors at startup.",
+      key: 'readings.aggregation.enabled',
+      label: 'Readings aggregation',
+      description: 'Whether readings are downsampled into aggregation tiers.',
       type: 'bool',
       default: 'false',
       group: 'sensors',
@@ -88,7 +88,7 @@ const definitionsResponse: PropertyDefinitionsResponse = {
 };
 
 const serverValues: Record<string, string> = {
-  'sensor.discovery.skip': 'true',
+  'readings.aggregation.enabled': 'true',
   'sensor.collection.interval': '300',
   'database.path': '/var/lib/sensor-hub/sensor_hub.db',
 };
@@ -126,11 +126,11 @@ async function renderPageUntil(permissions: string[], settled: string) {
 }
 
 async function renderPage(permissions: string[]) {
-  await renderPageUntil(permissions, 'Skip sensor discovery');
+  await renderPageUntil(permissions, 'Readings aggregation');
 }
 
 async function renderFallbackPage(permissions: string[]) {
-  await renderPageUntil(permissions, 'sensor.discovery.skip');
+  await renderPageUntil(permissions, 'readings.aggregation.enabled');
 }
 
 describe('PropertiesPage', () => {
@@ -155,7 +155,7 @@ describe('PropertiesPage', () => {
   it('renders a field for each definition carrying the current value from the value feed', async () => {
     await renderPage(['view_properties', 'manage_properties']);
 
-    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Readings aggregation' })).toBeChecked();
     expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('300');
     expect(screen.getByText('/var/lib/sensor-hub/sensor_hub.db')).toBeInTheDocument();
   });
@@ -171,7 +171,7 @@ describe('PropertiesPage', () => {
     await waitFor(() => expect(patchMock).toHaveBeenCalledTimes(1));
     expect(patchMock).toHaveBeenCalledWith('/properties', {
       body: {
-        'sensor.discovery.skip': 'true',
+        'readings.aggregation.enabled': 'true',
         'sensor.collection.interval': '120',
       },
     });
@@ -183,12 +183,12 @@ describe('PropertiesPage', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
-    fireEvent.click(screen.getByRole('switch', { name: 'Skip sensor discovery' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Readings aggregation' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo changes to Collection interval' }));
 
     expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('300');
-    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Readings aggregation' })).not.toBeChecked();
     expect(screen.queryByRole('button', { name: 'Undo changes to Collection interval' })).not.toBeInTheDocument();
   });
 
@@ -217,12 +217,12 @@ describe('PropertiesPage', () => {
 
     act(() => {
       FakeWebSocket.instances[0].serverSends(
-        JSON.stringify({ ...serverValues, 'sensor.discovery.skip': 'false' }),
+        JSON.stringify({ ...serverValues, 'readings.aggregation.enabled': 'false' }),
       );
     });
 
     expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('120');
-    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Readings aggregation' })).not.toBeChecked();
   });
 
   it('reports a broadcast landing on an edited field and resets it to the broadcast value', async () => {
@@ -264,13 +264,13 @@ describe('PropertiesPage', () => {
     });
     expect(screen.getByText('1 unsaved change').closest('.MuiChip-root')).toBeNull();
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Skip sensor discovery' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Readings aggregation' }));
     expect(screen.getByText('2 unsaved changes')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
 
     expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('300');
-    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Readings aggregation' })).toBeChecked();
     expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
   });
@@ -334,7 +334,7 @@ describe('PropertiesPage', () => {
   it('disables every control and shows no save control for a user without manage_properties', async () => {
     await renderPage(['view_properties']);
 
-    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Readings aggregation' })).toBeDisabled();
     expect(screen.getByRole('textbox', { name: 'Collection interval' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
   });
@@ -350,7 +350,7 @@ describe('PropertiesPage', () => {
 
     const sensorsGroup = document.getElementById('sensors')!;
     expect(within(sensorsGroup).getByText('How often sensors are polled.')).toBeInTheDocument();
-    expect(within(sensorsGroup).getByRole('switch', { name: 'Skip sensor discovery' })).toBeInTheDocument();
+    expect(within(sensorsGroup).getByRole('switch', { name: 'Readings aggregation' })).toBeInTheDocument();
     expect(within(sensorsGroup).getByRole('textbox', { name: 'Collection interval' })).toBeInTheDocument();
 
     const advanced = document.getElementById('advanced')!;
@@ -398,17 +398,17 @@ describe('PropertiesPage', () => {
     await renderPage(['view_properties', 'manage_properties']);
     const search = screen.getByRole('textbox', { name: 'Search properties' });
 
-    fireEvent.change(search, { target: { value: 'discovery.skip' } });
-    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'aggregation.enabled' } });
+    expect(screen.getByText('Readings aggregation')).toBeInTheDocument();
     expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
     expect(screen.queryByText('Database file')).not.toBeInTheDocument();
 
-    fireEvent.change(search, { target: { value: 'Skip sensor' } });
-    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'Readings agg' } });
+    expect(screen.getByText('Readings aggregation')).toBeInTheDocument();
     expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
 
-    fireEvent.change(search, { target: { value: 'auto-discover' } });
-    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'downsampled' } });
+    expect(screen.getByText('Readings aggregation')).toBeInTheDocument();
     expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: 'SQLite' } });
@@ -426,13 +426,13 @@ describe('PropertiesPage', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
-    fireEvent.click(screen.getByRole('switch', { name: 'Skip sensor discovery' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Readings aggregation' }));
 
     expect(screen.getByTestId('rail-edited-count-sensors')).toHaveTextContent('2');
     expect(screen.queryByTestId('rail-edited-count-advanced')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Search properties' }), {
-      target: { value: 'auto-discover' },
+      target: { value: 'downsampled' },
     });
 
     expect(screen.getByTestId('rail-edited-count-sensors')).toHaveTextContent('2');
@@ -482,7 +482,7 @@ describe('PropertiesPage', () => {
     expect(screen.getByTestId('rail-error-count-sensors')).toHaveTextContent('1');
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Search properties' }), {
-      target: { value: 'auto-discover' },
+      target: { value: 'downsampled' },
     });
 
     expect(screen.queryByText('Collection interval')).not.toBeInTheDocument();
@@ -519,7 +519,7 @@ describe('PropertiesPage', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Collection interval' }), {
       target: { value: '120' },
     });
-    fireEvent.click(screen.getByRole('switch', { name: 'Skip sensor discovery' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Readings aggregation' }));
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() =>
@@ -527,7 +527,7 @@ describe('PropertiesPage', () => {
     );
 
     expect(screen.getByRole('textbox', { name: 'Collection interval' })).toHaveValue('120');
-    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Readings aggregation' })).not.toBeChecked();
     expect(screen.getByText('2 unsaved changes')).toBeInTheDocument();
     expect(screen.queryByText('Properties updated successfully')).not.toBeInTheDocument();
     expect(screen.getByTestId('rail-error-count-sensors')).toHaveTextContent('1');
@@ -610,7 +610,7 @@ describe('PropertiesPage', () => {
     const field = screen.getByRole('textbox', { name: 'Collection interval' });
     expect(field).toHaveValue('');
     expect(field).toHaveAttribute('placeholder', '300');
-    expect(screen.getByRole('switch', { name: 'Skip sensor discovery' })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Readings aggregation' })).not.toBeChecked();
   });
 
   it('says it is loading rather than rendering blank while the definitions are still in flight', async () => {
@@ -625,7 +625,7 @@ describe('PropertiesPage', () => {
     await act(async () => { settleDefinitions({ data: definitionsResponse }); });
 
     expect(screen.queryByText(/loading properties/i)).not.toBeInTheDocument();
-    expect(screen.getByText('Skip sensor discovery')).toBeInTheDocument();
+    expect(screen.getByText('Readings aggregation')).toBeInTheDocument();
   });
 
   it('scrolls to the group named by the fragment even when the values arrive before the definitions', async () => {

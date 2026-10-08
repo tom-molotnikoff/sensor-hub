@@ -231,11 +231,6 @@ func (m *MockSensorService) ServiceStartPeriodicSensorCollection(ctx context.Con
 	m.Called(ctx)
 }
 
-func (m *MockSensorService) ServiceDiscoverSensors(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
 func (m *MockSensorService) ServiceValidateSensorConfig(ctx context.Context, sensor gen.Sensor) error {
 	args := m.Called(ctx, sensor)
 	return args.Error(0)

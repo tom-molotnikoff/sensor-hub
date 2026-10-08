@@ -22,7 +22,6 @@ type SensorServiceInterface interface {
 	ServiceCollectFromSensorByName(ctx context.Context, sensorName string) error
 	ServiceCollectReadingToValidateSensor(ctx context.Context, sensor gen.Sensor) error
 	ServiceStartPeriodicSensorCollection(ctx context.Context)
-	ServiceDiscoverSensors(ctx context.Context) error
 	ServiceValidateSensorConfig(ctx context.Context, sensor gen.Sensor) error
 	ServiceUpdateSensorHealthById(ctx context.Context, sensorId int, healthStatus gen.SensorHealthStatus, healthReason string)
 	ServiceSetEnabledSensorByName(ctx context.Context, name string, enabled bool) error

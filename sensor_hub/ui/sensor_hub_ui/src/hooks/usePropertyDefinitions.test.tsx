@@ -15,9 +15,9 @@ vi.mock('../gen/client', () => ({
 const response: PropertyDefinitionsResponse = {
   definitions: [
     {
-      key: 'sensor.discovery.skip',
-      label: 'Skip sensor discovery',
-      description: "Don't try to auto-discover sensors at startup.",
+      key: 'readings.aggregation.enabled',
+      label: 'Readings aggregation',
+      description: 'Whether readings are downsampled into aggregation tiers.',
       type: 'bool',
       default: 'false',
       group: 'sensors',
@@ -43,7 +43,7 @@ describe('usePropertyDefinitions', () => {
     const { result } = renderHook(() => usePropertyDefinitions());
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.definitions?.definitions[0]?.key).toBe('sensor.discovery.skip');
+    expect(result.current.definitions?.definitions[0]?.key).toBe('readings.aggregation.enabled');
     expect(result.current.error).toBeNull();
   });
 
@@ -58,7 +58,7 @@ describe('usePropertyDefinitions', () => {
     const second = renderHook(() => usePropertyDefinitions());
     await waitFor(() => expect(second.result.current.loading).toBe(false));
 
-    expect(second.result.current.definitions?.definitions[0]?.key).toBe('sensor.discovery.skip');
+    expect(second.result.current.definitions?.definitions[0]?.key).toBe('readings.aggregation.enabled');
     expect(getMock).toHaveBeenCalledTimes(1);
   });
 });

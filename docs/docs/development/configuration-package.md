@@ -42,14 +42,6 @@ The struct tags define the behaviour for this new property:
 | `file`      | yes      | `application`, `smtp`, or `database`          | Which property file this setting belongs to           |
 | `validate`  | no       | `positive`, `non_negative`, or `non_empty` | Per-field validation applied during loading          |
 
-### Cross-Field Validation
-
-Per-field rules (like `positive`) are handled automatically. If
-you need a rule that has more complex validation logic, add it to
-`validateApplicationProperties()` in `application_properties_files.go`. An
-example is the check that `openapi.yaml.location` must be non-empty when
-`sensor.discovery.skip` is `false`.
-
 ### Post-Processing Hooks
 
 Some fields need transformation after loading that doesn't fit a tag (e.g.
