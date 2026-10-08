@@ -27,13 +27,13 @@ import (
 // both with the password "right".
 func startAuthBroker(t *testing.T) string {
 	t.Helper()
-	return startAuthBrokerWith(t, BrokerConfig{TCPAddress: "127.0.0.1:0"})
+	return startAuthBrokerWith(t, BrokerConfig{TCPAddress: "127.0.0.1:0"}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 
-// startAuthBrokerWith is startAuthBroker with the broker configuration given.
-func startAuthBrokerWith(t *testing.T, config BrokerConfig) string {
+// startAuthBrokerWith is startAuthBroker with the broker configuration and
+// logger given.
+func startAuthBrokerWith(t *testing.T, config BrokerConfig, logger *slog.Logger) string {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	db, err := database.Open(&appProps.ApplicationConfiguration{
 		DatabasePath:              filepath.Join(t.TempDir(), "sensor_hub.db"),
 		DatabaseReaderConnections: 1,

@@ -54,6 +54,7 @@ func (b *EmbeddedBroker) Start() error {
 
 	b.server = mqtt.New(&mqtt.Options{
 		InlineClient: true,
+		Logger:       newBrokerLogger(b.logger),
 	})
 
 	// The rate hook goes first, so a CONNECT it refuses is never authenticated.

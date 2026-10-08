@@ -67,12 +67,22 @@ Run it under systemd or `autossh` so it reconnects after a drop. The home device
 
 ## Through a public port
 
-When a tunnel is not an option, nginx can accept MQTT over TLS on port `8883` and pass it to the broker on `127.0.0.1:1883`. The broker keeps its default listen address, and only nginx is reachable from the internet. See [Nginx Setup](nginx-setup#mqtt-over-tls-on-port-8883) for the `stream` block, the limits it sets on each client address, and the nginx module it needs. Open port `8883` in your firewall and cloud security group.
+When a tunnel is not an option, nginx can accept MQTT over TLS on port `8883` and pass it to the broker on `127.0.0.1:1883`. The broker keeps its default listen address, and only nginx is reachable from the internet.
+
+nginx does this with its `stream` module, which on most distributions is a separate package. Install it and check nginx still accepts its configuration:
+
+```bash
+sudo apt install libnginx-mod-stream   # Debian / Ubuntu
+sudo dnf install nginx-mod-stream      # Fedora / RHEL
+sudo nginx -t
+```
+
+The tunnel routes above do not need it. Then add the `stream` block as [Nginx Setup](nginx-setup#mqtt-over-tls-on-port-8883) describes, with the limit it sets on each client address, and open port `8883` in your firewall and cloud security group.
 
 The home device connects to `mqtts://hub.example.com:8883`, using the same certificate and host name as the web UI.
 
 :::warning[Accepted risk]
-With the public port open, anyone on the internet can open a connection to the broker. TLS and nginx's limits sit in front of it, but every part of the broker that runs before a CONNECT is authenticated, including the MQTT packet parser and the CONNECT handling in the [mochi-mqtt](https://github.com/mochi-mqtt/server) library, is reachable by an unauthenticated stranger on `8883`. A flaw in any of them would be exposed. This is the cost of the public port, and the reason a tunnel is preferred. The broker sheds CONNECT floods with `mqtt.broker.connect.rate.limit` (see [Configuration](configuration#broker-connect-rate-limit)).
+With the public port open, anyone on the internet can open a connection to the broker. TLS and nginx's connection limit sit in front of it, but every part of the broker that runs before a CONNECT is authenticated, including the MQTT packet parser and the CONNECT handling in the [mochi-mqtt](https://github.com/mochi-mqtt/server) library, is reachable by an unauthenticated stranger on `8883`. A flaw in any of them would be exposed. This is the cost of the public port, and the reason a tunnel is preferred. The broker sheds CONNECT floods with `mqtt.broker.connect.rate.limit` (see [Configuration](configuration#broker-connect-rate-limit)).
 :::
 
 ## Over the LAN (hub at home)

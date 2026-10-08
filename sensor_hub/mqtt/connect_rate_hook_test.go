@@ -29,7 +29,7 @@ func TestConnectRateHook_AllowsTheLimitEachSecond(t *testing.T) {
 
 func TestConnectRateHook_RefusesBeforeAuthenticationAndCountsIt(t *testing.T) {
 	reader := recordMetrics(t)
-	address := startAuthBrokerWith(t, BrokerConfig{TCPAddress: "127.0.0.1:0", ConnectRateLimit: 1})
+	address := startAuthBrokerWith(t, BrokerConfig{TCPAddress: "127.0.0.1:0", ConnectRateLimit: 1}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	// Start at the top of a second, so the CONNECTs below share one.
 	time.Sleep(time.Until(time.Now().Truncate(time.Second).Add(time.Second)))
