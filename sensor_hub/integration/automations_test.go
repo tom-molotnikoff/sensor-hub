@@ -26,6 +26,18 @@ func everyDay() *[]gen.AutomationTriggerDays {
 		gen.AutomationDayThu, gen.AutomationDayFri, gen.AutomationDaySat, gen.AutomationDaySun}
 }
 
+// soonDueMinute puts the hub's clock a few seconds short of a whole minute and
+// returns that minute, so a schedule set for it comes due in seconds rather
+// than at the next real minute. The hub goes back to the system clock when
+// the test ends.
+func soonDueMinute(t *testing.T) time.Time {
+	t.Helper()
+	due := time.Now().UTC().Truncate(time.Minute).Add(time.Minute)
+	env.Clock.Set(due.Add(-3 * time.Second))
+	t.Cleanup(env.Clock.Reset)
+	return due
+}
+
 func TestHubTimezone_RejectsAZoneThatDoesNotLoad(t *testing.T) {
 	body, status := client.UpdateProperties(gen.UpdatePropertiesJSONRequestBody{"hub.timezone": "Mars/Olympus_Mons"})
 	assert.Equal(t, http.StatusBadRequest, status)
@@ -62,8 +74,6 @@ func TestAutomation_RejectsAnIntervalUnderAMinute(t *testing.T) {
 	assert.Contains(t, string(body), "triggers[0].seconds")
 }
 
-// TestAutomation_ASchedulePublishesTheCommandAsTheSystem waits for the next
-// whole minute, so it takes up to a minute.
 func TestAutomation_ASchedulePublishesTheCommandAsTheSystem(t *testing.T) {
 	fixture := setupCommandFixture(t, fmt.Sprintf("timer-plug-%d", reserveTCPPort(t)))
 	defer fixture.stop()
@@ -83,11 +93,7 @@ func TestAutomation_ASchedulePublishesTheCommandAsTheSystem(t *testing.T) {
 	require.True(t, token.WaitTimeout(5*time.Second))
 	require.NoError(t, token.Error())
 
-	now := time.Now().UTC()
-	due := now.Truncate(time.Minute).Add(time.Minute)
-	if due.Sub(now) < 3*time.Second {
-		due = due.Add(time.Minute)
-	}
+	due := soonDueMinute(t)
 	at := due.Format("15:04")
 	body, status := client.CreateAutomation(gen.AutomationInput{
 		Name:     "Integration lights",
@@ -104,7 +110,7 @@ func TestAutomation_ASchedulePublishesTheCommandAsTheSystem(t *testing.T) {
 
 	select {
 	case <-published:
-	case <-time.After(time.Until(due) + 5*time.Second):
+	case <-time.After(due.Sub(env.Clock.Now()) + 5*time.Second):
 		t.Fatal("the automation never published its command")
 	}
 	pub := subscriber.Publish(fmt.Sprintf("zigbee2mqtt/%s", fixture.sensor.Name), 1, false, `{"state":"ON"}`)
@@ -157,9 +163,8 @@ type publishedCommand struct {
 	payload string
 }
 
-// TestAutomation_ARunWaitingAcrossARestartSendsItsRemainingSteps waits for the
-// next whole minute, so it takes up to a minute and a half. The wait outlasts a
-// restart, which takes about 10 s.
+// The run's wait of a few seconds outlasts the restart, which takes well under
+// one, so the hub comes back to a run that is still waiting.
 func TestAutomation_ARunWaitingAcrossARestartSendsItsRemainingSteps(t *testing.T) {
 	fixture := setupCommandFixture(t, fmt.Sprintf("wait-plug-%d", reserveTCPPort(t)))
 	defer fixture.stop()
@@ -174,7 +179,7 @@ func TestAutomation_ARunWaitingAcrossARestartSendsItsRemainingSteps(t *testing.T
 	defer device.Disconnect(250)
 	published := make(chan publishedCommand, 2)
 	token = device.Subscribe(fmt.Sprintf("zigbee2mqtt/%s/set", fixture.sensor.Name), 1, func(_ pahomqtt.Client, msg pahomqtt.Message) {
-		published <- publishedCommand{at: time.Now(), payload: string(msg.Payload())}
+		published <- publishedCommand{at: env.Clock.Now(), payload: string(msg.Payload())}
 	})
 	require.True(t, token.WaitTimeout(5*time.Second))
 	require.NoError(t, token.Error())
@@ -184,13 +189,9 @@ func TestAutomation_ARunWaitingAcrossARestartSendsItsRemainingSteps(t *testing.T
 		require.NoError(t, pub.Error())
 	}
 
-	now := time.Now().UTC()
-	due := now.Truncate(time.Minute).Add(time.Minute)
-	if due.Sub(now) < 3*time.Second {
-		due = due.Add(time.Minute)
-	}
+	due := soonDueMinute(t)
 	at := due.Format("15:04")
-	seconds := 20
+	seconds := 5
 	body, status := client.CreateAutomation(gen.AutomationInput{
 		Name:     "Integration lamp timer",
 		Triggers: []gen.AutomationTrigger{{Type: gen.AutomationTriggerTypeSchedule, At: &at, Days: everyDay()}},
@@ -208,7 +209,7 @@ func TestAutomation_ARunWaitingAcrossARestartSendsItsRemainingSteps(t *testing.T
 	case on := <-published:
 		assert.JSONEq(t, `{"state":"ON"}`, on.payload)
 		acknowledge(on)
-	case <-time.After(time.Until(due) + 5*time.Second):
+	case <-time.After(due.Sub(env.Clock.Now()) + 5*time.Second):
 		t.Fatal("the automation never published its first command")
 	}
 	waitingRun := func() (gen.AutomationRun, bool) {
@@ -236,7 +237,7 @@ func TestAutomation_ARunWaitingAcrossARestartSendsItsRemainingSteps(t *testing.T
 		assert.JSONEq(t, `{"state":"OFF"}`, off.payload)
 		assert.False(t, off.at.Before(*waiting.ResumeAt), "the run carried on %s before its resume time", waiting.ResumeAt.Sub(off.at))
 		acknowledge(off)
-	case <-time.After(time.Until(*waiting.ResumeAt) + 10*time.Second):
+	case <-time.After(waiting.ResumeAt.Sub(env.Clock.Now()) + 10*time.Second):
 		t.Fatal("the run never sent the step after its wait")
 	}
 	require.Eventually(t, func() bool {

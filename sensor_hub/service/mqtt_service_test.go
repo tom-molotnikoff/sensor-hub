@@ -210,7 +210,7 @@ func TestMQTTService_AddBroker_EmbeddedSuccess(t *testing.T) {
 
 	brokerRepo.On("GetAll", mock.Anything).Return([]gen.MQTTBroker{}, nil)
 	brokerRepo.On("GetByName", mock.Anything, "emb").Return(nil, nil)
-	// normaliseEmbeddedBroker drops the address: the hub reaches the embedded broker in-process
+	// normaliseBroker drops the address: the hub reaches the embedded broker in-process
 	expected := gen.MQTTBroker{Name: "emb", Type: "embedded", Enabled: true}
 	brokerRepo.On("Add", mock.Anything, expected).Return(1, nil)
 

@@ -79,6 +79,23 @@ A systemd credential and a Compose secret are exempt, because their manager puts
 
 Keep a copy of the key, from `sudo sensor-hub local secrets show-key`, somewhere other than the hub, such as a password manager. If the key is lost or replaced, the stored secrets cannot be decrypted and have to be entered again.
 
+## TLS to outbound MQTT brokers
+
+An external broker, one the hub connects out to, is reached over plain TCP unless its **TLS** switch is on. Over plain TCP the broker's username and password, and every reading, cross the network unencrypted, so anything on the path can read them. The MQTT page marks such a broker **Unencrypted**.
+
+Turn TLS on whenever the path to the broker crosses a network you do not control, such as the internet, a cloud provider's network or a shared LAN. Plain TCP is reasonable only where the hub and the broker share a host, or a network or tunnel that is already encrypted and that only you can reach. A broker serving TLS usually listens on port `8883` rather than `1883`, so check the port when you turn it on.
+
+With TLS on, the hub verifies the broker before it sends anything: the broker's certificate must chain to a trusted CA and be issued for the host name or IP address set as the broker's **Host**. If either check fails, the connection fails and the password is never sent. There is no setting that skips verification. The hub presents no client certificate.
+
+Which CAs are trusted depends on the **CA certificate** field:
+
+- **Left empty**, the operating system's trusted CAs are used. This suits a broker with a certificate from a public CA, such as Let's Encrypt, or a hosted MQTT service.
+- **Filled in**, that CA is the only one trusted, and the system's CAs are not. Use this for a broker whose certificate you issued yourself, such as a self-signed CA on a home Mosquitto.
+
+To fill it in, open the broker from the MQTT page (**Add Broker**, or **Edit** from the broker's menu), turn **TLS** on, and paste the CA certificate into **CA certificate** in PEM form: the whole text from `-----BEGIN CERTIFICATE-----` to `-----END CERTIFICATE-----`, which is how a `.pem` or `.crt` file holds it. Paste the CA that signed the broker's certificate, not the broker's own certificate, and never a private key. Several certificates may be pasted one after the other. The hub stores the certificate itself rather than a file path, so it works the same in a container. A paste that holds no certificate, or anything other than certificates, is refused with a message saying so.
+
+From the CLI, `mqtt brokers create --tls --ca-cert-file <path>` reads the CA from a PEM file and sends its content (see [MQTT brokers](cli-tool#mqtt-brokers)). In the JSON given to `mqtt brokers update --file`, the fields are `tls` and `ca_cert_pem`.
+
 ## Runtime configuration updates
 
 Properties can be updated at runtime through the Properties page in the web UI or via the `PATCH /api/properties` API endpoint. Runtime updates are:

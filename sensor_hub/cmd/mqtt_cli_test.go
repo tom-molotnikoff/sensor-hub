@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -113,4 +114,42 @@ func TestMQTTBrokersCreate_RefusesToPromptWithoutATerminal(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--password-stdin")
 	assert.Empty(t, *written, "nothing is created")
+}
+
+func TestMQTTBrokersCreate_SendsTLSAndTheCAFileContent(t *testing.T) {
+	server, written := brokerAPI(t)
+	caFile := filepath.Join(t.TempDir(), "home-ca.pem")
+	const caPEM = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
+	require.NoError(t, os.WriteFile(caFile, []byte(caPEM), 0o600))
+
+	_, _, err := executeRootCommand(t, "--server", server.URL, "mqtt", "brokers", "create",
+		"--name", "home", "--host", "mqtt.lan", "--port", "8883", "--tls", "--ca-cert-file", caFile)
+
+	require.NoError(t, err)
+	require.Len(t, *written, 1)
+	assert.Equal(t, true, (*written)[0]["tls"])
+	assert.Equal(t, caPEM, (*written)[0]["ca_cert_pem"], "the file's content is sent, not its path")
+}
+
+func TestMQTTBrokersCreate_SendsTLSOffByDefault(t *testing.T) {
+	server, written := brokerAPI(t)
+
+	_, _, err := executeRootCommand(t, "--server", server.URL, "mqtt", "brokers", "create",
+		"--name", "home", "--host", "mqtt.lan")
+
+	require.NoError(t, err)
+	require.Len(t, *written, 1)
+	assert.Equal(t, false, (*written)[0]["tls"])
+	assert.NotContains(t, (*written)[0], "ca_cert_pem")
+}
+
+func TestMQTTBrokersCreate_ACAFileNeedsTLS(t *testing.T) {
+	server, written := brokerAPI(t)
+
+	_, _, err := executeRootCommand(t, "--server", server.URL, "mqtt", "brokers", "create",
+		"--name", "home", "--host", "mqtt.lan", "--ca-cert-file", "home-ca.pem")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--ca-cert-file needs --tls")
+	assert.Empty(t, *written)
 }

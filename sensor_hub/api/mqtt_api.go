@@ -27,6 +27,7 @@ func isValidationError(err error) bool {
 		"subscription id", "broker not found",
 		"multi-level wildcard",
 		"broker host:port",
+		"broker CA certificate",
 	}
 	for _, prefix := range validationPrefixes {
 		if strings.HasPrefix(msg, prefix) {

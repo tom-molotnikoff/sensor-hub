@@ -14,6 +14,8 @@ import (
 	gen "example/sensorHub/gen"
 
 	"github.com/gorilla/websocket"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -226,10 +228,37 @@ func executeRootCommand(t *testing.T, args ...string) (string, string, error) {
 		rootCmd.SetArgs(nil)
 		rootCmd.SilenceErrors = false
 		rootCmd.SilenceUsage = false
+		resetFlags(rootCmd)
 	})
 
 	_, err := rootCmd.ExecuteC()
 	return stdout.String(), stderr.String(), err
+}
+
+// resetFlags puts every flag the last command line set back to its default.
+// The commands are package globals, so a flag one test sets would otherwise
+// still be set in the next.
+func resetFlags(cmd *cobra.Command) {
+	reset := func(f *pflag.Flag) {
+		if !f.Changed {
+			return
+		}
+		if slice, ok := f.Value.(pflag.SliceValue); ok {
+			var values []string
+			if def := strings.Trim(f.DefValue, "[]"); def != "" {
+				values = strings.Split(def, ",")
+			}
+			_ = slice.Replace(values)
+		} else {
+			_ = f.Value.Set(f.DefValue)
+		}
+		f.Changed = false
+	}
+	cmd.LocalFlags().VisitAll(reset)
+	cmd.PersistentFlags().VisitAll(reset)
+	for _, child := range cmd.Commands() {
+		resetFlags(child)
+	}
 }
 
 func nonEmptyLines(value string) []string {

@@ -258,15 +258,18 @@ func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.
 	if status == secrets.StatusNeedsReentry {
 		return nil, fmt.Errorf("the stored password of broker %s does not decrypt under the current key; enter it again", broker.Name)
 	}
+	brokerURL, tlsConfig, err := externalBrokerURL(broker, host, port)
+	if err != nil {
+		return nil, err
+	}
 	_, span := cm.tracer.Start(ctx, "mqtt.connect_broker",
 		trace.WithAttributes(
 			attribute.String("broker.name", broker.Name),
 			attribute.Int("broker.id", brokerID),
 			attribute.String("broker.host", host),
 			attribute.Int("broker.port", port),
+			attribute.Bool("broker.tls", tlsConfig != nil),
 		))
-
-	brokerURL := fmt.Sprintf("tcp://%s:%d", host, port)
 
 	clientID := fmt.Sprintf("sensor-hub-%d", brokerID)
 	if broker.ClientId != nil && *broker.ClientId != "" {
@@ -303,6 +306,9 @@ func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.
 			link.markSubscribed()
 		})
 
+	if tlsConfig != nil {
+		opts.SetTLSConfig(tlsConfig)
+	}
 	if broker.Username != nil && *broker.Username != "" {
 		opts.SetUsername(*broker.Username)
 	}

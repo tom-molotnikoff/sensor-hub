@@ -16,7 +16,7 @@ import (
 
 var brokerColumns = []string{
 	"id", "name", "type", "host", "port", "username", "client_id",
-	"ca_cert_path", "client_cert_path", "client_key_path", "enabled", "created_at", "updated_at",
+	"tls", "ca_cert_pem", "enabled", "created_at", "updated_at",
 }
 
 // ============================================================================
@@ -34,7 +34,7 @@ func TestMQTTBrokerRepository_Add_Success(t *testing.T) {
 	mock.ExpectExec("INSERT INTO mqtt_brokers").
 		WithArgs("test-broker", "external", "mqtt.example.com", 1883,
 			sqlmock.AnyArg(), sqlmock.AnyArg(),
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), true).
+			false, sqlmock.AnyArg(), true).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	id, err := repo.Add(context.Background(), broker)
@@ -73,7 +73,7 @@ func TestMQTTBrokerRepository_GetByID_Success(t *testing.T) {
 		WithArgs(1).
 		WillReturnRows(sqlmock.NewRows(brokerColumns).
 			AddRow(1, "test-broker", "external", "mqtt.example.com", 1883,
-				nil, nil, nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
+				nil, nil, false, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
 
 	broker, err := repo.GetByID(context.Background(), 1)
 	assert.NoError(t, err)
@@ -110,7 +110,7 @@ func TestMQTTBrokerRepository_GetByName_Success(t *testing.T) {
 		WithArgs("test-broker").
 		WillReturnRows(sqlmock.NewRows(brokerColumns).
 			AddRow(1, "test-broker", "external", "mqtt.example.com", 1883,
-				"user", "sensor-hub-1", nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
+				"user", "sensor-hub-1", false, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
 
 	broker, err := repo.GetByName(context.Background(), "test-broker")
 	assert.NoError(t, err)
@@ -132,16 +132,19 @@ func TestMQTTBrokerRepository_GetAll_Success(t *testing.T) {
 	mock.ExpectQuery("SELECT .+ FROM mqtt_brokers ORDER BY name").
 		WillReturnRows(sqlmock.NewRows(brokerColumns).
 			AddRow(1, "broker-a", "embedded", "localhost", 1883,
-				nil, nil, nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00").
+				nil, nil, false, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00").
 			AddRow(2, "broker-b", "external", "mqtt.example.com", 8883,
-				"user", nil, "/ca.crt", "/client.crt", "/client.key", true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
+				"user", nil, true, "-----BEGIN CERTIFICATE-----", true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
 
 	brokers, err := repo.GetAll(context.Background())
 	assert.NoError(t, err)
 	assert.Len(t, brokers, 2)
 	assert.Equal(t, "broker-a", brokers[0].Name)
 	assert.Equal(t, "broker-b", brokers[1].Name)
-	assert.Equal(t, "/ca.crt", *brokers[1].CaCertPath)
+	assert.True(t, *brokers[1].Tls)
+	assert.Equal(t, "-----BEGIN CERTIFICATE-----", *brokers[1].CaCertPem)
+	assert.False(t, *brokers[0].Tls)
+	assert.Nil(t, brokers[0].CaCertPem)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -169,7 +172,7 @@ func TestMQTTBrokerRepository_Update_Success(t *testing.T) {
 	mock.ExpectExec("UPDATE mqtt_brokers SET").
 		WithArgs("updated-broker", "external", "new-host.com", 8883,
 			sqlmock.AnyArg(), sqlmock.AnyArg(),
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), true, 1).
+			false, sqlmock.AnyArg(), true, 1).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	id1 := 1
@@ -187,7 +190,7 @@ func TestMQTTBrokerRepository_Update_NotFound(t *testing.T) {
 	mock.ExpectExec("UPDATE mqtt_brokers SET").
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 			sqlmock.AnyArg(), sqlmock.AnyArg(),
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 99).
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 99).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	id99 := 99
@@ -258,7 +261,7 @@ func TestMQTTBrokerRepository_GetEnabled_Success(t *testing.T) {
 	mock.ExpectQuery("SELECT .+ FROM mqtt_brokers WHERE enabled = 1").
 		WillReturnRows(sqlmock.NewRows(brokerColumns).
 			AddRow(1, "enabled-broker", "external", "mqtt.example.com", 1883,
-				nil, nil, nil, nil, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
+				nil, nil, false, nil, true, "2025-01-01 00:00:00", "2025-01-01 00:00:00"))
 
 	brokers, err := repo.GetEnabled(context.Background())
 	assert.NoError(t, err)
@@ -278,7 +281,7 @@ func TestMQTTBrokerRepository_Add_DBError(t *testing.T) {
 	mock.ExpectExec("INSERT INTO mqtt_brokers").
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 			sqlmock.AnyArg(), sqlmock.AnyArg(),
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("unique constraint"))
 
 	_, err := repo.Add(context.Background(), gen.MQTTBroker{Name: "dup", Type: "external", Host: ptrStr("h"), Port: ptrInt(1883), Enabled: true})

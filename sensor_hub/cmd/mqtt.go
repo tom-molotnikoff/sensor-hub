@@ -69,7 +69,10 @@ var mqttBrokersCreateCmd = &cobra.Command{
 		"A password is asked for only when --username is given, and may be left empty for a broker that takes none. " +
 		"It is never taken as a flag value. With --password-stdin it is read from stdin (one line, trailing newline " +
 		"stripped); otherwise it is prompted for on the terminal and, unless left empty, asked for twice. " +
-		"The hub stores it encrypted and never returns it.",
+		"The hub stores it encrypted and never returns it.\n\n" +
+		"With --tls the hub connects over TLS and verifies the broker's certificate, and that it was issued for " +
+		"--host, against the system's trusted roots, or only against the CA in the PEM file given with --ca-cert-file. " +
+		"The connection fails on any verification error, before the password is sent.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name, _ := cmd.Flags().GetString("name")
 		brokerType, _ := cmd.Flags().GetString("type")
@@ -81,6 +84,11 @@ var mqttBrokersCreateCmd = &cobra.Command{
 		if passwordStdin && username == "" {
 			return fmt.Errorf("--password-stdin needs --username")
 		}
+		useTLS, _ := cmd.Flags().GetBool("tls")
+		caCertFile, _ := cmd.Flags().GetString("ca-cert-file")
+		if caCertFile != "" && !useTLS {
+			return fmt.Errorf("--ca-cert-file needs --tls")
+		}
 
 		body := gen.CreateMqttBrokerJSONRequestBody{
 			Name:    name,
@@ -90,6 +98,15 @@ var mqttBrokersCreateCmd = &cobra.Command{
 		if brokerType != "embedded" {
 			body.Host = &host
 			body.Port = &port
+			body.Tls = &useTLS
+		}
+		if caCertFile != "" {
+			caPEM, err := os.ReadFile(caCertFile)
+			if err != nil {
+				return fmt.Errorf("failed to read --ca-cert-file: %w", err)
+			}
+			ca := string(caPEM)
+			body.CaCertPem = &ca
 		}
 		if username != "" {
 			password, err := readOptionalPassword(cmd, passwordStdin)
@@ -345,7 +362,8 @@ func init() {
 	mqttBrokersCreateCmd.Flags().Bool("enabled", true, "Enable the broker")
 	mqttBrokersCreateCmd.Flags().String("username", "", "Broker username")
 	mqttBrokersCreateCmd.Flags().Bool("password-stdin", false, "Read the broker password from stdin (one line); needs --username")
-	mqttBrokersCreateCmd.Flags().Bool("tls", false, "(Deprecated; use ca_cert_path/client_cert_path on update --file instead)")
+	mqttBrokersCreateCmd.Flags().Bool("tls", false, "Connect over TLS, verifying the broker's certificate (external brokers only)")
+	mqttBrokersCreateCmd.Flags().String("ca-cert-file", "", "PEM file of the CA to verify the broker's certificate against, in place of the system roots; needs --tls")
 	_ = mqttBrokersCreateCmd.MarkFlagRequired("name")
 
 	mqttBrokersUpdateCmd.Flags().String("file", "", "Path to JSON file with broker data")
