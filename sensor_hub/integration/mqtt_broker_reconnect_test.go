@@ -120,6 +120,19 @@ func TestBrokerReconnect_APasswordChangeIsFollowedAndSubscriptionsComeBack(t *te
 	}, reconnectWithin, 200*time.Millisecond, "the subscription is in place on the new connection")
 }
 
+func TestBrokerReconnect_ClearingThePasswordReconnectsWithoutIt(t *testing.T) {
+	external := startLoginBroker(t, "cleared-right")
+	broker := createReconnectBroker(t, "reconnect-cleared", external, "cleared-right")
+	require.Eventually(t, broker.connected, reconnectWithin, 100*time.Millisecond)
+
+	broker.update(t, ptrStr(""), true)
+
+	require.Eventually(t, func() bool { return external.ConnectAttempts("") > 0 },
+		reconnectWithin, 100*time.Millisecond, "the client reconnects with no password")
+	assert.Eventually(t, broker.disconnected, reconnectWithin, 100*time.Millisecond,
+		"the broker refuses a login without the password")
+}
+
 func TestBrokerReconnect_DisablingABrokerDisconnectsIt(t *testing.T) {
 	external := startLoginBroker(t, "disabled-right")
 	broker := createReconnectBroker(t, "reconnect-disabled", external, "disabled-right")

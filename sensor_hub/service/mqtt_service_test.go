@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -676,37 +675,3 @@ func TestMQTTService_AddSubscription_NoNotifyWithoutNotifier(t *testing.T) {
 func ptrInt(i int) *int { return &i }
 
 func ptrStr(s string) *string { return &s }
-
-// ============================================================================
-// Broker notifier tests
-// ============================================================================
-
-type MockBrokerNotifier struct{ mock.Mock }
-
-func (m *MockBrokerNotifier) OnBrokerChanged(id int) { m.Called(id) }
-func (m *MockBrokerNotifier) OnBrokerDeleted(id int) { m.Called(id) }
-
-func TestMQTTService_BrokerWritesNotifyTheConnectionManager(t *testing.T) {
-	svc, brokerRepo, _ := setupMQTTService()
-	notifier := new(MockBrokerNotifier)
-	svc.SetBrokerNotifier(notifier)
-
-	broker := gen.MQTTBroker{Name: "home", Type: "external", Host: ptrStr("mqtt.example.com"), Port: ptrInt(1883), Enabled: true, Password: ptrStr("secret")}
-	brokerRepo.On("GetByName", mock.Anything, "home").Return(nil, nil)
-	brokerRepo.On("GetAll", mock.Anything).Return([]gen.MQTTBroker{}, nil)
-	brokerRepo.On("Add", mock.Anything, broker).Return(3, nil)
-	updated := broker
-	updated.Id = ptrInt(3)
-	updated.Password = ptrStr("")
-	brokerRepo.On("Update", mock.Anything, updated).Return(nil)
-	brokerRepo.On("Delete", mock.Anything, 3).Return(nil)
-	notifier.On("OnBrokerChanged", 3).Return().Twice()
-	notifier.On("OnBrokerDeleted", 3).Return().Once()
-
-	_, err := svc.AddBroker(context.Background(), broker)
-	require.NoError(t, err)
-	require.NoError(t, svc.UpdateBroker(context.Background(), updated), "clearing the password is a write too")
-	require.NoError(t, svc.DeleteBroker(context.Background(), 3))
-
-	notifier.AssertExpectations(t)
-}

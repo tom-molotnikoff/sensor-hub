@@ -285,14 +285,18 @@ func (cm *ConnectionManager) dialExternalBroker(ctx context.Context, broker gen.
 		SetMaxReconnectInterval(2 * time.Minute).
 		SetConnectionLostHandler(func(client pahomqtt.Client, err error) {
 			cm.logger.Warn("MQTT connection lost", "broker", broker.Name, "error", err)
-			cm.instruments.connectionsActive.Add(context.Background(), -1)
-			cm.stats.RecordDisconnected(brokerID)
+			if link.connectionLost() {
+				cm.instruments.connectionsActive.Add(context.Background(), -1)
+				cm.stats.RecordDisconnected(brokerID)
+			}
 		}).
 		SetOnConnectHandler(func(pahomqtt.Client) {
 			// Paho calls this on its own goroutine, on every connect and reconnect.
 			cm.logger.Info("MQTT connected", "broker", broker.Name, "url", brokerURL)
-			cm.instruments.connectionsActive.Add(context.Background(), 1)
-			cm.stats.RecordConnected(brokerID)
+			if link.connectionUp() {
+				cm.instruments.connectionsActive.Add(context.Background(), 1)
+				cm.stats.RecordConnected(brokerID)
+			}
 			if err := cm.subscribeAll(context.Background(), brokerID, link); err != nil {
 				cm.logger.Error("failed to subscribe after connecting", "broker", broker.Name, "error", err)
 			}
@@ -353,9 +357,7 @@ func (cm *ConnectionManager) disconnect(brokerID int) {
 		return
 	}
 
-	wasConnected := conn.link.connected()
-	conn.link.close()
-	if wasConnected {
+	if conn.link.close() {
 		cm.instruments.connectionsActive.Add(context.Background(), -1)
 		cm.stats.RecordDisconnected(brokerID)
 	}

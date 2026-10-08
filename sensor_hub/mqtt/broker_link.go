@@ -26,7 +26,9 @@ type brokerLink interface {
 	// awaitConnected waits up to timeout for the link's first connection,
 	// with its subscriptions in place.
 	awaitConnected(timeout time.Duration) error
-	close()
+	// close stops the link and reports whether it was counted as up in the
+	// active-connections gauge, so the caller takes it off exactly once.
+	close() (wasUp bool)
 }
 
 // pahoLink is one Paho client, from the moment it starts connecting. A client
@@ -40,10 +42,42 @@ type pahoLink struct {
 
 	subscribed     chan struct{}
 	subscribedOnce sync.Once
+
+	// mu guards the connection state the Paho handlers and close share.
+	mu sync.Mutex
+	// everConnected is set by the first connect. Until then the client is
+	// only retrying, though Paho's IsConnected already reports true.
+	everConnected bool
+	// up is whether the link is counted in the active-connections gauge.
+	up     bool
+	closed bool
 }
 
 func newPahoLink() *pahoLink {
 	return &pahoLink{subscribed: make(chan struct{})}
+}
+
+// connectionUp records a connect. It reports whether the link has just come
+// up, so the caller counts it; a client already closed is not counted.
+func (l *pahoLink) connectionUp() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.everConnected = true
+	if l.closed || l.up {
+		return false
+	}
+	l.up = true
+	return true
+}
+
+// connectionLost records a dropped connection. It reports whether the link
+// was up, so the caller stops counting it.
+func (l *pahoLink) connectionLost() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	wasUp := l.up
+	l.up = false
+	return wasUp
 }
 
 // markSubscribed records that the first connection's subscriptions are in place.
@@ -98,15 +132,24 @@ func (l *pahoLink) publish(topic string, payload []byte, qos byte) error {
 	return nil
 }
 
-// connected is true only while the connection is up. Paho's IsConnected is
-// also true for a client still retrying its first connect or reconnecting,
-// which the manager now tracks too.
+// connected follows Paho's IsConnected once the link has connected at least
+// once, so publishes during a reconnect still queue in Paho. A client still
+// retrying its first connect is not connected.
 func (l *pahoLink) connected() bool {
-	return l.client.IsConnectionOpen()
+	l.mu.Lock()
+	everConnected := l.everConnected
+	l.mu.Unlock()
+	return everConnected && l.client.IsConnected()
 }
 
-func (l *pahoLink) close() {
+func (l *pahoLink) close() bool {
+	l.mu.Lock()
+	wasUp := l.up
+	l.up = false
+	l.closed = true
+	l.mu.Unlock()
 	l.client.Disconnect(250)
+	return wasUp
 }
 
 type inlineMessage struct {
@@ -221,12 +264,19 @@ func (l *inlineLink) awaitConnected(time.Duration) error {
 	return nil
 }
 
-func (l *inlineLink) close() {
+// close reports true the first time: an inline link is up from the moment it
+// is attached.
+func (l *inlineLink) close() bool {
 	l.mu.Lock()
 	for id, filter := range l.subscriptions {
 		_ = l.server.Unsubscribe(filter, id)
 		delete(l.subscriptions, id)
 	}
 	l.mu.Unlock()
-	l.closeOnce.Do(func() { close(l.done) })
+	first := false
+	l.closeOnce.Do(func() {
+		first = true
+		close(l.done)
+	})
+	return first
 }
