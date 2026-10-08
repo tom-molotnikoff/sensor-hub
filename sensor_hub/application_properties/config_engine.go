@@ -359,6 +359,10 @@ func validateString(def PropertyDef, value string) error {
 		if value != "" && !isListenAddress(value) {
 			return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must be host:port, such as 127.0.0.1:9464, or empty, got %q", def.Key, value)}
 		}
+	case "listen_host":
+		if !isListenHost(value) {
+			return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must be a host name or IP address without a port, such as 127.0.0.1 or 0.0.0.0, got %q", def.Key, value)}
+		}
 	case "ip_list":
 		if !isIPOrCIDRList(value) {
 			return &ValidationError{Key: def.Key, Message: fmt.Sprintf("%s must be comma-separated IP addresses or CIDR ranges, such as 127.0.0.1,::1, got %q", def.Key, value)}

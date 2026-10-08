@@ -135,7 +135,7 @@ func TestProperties_DefinitionsCoverEveryValue(t *testing.T) {
 	defs, status := client.GetPropertyDefinitions()
 	require.Equal(t, http.StatusOK, status)
 
-	assert.Len(t, defs.Definitions, 36)
+	assert.Len(t, defs.Definitions, 38)
 	assert.Len(t, defs.Groups, 8)
 
 	resp, status := client.GetProperties()

@@ -42,3 +42,44 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
+
+# --- MQTT over TLS on port 8883 (optional) ---------------------------------
+#
+# Only for the public-port way of connecting home devices. A tunnel is
+# preferred and needs none of this. See "Connecting your home" in the docs.
+#
+# A stream block cannot live in this file: nginx includes this file inside its
+# http context, and stream must sit at the top level. To use it, copy the block
+# below, without the leading "# ", into a file of its own, such as
+# /etc/nginx/sensor-hub-stream.conf, and include that file at the top level of
+# /etc/nginx/nginx.conf, outside the http block:
+#
+#     include /etc/nginx/sensor-hub-stream.conf;
+#
+# The stream module is a separate package on most distributions:
+#     Debian / Ubuntu:  sudo apt install libnginx-mod-stream
+#     Fedora / RHEL:    sudo dnf install nginx-mod-stream
+# Then check the configuration with: sudo nginx -t
+#
+# stream {
+#     # At most 5 open connections from one client address at a time.
+#     limit_conn_zone $binary_remote_addr zone=sensor_hub_mqtt_conn:10m;
+#
+#     server {
+#         listen 8883 ssl;
+#
+#         # The same certificate as HTTPS above.
+#         ssl_certificate /etc/ssl/certs/home.sensor-hub.pem;
+#         ssl_certificate_key /etc/ssl/private/home.sensor-hub-key.pem;
+#         ssl_protocols TLSv1.2 TLSv1.3;
+#
+#         limit_conn sensor_hub_mqtt_conn 5;
+#
+#         # The embedded broker on its default listen address. The rate of new
+#         # CONNECTs is bounded by the hub's mqtt.broker.connect.rate.limit,
+#         # before authentication; nginx has no limit_req for streams.
+#         proxy_pass 127.0.0.1:1883;
+#         proxy_connect_timeout 5s;
+#         proxy_timeout 10m;
+#     }
+# }

@@ -129,6 +129,16 @@ The default is empty, which trusts no proxy: the client's address is the address
 
 `metrics.listen.address` is the host and port the Prometheus `/metrics` endpoint listens on, on a listener of its own apart from the API. The default is `127.0.0.1:9464`. Empty turns the endpoint off, and any other value that is not `host:port` is rejected. A change applies when the service restarts. See [Telemetry](telemetry#prometheus-metrics) for the scrape configuration.
 
+### Broker listen address
+
+`mqtt.broker.listen.address` is the host or IP address the embedded MQTT broker listens on, without the port. The broker binds this address and `mqtt.broker.port` together, so the default of `127.0.0.1` and port `1883` gives `127.0.0.1:1883`. This takes connections from the same machine only, such as from a tunnel or from nginx's MQTT listener. To let devices on the network connect directly, set `0.0.0.0` (every IPv4 interface), `::` (every interface), or one address of the machine, such as a tunnel or LAN address. An empty value, or one that carries a port, is rejected. A change applies when the service restarts. See [Connecting your home](connecting-your-home) for when to change it.
+
+### Broker CONNECT rate limit
+
+`mqtt.broker.connect.rate.limit` is the most CONNECTs the embedded broker accepts in one second, counted across all clients together. A CONNECT over the limit is refused before its username and password are checked: an MQTT 5 client gets reason code `0x9F` (connection rate exceeded), an MQTT 3.1.1 client gets `0x03` (server unavailable), and the connection is closed. Each refusal adds one to `sensor_hub_mqtt_connect_refused_total{reason="rate_limit"}` (see [Telemetry](telemetry#prometheus-metrics)).
+
+The broker keeps no count per username or per address, and a failed login brings no lockout or delay, so a flood of CONNECTs using your home device's username cannot lock the device out. The count starts again every second and nothing about a refusal is kept, so a device that retries is judged afresh in the next second. The default is `20`, and `0` turns the limit off. A change applies when the service restarts.
+
 ### Readings aggregation
 
 Readings aggregation is controlled by the `readings.aggregation.*` properties. Tier values use ISO 8601 durations in `THRESHOLD:INTERVAL` format. The special interval `raw` means no aggregation. Tiers are evaluated in ascending order - the first tier whose threshold is >= the query span is used. Queries exceeding all thresholds fall back to `P1D` buckets. See the [auto-aggregation developer docs](development/auto-aggregation.md) for details.

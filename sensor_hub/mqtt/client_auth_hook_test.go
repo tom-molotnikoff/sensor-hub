@@ -27,7 +27,13 @@ import (
 // both with the password "right".
 func startAuthBroker(t *testing.T) string {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return startAuthBrokerWith(t, BrokerConfig{TCPAddress: "127.0.0.1:0"}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
+// startAuthBrokerWith is startAuthBroker with the broker configuration and
+// logger given.
+func startAuthBrokerWith(t *testing.T, config BrokerConfig, logger *slog.Logger) string {
+	t.Helper()
 	db, err := database.Open(&appProps.ApplicationConfiguration{
 		DatabasePath:              filepath.Join(t.TempDir(), "sensor_hub.db"),
 		DatabaseReaderConnections: 1,
@@ -42,7 +48,7 @@ func startAuthBroker(t *testing.T) string {
 	require.NoError(t, err)
 
 	clients := service.NewMQTTClientService(repo, logger)
-	broker := NewEmbeddedBroker(BrokerConfig{TCPAddress: "127.0.0.1:0"}, clients, logger)
+	broker := NewEmbeddedBroker(config, clients, logger)
 	clients.SetSessions(broker)
 	require.NoError(t, broker.Start())
 	t.Cleanup(func() { _ = broker.Stop() })
@@ -58,7 +64,13 @@ func connackCode(t *testing.T, address string, version byte, username, password 
 	conn, err := net.Dial("tcp", address)
 	require.NoError(t, err)
 	defer conn.Close()
+	return sendConnect(t, conn, version, username, password)
+}
 
+// sendConnect sends a CONNECT on the connection and returns the CONNACK's
+// code.
+func sendConnect(t *testing.T, conn net.Conn, version byte, username, password string) byte {
+	t.Helper()
 	pk := packets.Packet{
 		FixedHeader:     packets.FixedHeader{Type: packets.Connect},
 		ProtocolVersion: version,
@@ -75,7 +87,7 @@ func connackCode(t *testing.T, address string, version byte, username, password 
 	}
 	var buf bytes.Buffer
 	require.NoError(t, pk.ConnectEncode(&buf))
-	_, err = conn.Write(buf.Bytes())
+	_, err := conn.Write(buf.Bytes())
 	require.NoError(t, err)
 
 	require.NoError(t, conn.SetReadDeadline(time.Now().Add(5*time.Second)))
@@ -94,16 +106,30 @@ func TestClientAuthHook_RefusesV5WithNotAuthorized(t *testing.T) {
 }
 
 func TestClientAuthHook_CountsRefusalsByReason(t *testing.T) {
-	reader := sdkmetric.NewManualReader()
-	previous := otel.GetMeterProvider()
-	otel.SetMeterProvider(sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)))
-	t.Cleanup(func() { otel.SetMeterProvider(previous) })
+	reader := recordMetrics(t)
 
 	address := startAuthBroker(t)
 	connackCode(t, address, 4, "plug", "wrong")
 	connackCode(t, address, 4, "stranger", "right")
 	connackCode(t, address, 4, "retired", "right")
 
+	assert.Equal(t, map[string]int64{"auth": 2, "disabled": 1}, refusalCounts(t, reader))
+}
+
+// recordMetrics points the global meter provider at a manual reader for the
+// rest of the test.
+func recordMetrics(t *testing.T) *sdkmetric.ManualReader {
+	t.Helper()
+	reader := sdkmetric.NewManualReader()
+	previous := otel.GetMeterProvider()
+	otel.SetMeterProvider(sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)))
+	t.Cleanup(func() { otel.SetMeterProvider(previous) })
+	return reader
+}
+
+// refusalCounts returns the refused-CONNECT counter's value by reason.
+func refusalCounts(t *testing.T, reader *sdkmetric.ManualReader) map[string]int64 {
+	t.Helper()
 	var collected metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(context.Background(), &collected))
 	counts := map[string]int64{}
@@ -118,5 +144,5 @@ func TestClientAuthHook_CountsRefusalsByReason(t *testing.T) {
 			}
 		}
 	}
-	assert.Equal(t, map[string]int64{"auth": 2, "disabled": 1}, counts)
+	return counts
 }

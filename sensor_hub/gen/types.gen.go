@@ -1494,7 +1494,7 @@ type PropertyDefinition struct {
 	// Unit Unit shown as an input suffix, e.g. "seconds".
 	Unit *string `json:"unit,omitempty"`
 
-	// Validate Validation rule: "positive", "non_negative" or "non_empty", checked client-side, or "timezone" (an IANA zone name), "listen_address" (host:port), "listen_address_or_empty" or "ip_list" (comma-separated IPs or CIDR ranges), checked on save. An int property can instead carry comma-separated bounds, "min:<n>" and "max:<n>" (inclusive), checked on save, such as "min:10,max:31".
+	// Validate Validation rule: "positive", "non_negative" or "non_empty", checked client-side, or "timezone" (an IANA zone name), "listen_address" (host:port), "listen_address_or_empty", "listen_host" (a host name or IP address without a port) or "ip_list" (comma-separated IPs or CIDR ranges), checked on save. An int property can instead carry comma-separated bounds, "min:<n>" and "max:<n>" (inclusive), checked on save, such as "min:10,max:31".
 	Validate *string `json:"validate,omitempty"`
 }
 

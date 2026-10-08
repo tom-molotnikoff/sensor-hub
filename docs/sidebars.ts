@@ -6,6 +6,7 @@ const sidebars: SidebarsConfig = {
     'prerequisites',
     'installation',
     'nginx-setup',
+    'connecting-your-home',
     'upgrading',
     'uninstalling',
     {

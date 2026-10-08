@@ -15,7 +15,10 @@ import (
 
 // BrokerConfig holds the configuration for the embedded MQTT broker.
 type BrokerConfig struct {
-	TCPAddress string // e.g. ":1883"
+	TCPAddress string // e.g. "127.0.0.1:1883"
+	// ConnectRateLimit is the most CONNECTs accepted in one second across all
+	// clients. 0 turns the limit off.
+	ConnectRateLimit int
 }
 
 // EmbeddedBroker wraps a mochi-mqtt server instance with lifecycle management.
@@ -51,16 +54,31 @@ func (b *EmbeddedBroker) Start() error {
 
 	b.server = mqtt.New(&mqtt.Options{
 		InlineClient: true,
+		Logger:       newBrokerLogger(b.logger),
 	})
 
+	// The rate hook goes first, so a CONNECT it refuses is never authenticated.
+	if b.config.ConnectRateLimit > 0 {
+		if err := b.server.AddHook(newConnectRateHook(b.server, b.config.ConnectRateLimit, b.logger), nil); err != nil {
+			return fmt.Errorf("failed to add connect rate hook: %w", err)
+		}
+	}
 	if err := b.server.AddHook(newClientAuthHook(b.server, b.authenticator, b.logger), nil); err != nil {
 		return fmt.Errorf("failed to add auth hook: %w", err)
 	}
+	authenticated := &authenticatedConns{}
+	if err := b.server.AddHook(authenticated, nil); err != nil {
+		return fmt.Errorf("failed to add authenticated connections hook: %w", err)
+	}
 
-	tcp := listeners.NewTCP(listeners.Config{
-		ID:      "sensor-hub-tcp",
-		Address: b.config.TCPAddress,
-	})
+	tcp := &quietRefusalsListener{
+		Listener: listeners.NewTCP(listeners.Config{
+			ID:      "sensor-hub-tcp",
+			Address: b.config.TCPAddress,
+		}),
+		authenticated: authenticated,
+		logger:        b.logger,
+	}
 	if err := b.server.AddListener(tcp); err != nil {
 		return fmt.Errorf("failed to add TCP listener on %s: %w", b.config.TCPAddress, err)
 	}
