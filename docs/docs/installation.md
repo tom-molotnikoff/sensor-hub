@@ -28,7 +28,7 @@ The package:
 
 - Installs the binary to `/usr/bin/sensor-hub`
 - Creates a `sensor-hub` system user and group
-- Creates configuration directory `/etc/sensor-hub/` with default files
+- Creates configuration directory `/etc/sensor-hub/` with default files, copied from `/usr/share/sensor-hub/defaults/`. Upgrades never change them (see [Configuration files](upgrading#configuration-files))
 - Creates data directory `/var/lib/sensor-hub/`
 - Creates log directory `/var/log/sensor-hub/`
 - Installs and enables the `sensor-hub.service` systemd unit

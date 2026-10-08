@@ -155,6 +155,8 @@ wait_healthy() {
 }
 
 ADMIN_PASSWORD="package-test-password"
+OPERATOR_SETTING="SENSOR_HUB_PACKAGE_TEST=kept"
+COLLECTION_INTERVAL="123"
 BROKER_PASSWORD="package-test-broker-secret"
 
 # api METHOD PATH [BODY] calls the hub as the admin, keeping the session in a
@@ -176,25 +178,52 @@ login() {
   echo "$response"
 }
 
-# Before the upgrade: an admin, and an outbound broker with a password the
-# upgrade has to carry into the secret store. The admin comes from a drop-in
-# rather than the environment file, which would make dpkg ask about the
-# changed conffile, and which also shows a drop-in passing no key is ignored.
+# Before the upgrade: the configuration changed the way an operator and the
+# hub change it, an admin, and an outbound broker with a password the upgrade
+# has to carry into the secret store. Up to 1.5.x the package owned the
+# configuration files, so each change is one the upgrade must not ask about.
 seed_old_install() {
-  on_host "mkdir -p /etc/systemd/system/sensor-hub.service.d && printf '[Service]\nEnvironment=SENSOR_HUB_INITIAL_ADMIN=admin:$ADMIN_PASSWORD\n' \
-    > /etc/systemd/system/sensor-hub.service.d/initial-admin.conf && systemctl daemon-reload"
+  on_host "printf 'SENSOR_HUB_INITIAL_ADMIN=admin:$ADMIN_PASSWORD\n$OPERATOR_SETTING\n' >> /etc/sensor-hub/environment"
   on_host 'systemctl start sensor-hub'
   wait_healthy || return 1
   if [[ "$(login | jq -r .must_change_password)" == true ]]; then
     api PUT /users/password "{\"new_password\":\"$ADMIN_PASSWORD\"}" >/dev/null
   fi
+  # The hub's properties saver rewrites application.properties.
+  api PATCH /properties "{\"sensor.collection.interval\":\"$COLLECTION_INTERVAL\"}" >/dev/null
+  check "the hub saved the property" "yes" \
+    "$(on_host "grep -qx 'sensor.collection.interval=$COLLECTION_INTERVAL' /etc/sensor-hub/application.properties && echo yes || echo no")"
   api POST /mqtt/brokers "{\"name\":\"home\",\"type\":\"external\",\"host\":\"192.0.2.1\",\"port\":1883,\"username\":\"hub\",\"password\":\"$BROKER_PASSWORD\",\"enabled\":false}" >/dev/null
+}
+
+# The upgrade runs with no terminal, as an unattended upgrade does, so a
+# question about a configuration file would fail it.
+upgrade_package() {
+  on_host "DEBIAN_FRONTEND=noninteractive $UPGRADE /packages/new.$FORMAT </dev/null"
+}
+
+# After the upgrade the changed configuration is still there and in effect,
+# and nothing is left beside it.
+check_configuration_kept() {
+  check "the operator's setting is in the hub's environment" "yes" \
+    "$(on_host "tr '\\0' '\\n' < /proc/\$(systemctl show -p MainPID --value sensor-hub)/environ | grep -qx '$OPERATOR_SETTING' && echo yes || echo no")"
+  check "the property the hub saved is in effect" "$COLLECTION_INTERVAL" \
+    "$(api GET /properties | jq -r '."sensor.collection.interval"')"
+  check "the configuration files" \
+    "640 sensor-hub:sensor-hub application.properties
+640 sensor-hub:sensor-hub database.properties
+640 sensor-hub:sensor-hub environment
+640 sensor-hub:sensor-hub smtp.properties" \
+    "$(on_host 'cd /etc/sensor-hub && stat -c "%a %U:%G %n" application.properties database.properties environment smtp.properties')"
+  check "no saved or new copies beside them" "" \
+    "$(on_host 'ls /etc/sensor-hub | grep -E "\.(rpmsave|rpmnew|dpkg-[a-z]+)$" || true')"
 }
 
 # After the upgrade: logins work and the broker password is held, encrypted
 # under the key the hub loaded, and readable again after another restart.
 check_upgraded_install() {
   login >/dev/null || return 1
+  check_configuration_kept
   check "the broker password is in the secret store" "set" \
     "$(api GET /mqtt/brokers | jq -r '.[] | select(.name == "home") | .password_status')"
   check "the plaintext password is gone from the database and its WAL" "0" \
@@ -238,7 +267,7 @@ scenario "Upgrade from $FROM_VERSION on a host without a TPM"
 start_host
 on_host "$INSTALL /packages/old.$FORMAT" >/dev/null
 seed_old_install
-on_host "$UPGRADE /packages/new.$FORMAT"
+upgrade_package
 wait_healthy && check_key_file && check_upgraded_install
 stop_host
 
@@ -247,8 +276,24 @@ start_host
 fake_tpm
 on_host "$INSTALL /packages/old.$FORMAT" >/dev/null
 seed_old_install
-on_host "$UPGRADE /packages/new.$FORMAT"
+upgrade_package
 wait_healthy && check_sealed_key && check_upgraded_install
+stop_host
+
+scenario "Upgrade from $FROM_VERSION with the configuration as it was installed"
+start_host
+on_host "$INSTALL /packages/old.$FORMAT" >/dev/null
+on_host 'systemctl start sensor-hub'
+wait_healthy
+upgrade_package
+wait_healthy
+# Files nobody changed take the new defaults, as a config file upgrade did.
+for name in environment application.properties database.properties smtp.properties; do
+  check "$name is the new default" "same" \
+    "$(on_host "cmp -s /etc/sensor-hub/$name /usr/share/sensor-hub/defaults/$name && echo same || echo different")"
+done
+check "no saved or new copies beside them" "" \
+  "$(on_host 'ls /etc/sensor-hub | grep -E "\.(rpmsave|rpmnew|dpkg-[a-z]+)$" || true')"
 stop_host
 
 scenario "Fresh install on a host without a TPM"

@@ -3,6 +3,10 @@ install -d -m 0750 -o sensor-hub -g sensor-hub /var/lib/sensor-hub
 install -d -m 0750 -o sensor-hub -g sensor-hub /var/log/sensor-hub
 
 CONFIG_DIR=/etc/sensor-hub
+DEFAULTS_DIR=/usr/share/sensor-hub/defaults
+CONFIG_FILES="environment application.properties database.properties smtp.properties"
+# The rpm posttrans script reads what this one leaves here.
+RPM_STATE_DIR=/run/sensor-hub-package
 # init-key exits with this status when a key already exists in any form.
 KEY_EXISTS=3
 
@@ -12,6 +16,34 @@ is_upgrade() {
   # DEB: $1=configure and $2 is the old version
   [ "$1" = "configure" ] && [ -n "$2" ] && return 0
   return 1
+}
+
+install_default() {
+  install -m 0640 -o sensor-hub -g sensor-hub "$DEFAULTS_DIR/$1" "$CONFIG_DIR/$1"
+}
+
+# The configuration files belong to the operator, not the package. The
+# package ships them as templates and creates only the missing ones, so a new
+# default never stops an upgrade to ask what to do with a changed file.
+create_missing_config() {
+  install -d -m 0755 "$CONFIG_DIR"
+  for name in $CONFIG_FILES; do
+    [ -e "$CONFIG_DIR/$name" ] || install_default "$name"
+  done
+}
+
+# Up to 1.5.x dpkg owned the configuration files as conffiles, and it still
+# remembers what each one held when it was installed. One the operator never
+# changed takes the new default, as a conffile upgrade would have done; a
+# changed one is kept as it is.
+update_unchanged_dpkg_conffiles() {
+  dpkg-query -W -f='${Conffiles}\n' sensor-hub 2>/dev/null | while read -r path md5 state _; do
+    [ "$state" = obsolete ] || continue
+    name="${path#"$CONFIG_DIR"/}"
+    case " $CONFIG_FILES " in *" $name "*) ;; *) continue ;; esac
+    [ -f "$path" ] && [ "$(md5sum < "$path" | cut -d' ' -f1)" = "$md5" ] || continue
+    install_default "$name"
+  done
 }
 
 has_tpm() {
@@ -55,11 +87,20 @@ ensure_secrets_key() {
   esac
 }
 
+if [ "$1" = "configure" ]; then
+  update_unchanged_dpkg_conffiles
+fi
+create_missing_config
 ensure_secrets_key
 
 systemctl daemon-reload
 
-if is_upgrade "$@"; then
+if [ "$1" = "2" ]; then
+  # rpm removes the old package after this script, which on an upgrade from
+  # 1.5.x takes its configuration files with it, so the posttrans script puts
+  # them back and restarts once the transaction is done.
+  install -d -m 0700 "$RPM_STATE_DIR" && touch "$RPM_STATE_DIR/restart"
+elif is_upgrade "$@"; then
   systemctl restart sensor-hub
 else
   systemctl enable sensor-hub

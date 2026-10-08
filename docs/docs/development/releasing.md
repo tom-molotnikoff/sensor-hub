@@ -52,7 +52,9 @@ usage.
 `scripts/test-packages.sh` installs a server package in a container running
 systemd: a `.deb` on Debian, a `.rpm` on Fedora. It checks that the hub comes
 up with no step in between when the package is installed over the last 1.5.x
-release, on a host with a TPM and on one without, and on a fresh install:
+release, on a host with a TPM and on one without, and on a fresh install. The
+upgrades run with no terminal over configuration files the operator and the
+hub have changed, and check the changes are kept and in effect:
 
 ```bash
 ./scripts/test-packages.sh dist/sensor-hub_*_linux_amd64.deb

@@ -30,6 +30,7 @@ const (
 	keyDropIn    = "/etc/systemd/system/sensor-hub.service.d/secrets-key.conf"
 	dropInDir    = "/etc/systemd/system/sensor-hub.service.d"
 	packagedUnit = "/usr/lib/systemd/system/sensor-hub.service"
+	defaultsDir  = "/usr/share/sensor-hub/defaults"
 	sealedFake   = "SEALED:"
 )
 
@@ -114,12 +115,27 @@ func packagingDir() string {
 type packageHost struct {
 	t         *testing.T
 	container testcontainers.Container
+	upgrade   bool
 }
 
+// configFiles are the configuration files the package ships as templates.
+var configFiles = map[string]string{
+	"environment":            "environment",
+	"application.properties": filepath.Join("defaults", "application.properties"),
+	"database.properties":    filepath.Join("defaults", "database.properties"),
+	"smtp.properties":        filepath.Join("defaults", "smtp.properties"),
+}
+
+// operatorChange is a line an operator or the hub's properties saver might
+// have added, which an upgrade must keep.
+const operatorChange = "sensor.collection.interval=60\n"
+
 // startPackageHost lays out a host as the package leaves it just before
-// postinstall: the service account, the binary and the configuration files.
+// postinstall: the service account, the binary and the configuration
+// templates. An upgrade also has the configuration a previous install left,
+// with a change of the operator's in application.properties.
 // systemdCredsScript is the systemd-creds on the path, or "" for none.
-func startPackageHost(t *testing.T, systemdCredsScript string) *packageHost {
+func startPackageHost(t *testing.T, systemdCredsScript string, upgrade bool) *packageHost {
 	t.Helper()
 	ctx := context.Background()
 	packaging := packagingDir()
@@ -130,11 +146,11 @@ func startPackageHost(t *testing.T, systemdCredsScript string) *packageHost {
 		{HostFilePath: filepath.Join(packaging, "sensor-hub.service"), ContainerFilePath: packagedUnit, FileMode: 0o644},
 		{Reader: strings.NewReader(fakeSystemctl), ContainerFilePath: "/usr/local/bin/systemctl", FileMode: 0o755},
 	}
-	for _, name := range []string{"application.properties", "database.properties", "smtp.properties"} {
+	for name, source := range configFiles {
 		files = append(files, testcontainers.ContainerFile{
-			HostFilePath:      filepath.Join(packaging, "defaults", name),
-			ContainerFilePath: "/etc/sensor-hub/" + name,
-			FileMode:          0o640,
+			HostFilePath:      filepath.Join(packaging, source),
+			ContainerFilePath: defaultsDir + "/" + name,
+			FileMode:          0o644,
 		})
 	}
 	if systemdCredsScript != "" {
@@ -153,8 +169,13 @@ func startPackageHost(t *testing.T, systemdCredsScript string) *packageHost {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = container.Terminate(ctx) })
 
-	h := &packageHost{t: t, container: container}
-	h.mustRun("/tmp/preinstall.sh && chmod 0755 /etc/sensor-hub && chown sensor-hub:sensor-hub /etc/sensor-hub/*.properties")
+	h := &packageHost{t: t, container: container, upgrade: upgrade}
+	h.mustRun("/tmp/preinstall.sh")
+	if upgrade {
+		h.mustRun("install -d -m 0755 /etc/sensor-hub && cp " + defaultsDir + "/* /etc/sensor-hub/" +
+			" && chown sensor-hub:sensor-hub /etc/sensor-hub/* && chmod 0640 /etc/sensor-hub/*" +
+			" && printf '" + operatorChange + "' >> /etc/sensor-hub/application.properties")
+	}
 	return h
 }
 
@@ -176,10 +197,10 @@ func (h *packageHost) mustRun(script string) string {
 
 // postinstall runs the script with the arguments dpkg passes it: an upgrade
 // names the version it replaces.
-func (h *packageHost) postinstall(upgrade bool) string {
+func (h *packageHost) postinstall() string {
 	h.t.Helper()
 	args := "configure"
-	if upgrade {
+	if h.upgrade {
 		args = "configure 1.5.2"
 	}
 	return h.mustRun("/tmp/postinstall.sh " + args)
@@ -224,9 +245,9 @@ func TestPostinstall_WritesAKeyFileTheServiceCanReadWhereThereIsNoTPM(t *testing
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			h := startPackageHost(t, tc.systemdCreds)
+			h := startPackageHost(t, tc.systemdCreds, tc.upgrade)
 
-			out := h.postinstall(tc.upgrade)
+			out := h.postinstall()
 
 			assert.Contains(t, out, "Wrote a new secret-store key to "+keyFile)
 			assert.Contains(t, out, "sensor-hub local secrets show-key")
@@ -244,9 +265,9 @@ func TestPostinstall_WritesAKeyFileTheServiceCanReadWhereThereIsNoTPM(t *testing
 
 func TestPostinstall_SealsTheKeyWithTheTPM(t *testing.T) {
 	t.Parallel()
-	h := startPackageHost(t, systemdCreds(true, false))
+	h := startPackageHost(t, systemdCreds(true, false), true)
 
-	out := h.postinstall(true)
+	out := h.postinstall()
 
 	assert.Contains(t, out, "Sealed a new secret-store key with the TPM in "+sealedKey)
 	assert.Equal(t, "600 root:root", h.modeAndOwner(sealedKey))
@@ -266,9 +287,9 @@ func TestPostinstall_SealsTheKeyWithTheTPM(t *testing.T) {
 
 func TestPostinstall_FallsBackToAKeyFileWhenSealingFails(t *testing.T) {
 	t.Parallel()
-	h := startPackageHost(t, systemdCreds(true, true))
+	h := startPackageHost(t, systemdCreds(true, true), true)
 
-	out := h.postinstall(true)
+	out := h.postinstall()
 
 	assert.Contains(t, out, "Could not seal the secret-store key with the TPM")
 	assert.Contains(t, out, "Failed to seal to the TPM")
@@ -289,13 +310,13 @@ func TestPostinstall_LeavesAnExistingKeyAlone(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			h := startPackageHost(t, systemdCreds(true, false))
+			h := startPackageHost(t, systemdCreds(true, false), true)
 			h.mustRun(existing)
 			snapshot := "find /etc/sensor-hub " + filepath.Dir(dropInDir) + " -type f | sort | xargs md5sum"
 			before := h.mustRun(snapshot)
 
-			out := h.postinstall(true)
-			again := h.postinstall(true)
+			out := h.postinstall()
+			again := h.postinstall()
 
 			assert.Equal(t, before, h.mustRun(snapshot), "no key file, sealed key or drop-in is written or changed")
 			assert.NotContains(t, out+again, "secret-store key", "nothing is said about a key that is already there")
@@ -315,4 +336,34 @@ func presentKeyFiles(h *packageHost) string {
 		}
 	}
 	return present
+}
+
+func TestPostinstall_CreatesTheConfigurationFilesOnAFreshInstall(t *testing.T) {
+	t.Parallel()
+	h := startPackageHost(t, "", false)
+
+	h.postinstall()
+
+	for name, source := range configFiles {
+		path := "/etc/sensor-hub/" + name
+		assert.Equal(t, "640 sensor-hub:sensor-hub", h.modeAndOwner(path), path)
+		shipped, err := os.ReadFile(filepath.Join(packagingDir(), source))
+		require.NoError(t, err)
+		assert.Equal(t, string(shipped), h.read(path), path)
+	}
+}
+
+func TestPostinstall_LeavesTheConfigurationFilesOfAnUpgradeAlone(t *testing.T) {
+	t.Parallel()
+	h := startPackageHost(t, "", true)
+	h.mustRun("rm /etc/sensor-hub/smtp.properties")
+	kept := "cd /etc/sensor-hub && stat -c '%n %a %U:%G %Y' application.properties database.properties environment" +
+		" && md5sum application.properties database.properties environment"
+	before := h.mustRun(kept)
+
+	h.postinstall()
+
+	assert.Equal(t, before, h.mustRun(kept), "files that exist are not changed")
+	assert.Contains(t, h.read("/etc/sensor-hub/application.properties"), operatorChange)
+	assert.Equal(t, "640 sensor-hub:sensor-hub", h.modeAndOwner("/etc/sensor-hub/smtp.properties"), "a missing file is created")
 }
