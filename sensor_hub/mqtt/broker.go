@@ -66,11 +66,19 @@ func (b *EmbeddedBroker) Start() error {
 	if err := b.server.AddHook(newClientAuthHook(b.server, b.authenticator, b.logger), nil); err != nil {
 		return fmt.Errorf("failed to add auth hook: %w", err)
 	}
+	authenticated := &authenticatedConns{}
+	if err := b.server.AddHook(authenticated, nil); err != nil {
+		return fmt.Errorf("failed to add authenticated connections hook: %w", err)
+	}
 
-	tcp := listeners.NewTCP(listeners.Config{
-		ID:      "sensor-hub-tcp",
-		Address: b.config.TCPAddress,
-	})
+	tcp := &quietRefusalsListener{
+		Listener: listeners.NewTCP(listeners.Config{
+			ID:      "sensor-hub-tcp",
+			Address: b.config.TCPAddress,
+		}),
+		authenticated: authenticated,
+		logger:        b.logger,
+	}
 	if err := b.server.AddListener(tcp); err != nil {
 		return fmt.Errorf("failed to add TCP listener on %s: %w", b.config.TCPAddress, err)
 	}

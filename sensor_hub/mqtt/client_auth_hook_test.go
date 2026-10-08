@@ -64,7 +64,13 @@ func connackCode(t *testing.T, address string, version byte, username, password 
 	conn, err := net.Dial("tcp", address)
 	require.NoError(t, err)
 	defer conn.Close()
+	return sendConnect(t, conn, version, username, password)
+}
 
+// sendConnect sends a CONNECT on the connection and returns the CONNACK's
+// code.
+func sendConnect(t *testing.T, conn net.Conn, version byte, username, password string) byte {
+	t.Helper()
 	pk := packets.Packet{
 		FixedHeader:     packets.FixedHeader{Type: packets.Connect},
 		ProtocolVersion: version,
@@ -81,7 +87,7 @@ func connackCode(t *testing.T, address string, version byte, username, password 
 	}
 	var buf bytes.Buffer
 	require.NoError(t, pk.ConnectEncode(&buf))
-	_, err = conn.Write(buf.Bytes())
+	_, err := conn.Write(buf.Bytes())
 	require.NoError(t, err)
 
 	require.NoError(t, conn.SetReadDeadline(time.Now().Add(5*time.Second)))
