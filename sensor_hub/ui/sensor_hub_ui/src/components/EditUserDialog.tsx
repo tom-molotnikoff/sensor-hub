@@ -28,9 +28,13 @@ interface EditUserDialogProps {
   selectedUser: User | null;
 }
 
+function seededRole(user: User | null): string {
+  return user?.roles && user.roles.length > 0 ? user.roles[0] : 'user';
+}
+
 export default function EditUserDialog({open, onClose, onSaved, selectedUser}: EditUserDialogProps) {
-  const [role, setRole] = useState('user');
-  const [disabled, setDisabled] = useState(false);
+  const [role, setRole] = useState(() => seededRole(selectedUser));
+  const [disabled, setDisabled] = useState(selectedUser?.disabled ?? false);
   const [error, setError] = useState('');
   const [availableRoles, setAvailableRoles] = useState<RoleInfo[]>([]);
   const { user: currentUser } = useAuth();
@@ -43,7 +47,7 @@ export default function EditUserDialog({open, onClose, onSaved, selectedUser}: E
     setPrevOpen(open);
     setPrevUser(selectedUser);
     if (open) {
-      setRole(selectedUser?.roles && selectedUser.roles.length > 0 ? selectedUser.roles[0] : 'user');
+      setRole(seededRole(selectedUser));
       setDisabled(selectedUser?.disabled ?? false);
       setError('');
     }
@@ -63,8 +67,12 @@ export default function EditUserDialog({open, onClose, onSaved, selectedUser}: E
       if (disabled !== selectedUser.disabled) {
         await unwrap(apiClient.PUT('/users/{id}/disabled', { params: { path: { id: selectedUser.id } }, body: { disabled } }));
       }
-      const { response } = await apiClient.POST('/users/{id}/roles', { params: { path: { id: selectedUser.id } }, body: { roles: [role] } });
-      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      // Only admins may set roles, so a manage_users holder who only toggles
+      // Disabled must not send a role save.
+      if (role !== seededRole(selectedUser)) {
+        const { response } = await apiClient.POST('/users/{id}/roles', { params: { path: { id: selectedUser.id } }, body: { roles: [role] } });
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      }
       onClose();
       await onSaved();
     } catch (e) {

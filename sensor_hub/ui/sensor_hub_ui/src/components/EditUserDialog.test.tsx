@@ -59,13 +59,28 @@ describe('EditUserDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('leaves the disabled flag alone when the switch is not changed', async () => {
+  it('toggling only Disabled sends no role save', async () => {
     const onSaved = vi.fn().mockResolvedValue(undefined);
     render(<EditUserDialog open onClose={vi.fn()} onSaved={onSaved} selectedUser={viewer} />);
 
+    fireEvent.click(screen.getByRole('switch', { name: 'Disabled' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(putMock).toHaveBeenCalledTimes(1);
+    expect(postMock).not.toHaveBeenCalled();
+  });
+
+  it('changing only the role sends the role save and leaves the disabled flag alone', async () => {
+    const onSaved = vi.fn().mockResolvedValue(undefined);
+    render(<EditUserDialog open onClose={vi.fn()} onSaved={onSaved} selectedUser={viewer} />);
+
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Role' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'admin' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(postMock).toHaveBeenCalledWith('/users/{id}/roles', { params: { path: { id: 7 } }, body: { roles: ['admin'] } });
     expect(putMock).not.toHaveBeenCalled();
   });
 
