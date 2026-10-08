@@ -64,7 +64,7 @@ On first start:
 ## Create the first admin user
 
 ```bash
-sudo -u sensor-hub sensor-hub local admin create admin
+sudo sensor-hub local admin create admin
 ```
 
 It asks for the password twice and writes the admin straight to the database, so the password never lands in a file or the environment. To script it, pipe the password in on stdin instead. The command refuses once an admin exists. See [Local commands](cli-tool#create-the-first-admin) for its options.

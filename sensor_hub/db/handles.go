@@ -5,6 +5,7 @@ import (
 	"errors"
 	appProps "example/sensorHub/application_properties"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -45,6 +46,9 @@ func OpenWithDriver(driverName string, cfg *appProps.ApplicationConfiguration, l
 	if err := os.MkdirAll(filepath.Dir(cfg.DatabasePath), 0755); err != nil {
 		return nil, fmt.Errorf("could not create database directory: %w", err)
 	}
+	if err := createDatabaseFile(cfg.DatabasePath); err != nil {
+		return nil, err
+	}
 
 	writer, err := openPool(driverName, cfg.DatabasePath, PoolWriter, writerDSNParams, 1)
 	if err != nil {
@@ -64,6 +68,26 @@ func OpenWithDriver(driverName string, cfg *appProps.ApplicationConfiguration, l
 
 	logger.Info("connected to database", "reader_connections", cfg.DatabaseReaderConnections)
 	return &Handles{Reader: reader, Writer: writer}, nil
+}
+
+// SQLite gives the -wal and -shm files it creates as root to the database
+// file's owner, but creates the database file itself as root. A local command
+// run as root before the service's first start would then leave a database the
+// service user cannot write, so the file takes its directory's owner instead.
+func createDatabaseFile(path string) error {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0644)
+	if errors.Is(err, fs.ErrExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("could not create database file: %w", err)
+	}
+	err = errors.Join(chownToDirectoryOwnerIfRoot(f, filepath.Dir(path)), f.Close())
+	if err != nil {
+		_ = os.Remove(path)
+		return fmt.Errorf("could not create database file: %w", err)
+	}
+	return nil
 }
 
 func (h *Handles) Close() error {
