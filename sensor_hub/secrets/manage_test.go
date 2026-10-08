@@ -3,6 +3,7 @@
 package secrets
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -75,12 +76,76 @@ func TestInitKey_RefusesWhenAKeyExistsInAnyForm(t *testing.T) {
 
 			_, err := InitKey(l, key, false)
 
-			require.Error(t, err)
+			require.ErrorIs(t, err, ErrKeyExists)
 			assert.Contains(t, err.Error(), existing)
 			content, _ := os.ReadFile(existing)
 			assert.Equal(t, "existing", string(content), "the existing key is left alone")
 		})
 	}
+}
+
+func TestInitKey_RefusesWhenADropInPassesTheHubAKey(t *testing.T) {
+	key, err := GenerateKey()
+	require.NoError(t, err)
+	for name, dropIn := range map[string]string{
+		"sealed credential":      "[Service]\nLoadCredentialEncrypted=secrets.key:/elsewhere/secrets.key.cred\n",
+		"plain credential":       "[Service]\nLoadCredential=secrets.key:/root/secrets.key\n",
+		"credential given whole": "[Service]\nSetCredentialEncrypted=secrets.key: \\\n  k6iUCUh0RJCQyvL8k8q1UyAAAAABAAAADAAAABAAAAC1lFmbWAqWZ8dCCQkAAAAAgAAAA\n",
+		"imported credential":    "[Service]\nImportCredential=secrets.*\n",
+		"key file flag": "[Service]\nExecStart=\nExecStart=/usr/bin/sensor-hub local serve --config-dir=/etc/sensor-hub \\\n" +
+			"  --secrets-key-file=/root/secrets.key\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newKeyFixture(t)
+			path := filepath.Join(filepath.Dir(f.locations.SystemdDropIn), "override.conf")
+			require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+			require.NoError(t, os.WriteFile(path, []byte(dropIn), 0o644))
+
+			_, err := InitKey(f.locations, key, false)
+
+			require.ErrorIs(t, err, ErrKeyExists)
+			assert.Contains(t, err.Error(), path)
+			assert.NoFileExists(t, f.locations.ConfigKeyFile())
+		})
+	}
+}
+
+func TestInitKey_IgnoresDropInsThatPassNoKey(t *testing.T) {
+	f := newKeyFixture(t)
+	dir := filepath.Dir(f.locations.SystemdDropIn)
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	for name, content := range map[string]string{
+		"environment.conf":  "[Service]\nEnvironment=OTEL_SERVICE_NAME=hub\nLoadCredential=tls.key:/etc/ssl/hub.key\n",
+		"commented.conf":    "[Service]\n# LoadCredential=secrets.key:/root/secrets.key\n; ExecStart=--secrets-key-file=/x\n",
+		"unit.conf":         "[Unit]\nDescription=LoadCredential=secrets.key\n",
+		"override.conf.bak": "[Service]\nLoadCredential=secrets.key:/root/secrets.key\n",
+	} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644))
+	}
+	key, err := GenerateKey()
+	require.NoError(t, err)
+
+	path, err := InitKey(f.locations, key, false)
+
+	require.NoError(t, err)
+	assert.Equal(t, f.locations.ConfigKeyFile(), path)
+}
+
+func TestInitKey_RemovesTheSealedKeyWhenTheDropInCannotBeWritten(t *testing.T) {
+	f := newKeyFixture(t)
+	fakeSystemdCreds(t)
+	// A directory where the drop-in goes cannot be written over, even by root.
+	require.NoError(t, os.MkdirAll(f.locations.SystemdDropIn, 0o755))
+	key, err := GenerateKey()
+	require.NoError(t, err)
+
+	_, err = InitKey(f.locations, key, true)
+
+	require.Error(t, err)
+	assert.False(t, errors.Is(err, ErrKeyExists))
+	assert.NoFileExists(t, f.locations.SealedKeyFile(), "a sealed key systemd is never told about would stop the hub starting")
+	_, err = InitKey(f.locations, key, false)
+	require.NoError(t, err, "a key file can still be written after the failed seal")
 }
 
 func TestInitKey_SealsWithTheTPMAndWritesTheDropIn(t *testing.T) {

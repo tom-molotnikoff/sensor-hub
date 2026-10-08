@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -34,6 +35,20 @@ func Execute(version string) {
 	rootCmd.Version = version
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		var coded exitCodeError
+		if errors.As(err, &coded) {
+			os.Exit(coded.code)
+		}
 		os.Exit(1)
 	}
 }
+
+// exitCodeError ends the process with a status other than 1, for a failure a
+// script needs to tell apart from the rest.
+type exitCodeError struct {
+	code int
+	err  error
+}
+
+func (e exitCodeError) Error() string { return e.err.Error() }
+func (e exitCodeError) Unwrap() error { return e.err }

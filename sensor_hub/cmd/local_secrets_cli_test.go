@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,6 +45,9 @@ func TestLocalSecretsInitKey_WritesAKeyThatShowKeyPrintsAndRefusesASecond(t *tes
 		"--from-stdin=false", "--seal=false")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), keyPath)
+	var coded exitCodeError
+	require.ErrorAs(t, err, &coded)
+	assert.Equal(t, 3, coded.code, "postinstall tells an existing key from a failure by this status")
 	again, err := os.ReadFile(keyPath)
 	require.NoError(t, err)
 	assert.Equal(t, written, again, "the existing key is left alone")
@@ -71,5 +75,7 @@ func TestLocalSecretsInitKey_RefusesAMalformedKeyOnStdin(t *testing.T) {
 		"--from-stdin", "--seal=false")
 
 	require.Error(t, err)
+	var coded exitCodeError
+	assert.False(t, errors.As(err, &coded), "only an existing key has its own exit status")
 	assert.NoFileExists(t, filepath.Join(configDir, "secrets.key"))
 }

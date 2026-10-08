@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -25,8 +26,8 @@ var localSecretsInitKeyCmd = &cobra.Command{
 		"With --seal the key is sealed with the TPM by systemd-creds into <config-dir>/secrets.key.cred, and a drop-in at " +
 		secrets.SystemdDropInPath + " has systemd decrypt it for the hub. This needs root; run 'systemctl daemon-reload' and " +
 		"restart the service afterwards.\n\n" +
-		"Refuses when a key already exists in any form, naming it. There is no way to overwrite a key: secrets stored under it " +
-		"could no longer be decrypted.",
+		"Refuses when a key already exists in any form, naming it, and exits with status 3. A drop-in for the unit that passes " +
+		"the hub a key counts. There is no way to overwrite a key: secrets stored under it could no longer be decrypted.",
 	Args: cobra.NoArgs,
 	RunE: runLocalSecretsInitKey,
 }
@@ -41,6 +42,10 @@ var localSecretsShowKeyCmd = &cobra.Command{
 	RunE: runLocalSecretsShowKey,
 }
 
+// keyExistsExitCode is init-key's exit status when a key already exists, so
+// the package's postinstall can tell that from a failure.
+const keyExistsExitCode = 3
+
 var initKeyFromStdin bool
 var initKeySeal bool
 var showKeySecretsKeyFile string
@@ -54,11 +59,18 @@ func init() {
 }
 
 func runLocalSecretsInitKey(cmd *cobra.Command, args []string) error {
+	// The package's postinstall shows what init-key says when it fails. A
+	// failure from here on is not a usage mistake, and Execute prints it once.
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
 	key, err := initialKey(cmd)
 	if err != nil {
 		return err
 	}
 	path, err := secrets.InitKey(secrets.LocationsFor(localConfigDir, ""), key, initKeySeal)
+	if errors.Is(err, secrets.ErrKeyExists) {
+		return exitCodeError{code: keyExistsExitCode, err: err}
+	}
 	if err != nil {
 		return err
 	}

@@ -47,6 +47,22 @@ Packages are written to `dist/`. See
 [Building from Source](building-from-source.md) for prerequisites and full
 usage.
 
+## Testing Packages
+
+`scripts/test-packages.sh` installs a server package in a container running
+systemd: a `.deb` on Debian, a `.rpm` on Fedora. It checks that the hub comes
+up with no step in between when the package is installed over the last 1.5.x
+release, on a host with a TPM and on one without, and on a fresh install:
+
+```bash
+./scripts/test-packages.sh dist/sensor-hub_*_linux_amd64.deb
+./scripts/test-packages.sh dist/sensor-hub_*_linux_amd64.rpm --from 1.5.2
+```
+
+It needs curl, jq and a Docker that can run privileged containers, and uses the
+package for the architecture Docker runs. CI's Package Tests job builds the
+packages with GoReleaser, as the release does, and runs it on both.
+
 ## GPG Key Management
 
 Release packages (RPM and DEB) are signed with GPG so users can verify package

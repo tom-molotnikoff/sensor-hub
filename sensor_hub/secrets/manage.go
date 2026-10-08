@@ -32,9 +32,12 @@ func (l Locations) existingKeySources() []string {
 	return append(paths, l.ConfigKeyFile())
 }
 
-// ExistingKey gives the path of a key that already exists in any form, or
-// "" when there is none.
-func (l Locations) ExistingKey() (string, error) {
+// ErrKeyExists is what InitKey's refusal wraps when a key already exists.
+var ErrKeyExists = errors.New("a secret-store key already exists")
+
+// existingKey describes a key that already exists in any form, including a
+// unit drop-in that passes the hub one, or gives "" when there is none.
+func (l Locations) existingKey() (string, error) {
 	for _, path := range l.existingKeySources() {
 		_, err := os.Stat(path)
 		if err == nil {
@@ -44,21 +47,21 @@ func (l Locations) ExistingKey() (string, error) {
 			return "", fmt.Errorf("cannot check for a secret-store key at %s: %w", path, err)
 		}
 	}
-	return "", nil
+	return l.dropInPassingAKey()
 }
 
 // InitKey makes key the hub's key and returns where it went. Sealed, it is
 // encrypted with the TPM through systemd-creds and a unit drop-in has systemd
 // hand it to the hub; this needs root. Otherwise it is written to the
 // configuration directory with mode 0600, owned like application.properties.
-// It refuses when a key already exists in any form.
+// It refuses with ErrKeyExists when a key already exists in any form.
 func InitKey(l Locations, key Key, seal bool) (string, error) {
-	existing, err := l.ExistingKey()
+	existing, err := l.existingKey()
 	if err != nil {
 		return "", err
 	}
 	if existing != "" {
-		return "", fmt.Errorf("a secret-store key already exists at %s; refusing to replace it, since secrets stored under it could no longer be decrypted", existing)
+		return "", fmt.Errorf("%w at %s; refusing to replace it, since secrets stored under it could no longer be decrypted", ErrKeyExists, existing)
 	}
 	if seal {
 		return l.SealedKeyFile(), sealKey(l, key)
@@ -82,14 +85,21 @@ func sealKey(l Locations, key Key) error {
 	if err := writeNewFile(credPath, sealed, 0o600); err != nil {
 		return fmt.Errorf("cannot write the sealed key %s: %w", credPath, err)
 	}
-	dropIn := fmt.Sprintf("[Service]\nLoadCredentialEncrypted=%s:%s\n", CredentialName, credPath)
-	if err := os.MkdirAll(filepath.Dir(l.SystemdDropIn), 0o755); err != nil {
-		return fmt.Errorf("cannot write the systemd drop-in %s: %w", l.SystemdDropIn, err)
-	}
-	if err := os.WriteFile(l.SystemdDropIn, []byte(dropIn), 0o644); err != nil {
+	if err := writeDropIn(l.SystemdDropIn, credPath); err != nil {
+		// A sealed key that systemd is never told about would stop the hub
+		// starting, so it goes too.
+		_ = os.Remove(credPath)
 		return fmt.Errorf("cannot write the systemd drop-in %s: %w", l.SystemdDropIn, err)
 	}
 	return nil
+}
+
+func writeDropIn(path, credPath string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	dropIn := fmt.Sprintf("[Service]\nLoadCredentialEncrypted=%s:%s\n", CredentialName, credPath)
+	return os.WriteFile(path, []byte(dropIn), 0o644)
 }
 
 // ShowKey finds the key the hub would use, as LoadKey does, and also opens a

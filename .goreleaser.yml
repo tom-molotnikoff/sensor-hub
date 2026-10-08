@@ -147,6 +147,11 @@ signs:
       - "--detach-sign"
       - "${artifact}"
 
+# A snapshot, such as CI's package test builds, sorts above the last release,
+# so installing it over that release is an upgrade.
+snapshot:
+  version_template: "{{ incpatch .Version }}-SNAPSHOT-{{ .ShortCommit }}"
+
 release:
   extra_files:
     - glob: sensor-hub-gpg-public.key

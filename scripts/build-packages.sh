@@ -33,7 +33,7 @@ OUTPUT_DIR="$REPO_ROOT/dist"
 
 # --- Usage ---
 usage() {
-  sed -n '3,16p' "$0" | sed 's/^# \?//'
+  sed -n '3,16p' "$0" | sed -E 's/^# ?//'
   exit 0
 }
 
@@ -121,8 +121,10 @@ check_prereqs() {
   fi
 
   command -v nfpm &>/dev/null || {
-    if [[ -x "$(go env GOPATH 2>/dev/null)/bin/nfpm" ]]; then
-      export PATH="$(go env GOPATH)/bin:$PATH"
+    local gopath_bin
+    gopath_bin="$(go env GOPATH 2>/dev/null)/bin"
+    if [[ -x "$gopath_bin/nfpm" ]]; then
+      export PATH="$gopath_bin:$PATH"
     else
       missing+=("nfpm (install: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest)")
     fi
