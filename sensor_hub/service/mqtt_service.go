@@ -33,6 +33,7 @@ type MQTTService struct {
 	secrets    BrokerSecrets
 	logger     *slog.Logger
 	notifier   SubscriptionNotifier
+	brokers    BrokerNotifier
 }
 
 func NewMQTTService(
@@ -88,6 +89,7 @@ func (s *MQTTService) AddBroker(ctx context.Context, broker gen.MQTTBroker) (int
 			return 0, fmt.Errorf("failed to store the broker password: %w", err)
 		}
 	}
+	s.brokerChanged(id)
 	return id, nil
 }
 
@@ -161,6 +163,8 @@ func (s *MQTTService) UpdateBroker(ctx context.Context, broker gen.MQTTBroker) e
 	if err := s.brokerRepo.Update(ctx, broker); err != nil {
 		return err
 	}
+	// The row has changed even if the password write below fails.
+	defer s.brokerChanged(*broker.Id)
 	password, ok := newPassword(broker.Password)
 	if !ok {
 		return nil
@@ -184,7 +188,21 @@ func (s *MQTTService) DeleteBroker(ctx context.Context, id int) error {
 		return err
 	}
 	s.secrets.Forget(database.BrokerSecretOwner(id))
+	if s.brokers != nil {
+		s.brokers.OnBrokerDeleted(id)
+	}
 	return nil
+}
+
+// SetBrokerNotifier registers the notifier told about every broker write.
+func (s *MQTTService) SetBrokerNotifier(notifier BrokerNotifier) {
+	s.brokers = notifier
+}
+
+func (s *MQTTService) brokerChanged(id int) {
+	if s.brokers != nil {
+		s.brokers.OnBrokerChanged(id)
+	}
 }
 
 // ============================================================================

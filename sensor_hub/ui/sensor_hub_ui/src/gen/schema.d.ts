@@ -1458,11 +1458,14 @@ export interface paths {
         get: operations["getMqttBroker"];
         /**
          * Update an MQTT broker
-         * @description Replaces the broker's settings. The password follows the write-only rules on the MQTTBroker schema, so a body without one keeps the stored password.
+         * @description Replaces the broker's settings. The password follows the write-only rules on the MQTTBroker schema, so a body without one keeps the stored password. The server drops its connection to the broker and, if the broker is enabled, connects again with the new settings.
          */
         put: operations["updateMqttBroker"];
         post?: never;
-        /** Delete an MQTT broker */
+        /**
+         * Delete an MQTT broker
+         * @description Deletes the broker, its subscriptions and its password, and drops the server's connection to it.
+         */
         delete: operations["deleteMqttBroker"];
         options?: never;
         head?: never;

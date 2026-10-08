@@ -23,11 +23,53 @@ type brokerLink interface {
 	unsubscribe(sub gen.MQTTSubscription) error
 	publish(topic string, payload []byte, qos byte) error
 	connected() bool
+	// awaitConnected waits up to timeout for the link's first connection,
+	// with its subscriptions in place.
+	awaitConnected(timeout time.Duration) error
 	close()
 }
 
+// pahoLink is one Paho client, from the moment it starts connecting. A client
+// in ConnectRetry is a pahoLink too: it holds a credential and presents it
+// every retry until close stops it.
 type pahoLink struct {
 	client pahomqtt.Client
+	// connecting is the token of the client's Connect. It completes once the
+	// broker accepts, or with an error once close stops the retrying.
+	connecting pahomqtt.Token
+
+	subscribed     chan struct{}
+	subscribedOnce sync.Once
+}
+
+func newPahoLink() *pahoLink {
+	return &pahoLink{subscribed: make(chan struct{})}
+}
+
+// markSubscribed records that the first connection's subscriptions are in place.
+func (l *pahoLink) markSubscribed() {
+	l.subscribedOnce.Do(func() { close(l.subscribed) })
+}
+
+func (l *pahoLink) awaitConnected(timeout time.Duration) error {
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+	select {
+	case <-l.subscribed:
+		return nil
+	case <-l.connecting.Done():
+		if err := l.connecting.Error(); err != nil {
+			return err
+		}
+	case <-deadline.C:
+		return fmt.Errorf("not connected after %s; still retrying", timeout)
+	}
+	select {
+	case <-l.subscribed:
+		return nil
+	case <-deadline.C:
+		return fmt.Errorf("connected, but not subscribed after %s", timeout)
+	}
 }
 
 func (l *pahoLink) subscribe(sub gen.MQTTSubscription, receive messageReceiver) error {
@@ -56,8 +98,11 @@ func (l *pahoLink) publish(topic string, payload []byte, qos byte) error {
 	return nil
 }
 
+// connected is true only while the connection is up. Paho's IsConnected is
+// also true for a client still retrying its first connect or reconnecting,
+// which the manager now tracks too.
 func (l *pahoLink) connected() bool {
-	return l.client.IsConnected()
+	return l.client.IsConnectionOpen()
 }
 
 func (l *pahoLink) close() {
@@ -168,6 +213,12 @@ func (l *inlineLink) publish(topic string, payload []byte, qos byte) error {
 // it was made for is running.
 func (l *inlineLink) connected() bool {
 	return true
+}
+
+// awaitConnected returns at once: the inline client is attached in-process
+// and subscribed before the link is handed out.
+func (l *inlineLink) awaitConnected(time.Duration) error {
+	return nil
 }
 
 func (l *inlineLink) close() {

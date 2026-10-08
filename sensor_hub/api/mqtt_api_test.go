@@ -101,6 +101,7 @@ func (m *mockMQTTService) DeleteSubscription(ctx context.Context, id int) error 
 	return m.Called(ctx, id).Error(0)
 }
 func (m *mockMQTTService) SetSubscriptionNotifier(n service.SubscriptionNotifier) {}
+func (m *mockMQTTService) SetBrokerNotifier(n service.BrokerNotifier)             {}
 
 // ============================================================================
 // Mock MQTT stats provider

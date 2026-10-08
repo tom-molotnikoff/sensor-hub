@@ -27,6 +27,10 @@ type MQTTServiceInterface interface {
 	// SetSubscriptionNotifier registers a notifier that is called when
 	// subscriptions are added or removed at runtime.
 	SetSubscriptionNotifier(notifier SubscriptionNotifier)
+
+	// SetBrokerNotifier registers a notifier that is called after every
+	// broker write and broker secret write.
+	SetBrokerNotifier(notifier BrokerNotifier)
 }
 
 // SubscriptionNotifier is called by the service layer when subscriptions
@@ -34,4 +38,12 @@ type MQTTServiceInterface interface {
 type SubscriptionNotifier interface {
 	OnSubscriptionAdded(sub gen.MQTTSubscription)
 	OnSubscriptionRemoved(sub gen.MQTTSubscription)
+}
+
+// BrokerNotifier is called by the service layer after a broker or its
+// password is written, so the broker's connection follows the change without
+// a restart. Defined here to avoid circular imports (mqtt→service).
+type BrokerNotifier interface {
+	OnBrokerChanged(id int)
+	OnBrokerDeleted(id int)
 }
