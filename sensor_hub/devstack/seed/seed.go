@@ -8,6 +8,7 @@ import (
 	"time"
 
 	database "example/sensorHub/db"
+	gen "example/sensorHub/gen"
 	"example/sensorHub/readings"
 	"example/sensorHub/service"
 	"example/sensorHub/testharness/fixtures"
@@ -218,7 +219,7 @@ func (s *seeder) createAdminAPIKey(ctx context.Context, adminID int) (string, er
 		if key.Name != adminAPIKeyName {
 			continue
 		}
-		if err := s.apiKeys.DeleteApiKey(ctx, key.Id, adminID); err != nil {
+		if err := s.apiKeys.DeleteApiKey(ctx, key.Id, &gen.User{Id: adminID}); err != nil {
 			return "", err
 		}
 		s.logger.Info("deleted an API key left by an unfinished run", "key_prefix", key.KeyPrefix)

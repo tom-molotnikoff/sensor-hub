@@ -328,6 +328,9 @@ type ServerInterface interface {
 	// Delete a user
 	// (DELETE /users/{id})
 	DeleteUser(c *gin.Context, id int)
+	// Disable or enable a user
+	// (PUT /users/{id}/disabled)
+	SetUserDisabled(c *gin.Context, id int)
 	// Set must change password flag
 	// (PATCH /users/{id}/must_change)
 	SetMustChangePassword(c *gin.Context, id int)
@@ -3109,6 +3112,36 @@ func (siw *ServerInterfaceWrapper) DeleteUser(c *gin.Context) {
 	siw.Handler.DeleteUser(c, id)
 }
 
+// SetUserDisabled operation middleware
+func (siw *ServerInterfaceWrapper) SetUserDisabled(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	c.Set(CsrfTokenScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetUserDisabled(c, id)
+}
+
 // SetMustChangePassword operation middleware
 func (siw *ServerInterfaceWrapper) SetMustChangePassword(c *gin.Context) {
 
@@ -3301,6 +3334,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/users", wrapper.CreateUser)
 	router.PUT(options.BaseURL+"/users/password", wrapper.ChangePassword)
 	router.DELETE(options.BaseURL+"/users/:id", wrapper.DeleteUser)
+	router.PUT(options.BaseURL+"/users/:id/disabled", wrapper.SetUserDisabled)
 	router.PATCH(options.BaseURL+"/users/:id/must_change", wrapper.SetMustChangePassword)
 	router.POST(options.BaseURL+"/users/:id/roles", wrapper.SetUserRoles)
 }

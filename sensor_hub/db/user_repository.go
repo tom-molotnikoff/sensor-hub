@@ -176,11 +176,58 @@ func (r *SqlUserRepository) UpdatePassword(ctx context.Context, userId int, pass
 	return nil
 }
 
+var (
+	ErrUserNotFound     = errors.New("user not found")
+	ErrLastEnabledAdmin = errors.New("disabling this user would leave no enabled admin")
+)
+
+// SetDisabled sets a user's disabled flag in one transaction. Disabling also
+// deletes every session the user holds, and is refused with
+// ErrLastEnabledAdmin when no other enabled user holds the admin role.
 func (r *SqlUserRepository) SetDisabled(ctx context.Context, userId int, disabled bool) error {
-	query := "UPDATE users SET disabled = ?, updated_at = ? WHERE id = ?"
-	_, err := r.db.Writer.ExecContext(ctx, query, disabled, time.Now(), userId)
+	tx, err := r.db.Writer.BeginTx(ctx, nil)
 	if err != nil {
+		return fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var isAdmin bool
+	err = tx.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+			WHERE ur.user_id = u.id AND LOWER(r.name) = 'admin')
+		FROM users u WHERE u.id = ?`, userId).Scan(&isAdmin)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrUserNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("error looking up user: %w", err)
+	}
+
+	if disabled && isAdmin {
+		var otherEnabledAdmin bool
+		err = tx.QueryRowContext(ctx,
+			`SELECT EXISTS (SELECT 1 FROM users u
+				JOIN user_roles ur ON ur.user_id = u.id
+				JOIN roles r ON r.id = ur.role_id
+				WHERE LOWER(r.name) = 'admin' AND u.disabled = 0 AND u.id != ?)`, userId).Scan(&otherEnabledAdmin)
+		if err != nil {
+			return fmt.Errorf("error checking for another enabled admin: %w", err)
+		}
+		if !otherEnabledAdmin {
+			return ErrLastEnabledAdmin
+		}
+	}
+
+	if _, err = tx.ExecContext(ctx, "UPDATE users SET disabled = ?, updated_at = ? WHERE id = ?", disabled, time.Now(), userId); err != nil {
 		return fmt.Errorf("error updating disabled flag for user: %w", err)
+	}
+	if disabled {
+		if _, err = tx.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ?", userId); err != nil {
+			return fmt.Errorf("error deleting sessions for user: %w", err)
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("error committing disabled flag transaction: %w", err)
 	}
 	return nil
 }

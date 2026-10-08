@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	appProps "example/sensorHub/application_properties"
 	gen "example/sensorHub/gen"
 	"example/sensorHub/service"
@@ -23,6 +24,10 @@ func (s *Server) Login(c *gin.Context) {
 	ip := c.ClientIP()
 	userAgent := c.Request.UserAgent()
 	token, csrf, mustChange, err := s.authService.Login(ctx, req.Username, req.Password, ip, userAgent)
+	if errors.Is(err, service.ErrAccountDisabled) {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "account disabled"})
+		return
+	}
 	if err != nil {
 		switch e := err.(type) {
 		case *service.TooManyAttemptsError:

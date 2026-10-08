@@ -9,6 +9,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -168,39 +169,104 @@ func TestApiKeyRepository_ListApiKeysForUser_Empty(t *testing.T) {
 }
 
 // ============================================================================
-// RevokeApiKey tests
+// Owner-scoped write tests: revoke, delete and update expiry
 // ============================================================================
 
-func TestApiKeyRepository_RevokeApiKey_Success(t *testing.T) {
-	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(handles(db), slog.Default())
-
-	mock.ExpectExec("UPDATE api_keys SET revoked = 1").
-		WithArgs(1).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-
-	err := repo.RevokeApiKey(context.Background(), 1)
-
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+// apiKeyFixture is two users with one key each, in a migrated database.
+type apiKeyFixture struct {
+	repo       *SqlApiKeyRepository
+	h          *Handles
+	owner      int
+	other      int
+	ownerKeyId int
+	otherKeyId int
 }
 
-// ============================================================================
-// DeleteApiKey tests
-// ============================================================================
+func newApiKeyFixture(t *testing.T) apiKeyFixture {
+	t.Helper()
+	h := newMigratedHandles(t)
+	repo := NewApiKeyRepository(h, slog.Default())
+	f := apiKeyFixture{repo: repo, h: h,
+		owner: insertTestUser(t, h, "owner", "viewer", false),
+		other: insertTestUser(t, h, "other", "admin", false),
+	}
+	id, err := repo.CreateApiKey(context.Background(), "owner-key", "shk_owner", "owner-hash", f.owner, nil)
+	require.NoError(t, err)
+	f.ownerKeyId = int(id)
+	id, err = repo.CreateApiKey(context.Background(), "other-key", "shk_other", "other-hash", f.other, nil)
+	require.NoError(t, err)
+	f.otherKeyId = int(id)
+	return f
+}
 
-func TestApiKeyRepository_DeleteApiKey_Success(t *testing.T) {
-	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(handles(db), slog.Default())
+func (f apiKeyFixture) key(t *testing.T, id int) (revoked bool, expiresAt sql.NullString, exists bool) {
+	t.Helper()
+	err := f.h.Reader.QueryRow("SELECT revoked, expires_at FROM api_keys WHERE id = ?", id).Scan(&revoked, &expiresAt)
+	if err == sql.ErrNoRows {
+		return false, expiresAt, false
+	}
+	require.NoError(t, err)
+	return revoked, expiresAt, true
+}
 
-	mock.ExpectExec("DELETE FROM api_keys").
-		WithArgs(1).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+func TestApiKeyRepository_ScopedWritesRefuseAnotherUsersKey(t *testing.T) {
+	f := newApiKeyFixture(t)
+	ctx := context.Background()
+	expiry := time.Now().Add(time.Hour)
 
-	err := repo.DeleteApiKey(context.Background(), 1)
+	assert.ErrorIs(t, f.repo.RevokeApiKey(ctx, f.otherKeyId, &f.owner), ErrApiKeyNotFound)
+	assert.ErrorIs(t, f.repo.UpdateApiKeyExpiry(ctx, f.otherKeyId, &f.owner, &expiry), ErrApiKeyNotFound)
+	assert.ErrorIs(t, f.repo.DeleteApiKey(ctx, f.otherKeyId, &f.owner), ErrApiKeyNotFound)
 
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	revoked, expiresAt, exists := f.key(t, f.otherKeyId)
+	assert.True(t, exists)
+	assert.False(t, revoked)
+	assert.False(t, expiresAt.Valid)
+}
+
+func TestApiKeyRepository_ScopedWritesActOnTheOwnersKey(t *testing.T) {
+	f := newApiKeyFixture(t)
+	ctx := context.Background()
+	expiry := time.Now().Add(time.Hour)
+
+	require.NoError(t, f.repo.UpdateApiKeyExpiry(ctx, f.ownerKeyId, &f.owner, &expiry))
+	require.NoError(t, f.repo.RevokeApiKey(ctx, f.ownerKeyId, &f.owner))
+	revoked, expiresAt, _ := f.key(t, f.ownerKeyId)
+	assert.True(t, revoked)
+	assert.True(t, expiresAt.Valid)
+
+	require.NoError(t, f.repo.UpdateApiKeyExpiry(ctx, f.ownerKeyId, &f.owner, nil))
+	_, expiresAt, _ = f.key(t, f.ownerKeyId)
+	assert.False(t, expiresAt.Valid, "a nil expiry clears it")
+
+	require.NoError(t, f.repo.DeleteApiKey(ctx, f.ownerKeyId, &f.owner))
+	_, _, exists := f.key(t, f.ownerKeyId)
+	assert.False(t, exists)
+}
+
+func TestApiKeyRepository_UnscopedWritesActOnAnyKey(t *testing.T) {
+	f := newApiKeyFixture(t)
+	ctx := context.Background()
+	expiry := time.Now().Add(time.Hour)
+
+	require.NoError(t, f.repo.UpdateApiKeyExpiry(ctx, f.ownerKeyId, nil, &expiry))
+	require.NoError(t, f.repo.RevokeApiKey(ctx, f.ownerKeyId, nil))
+	revoked, expiresAt, _ := f.key(t, f.ownerKeyId)
+	assert.True(t, revoked)
+	assert.True(t, expiresAt.Valid)
+
+	require.NoError(t, f.repo.DeleteApiKey(ctx, f.ownerKeyId, nil))
+	_, _, exists := f.key(t, f.ownerKeyId)
+	assert.False(t, exists)
+}
+
+func TestApiKeyRepository_WritesOnAMissingKey(t *testing.T) {
+	f := newApiKeyFixture(t)
+	ctx := context.Background()
+
+	assert.ErrorIs(t, f.repo.RevokeApiKey(ctx, 999, nil), ErrApiKeyNotFound)
+	assert.ErrorIs(t, f.repo.UpdateApiKeyExpiry(ctx, 999, nil, nil), ErrApiKeyNotFound)
+	assert.ErrorIs(t, f.repo.DeleteApiKey(ctx, 999, nil), ErrApiKeyNotFound)
 }
 
 // ============================================================================
@@ -216,39 +282,6 @@ func TestApiKeyRepository_UpdateLastUsed_Success(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.UpdateLastUsed(context.Background(), 1)
-
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-// ============================================================================
-// UpdateApiKeyExpiry tests
-// ============================================================================
-
-func TestApiKeyRepository_UpdateApiKeyExpiry_Success(t *testing.T) {
-	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(handles(db), slog.Default())
-
-	expiry := time.Now().Add(72 * time.Hour)
-	mock.ExpectExec("UPDATE api_keys SET expires_at").
-		WithArgs(expiry, 1).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-
-	err := repo.UpdateApiKeyExpiry(context.Background(), 1, &expiry)
-
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestApiKeyRepository_UpdateApiKeyExpiry_ClearExpiry(t *testing.T) {
-	db, mock := newMockDB(t)
-	repo := NewApiKeyRepository(handles(db), slog.Default())
-
-	mock.ExpectExec("UPDATE api_keys SET expires_at").
-		WithArgs(nil, 1).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-
-	err := repo.UpdateApiKeyExpiry(context.Background(), 1, nil)
 
 	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())

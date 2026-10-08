@@ -3,9 +3,14 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log/slog"
 	"time"
 )
+
+// ErrApiKeyNotFound is returned when no key matches the id, or, for an
+// owner-scoped operation, when the key belongs to another user.
+var ErrApiKeyNotFound = errors.New("api key not found")
 
 type ApiKey struct {
 	Id         int        `json:"id"`
@@ -24,9 +29,12 @@ type ApiKeyRepository interface {
 	CreateApiKey(ctx context.Context, name string, keyPrefix string, keyHash string, userId int, expiresAt *time.Time) (int64, error)
 	GetApiKeyByHash(ctx context.Context, keyHash string) (*ApiKey, error)
 	ListApiKeysForUser(ctx context.Context, userId int) ([]ApiKey, error)
-	UpdateApiKeyExpiry(ctx context.Context, id int, expiresAt *time.Time) error
-	RevokeApiKey(ctx context.Context, id int) error
-	DeleteApiKey(ctx context.Context, id int) error
+	// UpdateApiKeyExpiry, RevokeApiKey and DeleteApiKey act on the key with the
+	// given id. A non-nil ownerId restricts them to that user's key. They
+	// return ErrApiKeyNotFound when no key matched.
+	UpdateApiKeyExpiry(ctx context.Context, id int, ownerId *int, expiresAt *time.Time) error
+	RevokeApiKey(ctx context.Context, id int, ownerId *int) error
+	DeleteApiKey(ctx context.Context, id int, ownerId *int) error
 	UpdateLastUsed(ctx context.Context, id int) error
 }
 
@@ -133,25 +141,43 @@ func (r *SqlApiKeyRepository) ListApiKeysForUser(ctx context.Context, userId int
 	return keys, rows.Err()
 }
 
-func (r *SqlApiKeyRepository) UpdateApiKeyExpiry(ctx context.Context, id int, expiresAt *time.Time) error {
-	_, err := r.db.Writer.ExecContext(ctx,
-		`UPDATE api_keys SET expires_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		expiresAt, id,
-	)
-	return err
+func (r *SqlApiKeyRepository) UpdateApiKeyExpiry(ctx context.Context, id int, ownerId *int, expiresAt *time.Time) error {
+	where, args := apiKeyMatch(id, ownerId)
+	return r.execOnKey(ctx, `UPDATE api_keys SET expires_at = ?, updated_at = CURRENT_TIMESTAMP WHERE `+where, append([]any{expiresAt}, args...)...)
 }
 
-func (r *SqlApiKeyRepository) RevokeApiKey(ctx context.Context, id int) error {
-	_, err := r.db.Writer.ExecContext(ctx,
-		`UPDATE api_keys SET revoked = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		id,
-	)
-	return err
+func (r *SqlApiKeyRepository) RevokeApiKey(ctx context.Context, id int, ownerId *int) error {
+	where, args := apiKeyMatch(id, ownerId)
+	return r.execOnKey(ctx, `UPDATE api_keys SET revoked = 1, updated_at = CURRENT_TIMESTAMP WHERE `+where, args...)
 }
 
-func (r *SqlApiKeyRepository) DeleteApiKey(ctx context.Context, id int) error {
-	_, err := r.db.Writer.ExecContext(ctx, `DELETE FROM api_keys WHERE id = ?`, id)
-	return err
+func (r *SqlApiKeyRepository) DeleteApiKey(ctx context.Context, id int, ownerId *int) error {
+	where, args := apiKeyMatch(id, ownerId)
+	return r.execOnKey(ctx, `DELETE FROM api_keys WHERE `+where, args...)
+}
+
+// apiKeyMatch is the WHERE clause for a single key: by id alone, or by id
+// AND user_id when the operation is scoped to the key's owner.
+func apiKeyMatch(id int, ownerId *int) (string, []any) {
+	if ownerId == nil {
+		return "id = ?", []any{id}
+	}
+	return "id = ? AND user_id = ?", []any{id, *ownerId}
+}
+
+func (r *SqlApiKeyRepository) execOnKey(ctx context.Context, query string, args ...any) error {
+	res, err := r.db.Writer.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrApiKeyNotFound
+	}
+	return nil
 }
 
 func (r *SqlApiKeyRepository) UpdateLastUsed(ctx context.Context, id int) error {

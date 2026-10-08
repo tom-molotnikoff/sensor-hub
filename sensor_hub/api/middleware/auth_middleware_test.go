@@ -94,6 +94,66 @@ func TestAuthRequired_MustChangePassword_Forbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
+func withApiKeyUser(t *testing.T, user *gen.User) {
+	t.Helper()
+	mockKeys := new(MockApiKeyService)
+	if user == nil {
+		mockKeys.On("ValidateApiKey", mock.Anything, "shk_key").Return(nil, nil)
+	} else {
+		mockKeys.On("ValidateApiKey", mock.Anything, "shk_key").Return(user, nil)
+	}
+	InitApiKeyMiddleware(mockKeys)
+	t.Cleanup(func() { InitApiKeyMiddleware(nil) })
+}
+
+func apiKeyRequest(method, target string) (*gin.Context, *httptest.ResponseRecorder) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(method, target, nil)
+	c.Request.Header.Set("X-API-Key", "shk_key")
+	return c, w
+}
+
+func TestAuthRequired_ApiKey(t *testing.T) {
+	user := &gen.User{Id: 1, Username: "cli"}
+	withApiKeyUser(t, user)
+	c, w := apiKeyRequest("GET", "/api/sensors")
+
+	AuthRequired()(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, user, c.MustGet("currentUser"))
+	assert.Equal(t, "api_key", c.GetString("authMethod"))
+}
+
+func TestAuthRequired_ApiKeyNotValid(t *testing.T) {
+	withApiKeyUser(t, nil)
+	c, w := apiKeyRequest("GET", "/api/sensors")
+
+	AuthRequired()(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestAuthRequired_ApiKeyMustChangePassword_Forbidden(t *testing.T) {
+	withApiKeyUser(t, &gen.User{Id: 1, Username: "cli", MustChangePassword: true})
+	c, w := apiKeyRequest("GET", "/api/sensors")
+
+	AuthRequired()(c)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestAuthRequired_ApiKeyMustChangePassword_Allowed(t *testing.T) {
+	withApiKeyUser(t, &gen.User{Id: 1, Username: "cli", MustChangePassword: true})
+	c, w := apiKeyRequest("PUT", "/api/users/password")
+
+	AuthRequired()(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, c.IsAborted())
+}
+
 func TestRequireAdmin_AdminUser(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)

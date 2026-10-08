@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	appProps "example/sensorHub/application_properties"
+	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
 
 	"github.com/stretchr/testify/assert"
@@ -376,4 +377,23 @@ func TestUserService_CreateUser_NilConfig(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, id)
+}
+
+func TestUserService_SetUserDisabled_RefusesTheCaller(t *testing.T) {
+	service, userRepo := setupUserService()
+
+	err := service.SetUserDisabled(context.Background(), 3, 3, true)
+
+	assert.ErrorIs(t, err, ErrCannotDisableSelf)
+	userRepo.AssertNotCalled(t, "SetDisabled", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestUserService_SetUserDisabled_PassesRefusalsThrough(t *testing.T) {
+	service, userRepo := setupUserService()
+	userRepo.On("SetDisabled", mock.Anything, 7, true).Return(database.ErrLastEnabledAdmin)
+
+	err := service.SetUserDisabled(context.Background(), 3, 7, true)
+
+	assert.ErrorIs(t, err, database.ErrLastEnabledAdmin)
+	userRepo.AssertExpectations(t)
 }

@@ -1335,7 +1335,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
         '401':
-          description: Invalid credentials
+          description: Invalid credentials, or "account disabled" when the password is right but the user is disabled
           content:
             application/json:
               schema:
@@ -1626,6 +1626,73 @@ paths:
           description: Not authenticated
         '403':
           description: Insufficient permissions
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{id}/disabled:
+    put:
+      tags:
+        - users
+      summary: Disable or enable a user
+      description: >-
+        Sets whether a user is disabled. Disabling a user deletes all their
+        sessions in the same request, and from then on their session cookies
+        and API keys are refused with 401 and their logins with "account
+        disabled". Requires manage_users permission. A user cannot disable or
+        enable themselves, and the last enabled admin cannot be disabled.
+      operationId: setUserDisabled
+      x-required-permission: manage_users
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                disabled:
+                  type: boolean
+              required:
+                - disabled
+      responses:
+        '200':
+          description: Flag updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          description: Invalid request, or the target is the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Disabling this user would leave no enabled admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Server error
           content:
@@ -2862,7 +2929,10 @@ paths:
     patch:
       tags: [api-keys]
       summary: Update API key expiry
-      description: Updates the expiration date of an existing API key owned by the authenticated user.
+      description: >-
+        Updates the expiration date of an API key. Without manage_users the key
+        must belong to the caller; another user's key answers 404 and is left
+        unchanged. With manage_users any key can be updated.
       operationId: updateApiKeyExpiry
       x-required-permission: manage_api_keys
       parameters:
@@ -2894,6 +2964,12 @@ paths:
         '400': { description: Invalid key ID or request body }
         '401': { description: Not authenticated }
         '403': { description: Insufficient permissions }
+        '404':
+          description: No such API key, or it belongs to another user and the caller lacks manage_users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Server error
           content:
@@ -2908,6 +2984,9 @@ paths:
       description: >-
         Permanently revokes an API key. A revoked key can no longer be used for
         authentication but remains visible in the key list until deleted.
+        Without manage_users the key must belong to the caller; another user's
+        key answers 404 and is left unchanged. With manage_users any key can be
+        revoked.
       operationId: revokeApiKey
       x-required-permission: manage_api_keys
       parameters:
@@ -2926,6 +3005,12 @@ paths:
         '400': { description: Invalid key ID }
         '401': { description: Not authenticated }
         '403': { description: Insufficient permissions }
+        '404':
+          description: No such API key, or it belongs to another user and the caller lacks manage_users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Server error
           content:
@@ -2937,7 +3022,10 @@ paths:
     delete:
       tags: [api-keys]
       summary: Delete an API key
-      description: Permanently deletes an API key owned by the authenticated user.
+      description: >-
+        Permanently deletes an API key. Without manage_users the key must belong
+        to the caller; another user's key answers 404 and is left unchanged.
+        With manage_users any key can be deleted.
       operationId: deleteApiKey
       x-required-permission: manage_api_keys
       parameters:
@@ -2956,6 +3044,12 @@ paths:
         '400': { description: Invalid key ID }
         '401': { description: Not authenticated }
         '403': { description: Insufficient permissions }
+        '404':
+          description: No such API key, or it belongs to another user and the caller lacks manage_users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Server error
           content:

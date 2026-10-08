@@ -5,6 +5,7 @@ package integration
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"testing"
 
 	gen "example/sensorHub/gen"
@@ -140,4 +141,115 @@ func TestUsers_DeleteRemovesSensorCommandHistory(t *testing.T) {
 
 	require.NoError(t, env.DB.Reader.QueryRow(`SELECT COUNT(*) FROM sensor_command_history WHERE id = ?`, command.Id).Scan(&historyCount))
 	assert.Zero(t, historyCount)
+}
+
+func TestUsers_DisabledUsersSessionAndApiKeyAreRejected(t *testing.T) {
+	user, userID := signedInUser(t, "user-to-disable", "user")
+	key, _ := createApiKey(t, user, "disabled-user-key")
+	_, status := user.GetMe()
+	require.Equal(t, http.StatusOK, status)
+	require.Equal(t, http.StatusOK, apiKeyWorks(t, key))
+
+	_, status = client.SetUserDisabled(userID, true)
+	require.Equal(t, http.StatusOK, status)
+
+	_, status = user.GetMe()
+	assert.Equal(t, http.StatusUnauthorized, status, "the session cookie")
+	assert.Equal(t, http.StatusUnauthorized, apiKeyWorks(t, key), "the API key")
+	var sessions int
+	require.NoError(t, env.DB.Reader.QueryRow(`SELECT COUNT(*) FROM sessions WHERE user_id = ?`, userID).Scan(&sessions))
+	assert.Zero(t, sessions, "disabling deletes the sessions")
+
+	body, status := testharness.NewClient(t, env.ServerURL).LoginBody("user-to-disable", "integration-pass-1")
+	assert.Equal(t, http.StatusUnauthorized, status)
+	assert.JSONEq(t, `{"message":"account disabled"}`, string(body))
+
+	_, status = client.SetUserDisabled(userID, false)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, http.StatusOK, apiKeyWorks(t, key), "enabling restores the API key")
+	assert.Equal(t, http.StatusOK, testharness.NewClient(t, env.ServerURL).Login("user-to-disable", "integration-pass-1"))
+}
+
+func TestUsers_CannotDisableThemselves(t *testing.T) {
+	_, status := client.SetUserDisabled(currentUserID(t, client), true)
+	assert.Equal(t, http.StatusBadRequest, status)
+}
+
+func TestUsers_ViewerCannotDisableAUser(t *testing.T) {
+	viewer, _ := signedInUser(t, "viewer-disabling", "viewer")
+	_, target := signedInUser(t, "viewer-disable-target", "viewer")
+
+	_, status := viewer.SetUserDisabled(target, true)
+	assert.Equal(t, http.StatusForbidden, status)
+}
+
+// The last enabled admin can only be targeted by a caller who holds
+// manage_users without being an admin, since an admin cannot disable
+// themselves. The test grants manage_users to the user role for its duration
+// and disables every other admin first.
+func TestUsers_LastEnabledAdminCannotBeDisabled(t *testing.T) {
+	adminID := currentUserID(t, client)
+	userRoleID, manageUsersID := roleID(t, "user"), permissionID(t, "manage_users")
+	require.Equal(t, http.StatusOK, client.AssignPermission(userRoleID, manageUsersID))
+	t.Cleanup(func() { client.RemovePermission(userRoleID, manageUsersID) })
+
+	resp, status := client.ListUsers()
+	require.Equal(t, http.StatusOK, status)
+	var users []gen.User
+	require.NoError(t, json.Unmarshal(resp, &users))
+	for _, u := range users {
+		if u.Id == adminID || u.Disabled || !slices.Contains(u.Roles, "admin") {
+			continue
+		}
+		_, status := client.SetUserDisabled(u.Id, true)
+		require.Equal(t, http.StatusOK, status)
+		t.Cleanup(func() { client.SetUserDisabled(u.Id, false) })
+	}
+
+	manager, _ := signedInUser(t, "user-manager", "user")
+	body, status := manager.SetUserDisabled(adminID, true)
+	assert.Equal(t, http.StatusConflict, status, string(body))
+
+	_, status = client.GetMe()
+	assert.Equal(t, http.StatusOK, status, "the admin is still enabled and signed in")
+}
+
+func currentUserID(t *testing.T, c *testharness.Client) int {
+	t.Helper()
+	resp, status := c.GetMe()
+	require.Equal(t, http.StatusOK, status)
+	var me struct {
+		User gen.User `json:"user"`
+	}
+	require.NoError(t, json.Unmarshal(resp, &me))
+	require.NotZero(t, me.User.Id)
+	return me.User.Id
+}
+
+func roleID(t *testing.T, name string) int {
+	t.Helper()
+	resp, status := client.ListRoles()
+	require.Equal(t, http.StatusOK, status)
+	var roles []gen.RoleInfo
+	require.NoError(t, json.Unmarshal(resp, &roles))
+	for _, r := range roles {
+		if r.Name == name {
+			return r.Id
+		}
+	}
+	t.Fatalf("no role %q", name)
+	return 0
+}
+
+func permissionID(t *testing.T, name string) int {
+	t.Helper()
+	perms, status := client.ListPermissions()
+	require.Equal(t, http.StatusOK, status)
+	for _, p := range perms {
+		if p.Name == name {
+			return p.Id
+		}
+	}
+	t.Fatalf("no permission %q", name)
+	return 0
 }

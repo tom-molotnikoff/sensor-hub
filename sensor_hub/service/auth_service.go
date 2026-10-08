@@ -29,6 +29,10 @@ type AuthServiceInterface interface {
 
 const sessionTouchInterval = 60 * time.Second
 
+// ErrAccountDisabled is returned by Login when the password is right but the
+// user is disabled.
+var ErrAccountDisabled = errors.New("account disabled")
+
 type AuthService struct {
 	userRepo    database.UserRepository
 	sessionRepo database.SessionRepository
@@ -174,15 +178,17 @@ func (a *AuthService) Login(ctx context.Context, username, password, ip, userAge
 		}
 		return "", "", false, errors.New("invalid credentials")
 	}
-	if user.Disabled {
-		return "", "", false, errors.New("account disabled")
-	}
 	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password)); err != nil {
 		err = a.failedRepo.RecordFailedAttempt(ctx, username, &user.Id, ip, "bad_password")
 		if err != nil {
 			a.logger.Error("error recording failed login attempt", "error", err)
 		}
 		return "", "", false, errors.New("invalid credentials")
+	}
+	// Checked after the password, so only someone who knows it learns that
+	// the account is disabled.
+	if user.Disabled {
+		return "", "", false, ErrAccountDisabled
 	}
 
 	token, err := a.generateToken(32)
@@ -226,7 +232,7 @@ func (a *AuthService) ValidateSession(ctx context.Context, rawToken string) (*ge
 	if err != nil {
 		return nil, err
 	}
-	if user == nil {
+	if user == nil || user.Disabled {
 		return nil, nil
 	}
 	if time.Since(lastAccessedAt) >= sessionTouchInterval {

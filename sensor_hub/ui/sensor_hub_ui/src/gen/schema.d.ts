@@ -787,6 +787,26 @@ export interface paths {
         patch: operations["setMustChangePassword"];
         trace?: never;
     };
+    "/users/{id}/disabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Disable or enable a user
+         * @description Sets whether a user is disabled. Disabling a user deletes all their sessions in the same request, and from then on their session cookies and API keys are refused with 401 and their logins with "account disabled". Requires manage_users permission. A user cannot disable or enable themselves, and the last enabled admin cannot be disabled.
+         */
+        put: operations["setUserDisabled"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{id}/roles": {
         parameters: {
             query?: never;
@@ -1358,7 +1378,7 @@ export interface paths {
         head?: never;
         /**
          * Update API key expiry
-         * @description Updates the expiration date of an existing API key owned by the authenticated user.
+         * @description Updates the expiration date of an API key. Without manage_users the key must belong to the caller; another user's key answers 404 and is left unchanged. With manage_users any key can be updated.
          */
         patch: operations["updateApiKeyExpiry"];
         trace?: never;
@@ -1374,7 +1394,7 @@ export interface paths {
         put?: never;
         /**
          * Revoke an API key
-         * @description Permanently revokes an API key. A revoked key can no longer be used for authentication but remains visible in the key list until deleted.
+         * @description Permanently revokes an API key. A revoked key can no longer be used for authentication but remains visible in the key list until deleted. Without manage_users the key must belong to the caller; another user's key answers 404 and is left unchanged. With manage_users any key can be revoked.
          */
         post: operations["revokeApiKey"];
         delete?: never;
@@ -1395,7 +1415,7 @@ export interface paths {
         post?: never;
         /**
          * Delete an API key
-         * @description Permanently deletes an API key owned by the authenticated user.
+         * @description Permanently deletes an API key. Without manage_users the key must belong to the caller; another user's key answers 404 and is left unchanged. With manage_users any key can be deleted.
          */
         delete: operations["deleteApiKey"];
         options?: never;
@@ -4317,7 +4337,7 @@ export interface operations {
                     "application/json": components["schemas"]["LoginResponse"];
                 };
             };
-            /** @description Invalid credentials */
+            /** @description Invalid credentials, or "account disabled" when the password is right but the user is disabled */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4729,6 +4749,85 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setUserDisabled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    disabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Flag updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessMessage"];
+                };
+            };
+            /** @description Invalid request, or the target is the caller */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Insufficient permissions */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Disabling this user would leave no enabled admin */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
             /** @description Server error */
             500: {
@@ -6589,6 +6688,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description No such API key, or it belongs to another user and the caller lacks manage_users */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -6642,6 +6750,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description No such API key, or it belongs to another user and the caller lacks manage_users */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -6694,6 +6811,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description No such API key, or it belongs to another user and the caller lacks manage_users */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
             /** @description Server error */
             500: {

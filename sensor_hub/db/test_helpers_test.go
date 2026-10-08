@@ -25,6 +25,43 @@ func handles(db *sql.DB) *Handles {
 	return &Handles{Reader: db, Writer: db}
 }
 
+// newMigratedHandles opens a file-backed SQLite database with every migration
+// applied, for repository tests whose behaviour lives in the SQL itself.
+func newMigratedHandles(t *testing.T) *Handles {
+	t.Helper()
+	db := newTempFileDB(t)
+	require.NoError(t, newTestMigrator(t, db).Up())
+	return handles(db)
+}
+
+// insertTestUser adds a user holding one role and returns its id.
+func insertTestUser(t *testing.T, h *Handles, username, role string, disabled bool) int {
+	t.Helper()
+	res, err := h.Writer.Exec(
+		"INSERT INTO users (username, email, password_hash, must_change_password, disabled) VALUES (?, ?, 'hash', 0, ?)",
+		username, username+"@example.com", disabled)
+	require.NoError(t, err)
+	id, err := res.LastInsertId()
+	require.NoError(t, err)
+	_, err = h.Writer.Exec("INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE name = ?", id, role)
+	require.NoError(t, err)
+	return int(id)
+}
+
+func insertTestSession(t *testing.T, h *Handles, userId int, rawToken string) {
+	t.Helper()
+	_, err := h.Writer.Exec("INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+		userId, tokenHash(rawToken), time.Now().Add(time.Hour))
+	require.NoError(t, err)
+}
+
+func countSessions(t *testing.T, h *Handles, userId int) int {
+	t.Helper()
+	var n int
+	require.NoError(t, h.Reader.QueryRow("SELECT COUNT(*) FROM sessions WHERE user_id = ?", userId).Scan(&n))
+	return n
+}
+
 // newMockDBWithQueryMatcher creates a mock DB with custom query matching.
 func newMockDBWithQueryMatcher(t *testing.T, matcher sqlmock.QueryMatcher) (*sql.DB, sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(matcher))

@@ -1804,6 +1804,11 @@ type AssignPermissionJSONBody struct {
 // GetSensorsByStatusParamsStatus defines parameters for GetSensorsByStatus.
 type GetSensorsByStatusParamsStatus string
 
+// SetUserDisabledJSONBody defines parameters for SetUserDisabled.
+type SetUserDisabledJSONBody struct {
+	Disabled bool `json:"disabled"`
+}
+
 // SetMustChangePasswordJSONBody defines parameters for SetMustChangePassword.
 type SetMustChangePasswordJSONBody struct {
 	MustChange bool `json:"must_change"`
@@ -1891,6 +1896,9 @@ type CreateUserJSONRequestBody = CreateUserRequest
 
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody = ChangePasswordRequest
+
+// SetUserDisabledJSONRequestBody defines body for SetUserDisabled for application/json ContentType.
+type SetUserDisabledJSONRequestBody SetUserDisabledJSONBody
 
 // SetMustChangePasswordJSONRequestBody defines body for SetMustChangePassword for application/json ContentType.
 type SetMustChangePasswordJSONRequestBody SetMustChangePasswordJSONBody

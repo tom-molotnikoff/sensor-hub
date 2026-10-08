@@ -55,6 +55,20 @@ CLI                             Sensor Hub
 API key authentication bypasses CSRF checks (API keys are not automatically
 sent by the browser).
 
+A key acts as its owner: a disabled owner's keys get 401, and an owner who
+must change their password is held to the same allow-list as a session. The
+revoke, delete and update-expiry operations act only on the caller's own keys
+(the repository matches `id AND user_id`) unless the caller holds
+`manage_users`. Another user's key answers 404.
+
+## Disabled Users
+
+`PUT /api/users/{id}/disabled` sets the flag and, when disabling, deletes the
+user's sessions in the same transaction. It refuses the caller's own account
+(400) and the last enabled admin (409). Session and API key validation both
+treat a disabled user as unauthenticated, and login answers "account disabled"
+once the password has been checked.
+
 API keys are hashed before storage. 
 
 ## Must Change Password
@@ -62,8 +76,9 @@ API keys are hashed before storage.
 When a user is created through the API, `must_change_password` is set to
 `true`. The first admin created with `local admin create` gets it only with
 `--must-change-password`. This forces the user to change their password on first login. During this time,
-All other endpoints return 403 Forbidden. The flag is cleared after the user
-changes their password.
+all other endpoints return 403 Forbidden, whether the request carries the
+session cookie or one of the user's API keys. The flag is cleared after the
+user changes their password.
 
 ## Role-Based Access Control
 

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"example/sensorHub/service"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -520,4 +522,53 @@ func TestSetRolesHandler_ServiceError(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestSetUserDisabledHandler(t *testing.T) {
+	cases := []struct {
+		name       string
+		serviceErr error
+		disabled   bool
+		wantStatus int
+		wantBody   string
+	}{
+		{"disables", nil, true, http.StatusOK, `{"message":"user disabled"}`},
+		{"enables", nil, false, http.StatusOK, `{"message":"user enabled"}`},
+		{"caller", service.ErrCannotDisableSelf, true, http.StatusBadRequest, `{"message":"you cannot disable or enable your own account"}`},
+		{"unknown user", database.ErrUserNotFound, true, http.StatusNotFound, `{"message":"user not found"}`},
+		{"last enabled admin", database.ErrLastEnabledAdmin, true, http.StatusConflict, `{"message":"disabling this user would leave no enabled admin"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			router, api, s, mockService := setupUserRouter()
+			api.PUT("/users/:id/disabled", func(c *gin.Context) {
+				c.Set("currentUser", &gen.User{Id: 1})
+				id, _ := strconv.Atoi(c.Param("id"))
+				s.SetUserDisabled(c, id)
+			})
+			mockService.On("SetUserDisabled", mock.Anything, 1, 7, tc.disabled).Return(tc.serviceErr)
+
+			body, _ := json.Marshal(gen.SetUserDisabledJSONRequestBody{Disabled: tc.disabled})
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, httptest.NewRequest("PUT", "/api/users/7/disabled", bytes.NewReader(body)))
+
+			assert.Equal(t, tc.wantStatus, w.Code)
+			assert.JSONEq(t, tc.wantBody, w.Body.String())
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestSetUserDisabledHandler_InvalidJSON(t *testing.T) {
+	router, api, s, mockService := setupUserRouter()
+	api.PUT("/users/:id/disabled", func(c *gin.Context) {
+		c.Set("currentUser", &gen.User{Id: 1})
+		s.SetUserDisabled(c, 7)
+	})
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest("PUT", "/api/users/7/disabled", bytes.NewBufferString("{")))
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertNotCalled(t, "SetUserDisabled", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }

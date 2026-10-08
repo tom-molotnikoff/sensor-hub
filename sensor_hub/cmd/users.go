@@ -22,6 +22,8 @@ func init() {
 	usersCmd.AddCommand(usersChangePasswordCmd)
 	usersCmd.AddCommand(usersSetMustChangeCmd)
 	usersCmd.AddCommand(usersSetRolesCmd)
+	usersCmd.AddCommand(usersDisableCmd)
+	usersCmd.AddCommand(usersEnableCmd)
 	rootCmd.AddCommand(usersCmd)
 }
 
@@ -169,4 +171,33 @@ var usersSetRolesCmd = &cobra.Command{
 
 func init() {
 	usersSetRolesCmd.Flags().StringSlice("roles", nil, "Comma-separated list of role names")
+}
+
+var usersDisableCmd = newUsersSetDisabledCmd("disable", true,
+	"Disable a user",
+	"Disable a user. Their sessions end at once and their API keys stop working. You cannot disable yourself or the last enabled admin.")
+
+var usersEnableCmd = newUsersSetDisabledCmd("enable", false,
+	"Enable a disabled user",
+	"Enable a disabled user so they can log in and use their API keys again.")
+
+func newUsersSetDisabledCmd(verb string, disabled bool, short, long string) *cobra.Command {
+	return &cobra.Command{
+		Use:   verb + " [id]",
+		Short: short,
+		Long:  long,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := parseUserID(args[0])
+			if err != nil {
+				return err
+			}
+			client, ctx, err := newAPIClient(cmd)
+			if err != nil {
+				return err
+			}
+			body := gen.SetUserDisabledJSONRequestBody{Disabled: disabled}
+			return consumeJSON(client.SetUserDisabled(ctx, id, body))
+		},
+	}
 }

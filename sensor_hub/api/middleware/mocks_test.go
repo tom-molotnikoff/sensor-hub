@@ -4,6 +4,8 @@ import (
 	"context"
 	db "example/sensorHub/db"
 	gen "example/sensorHub/gen"
+	"time"
+
 	"github.com/stretchr/testify/mock"
 )
 
@@ -57,4 +59,38 @@ func (m *MockAuthService) GetCSRFForToken(ctx context.Context, rawToken string) 
 func (m *MockAuthService) GetSessionIdForToken(ctx context.Context, rawToken string) (int64, error) {
 	args := m.Called(ctx, rawToken)
 	return args.Get(0).(int64), args.Error(1)
+}
+
+// MockApiKeyService mocks key validation; the key-management methods are not
+// reached by the middleware.
+type MockApiKeyService struct {
+	mock.Mock
+}
+
+func (m *MockApiKeyService) ValidateApiKey(ctx context.Context, rawKey string) (*gen.User, error) {
+	args := m.Called(ctx, rawKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*gen.User), args.Error(1)
+}
+
+func (m *MockApiKeyService) CreateApiKey(context.Context, string, int, *time.Time) (string, error) {
+	panic("not used by the middleware")
+}
+
+func (m *MockApiKeyService) ListApiKeysForUser(context.Context, int) ([]db.ApiKey, error) {
+	panic("not used by the middleware")
+}
+
+func (m *MockApiKeyService) UpdateApiKeyExpiry(context.Context, int, *gen.User, *time.Time) error {
+	panic("not used by the middleware")
+}
+
+func (m *MockApiKeyService) RevokeApiKey(context.Context, int, *gen.User) error {
+	panic("not used by the middleware")
+}
+
+func (m *MockApiKeyService) DeleteApiKey(context.Context, int, *gen.User) error {
+	panic("not used by the middleware")
 }

@@ -116,33 +116,53 @@ func TestApiKeyService_ValidateApiKey_UserNotFound(t *testing.T) {
 	assert.Nil(t, result)
 }
 
-// ============================================================================
-// RevokeApiKey tests
-// ============================================================================
+func TestApiKeyService_ValidateApiKey_DisabledUser(t *testing.T) {
+	svc, apiKeyRepo, userRepo, _ := setupApiKeyService()
 
-func TestApiKeyService_RevokeApiKey_Success(t *testing.T) {
-	svc, apiKeyRepo, _, _ := setupApiKeyService()
+	apiKey := &database.ApiKey{Id: 1, Name: "test", UserId: 5}
+	apiKeyRepo.On("GetApiKeyByHash", mock.Anything, mock.AnythingOfType("string")).Return(apiKey, nil)
+	userRepo.On("GetUserById", mock.Anything, 5).Return(&gen.User{Id: 5, Username: "gone", Disabled: true}, nil)
 
-	apiKeyRepo.On("RevokeApiKey", mock.Anything, 1).Return(nil)
-
-	err := svc.RevokeApiKey(context.Background(), 1, 5)
+	result, err := svc.ValidateApiKey(context.Background(), "shk_abc123")
 
 	assert.NoError(t, err)
-	apiKeyRepo.AssertExpectations(t)
+	assert.Nil(t, result, "a disabled user's key does not authenticate")
+	apiKeyRepo.AssertNotCalled(t, "UpdateLastUsed", mock.Anything, mock.Anything)
 }
 
 // ============================================================================
-// DeleteApiKey tests
+// Revoke, delete and update expiry: owner scope
 // ============================================================================
 
-func TestApiKeyService_DeleteApiKey_Success(t *testing.T) {
+func TestApiKeyService_KeyWritesAreScopedToTheCallerWithoutManageUsers(t *testing.T) {
 	svc, apiKeyRepo, _, _ := setupApiKeyService()
+	caller := &gen.User{Id: 5, Permissions: []string{"manage_api_keys"}}
+	expiry := time.Now().Add(time.Hour)
+	owner := 5
 
-	apiKeyRepo.On("DeleteApiKey", mock.Anything, 1).Return(nil)
+	apiKeyRepo.On("RevokeApiKey", mock.Anything, 1, &owner).Return(nil)
+	apiKeyRepo.On("DeleteApiKey", mock.Anything, 1, &owner).Return(nil)
+	apiKeyRepo.On("UpdateApiKeyExpiry", mock.Anything, 1, &owner, &expiry).Return(nil)
 
-	err := svc.DeleteApiKey(context.Background(), 1, 5)
+	assert.NoError(t, svc.RevokeApiKey(context.Background(), 1, caller))
+	assert.NoError(t, svc.DeleteApiKey(context.Background(), 1, caller))
+	assert.NoError(t, svc.UpdateApiKeyExpiry(context.Background(), 1, caller, &expiry))
+	apiKeyRepo.AssertExpectations(t)
+}
 
-	assert.NoError(t, err)
+func TestApiKeyService_KeyWritesReachAnyKeyWithManageUsers(t *testing.T) {
+	svc, apiKeyRepo, _, _ := setupApiKeyService()
+	caller := &gen.User{Id: 1, Permissions: []string{"manage_api_keys", "manage_users"}}
+	expiry := time.Now().Add(time.Hour)
+	var anyOwner *int
+
+	apiKeyRepo.On("RevokeApiKey", mock.Anything, 9, anyOwner).Return(nil)
+	apiKeyRepo.On("DeleteApiKey", mock.Anything, 9, anyOwner).Return(nil)
+	apiKeyRepo.On("UpdateApiKeyExpiry", mock.Anything, 9, anyOwner, &expiry).Return(nil)
+
+	assert.NoError(t, svc.RevokeApiKey(context.Background(), 9, caller))
+	assert.NoError(t, svc.DeleteApiKey(context.Background(), 9, caller))
+	assert.NoError(t, svc.UpdateApiKeyExpiry(context.Background(), 9, caller, &expiry))
 	apiKeyRepo.AssertExpectations(t)
 }
 
