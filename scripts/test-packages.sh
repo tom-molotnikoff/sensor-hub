@@ -144,22 +144,53 @@ exec /usr/bin/systemd-creds.real "$@"
 EOF
 }
 
+# restart_hub restarts the hub. The scenarios restart it more often than
+# systemd's default start limit allows (five starts in ten seconds), and
+# systemd refuses a start over the limit for good rather than retrying it, so
+# each restart clears the count first.
+restart_hub() {
+  on_host 'systemctl reset-failed sensor-hub && systemctl restart sensor-hub'
+}
+
+# show_service prints how systemd last ran the hub and its key check, after a
+# check on the service failed. The hub logs to the journal as well as its file.
+show_service() {
+  on_host 'systemctl show -p ActiveState -p Result -p NRestarts sensor-hub; journalctl --no-pager -n 40 -u sensor-hub -u sensor-hub-key-check' >&2 || true
+}
+
 # wait_healthy waits for the service to answer and checks systemd did not
 # have to restart it on the way.
 wait_healthy() {
-  local _
+  local _ state
   for _ in $(seq 60); do
     if on_host 'curl -fsS http://127.0.0.1:8080/api/health' >/dev/null 2>&1; then
       # shellcheck disable=SC2016 # expanded on the host under test
-      check "the service runs without restarts" "active 0" \
-        "$(on_host 'echo $(systemctl is-active sensor-hub) $(systemctl show -p NRestarts --value sensor-hub)')"
+      state="$(on_host 'echo $(systemctl is-active sensor-hub) $(systemctl show -p NRestarts --value sensor-hub)')"
+      check "the service runs without restarts" "active 0" "$state"
+      [[ "$state" == "active 0" ]] || show_service
       return 0
     fi
     sleep 1
   done
   fail "the service did not answer on /api/health"
-  on_host 'systemctl status sensor-hub --no-pager; tail -n 30 /var/log/sensor-hub/sensor-hub.log' >&2 || true
+  show_service
   return 1
+}
+
+# run_steps runs a scenario's steps in order and stops at the first that
+# cannot go on, so the scenario still reaches its cleanup and the scenarios
+# after it still run. A step that stops without a failed check of its own is
+# counted as a failure here, so the script still exits non-zero.
+run_steps() {
+  local step failures
+  for step; do
+    failures="$FAILURES"
+    if ! "$step"; then
+      [[ "$FAILURES" -gt "$failures" ]] || fail "$step stopped"
+      echo "    the rest of this scenario's steps are skipped" >&2
+      return 0
+    fi
+  done
 }
 
 ADMIN_PASSWORD="package-test-password"
@@ -235,6 +266,18 @@ check_configuration_kept() {
     "$(on_host 'ls /etc/sensor-hub | grep -E "\.(rpmsave|rpmnew|dpkg-[a-z]+)$" || true')"
 }
 
+# Configuration files nobody changed take the new defaults, as a config file
+# upgrade did.
+check_new_defaults() {
+  local name
+  for name in environment application.properties database.properties; do
+    check "$name is the new default" "same" \
+      "$(on_host "cmp -s /etc/sensor-hub/$name /usr/share/sensor-hub/defaults/$name && echo same || echo different")"
+  done
+  check "no saved or new copies beside them" "" \
+    "$(on_host 'ls /etc/sensor-hub | grep -E "\.(rpmsave|rpmnew|dpkg-[a-z]+)$" || true')"
+}
+
 # After the upgrade: logins work and the broker password is held, encrypted
 # under the key the hub loaded, and readable again after another restart.
 check_upgraded_install() {
@@ -248,7 +291,7 @@ check_upgraded_install() {
     "$(api GET /email/smtp | jq -r '"\(.username) \(.from_address)"')"
   check "the Gmail OAuth files are deleted" "" \
     "$(on_host 'cd /etc/sensor-hub && ls credentials.json token.json 2>/dev/null | xargs')"
-  on_host 'systemctl restart sensor-hub'
+  restart_hub
   wait_healthy || return 1
   login >/dev/null || return 1
   check "the key survives a restart" "set" \
@@ -292,7 +335,7 @@ check_tpm_refusal() {
   on_host 'systemctl start sensor-hub-key-check.service'
   check "the check leaves a running hub's key alone" "0" \
     "$(on_host 'ls /etc/sensor-hub/secrets.key.cred.unsealable-* 2>/dev/null | wc -l')"
-  on_host 'systemctl restart sensor-hub'
+  restart_hub
   wait_healthy || return 1
   login >/dev/null || return 1
   new_key="$(on_host 'sensor-hub local secrets show-key')"
@@ -307,7 +350,7 @@ check_tpm_refusal() {
   api PUT "/mqtt/brokers/$broker_id" "{\"name\":\"home\",\"type\":\"external\",\"host\":\"192.0.2.1\",\"port\":1883,\"username\":\"hub\",\"password\":\"$BROKER_PASSWORD\",\"enabled\":false}" >/dev/null
   check "entering the password again stores it" "set" \
     "$(api GET /mqtt/brokers | jq -r '.[] | select(.name == "home") | .password_status')"
-  on_host 'systemctl restart sensor-hub'
+  restart_hub
   wait_healthy || return 1
   login >/dev/null || return 1
   check "the new key survives a restart" "set" \
@@ -320,10 +363,10 @@ check_tpm_refusal() {
 # and once the grace period (shortened here) is over the check seals a new key
 # with the host's credential secret and the hub says so.
 check_tpm_gone() {
-  local _ restarts
+  local _ restarts failures
   on_host 'mkdir -p /etc/systemd/system/sensor-hub-key-check.service.d && printf "[Service]\nExecStart=\nExecStart=/usr/bin/sensor-hub local secrets check-seal --config-dir=/etc/sensor-hub --tpm-grace=20s\n" > /etc/systemd/system/sensor-hub-key-check.service.d/grace.conf && systemctl daemon-reload'
   on_host 'touch /root/fake-tpm-gone && mv /var/lib/systemd/credential.secret /root/credential.secret.gone && systemd-creds setup >/dev/null 2>&1'
-  on_host 'systemctl restart sensor-hub' >/dev/null 2>&1 || true
+  restart_hub
   # shellcheck disable=SC2016 # expanded on the host under test
   check "the key is left alone while the TPM may still appear" "1 yes" \
     "$(on_host 'echo $(ls /etc/sensor-hub/secrets.key.cred.unsealable-* | wc -l) $(test -e /run/sensor-hub-key-check/tpm-unusable-since && echo yes || echo no)')"
@@ -331,9 +374,11 @@ check_tpm_gone() {
     on_host 'curl -fsS http://127.0.0.1:8080/api/health' >/dev/null 2>&1 && break
     sleep 1
   done
+  failures="$FAILURES"
   restarts="$(on_host 'systemctl show -p NRestarts --value sensor-hub')"
   check "the hub restarted while it waited for the TPM" "yes" "$([[ "$restarts" -gt 0 ]] && echo yes || echo no)"
   check "the service runs once the grace period is over" "active" "$(on_host 'systemctl is-active sensor-hub')"
+  [[ "$FAILURES" -eq "$failures" ]] || show_service
   login >/dev/null || return 1
   # shellcheck disable=SC2016 # expanded on the host under test
   check "the new key is sealed with the host's credential secret" "2 host" \
@@ -375,9 +420,7 @@ scenario() {
 scenario "Upgrade from $FROM_VERSION on a host without a TPM"
 start_host
 on_host "$INSTALL /packages/old.$FORMAT" >/dev/null
-seed_old_install
-upgrade_package
-wait_healthy && check_key_file && check_upgraded_install
+run_steps seed_old_install upgrade_package wait_healthy check_key_file check_upgraded_install
 remove_package /etc/sensor-hub/secrets.key
 stop_host
 
@@ -385,9 +428,8 @@ scenario "Upgrade from $FROM_VERSION on a host with a TPM"
 start_host
 fake_tpm
 on_host "$INSTALL /packages/old.$FORMAT" >/dev/null
-seed_old_install
-upgrade_package
-wait_healthy && check_sealed_key && check_upgraded_install && check_tpm_refusal && check_tpm_gone
+run_steps seed_old_install upgrade_package wait_healthy check_sealed_key check_upgraded_install \
+  check_tpm_refusal check_tpm_gone
 remove_package "/etc/sensor-hub/secrets.key.cred /etc/systemd/system/sensor-hub.service.d/secrets-key.conf"
 stop_host
 
@@ -395,16 +437,7 @@ scenario "Upgrade from $FROM_VERSION with the configuration as it was installed"
 start_host
 on_host "$INSTALL /packages/old.$FORMAT" >/dev/null
 on_host 'systemctl start sensor-hub'
-wait_healthy
-upgrade_package
-wait_healthy
-# Files nobody changed take the new defaults, as a config file upgrade did.
-for name in environment application.properties database.properties; do
-  check "$name is the new default" "same" \
-    "$(on_host "cmp -s /etc/sensor-hub/$name /usr/share/sensor-hub/defaults/$name && echo same || echo different")"
-done
-check "no saved or new copies beside them" "" \
-  "$(on_host 'ls /etc/sensor-hub | grep -E "\.(rpmsave|rpmnew|dpkg-[a-z]+)$" || true')"
+run_steps wait_healthy upgrade_package wait_healthy check_new_defaults
 stop_host
 
 scenario "Fresh install on a host without a TPM"
@@ -412,7 +445,7 @@ start_host
 on_host "$INSTALL /packages/new.$FORMAT"
 check "the service is enabled" "enabled" "$(on_host 'systemctl is-enabled sensor-hub')"
 on_host 'systemctl start sensor-hub'
-wait_healthy && check_key_file
+run_steps wait_healthy check_key_file
 remove_package /etc/sensor-hub/secrets.key
 stop_host
 
