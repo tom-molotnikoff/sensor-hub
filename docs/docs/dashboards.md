@@ -15,11 +15,13 @@ across sessions.
 Some widgets require or accept configuration:
 
 - **sensorId** — which sensor to display (e.g. Health Timeline, Current
-  Reading, Gauge, Uptime, Sensor Detail, Heatmap, Min/Max/Avg, Sensor Toggle)
+  Reading, Gauge, Uptime, Sensor Detail, Heatmap, Min/Max/Avg, Sensor Toggle,
+  Sensor Slider)
 - **sensorIds** — multiple sensors to display (e.g. Comparison Chart)
-- **property** — which controllable binary property to switch (used by Sensor
-  Toggle, defaults to `state` and is chosen from the selected sensor's
-  available binary capabilities)
+- **property** - which controllable property to set. Sensor Toggle switches a
+  binary property, `state` by default. Sensor Slider sets a numeric property,
+  `brightness` by default. Each is chosen from the selected sensor's
+  capabilities of that kind.
 - **measurementType** — which measurement type to chart or display
   (e.g. `temperature`, `humidity`, `contact`, `power`)
 - **timeRange** — time window for historical data: `1h`, `6h`, `24h`,

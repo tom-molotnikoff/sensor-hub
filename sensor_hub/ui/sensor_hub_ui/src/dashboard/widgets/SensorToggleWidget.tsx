@@ -1,16 +1,15 @@
-import { useRef, useState } from 'react';
-import { Alert, Snackbar } from '@mui/material';
+import { useState } from 'react';
 import type { WidgetProps } from '../types';
-import type { Capability, CommandStatusMessage } from '../../gen/aliases';
-import { apiClient } from '../../gen/client';
-import { requestScheduler } from '../../scheduler/requestScheduler';
-import { useCurrentReadings, useCurrentReadingsReady } from '../../hooks/useCurrentReadings';
+import type { Capability } from '../../gen/aliases';
+import { useCurrentReadingsReady } from '../../hooks/useCurrentReadings';
 import { useSensorContext } from '../../hooks/useSensorContext';
 import { useAuth } from '../../providers/AuthContext';
 import { hasPerm } from '../../tools/Utils';
 import NeedsConfiguration from '../NeedsConfiguration';
 import { useReportWidgetUpdate } from '../WidgetUpdateContext';
 import { useWidgetStateReport } from '../WidgetContext';
+import { useSensorCommand } from '../useSensorCommand';
+import CommandNotice from '../CommandNotice';
 import SlideSwitch from '../../ui/SlideSwitch';
 
 function resolveBinaryCapability(
@@ -68,27 +67,8 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
   const valueOn = capability?.value_on ?? 'ON';
   const valueOff = capability?.value_off ?? 'OFF';
   const [optimisticValue, setOptimisticValue] = useState<string | null>(null);
-  const pendingCommandRef = useRef<{ id: number; previousValue: string | null } | null>(null);
-  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
-
-  // useCurrentReadings keeps callbacks in refs, so this needs no memoization.
-
-  const handleCommandStatus = (message: CommandStatusMessage) => {
-    const pendingCommand = pendingCommandRef.current;
-    if (!pendingCommand || !sensor || !property) return;
-    if (message.id !== pendingCommand.id || message.sensor_id !== sensor.id || message.property !== property) return;
-
-    if (message.status === 'failed' || message.status === 'timed_out') {
-      setOptimisticValue(pendingCommand.previousValue);
-      setSnackbarMessage(message.status === 'timed_out' ? 'Command timed out' : 'Command failed');
-      reportUpdate(new Date());
-    }
-
-    pendingCommandRef.current = null;
-  };
-
-  const readings = useCurrentReadings({ onDataUpdate: reportUpdate, onCommandStatus: handleCommandStatus });
-  const reading = sensor && property ? readings[sensor.name]?.[property] : undefined;
+  const command = useSensorCommand({ sensor, property, onDataUpdate: reportUpdate });
+  const reading = sensor && property ? command.readings[sensor.name]?.[property] : undefined;
 
   // Drop the optimistic value once the server confirms it (adjust-during-render).
 
@@ -118,25 +98,7 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
 
     setOptimisticValue(nextValue);
     reportUpdate(new Date());
-
-    // Send the command immediately and pause low-priority background polls for its duration,
-
-    // so the command (and its confirmation) aren't queued behind the read-only chart flood.
-
-    const { data, error } = await requestScheduler.runWithPreemption(() => apiClient.POST('/sensors/{id}/command', {
-      params: { path: { id: sensor.id } },
-      body: { property, value: nextValue },
-    }));
-
-    if (error) {
-      setOptimisticValue(previousValue);
-      setSnackbarMessage('Failed to send command');
-      return;
-    }
-
-    if (data) {
-      pendingCommandRef.current = { id: data.id, previousValue };
-    }
+    await command.send(nextValue, () => setOptimisticValue(previousValue));
   };
 
   return (
@@ -147,16 +109,7 @@ export default function SensorToggleWidget({ config }: WidgetProps) {
         label={`Toggle ${sensor.name} ${property}`}
         onChange={(next) => void commitCheckedState(next)}
       />
-      <Snackbar
-        open={snackbarMessage != null}
-        autoHideDuration={3000}
-        onClose={() => setSnackbarMessage(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="error" onClose={() => setSnackbarMessage(null)}>
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
+      <CommandNotice command={command} />
     </>
   );
 }

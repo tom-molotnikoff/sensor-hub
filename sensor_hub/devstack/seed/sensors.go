@@ -38,6 +38,7 @@ var mqttDevices = []device{
 	switchedPlugDevice("office-plug", 40.0, 120.0, 1.2),
 	plugDevice("fridge-plug", 5.0, 150.0, 31.5),
 	motionDevice("hallway-motion", false, 120, 92),
+	dimmableLightDevice("landing-light", 180),
 }
 
 func mqttDevice(name string, signals ...signal) device {
@@ -76,6 +77,17 @@ func switchedPlugDevice(name string, minPower, maxPower, energy float64) device 
 	plug := plugDevice(name, minPower, maxPower, energy)
 	plug.Metadata = map[string]interface{}{"exposes": json.RawMessage(switchedPlugExposes)}
 	return plug
+}
+
+const dimmableLightExposes = `[{"type":"light","features":[` +
+	`{"type":"binary","property":"state","name":"state","access":7,"value_on":"ON","value_off":"OFF"},` +
+	`{"type":"numeric","property":"brightness","name":"brightness","access":7,"value_min":0,"value_max":254}]},` +
+	`{"type":"enum","property":"effect","name":"effect","access":2,"values":["blink","breathe","okay"]}]`
+
+func dimmableLightDevice(name string, brightness float64) device {
+	light := mqttDevice(name, steady{measurement: "brightness", value: value{number: brightness}})
+	light.Metadata = map[string]interface{}{"exposes": json.RawMessage(dimmableLightExposes)}
+	return light
 }
 
 func motionDevice(name string, occupied bool, illuminance, battery float64) device {

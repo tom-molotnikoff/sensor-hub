@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import type { WidgetKind } from './WidgetContext';
+import type { CapabilityType } from './capabilityConfig';
 
 export interface WidgetProps {
     id: string;
@@ -26,7 +27,10 @@ export interface WidgetDefinition {
 export interface WidgetConfigField {
     key: string;
     label: string;
-    type: 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'sensor-select' | 'controllable-sensor-select' | 'binary-capability-select' | 'multi-sensor-select' | 'date' | 'measurement-type-select' | 'time-range' | 'aggregation-function-select';
+    type: 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'sensor-select' | 'controllable-sensor-select' | 'capability-select' | 'multi-sensor-select' | 'date' | 'measurement-type-select' | 'time-range' | 'aggregation-function-select';
+    // For controllable-sensor-select and capability-select: the kind of
+    // capability the widget controls.
+    capabilityType?: CapabilityType;
     options?: { value: string; label: string }[];
     defaultValue?: unknown;
 }

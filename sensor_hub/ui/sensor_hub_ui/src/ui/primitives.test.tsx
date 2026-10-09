@@ -27,6 +27,7 @@ import Strip, { StripCell, StripDetail } from './Strip';
 import SlideSwitch from './SlideSwitch';
 import Sticky, { StickyBar } from './Sticky';
 import TileGrid from './TileGrid';
+import ValueSlider from './ValueSlider';
 import { theme } from './theme';
 import { chartAreaHeight, emptyStateMinHeight, stripNarrowWidth } from './theme/tokens';
 
@@ -574,6 +575,43 @@ describe('SlideSwitch', () => {
   });
 });
 
+describe('ValueSlider', () => {
+  it('follows the drag and commits the value once it is let go', () => {
+    const onCommit = vi.fn();
+    const { container } = renderUi(<ValueSlider value={10} min={0} max={20} step={0.5} label="Set lamp" onCommit={onCommit} />);
+    expect(container.querySelector('[data-ui=metric-value]')).toHaveTextContent('10.0');
+
+    fireEvent.change(screen.getByRole('slider', { name: 'Set lamp' }), { target: { value: 12.5 } });
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(12.5);
+  });
+
+  it('is inert until its value is known, and when read only', () => {
+    const { rerender } = renderUi(<ValueSlider value={null} min={0} max={20} step={1} label="Set lamp" onCommit={() => {}} />);
+    expect(screen.getByRole('slider', { name: 'Set lamp' })).toBeDisabled();
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <MemoryRouter>
+          <ValueSlider value={10} min={0} max={20} step={1} label="Set lamp" readOnly onCommit={() => {}} />
+        </MemoryRouter>
+      </ThemeProvider>,
+    );
+    expect(screen.getByRole('slider', { name: 'Set lamp' })).toBeDisabled();
+  });
+
+  it('fills a bounded parent', () => {
+    const { container } = renderUi(
+      <Bounded>
+        <ValueSlider value={10} min={0} max={20} step={1} label="Set lamp" onCommit={() => {}} />
+      </Bounded>,
+    );
+
+    expect(container.querySelector('[data-ui=value-slider]')).toHaveStyle({ height: '100%' });
+  });
+});
+
 describe('StatGrid', () => {
   it('shows each stat as a label above its value, in order', () => {
     const { container } = renderUi(
@@ -846,6 +884,12 @@ describe('primitive props', () => {
       <SlideSwitch checked label="t" onChange={() => {}} style={{ width: 100 }} />,
       // @ts-expect-error SlideSwitch takes no className
       <SlideSwitch checked label="t" onChange={() => {}} className="wide" />,
+      // @ts-expect-error ValueSlider takes no sx
+      <ValueSlider value={1} min={0} max={2} step={1} label="v" onCommit={() => {}} sx={{ width: 100 }} />,
+      // @ts-expect-error ValueSlider takes no style
+      <ValueSlider value={1} min={0} max={2} step={1} label="v" onCommit={() => {}} style={{ width: 100 }} />,
+      // @ts-expect-error ValueSlider takes no className
+      <ValueSlider value={1} min={0} max={2} step={1} label="v" onCommit={() => {}} className="wide" />,
       // @ts-expect-error StatGrid takes no sx
       <StatGrid stats={[]} sx={{ gap: 0 }} />,
       // @ts-expect-error StatGrid takes no style
@@ -875,6 +919,6 @@ describe('primitive props', () => {
       // @ts-expect-error StripDetail takes no sx
       <StripDetail sx={{ display: 'block' }} />,
     ];
-    expect(overrides).toHaveLength(83);
+    expect(overrides).toHaveLength(86);
   });
 });

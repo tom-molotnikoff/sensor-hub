@@ -14,7 +14,7 @@ import { useSensorMeasurementTypes, useMeasurementTypesWithReadings } from '../h
 import { apiClient } from '../gen/client';
 import type { MeasurementTypeInfo } from '../gen/aliases';
 import { TIME_RANGE_PRESETS } from './timeRange';
-import { getBinaryCapabilities, getControllableSensors, normalizeSensorToggleProperty } from './sensorToggleConfig';
+import { capabilitiesOfType, normalizeCapabilityProperty, sensorsWithCapabilitiesOfType } from './capabilityConfig';
 
 const NO_MEASUREMENT_TYPES: MeasurementTypeInfo[] = [];
 
@@ -36,7 +36,7 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
     const hasSensorSelect = definition?.configFields?.some(f => f.type === 'sensor-select') ?? false;
     const hasControllableSensorSelect = definition?.configFields?.some(f => f.type === 'controllable-sensor-select') ?? false;
     const hasMultiSensorSelect = definition?.configFields?.some(f => f.type === 'multi-sensor-select') ?? false;
-    const hasBinaryCapabilitySelect = definition?.configFields?.some(f => f.type === 'binary-capability-select') ?? false;
+    const capabilityField = definition?.configFields?.find(f => f.type === 'capability-select');
     const hasMeasurementTypeSelect = definition?.configFields?.some(f => f.type === 'measurement-type-select') ?? false;
 
     const selectedSensorId = (localConfig.sensorId as number | undefined) ?? null;
@@ -45,14 +45,7 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
         () => (selectedSensorId ? sensors.find((sensor) => sensor.id === selectedSensorId) ?? null : null),
         [selectedSensorId, sensors],
     );
-    const controllableSensors = useMemo(
-        () => getControllableSensors(sensors),
-        [sensors],
-    );
-    const binaryCapabilities = useMemo(
-        () => getBinaryCapabilities(selectedSensor),
-        [selectedSensor],
-    );
+    const capabilities = capabilitiesOfType(selectedSensor, capabilityField?.capabilityType ?? 'binary');
 
     // Fetch measurement types based on context
     const sensorMT = useSensorMeasurementTypes(
@@ -90,17 +83,17 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
         setLocalConfig(prev => ({ ...prev, measurementType: '' }));
     }
 
-    // Keep the binary property aligned with the selected sensor's capabilities
+    // Keep the property aligned with the selected sensor's capabilities
     // (adjust-during-render).
-    if (hasBinaryCapabilitySelect) {
-        if (binaryCapabilities.length === 0) {
-            if (localConfig.property) {
-                setLocalConfig(prev => ({ ...prev, property: '' }));
+    if (capabilityField) {
+        if (capabilities.length === 0) {
+            if (localConfig[capabilityField.key]) {
+                setLocalConfig(prev => ({ ...prev, [capabilityField.key]: '' }));
             }
         } else {
-            const normalizedProperty = normalizeSensorToggleProperty(localConfig.property, binaryCapabilities);
-            if (normalizedProperty !== localConfig.property) {
-                setLocalConfig(prev => ({ ...prev, property: normalizedProperty }));
+            const normalizedProperty = normalizeCapabilityProperty(localConfig[capabilityField.key], capabilities, capabilityField.defaultValue);
+            if (normalizedProperty !== localConfig[capabilityField.key]) {
+                setLocalConfig(prev => ({ ...prev, [capabilityField.key]: normalizedProperty }));
             }
         }
     }
@@ -117,8 +110,8 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
     const handleSave = () => {
         if (!widgetId) return;
 
-        const nextConfig = definition.type === 'sensor-toggle'
-            ? { ...localConfig, property: normalizeSensorToggleProperty(localConfig.property, binaryCapabilities) }
+        const nextConfig = capabilityField
+            ? { ...localConfig, [capabilityField.key]: normalizeCapabilityProperty(localConfig[capabilityField.key], capabilities, capabilityField.defaultValue) }
             : localConfig;
 
         updateWidgetConfig(widgetId, nextConfig);
@@ -187,7 +180,9 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
                                 );
                             case 'sensor-select':
                             case 'controllable-sensor-select': {
-                                const selectableSensors = field.type === 'controllable-sensor-select' ? controllableSensors : sensors;
+                                const selectableSensors = field.type === 'controllable-sensor-select'
+                                    ? sensorsWithCapabilitiesOfType(sensors, field.capabilityType ?? 'binary')
+                                    : sensors;
                                 return (
                                     <FormControl key={field.key} fullWidth>
                                         <InputLabel>{field.label}</InputLabel>
@@ -202,15 +197,15 @@ export default function WidgetConfigDialog({ open, widgetId, onClose }: WidgetCo
                                     </FormControl>
                                 );
                             }
-                            case 'binary-capability-select':
+                            case 'capability-select':
                                 return (
-                                    <FormControl key={field.key} fullWidth disabled={selectedSensor == null || binaryCapabilities.length === 0}>
+                                    <FormControl key={field.key} fullWidth disabled={selectedSensor == null || capabilities.length === 0}>
                                         <InputLabel>{field.label}</InputLabel>
                                         <Select
                                             value={(value as string) || ''} label={field.label}
                                             onChange={(e) => setLocalConfig({ ...localConfig, [field.key]: e.target.value })}
                                         >
-                                            {binaryCapabilities.map((capability) => (
+                                            {capabilities.map((capability) => (
                                                 <MenuItem key={capability.property} value={capability.property}>{capability.property}</MenuItem>
                                             ))}
                                         </Select>

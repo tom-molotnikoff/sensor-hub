@@ -35,7 +35,7 @@ type seededDashboard struct {
 }
 
 const homeNote = "## Dev stack\n\n" +
-	"Seeded by `devstack/seed`. **Climate** is shared with viewer, and **Devices** has the switchable office-plug."
+	"Seeded by `devstack/seed`. **Climate** is shared with viewer, and **Devices** has the switchable office-plug and the dimmable landing-light."
 
 var homeDashboard = seededDashboard{
 	name:      "Home",
@@ -68,14 +68,15 @@ var devicesDashboard = seededDashboard{
 	name: "Devices",
 	widgets: []widget{
 		{kind: "sensor-toggle", width: 4, height: 3, sensor: "office-plug", property: "state"},
+		{kind: "sensor-slider", width: 4, height: 3, sensor: "landing-light", property: "brightness"},
 		{kind: "current-reading", width: 4, height: 3, sensor: "fridge-plug", measurement: "power"},
-		{kind: "uptime", width: 4, height: 3, sensor: "front-door"},
 		{kind: "sensor-detail", width: 6, height: 4, sensor: "office-plug"},
 		{kind: "health-timeline", width: 6, height: 4, sensor: "front-door"},
+		{kind: "uptime", width: 4, height: 4, sensor: "front-door"},
 		{kind: "sensor-health-pie", width: 4, height: 4},
 		{kind: "sensor-type-pie", width: 4, height: 4},
-		{kind: "reading-stats", width: 4, height: 4},
-		{kind: "live-readings", width: 12, height: 6},
+		{kind: "reading-stats", width: 4, height: 6},
+		{kind: "live-readings", width: 8, height: 6},
 	},
 }
 

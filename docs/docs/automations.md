@@ -123,21 +123,20 @@ A hold suits a door contact that bounces: "becomes open, for at least 5 seconds"
 
 ## Set steps
 
-A set step sends a command to a writable capability of a controllable sensor, the same command you can send from a Sensor Toggle widget or `POST /api/sensors/{id}/command`:
+A set step sends a command to a capability of a controllable sensor, the same command you can send from a Sensor Toggle or Sensor Slider widget or `POST /api/sensors/{id}/command`:
 
 ```json
 { "type": "set", "sensor_id": 14, "property": "state", "value": "ON" }
 ```
 
-Any writable capability can be set, not only on and off. The value is a string, checked against the capability both when the automation is saved and again when the step runs:
+Any capability the sensor has can be set, not only on and off. The value is a string, checked against the capability both when the automation is saved and again when the step runs:
 
 | Capability type | Accepted values                          |
 |-----------------|------------------------------------------|
 | Binary          | its `value_on` or `value_off`            |
 | Numeric         | a number within its `min` and `max`      |
-| Enum            | one of its `values`                      |
 
-`GET /api/sensors/by-id/{id}/capabilities` lists a sensor's writable capabilities. See [Device Control](sensors/device-control) for how they are detected.
+`GET /api/sensors/by-id/{id}/capabilities` lists a sensor's capabilities. Sensor Hub only offers a property whose new value the device reports back, such as `state`, `brightness` and `color_temp`, so that the step can be acknowledged. See [Device Control](sensors/device-control#only-commands-the-hub-can-confirm) for how they are detected.
 
 Each step waits for the device to acknowledge its command before the next step starts.
 
@@ -245,7 +244,7 @@ A separate `last_run_failed` flag is true from a failed run until the next run t
 
 ### Broken
 
-An automation is broken when a set step targets a property its device no longer has as a writable capability, or a device that can no longer be controlled. This happens without anything being deleted. A Zigbee device's capabilities come from the `exposes` metadata that Zigbee2MQTT republishes with its device list, so a firmware update or a re-pair can drop a property.
+An automation is broken when a set step targets a property its device no longer has as a capability, or a device that can no longer be controlled. This happens without anything being deleted. A Zigbee device's capabilities come from the `exposes` metadata that Zigbee2MQTT republishes with its device list, so a firmware update or a re-pair can drop a property. An upgrade can drop one too: a property Sensor Hub can't confirm, such as `effect` or `power_on_behavior`, is no longer offered, so an automation saved with a step on it shows as broken after the upgrade.
 
 `status_reason` names the step and the property, such as `step 2: hallway-lamp no longer has color_temp_preset`, and the Automations list shows it under the Broken status.
 

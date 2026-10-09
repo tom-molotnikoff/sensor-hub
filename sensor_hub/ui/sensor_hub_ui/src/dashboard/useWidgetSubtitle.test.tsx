@@ -96,7 +96,10 @@ describe('useWidgetSubtitle', () => {
     expect(requestedTypes).toEqual([false]);
   });
 
-  it('includes the selected property for sensor toggle widgets', () => {
+  it.each([
+    ['sensor-toggle', 'state'],
+    ['sensor-slider', 'brightness'],
+  ])('includes the selected property for %s widgets', (type, property) => {
     sensors.splice(0, sensors.length, {
       id: 7,
       name: 'office-plug',
@@ -112,9 +115,9 @@ describe('useWidgetSubtitle', () => {
       retention_hours: null,
     });
 
-    const { result } = renderHook(() => useWidgetSubtitle('sensor-toggle', { sensorId: 7, property: 'state' }));
+    const { result } = renderHook(() => useWidgetSubtitle(type, { sensorId: 7, property }));
 
-    expect(result.current).toBe('office-plug · state');
+    expect(result.current).toBe(`office-plug · ${property}`);
   });
 
   it('keeps the existing sensor-only subtitle for other sensor widgets', () => {

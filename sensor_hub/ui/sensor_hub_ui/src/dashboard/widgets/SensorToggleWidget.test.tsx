@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Capability, CommandStatusMessage, Reading, Sensor, SensorCommandAccepted } from '../../gen/aliases';
 import SensorToggleWidget from './SensorToggleWidget';
@@ -265,6 +265,34 @@ describe('SensorToggleWidget', () => {
     );
     expect(await screen.findByText('Command failed')).toBeInTheDocument();
     expect(reportUpdateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('reverts when the command fails before the reply to the send arrives', async () => {
+    sensors.splice(0, sensors.length, makeSensor());
+    currentReadings['office-plug'] = { state: makeReading() };
+    authUser = { id: 1, username: 'operator', roles: [], permissions: ['control_sensors'] };
+    let resolvePost: ((value: { data: SensorCommandAccepted }) => void) | undefined;
+    postMock.mockImplementation(() => new Promise((resolve) => { resolvePost = resolve; }));
+
+    render(<SensorToggleWidget id="widget-1" config={{ sensorId: 7, property: 'state' }} isEditing={false} />);
+    const toggle = screen.getByRole('checkbox', { name: /toggle office-plug state/i });
+    fireEvent.click(toggle);
+    expect(toggle).not.toBeChecked();
+
+    commandStatusHandler?.({
+      type: 'command_status',
+      id: 42,
+      sensor_id: 7,
+      property: 'state',
+      value: 'DISABLED',
+      status: 'failed',
+      acknowledged_at: null,
+      acknowledged_value: null,
+    });
+    await act(async () => resolvePost?.({ data: { id: 42, status: 'sent', property: 'state', value: 'DISABLED' } }));
+
+    expect(screen.getByRole('checkbox', { name: /toggle office-plug state/i })).toBeChecked();
+    expect(screen.getByText('Command failed')).toBeInTheDocument();
   });
 
   it('clears optimistic state when the live reading matches semantically', async () => {

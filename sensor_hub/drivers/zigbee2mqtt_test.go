@@ -3,6 +3,7 @@ package drivers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	gen "example/sensorHub/gen"
@@ -323,36 +324,98 @@ func TestParseCapabilities_BinarySwitch(t *testing.T) {
 	}, capabilities[0])
 }
 
-func TestParseCapabilities_BooleanBinaryValuesInMixedExposes(t *testing.T) {
+func TestParseCapabilities_BooleanBinaryValues(t *testing.T) {
 	d := &Zigbee2MQTTDriver{}
 
 	capabilities := d.ParseCapabilities(json.RawMessage(`[
 		{"type":"switch","features":[
-			{"type":"binary","property":"state","name":"state","access":7,"value_on":"ON","value_off":"OFF"}
-		]},
-		{"type":"binary","property":"network_indicator","name":"network_indicator","access":7,"value_on":true,"value_off":false}
+			{"type":"binary","property":"state","name":"state","access":7,"value_on":true,"value_off":false}
+		]}
 	]`))
 
-	require.Len(t, capabilities, 2)
-
-	byProperty := make(map[string]gen.Capability, len(capabilities))
-	for _, capability := range capabilities {
-		byProperty[capability.Property] = capability
-	}
-
-	assert.Equal(t, gen.Capability{
+	assert.Equal(t, []gen.Capability{{
 		Property: "state",
-		Type:     gen.CapabilityTypeBinary,
-		ValueOn:  strPtr("ON"),
-		ValueOff: strPtr("OFF"),
-	}, byProperty["state"])
-
-	assert.Equal(t, gen.Capability{
-		Property: "network_indicator",
 		Type:     gen.CapabilityTypeBinary,
 		ValueOn:  strPtr("true"),
 		ValueOff: strPtr("false"),
-	}, byProperty["network_indicator"])
+	}}, capabilities)
+}
+
+// The exposes of an IKEA LED2103G5 bulb. Only state, brightness and
+// color_temp are both published and settable and read back as readings of the
+// same name.
+func TestParseCapabilities_OffersOnlyPropertiesItCanConfirm(t *testing.T) {
+	d := &Zigbee2MQTTDriver{}
+
+	capabilities := d.ParseCapabilities(json.RawMessage(`[
+		{"type":"light","features":[
+			{"type":"binary","property":"state","name":"state","access":7,"value_on":"ON","value_off":"OFF","value_toggle":"TOGGLE"},
+			{"type":"numeric","property":"brightness","name":"brightness","access":7,"value_min":0,"value_max":254},
+			{"type":"numeric","property":"color_temp","name":"color_temp","access":7,"unit":"mired","value_min":250,"value_max":454},
+			{"type":"composite","property":"level_config","name":"level_config","access":7,"features":[
+				{"type":"binary","property":"execute_if_off","name":"execute_if_off","access":7,"value_on":true,"value_off":false},
+				{"type":"numeric","property":"brightness","name":"brightness","access":7,"value_min":0,"value_max":254}
+			]}
+		]},
+		{"type":"enum","property":"effect","name":"effect","access":2,"values":["blink","breathe","okay"]},
+		{"type":"enum","property":"identify","name":"identify","access":2,"values":["identify"]},
+		{"type":"enum","property":"power_on_behavior","name":"power_on_behavior","access":7,"values":["off","on","toggle","previous"]},
+		{"type":"binary","property":"state","name":"state","access":2,"value_on":"ON","value_off":"OFF"},
+		{"type":"binary","property":"brightness","name":"brightness","access":7,"value_on":"ON","value_off":"OFF"},
+		{"type":"numeric","property":"linkquality","name":"linkquality","access":1,"unit":"lqi","value_min":0,"value_max":255}
+	]`))
+
+	assert.Equal(t, []gen.Capability{
+		{Property: "state", Type: gen.CapabilityTypeBinary, ValueOn: strPtr("ON"), ValueOff: strPtr("OFF")},
+		{Property: "brightness", Type: gen.CapabilityTypeNumeric, Min: floatPtr(0), Max: floatPtr(254)},
+		{Property: "color_temp", Type: gen.CapabilityTypeNumeric, Min: floatPtr(250), Max: floatPtr(454), Unit: strPtr("mired")},
+	}, capabilities)
+}
+
+// A cover's state is an enum (OPEN, CLOSE, STOP) and the hub reads state only
+// as binary, so it can't confirm a cover command yet (#545).
+func TestParseCapabilities_DoesNotOfferACoversEnumState(t *testing.T) {
+	d := &Zigbee2MQTTDriver{}
+
+	capabilities := d.ParseCapabilities(json.RawMessage(`[
+		{"type":"cover","features":[
+			{"type":"enum","property":"state","name":"state","access":3,"values":["OPEN","CLOSE","STOP"]},
+			{"type":"numeric","property":"position","name":"position","access":7,"unit":"%","value_min":0,"value_max":100}
+		]}
+	]`))
+
+	assert.Empty(t, capabilities)
+}
+
+// A command is acknowledged by the next reading named after its property, so
+// every property offered must come back from ParseMessage under that name.
+func TestParseCapabilities_EveryOfferedPropertyIsReadBackUnderItsOwnName(t *testing.T) {
+	d := &Zigbee2MQTTDriver{}
+	exposes := make([]map[string]any, 0, 2*len(knownFields))
+	for field := range knownFields {
+		for _, kind := range []string{"binary", "numeric"} {
+			exposes = append(exposes, map[string]any{"type": kind, "property": field, "access": 7})
+		}
+	}
+	exposesJSON, err := json.Marshal(exposes)
+	require.NoError(t, err)
+
+	capabilities := d.ParseCapabilities(exposesJSON)
+
+	require.NotEmpty(t, capabilities)
+	for _, capability := range capabilities {
+		sample := map[gen.CapabilityType]string{gen.CapabilityTypeBinary: `"ON"`, gen.CapabilityTypeNumeric: `42`}[capability.Type]
+		readings, err := d.ParseMessage("zigbee2mqtt/device", []byte(fmt.Sprintf(`{%q:%s}`, capability.Property, sample)))
+		require.NoError(t, err)
+		if assert.Len(t, readings, 1, capability.Property) {
+			assert.Equal(t, capability.Property, readings[0].MeasurementType)
+			if capability.Type == gen.CapabilityTypeNumeric {
+				assert.NotNil(t, readings[0].NumericValue, capability.Property)
+			} else {
+				assert.NotNil(t, readings[0].TextState, capability.Property)
+			}
+		}
+	}
 }
 
 func TestParseCapabilities_NoWritableFeatures(t *testing.T) {
@@ -372,37 +435,13 @@ func TestParseCapabilities_MixedFeatures(t *testing.T) {
 	capabilities := d.ParseCapabilities(json.RawMessage(`[
 		{"type":"binary","property":"state","name":"state","access":7,"value_on":"ON","value_off":"OFF"},
 		{"type":"numeric","property":"brightness","name":"brightness","access":7,"unit":"%","value_min":0,"value_max":100},
-		{"type":"enum","property":"mode","name":"mode","access":7,"values":["heat","cool","off"]},
 		{"type":"numeric","property":"power","name":"power","access":1,"unit":"W","value_min":0,"value_max":2500}
 	]`))
 
-	require.Len(t, capabilities, 3)
-
-	byProperty := make(map[string]gen.Capability, len(capabilities))
-	for _, capability := range capabilities {
-		byProperty[capability.Property] = capability
-	}
-
-	assert.Equal(t, gen.Capability{
-		Property: "state",
-		Type:     gen.CapabilityTypeBinary,
-		ValueOn:  strPtr("ON"),
-		ValueOff: strPtr("OFF"),
-	}, byProperty["state"])
-
-	assert.Equal(t, gen.Capability{
-		Property: "brightness",
-		Type:     gen.CapabilityTypeNumeric,
-		Min:      floatPtr(0),
-		Max:      floatPtr(100),
-		Unit:     strPtr("%"),
-	}, byProperty["brightness"])
-
-	assert.Equal(t, gen.Capability{
-		Property: "mode",
-		Type:     gen.CapabilityTypeEnum,
-		Values:   stringSlicePtr("heat", "cool", "off"),
-	}, byProperty["mode"])
+	assert.Equal(t, []gen.Capability{
+		{Property: "state", Type: gen.CapabilityTypeBinary, ValueOn: strPtr("ON"), ValueOff: strPtr("OFF")},
+		{Property: "brightness", Type: gen.CapabilityTypeNumeric, Min: floatPtr(0), Max: floatPtr(100), Unit: strPtr("%")},
+	}, capabilities)
 }
 
 func TestParseCapabilities_MalformedExposes(t *testing.T) {
@@ -507,12 +546,19 @@ func TestBuildCommand_BooleanBinaryCapability(t *testing.T) {
 	assert.JSONEq(t, `{"state":true}`, string(payload))
 }
 
-func TestBuildCommand_BooleanMetadataCapability(t *testing.T) {
+func TestBuildCommand_RefusesAPropertyItCannotConfirm(t *testing.T) {
 	d := &Zigbee2MQTTDriver{}
 	sensor := gen.Sensor{
 		Name: "office-plug",
 		Metadata: &map[string]interface{}{
 			"exposes": []interface{}{
+				map[string]interface{}{
+					"type":      "binary",
+					"property":  "state",
+					"access":    float64(7),
+					"value_on":  "ON",
+					"value_off": "OFF",
+				},
 				map[string]interface{}{
 					"type":      "binary",
 					"property":  "network_indicator",
@@ -524,10 +570,10 @@ func TestBuildCommand_BooleanMetadataCapability(t *testing.T) {
 		},
 	}
 
-	_, payload, err := d.BuildCommand(sensor, "network_indicator", "true")
+	_, _, err := d.BuildCommand(sensor, "network_indicator", "true")
 
-	require.NoError(t, err)
-	assert.JSONEq(t, `{"network_indicator":true}`, string(payload))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `unknown command property "network_indicator"`)
 }
 
 func TestZigbee2MQTT_SupportedMeasurementTypes(t *testing.T) {
@@ -556,8 +602,4 @@ func strPtr(value string) *string {
 
 func floatPtr(value float64) *float64 {
 	return &value
-}
-
-func stringSlicePtr(values ...string) *[]string {
-	return &values
 }

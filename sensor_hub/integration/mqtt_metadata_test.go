@@ -224,7 +224,9 @@ func TestZigbee2MQTTBridgeDevices_ReportsWritableCapabilitiesViaAPI(t *testing.T
 					{"type":"switch","features":[
 						{"type":"binary","property":"state","name":"state","access":7,"value_on":"ON","value_off":"OFF"}
 					]},
+					{"type":"numeric","property":"brightness","name":"brightness","access":7,"value_min":0,"value_max":254},
 					{"type":"binary","property":"network_indicator","name":"network_indicator","access":7,"value_on":true,"value_off":false},
+					{"type":"enum","property":"effect","name":"effect","access":2,"values":["blink","okay"]},
 					{"type":"numeric","property":"power","name":"power","access":1,"unit":"W","value_min":0,"value_max":2500}
 				]
 			}
@@ -252,7 +254,7 @@ func TestZigbee2MQTTBridgeDevices_ReportsWritableCapabilitiesViaAPI(t *testing.T
 			properties[capability.Property] = true
 		}
 
-		return properties["state"] && properties["network_indicator"]
+		return properties["state"] && properties["brightness"]
 	}, 5*time.Second, 100*time.Millisecond)
 
 	capabilities, status := client.GetSensorCapabilities(sensor.Id)
@@ -269,10 +271,7 @@ func TestZigbee2MQTTBridgeDevices_ReportsWritableCapabilitiesViaAPI(t *testing.T
 	require.NotNil(t, byProperty["state"].ValueOff)
 	assert.Equal(t, "ON", *byProperty["state"].ValueOn)
 	assert.Equal(t, "OFF", *byProperty["state"].ValueOff)
-	require.NotNil(t, byProperty["network_indicator"].ValueOn)
-	require.NotNil(t, byProperty["network_indicator"].ValueOff)
-	assert.Equal(t, "true", *byProperty["network_indicator"].ValueOn)
-	assert.Equal(t, "false", *byProperty["network_indicator"].ValueOff)
+	assert.Equal(t, gen.Capability{Property: "brightness", Type: gen.CapabilityTypeNumeric, Min: ptrFloat(0), Max: ptrFloat(254)}, byProperty["brightness"])
 }
 
 func TestZigbee2MQTTBridgeDevices_ReadOnlySensorsReturnEmptyCapabilities(t *testing.T) {
