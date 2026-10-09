@@ -17,7 +17,7 @@ The first 2.0 start rewrites the database in a way 1.5.x cannot use, and the ins
 |---|---|
 | [1. Back up](#1-back-up) | Everyone |
 | [2. Check the systemd unit](#2-check-the-systemd-unit) | Everyone checks; only a changed unit needs work |
-| [3. Add the settings your setup needs](#3-add-the-settings-your-setup-needs) | Everyone behind nginx, and some others |
+| [3. Add the settings your setup needs](#3-add-the-settings-your-setup-needs) | Everyone behind nginx, and some others, such as anyone keeping old command history |
 | [4. Install the package](#4-install-the-package) | Everyone |
 | [5. Save the secret-store key](#5-save-the-secret-store-key) | Everyone |
 | [6. Give Zigbee2MQTT a login](#6-give-zigbee2mqtt-a-login) | Anything that publishes to the embedded broker |
@@ -70,8 +70,11 @@ Make the change just before you install, since 1.5.x has no `local serve`. The i
 | Zigbee2MQTT or another device on your home network connects to the embedded broker | `mqtt.broker.listen.address=0.0.0.0`, or the hub's LAN address |
 | Devices reach the broker over WireGuard or another VPN | `mqtt.broker.listen.address=` the hub's tunnel address, and order sensor-hub after the tunnel as [Connecting your home](connecting-your-home#wireguard-or-another-vpn) shows |
 | Prometheus scrapes the hub from another host | `metrics.listen.address=0.0.0.0:9464`, with a firewall that lets only Prometheus reach port 9464 |
+| You want to keep command history older than 90 days | `command.history.retention.days=0` |
 
-Without `http.trusted.proxies`, every request through nginx seems to come from nginx itself, so five failed logins by anyone hold up everyone's logins for a while. A fresh 2.0 install has the line, but an upgraded install keeps its own file, and nearly every 1.5.x install has changed it.
+Without `http.trusted.proxies`, every request through nginx seems to come from nginx itself, so five failed logins by anyone hold up everyone's logins for a while. A fresh 2.0 install has the line. An upgrade gives `application.properties` the new default only if nobody ever changed it, and you or the Properties page may have.
+
+2.0 deletes commands sent to devices more than `command.history.retention.days` ago, 90 by default, and the first cleanup runs as it starts. `0` keeps them all (see [Command history retention](configuration#command-history-retention)).
 
 Devices on the hub's own machine, an SSH port forward and nginx's MQTT port all reach the broker on `127.0.0.1`, so they need no broker setting. 1.5.x ignores these lines, but saving on its Properties page drops them, so add them after your last change there. The install's restart puts them into effect.
 
@@ -174,7 +177,7 @@ The upgrade removed the outbound broker passwords and the Gmail token from the h
 - **Brokers the hub connects out to with a password**: change the password on each broker, then on the **MQTT** page choose **Edit** from the broker's menu and enter the new one. The broker reconnects straight away, with no restart. Existing brokers keep connecting over plain TCP and show as **Unencrypted**: for one reached across a network you do not control, turn on its **TLS** switch at the same time (see [TLS to outbound MQTT brokers](configuration#tls-to-outbound-mqtt-brokers)).
 - **Gmail**: in the Google account the hub sent from, remove the hub's access under [third-party apps and services](https://myaccount.google.com/connections). If you made an OAuth client in Google Cloud only for the hub, delete it too.
 
-If 1.5.x had `oauth.credentials.file.path` or `oauth.token.file.path` pointing outside `/etc/sensor-hub`, the hub leaves those files alone and logs a warning naming each one at every start. Delete them by hand.
+The hub deletes only `/etc/sensor-hub/credentials.json` and `/etc/sensor-hub/token.json`. If 1.5.x had `oauth.credentials.file.path` or `oauth.token.file.path` naming any other file, wherever it is, the hub leaves that file alone and logs a warning naming it at every start until the properties are next saved. Delete those files by hand.
 
 ## What needs no action
 

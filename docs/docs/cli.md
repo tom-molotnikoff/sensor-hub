@@ -26,7 +26,7 @@ sudo dnf install ./sensor-hub-cli_*.rpm
 sudo apt install ./sensor-hub-cli_*.deb
 ```
 
-Download the latest package from the [GitHub Releases](https://github.com/tom-molotnikoff/sensor-hub/releases) page. Packages are GPG-signed — see the [installation guide](installation) for verification steps.
+Download the latest package from the [GitHub Releases](https://github.com/tom-molotnikoff/sensor-hub/releases) page. Packages are GPG-signed: see [Verify the package](installation#verify-the-package) to check one.
 
 :::note
 The `sensor-hub-cli` and `sensor-hub` packages conflict with each other since they both provide the same binary. If you have the full server package installed, you already have the CLI — no need to install `sensor-hub-cli`.
