@@ -1,4 +1,15 @@
-import { createContext, useContext, type MouseEvent, type ReactElement, type ReactNode, type Ref, type TransitionEvent } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import {
   Avatar,
   Box,
@@ -48,6 +59,47 @@ const widthTransition = (theme: Theme) => ({
 
 const NavRail = createContext(false);
 
+const isWidthTransition = (animation: Animation) => 'transitionProperty' in animation && animation.transitionProperty === 'width';
+
+// useRailSettled calls onRailSettled once the drawer has finished the width
+// transition a change of rail starts. It waits on the transitions the browser
+// actually runs, not on a timer, which on a busy main thread can fire while
+// the transition is still running. A change that runs no transition settles
+// straight away, and so does a drawer removed part way through, as on moving
+// to another page, so nothing waiting on the nav is left waiting.
+function useRailSettled(rail: boolean, onRailSettled?: () => void) {
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const shownRail = useRef(rail);
+  const pending = useRef(false);
+  const settle = useEffectEvent(() => {
+    pending.current = false;
+    onRailSettled?.();
+  });
+
+  useLayoutEffect(() => {
+    if (shownRail.current === rail) return;
+    shownRail.current = rail;
+    pending.current = true;
+    let current = true;
+    const transitions = drawerRef.current?.getAnimations().filter(isWidthTransition) ?? [];
+    void Promise.allSettled(transitions.map((transition) => transition.finished)).then(() => {
+      if (current) settle();
+    });
+    return () => {
+      current = false;
+    };
+  }, [rail]);
+
+  useEffect(
+    () => () => {
+      if (pending.current) settle();
+    },
+    [],
+  );
+
+  return drawerRef;
+}
+
 function RailTooltip({ label, children }: { label: string; children: ReactElement }) {
   const rail = useContext(NavRail);
   return rail ? (
@@ -64,6 +116,7 @@ const railRowSx = { justifyContent: 'center', '& .MuiListItemIcon-root': { minWi
 export default function NavFrame({ logo, name, brandAction, navRef, foot, children, ...frame }: NavFrameProps) {
   const temporary = frame.variant === 'temporary';
   const rail = frame.variant === 'permanent' && frame.rail;
+  const drawerRef = useRailSettled(rail, frame.variant === 'permanent' ? frame.onRailSettled : undefined);
   const width = rail ? navPermanent.rail : navPermanent.expanded;
   const drawerProps = temporary
     ? {
@@ -77,9 +130,7 @@ export default function NavFrame({ logo, name, brandAction, navRef, foot, childr
       }
     : {
         variant: 'permanent' as const,
-        onTransitionEnd: (event: TransitionEvent) => {
-          if (event.target === event.currentTarget && event.propertyName === 'width') frame.onRailSettled();
-        },
+        ref: drawerRef,
         sx: [{ width, flexShrink: 0 }, widthTransition],
         slotProps: { paper: { sx: [paperSx, { width }, widthTransition] } },
       };

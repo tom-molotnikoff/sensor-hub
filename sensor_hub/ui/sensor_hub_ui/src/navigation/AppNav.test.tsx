@@ -392,7 +392,7 @@ function PermanentShell({ rail, endWidthTransition }: { rail: boolean; endWidthT
 }
 
 function renderPermanentNav(as: AuthUser = admin, { rail = false, endWidthTransition = () => {} } = {}) {
-  render(
+  return render(
     <ThemeProvider theme={theme}>
       <AuthContext.Provider value={{ user: as, refresh: async () => {} }}>
         <NotificationContext.Provider value={notifications}>
@@ -494,16 +494,68 @@ describe('AppNav permanent', () => {
     expect(collapseToggle()).toHaveAccessibleDescription('Expand');
   });
 
-  it('ends the width transition when the nav itself finishes animating its width', () => {
-    const endWidthTransition = vi.fn();
-    renderPermanentNav(admin, { endWidthTransition });
-    const drawer = nav().closest<HTMLElement>('[data-ui=nav-drawer]')!;
+  describe('ends the width transition', () => {
+    const drawer = () => nav().closest<HTMLElement>('[data-ui=nav-drawer]')!;
 
-    fireEvent.transitionEnd(nav(), { propertyName: 'width' });
-    fireEvent.transitionEnd(drawer, { propertyName: 'opacity' });
-    expect(endWidthTransition).not.toHaveBeenCalled();
+    function transition(property: string) {
+      let finish!: () => void;
+      let cancel!: () => void;
+      const finished = new Promise<void>((resolve, reject) => {
+        finish = resolve;
+        cancel = () => reject(new DOMException('cancelled', 'AbortError'));
+      });
+      return { animation: { transitionProperty: property, finished } as unknown as Animation, finish, cancel };
+    }
 
-    fireEvent.transitionEnd(drawer, { propertyName: 'width' });
-    expect(endWidthTransition).toHaveBeenCalledTimes(1);
+    it('once the nav finishes its own width transition, and not on any other', async () => {
+      const endWidthTransition = vi.fn();
+      renderPermanentNav(admin, { endWidthTransition });
+      const [width, opacity] = [transition('width'), transition('opacity')];
+      drawer().getAnimations = () => [width.animation, opacity.animation];
+
+      fireEvent.click(collapseToggle());
+      await Promise.resolve();
+      expect(endWidthTransition).not.toHaveBeenCalled();
+
+      width.finish();
+      await waitFor(() => expect(endWidthTransition).toHaveBeenCalledTimes(1));
+    });
+
+    it('once the reversed transition finishes, when the toggle is clicked again part way through', async () => {
+      const endWidthTransition = vi.fn();
+      renderPermanentNav(admin, { endWidthTransition });
+      const [collapse, expand] = [transition('width'), transition('width')];
+
+      drawer().getAnimations = () => [collapse.animation];
+      fireEvent.click(collapseToggle());
+      drawer().getAnimations = () => [expand.animation];
+      fireEvent.click(collapseToggle());
+      collapse.cancel();
+      await Promise.resolve();
+      expect(endWidthTransition).not.toHaveBeenCalled();
+
+      expand.finish();
+      await waitFor(() => expect(endWidthTransition).toHaveBeenCalledTimes(1));
+    });
+
+    it('straight away when the toggle runs no transition', async () => {
+      const endWidthTransition = vi.fn();
+      renderPermanentNav(admin, { endWidthTransition });
+
+      fireEvent.click(collapseToggle());
+
+      await waitFor(() => expect(endWidthTransition).toHaveBeenCalledTimes(1));
+    });
+
+    it('when the nav goes away part way through, as on moving to another page', () => {
+      const endWidthTransition = vi.fn();
+      const { unmount } = renderPermanentNav(admin, { endWidthTransition });
+      drawer().getAnimations = () => [transition('width').animation];
+      fireEvent.click(collapseToggle());
+
+      unmount();
+
+      expect(endWidthTransition).toHaveBeenCalledTimes(1);
+    });
   });
 });
