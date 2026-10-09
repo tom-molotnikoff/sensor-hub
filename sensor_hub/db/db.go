@@ -2,7 +2,9 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"time"
 
@@ -15,6 +17,32 @@ import (
 // Exported so test packages can set up in-memory SQLite databases with the correct schema.
 func RunMigrations(db *sql.DB, logger *slog.Logger) error {
 	return runMigrations(db, logger)
+}
+
+// LatestMigrationVersion returns the version of the newest migration built
+// into this binary, which is the schema version RunMigrations leaves a
+// database at.
+func LatestMigrationVersion() (uint, error) {
+	source, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return 0, fmt.Errorf("could not create migration source: %w", err)
+	}
+	defer source.Close()
+
+	version, err := source.First()
+	if err != nil {
+		return 0, fmt.Errorf("could not read the first migration: %w", err)
+	}
+	for {
+		next, err := source.Next(version)
+		if errors.Is(err, fs.ErrNotExist) {
+			return version, nil
+		}
+		if err != nil {
+			return 0, fmt.Errorf("could not read the migration after %d: %w", version, err)
+		}
+		version = next
+	}
 }
 
 func runMigrations(db *sql.DB, logger *slog.Logger) error {

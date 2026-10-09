@@ -31,6 +31,25 @@ type Shape struct {
 
 var Default = Shape{Sensors: 8, MeasurementTypes: 9, Days: 90, Readings: 5_000_000}
 
+// Stamp records how a seed database was made: the seed Version, the schema
+// version its migrations reached and its shape. A seed is current only while
+// all three match what this build would write, so one built on a branch with
+// other migrations is regenerated rather than reused.
+type Stamp struct {
+	Version       int
+	SchemaVersion uint
+	Shape         Shape
+}
+
+// stampFor is the stamp this build gives a seed of the given shape.
+func stampFor(shape Shape) (Stamp, error) {
+	schemaVersion, err := database.LatestMigrationVersion()
+	if err != nil {
+		return Stamp{}, err
+	}
+	return Stamp{Version: Version, SchemaVersion: schemaVersion, Shape: shape}, nil
+}
+
 var measurementTypeNames = []string{
 	"temperature",
 	"humidity",
@@ -107,9 +126,14 @@ func Generate(ctx context.Context, dbPath string, shape Shape, logger *slog.Logg
 }
 
 func stamp(ctx context.Context, db *sql.DB, shape Shape) error {
+	stamp, err := stampFor(shape)
+	if err != nil {
+		return fmt.Errorf("could not work out the seed stamp: %w", err)
+	}
 	if _, err := db.ExecContext(ctx, `
 		CREATE TABLE seed_metadata (
 			version INTEGER NOT NULL,
+			schema_version INTEGER NOT NULL,
 			sensors INTEGER NOT NULL,
 			measurement_types INTEGER NOT NULL,
 			days INTEGER NOT NULL,
@@ -118,35 +142,40 @@ func stamp(ctx context.Context, db *sql.DB, shape Shape) error {
 		return fmt.Errorf("could not create seed metadata table: %w", err)
 	}
 	if _, err := db.ExecContext(ctx,
-		"INSERT INTO seed_metadata (version, sensors, measurement_types, days, readings) VALUES (?, ?, ?, ?, ?)",
-		Version, shape.Sensors, shape.MeasurementTypes, shape.Days, shape.Readings); err != nil {
+		"INSERT INTO seed_metadata (version, schema_version, sensors, measurement_types, days, readings) VALUES (?, ?, ?, ?, ?, ?)",
+		stamp.Version, stamp.SchemaVersion, shape.Sensors, shape.MeasurementTypes, shape.Days, shape.Readings); err != nil {
 		return fmt.Errorf("could not stamp seed metadata: %w", err)
 	}
 	return nil
 }
 
-func StoredStamp(dbPath string) (int, Shape, error) {
+func StoredStamp(dbPath string) (Stamp, error) {
 	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?_pragma=query_only(1)", dbPath))
 	if err != nil {
-		return 0, Shape{}, fmt.Errorf("could not open seed database: %w", err)
+		return Stamp{}, fmt.Errorf("could not open seed database: %w", err)
 	}
 	defer db.Close()
 
-	var version int
-	var shape Shape
-	if err := db.QueryRow("SELECT version, sensors, measurement_types, days, readings FROM seed_metadata").
-		Scan(&version, &shape.Sensors, &shape.MeasurementTypes, &shape.Days, &shape.Readings); err != nil {
-		return 0, Shape{}, fmt.Errorf("could not read seed metadata: %w", err)
+	var stored Stamp
+	if err := db.QueryRow("SELECT version, schema_version, sensors, measurement_types, days, readings FROM seed_metadata").
+		Scan(&stored.Version, &stored.SchemaVersion, &stored.Shape.Sensors, &stored.Shape.MeasurementTypes, &stored.Shape.Days, &stored.Shape.Readings); err != nil {
+		return Stamp{}, fmt.Errorf("could not read seed metadata: %w", err)
 	}
-	return version, shape, nil
+	return stored, nil
 }
 
+// IsCurrent reports whether the seed at dbPath can be reused for shape: its
+// stamp matches what this build would write, and its readings run up to today.
 func IsCurrent(dbPath string, shape Shape) bool {
 	if _, err := os.Stat(dbPath); err != nil {
 		return false
 	}
-	version, stored, err := StoredStamp(dbPath)
-	if err != nil || version != Version || stored != shape {
+	want, err := stampFor(shape)
+	if err != nil {
+		return false
+	}
+	stored, err := StoredStamp(dbPath)
+	if err != nil || stored != want {
 		return false
 	}
 	newest, err := NewestReading(dbPath)

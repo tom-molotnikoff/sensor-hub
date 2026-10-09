@@ -13,7 +13,7 @@ import (
 func main() {
 	out := flag.String("out", "", "path of the seed database file to write")
 	printVersion := flag.Bool("version", false, "print the seed version and exit")
-	force := flag.Bool("force", false, "regenerate even when the file is already at the current seed version")
+	force := flag.Bool("force", false, "regenerate even when the file is already current")
 	readings := flag.Int("readings", seed.Default.Readings, "number of readings to write")
 	flag.Parse()
 
@@ -33,7 +33,7 @@ func main() {
 	shape.Readings = *readings
 
 	if !*force && seed.IsCurrent(*out, shape) {
-		logger.Info("seed database already current: same version and shape, with readings up to today", "path", *out, "version", seed.Version)
+		logger.Info("seed database already current: same version, schema version and shape, with readings up to today", "path", *out, "version", seed.Version)
 		return
 	}
 
