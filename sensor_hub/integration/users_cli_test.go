@@ -23,12 +23,20 @@ import (
 )
 
 // hubFlags points CLI commands at the test hub with an admin API key made
-// for the test.
+// for the test. The key goes in SENSOR_HUB_API_KEY, which every CLI run in the
+// test inherits, since the CLI takes no key as a flag.
 func hubFlags(t *testing.T) []string {
+	t.Helper()
+	t.Setenv("SENSOR_HUB_API_KEY", adminAPIKey(t))
+	return []string{"--server", env.ServerURL}
+}
+
+// adminAPIKey makes an API key for the admin, deleted when the test ends.
+func adminAPIKey(t *testing.T) string {
 	t.Helper()
 	key, keyID := createApiKey(t, client, "cli-"+t.Name())
 	t.Cleanup(func() { client.DeleteApiKey(keyID) })
-	return []string{"--server", env.ServerURL, "--api-key", key}
+	return key
 }
 
 func withFlags(flags []string, args ...string) []string {
@@ -117,7 +125,7 @@ type terminalSession struct {
 
 func startOnTerminal(t *testing.T, args ...string) *terminalSession {
 	t.Helper()
-	s := &terminalSession{t: t, cmd: exec.Command(buildSensorHub(t), args...)}
+	s := &terminalSession{t: t, cmd: sensorHubCommand(t, args...)}
 	tty, err := pty.Start(s.cmd)
 	require.NoError(t, err)
 	s.tty = tty

@@ -18,7 +18,10 @@ const (
 var rootCmd = &cobra.Command{
 	Use:   "sensor-hub",
 	Short: "Home temperature monitoring system",
-	Long:  "Sensor Hub — a home temperature monitoring system.\nRun the server with 'local serve' or use the other commands to interact with a hub.",
+	Long: "Sensor Hub - a home temperature monitoring system.\n" +
+		"Run the server with 'local serve' or use the other commands to interact with a hub.\n\n" +
+		"Commands that talk to a hub take its URL from --server, else from ~/.sensor-hub.yaml, and the API key from the " +
+		apiKeyEnvVar + " environment variable, else from ~/.sensor-hub.yaml. Run 'sensor-hub config init' to write that file.",
 }
 
 func init() {

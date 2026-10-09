@@ -53,11 +53,21 @@ sensor-hub config init
 
 This will prompt you for:
 
-1. **Server URL** — the address of your Sensor Hub instance (e.g. `https://home.sensor-hub`)
-2. **TLS verification** — if you entered an HTTPS URL, it asks whether to skip certificate verification (for self-signed certs)
-3. **API key** — your API key for authentication
+1. **Server URL** - the address of your Sensor Hub instance (e.g. `https://home.sensor-hub`)
+2. **TLS verification** - if you entered an HTTPS URL, it asks whether to skip certificate verification (for self-signed certs)
+3. **API key** - your API key for authentication. It is not echoed as you type it.
 
-The wizard tests connectivity and API key validity before saving to `~/.sensor-hub.yaml`.
+The wizard tests connectivity and API key validity before saving to `~/.sensor-hub.yaml`. It needs a terminal to prompt on.
+
+### Scripted Setup
+
+A script writes the same file with `--api-key-stdin`, which reads the API key as one line from stdin and asks nothing, so the key never lands in the process list or the shell history. The server URL comes from `--server`, which is required with it, and `--insecure` is taken as given:
+
+```bash
+printf '%s\n' "$SENSOR_HUB_API_KEY" | sensor-hub config init --server https://home.sensor-hub --api-key-stdin
+```
+
+It still tests the connection and the key, and exits with an error without writing the file when the hub cannot be reached or refuses the key.
 
 ### Manual Configuration
 
@@ -66,15 +76,16 @@ Create `~/.sensor-hub.yaml`:
 ```yaml
 server: https://home.sensor-hub
 api_key: shk_your_api_key_here
-insecure: true  # optional — skip TLS verification for self-signed certs
+insecure: true  # optional - skip TLS verification for self-signed certs
 ```
 
-### Flag Overrides
+### Overrides
 
-All commands accept `--server`, `--api-key`, and `--insecure` flags, which override the config file:
+Every command that talks to a hub accepts `--server` and `--insecure` flags, which override the config file. The API key is never taken as a flag, where the process list and the shell history would show it. Set the `SENSOR_HUB_API_KEY` environment variable instead: when it is set and not empty it is used ahead of `api_key` in the config file. With `--server` and `SENSOR_HUB_API_KEY` together, no config file is needed:
 
 ```bash
-sensor-hub sensors list --server https://home.sensor-hub --api-key shk_... --insecure
+export SENSOR_HUB_API_KEY=shk_...
+sensor-hub sensors list --server https://home.sensor-hub --insecure
 ```
 
 ## Local commands
@@ -218,6 +229,22 @@ printf '%s\n' "$PASSWORD" | sensor-hub users change-password --user-id 3 --passw
 ```
 
 Without `--password-stdin` and with no terminal to prompt on, the command exits with an error rather than reading stdin. A user created this way is asked to change the password at first login.
+
+## Logging in
+
+`auth login` never takes the password as a flag. On a terminal it prompts for it once:
+
+```bash
+sensor-hub auth login --username alice
+```
+
+In a script, pass `--password-stdin` and pipe the password in. One line is read and its trailing newline stripped:
+
+```bash
+printf '%s\n' "$PASSWORD" | sensor-hub auth login --username alice --password-stdin
+```
+
+Without `--password-stdin` and with no terminal to prompt on, the command exits with an error naming `--password-stdin`, and an empty password is refused before anything is sent to the hub.
 
 ## Automations
 

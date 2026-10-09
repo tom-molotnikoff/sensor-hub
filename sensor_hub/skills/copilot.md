@@ -18,7 +18,7 @@ Run `sensor-hub <command> <subcommand> --help` for subcommand details.
 The CLI must be configured with a server URL and API key:
 - Config file: `~/.sensor-hub.yaml`
 - Run `sensor-hub config init` for interactive setup
-- Or pass `--server` and `--api-key` flags to any command
+- Or set the `SENSOR_HUB_API_KEY` environment variable and pass `--server` to any command (the API key is never a flag)
 
 ## Output
 
@@ -230,7 +230,7 @@ sensor-hub notifications set-preference --category threshold_alert --email-enabl
 
 ### Auth
 ```bash
-sensor-hub auth login --username admin --password secret
+printf '%s\n' "$PASSWORD" | sensor-hub auth login --username admin --password-stdin   # Omit --password-stdin to be prompted
 sensor-hub auth logout
 sensor-hub auth me                                   # Current user info
 sensor-hub auth sessions                             # List sessions

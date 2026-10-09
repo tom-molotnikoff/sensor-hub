@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +14,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	gen "example/sensorHub/gen"
 )
 
 var configCmd = &cobra.Command{
@@ -22,10 +24,23 @@ var configCmd = &cobra.Command{
 	Short:   "Manage CLI configuration",
 }
 
+// apiKeyEnvVar names the environment variable a command that talks to a hub
+// takes its API key from, ahead of the config file. The key is never taken as
+// a flag, where the process list and the shell history would show it.
+const apiKeyEnvVar = "SENSOR_HUB_API_KEY"
+
 var configInitCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Interactive setup wizard for CLI configuration",
-	RunE:  runConfigInit,
+	Short: "Set up the CLI's connection to a hub",
+	Long: "Write the hub's URL and an API key to ~/.sensor-hub.yaml.\n\n" +
+		"On a terminal it asks for the server URL, whether to skip TLS certificate verification for an https URL, " +
+		"and the API key, which is not echoed. It tests the connection and the key before saving.\n\n" +
+		"In a script, --api-key-stdin reads the API key from stdin (one line, trailing newline stripped) and asks nothing, " +
+		"so the key never lands in the process list. The URL comes from --server, which it requires, and --insecure is " +
+		"taken as given. Nothing is written when the hub cannot be reached or refuses the key.",
+	Example: "  sensor-hub config init\n" +
+		"  printf '%s\\n' \"$API_KEY\" | sensor-hub config init --server https://home.sensor-hub --api-key-stdin",
+	RunE: runConfigInit,
 }
 
 var configShowCmd = &cobra.Command{
@@ -39,8 +54,9 @@ func init() {
 	configCmd.AddCommand(configShowCmd)
 	rootCmd.AddCommand(configCmd)
 
+	configInitCmd.Flags().Bool("api-key-stdin", false, "Read the API key from stdin and ask nothing; needs --server")
+
 	rootCmd.PersistentFlags().String("server", "", "Sensor Hub server URL (overrides config file)")
-	rootCmd.PersistentFlags().String("api-key", "", "API key (overrides config file)")
 	rootCmd.PersistentFlags().Bool("insecure", false, "Skip TLS certificate verification (for self-signed certs)")
 }
 
@@ -49,13 +65,17 @@ func configFilePath() string {
 	return filepath.Join(home, ".sensor-hub.yaml")
 }
 
+// loadClientConfig resolves the hub a command talks to. The server URL comes
+// from --server, else the config file; the API key from SENSOR_HUB_API_KEY,
+// else the config file. With both --server and the environment variable given,
+// no config file is needed.
 func loadClientConfig(cmd *cobra.Command) (serverURL string, apiKey string, insecure bool, err error) {
 	serverFlag, _ := cmd.Flags().GetString("server")
-	apiKeyFlag, _ := cmd.Flags().GetString("api-key")
 	insecureFlag, _ := cmd.Flags().GetBool("insecure")
+	apiKeyEnv := os.Getenv(apiKeyEnvVar)
 
-	if serverFlag != "" && apiKeyFlag != "" {
-		return serverFlag, apiKeyFlag, insecureFlag, nil
+	if serverFlag != "" && apiKeyEnv != "" {
+		return serverFlag, apiKeyEnv, insecureFlag, nil
 	}
 
 	v := viper.New()
@@ -64,7 +84,7 @@ func loadClientConfig(cmd *cobra.Command) (serverURL string, apiKey string, inse
 
 	if readErr := v.ReadInConfig(); readErr != nil {
 		if serverFlag == "" {
-			return "", "", false, fmt.Errorf("no config file found at %s — run 'sensor-hub config init' to set up", configFilePath())
+			return "", "", false, fmt.Errorf("no config file found at %s - run 'sensor-hub config init' to set up", configFilePath())
 		}
 	}
 
@@ -73,10 +93,10 @@ func loadClientConfig(cmd *cobra.Command) (serverURL string, apiKey string, inse
 	} else {
 		serverURL = serverFlag
 	}
-	if apiKeyFlag == "" {
+	if apiKeyEnv == "" {
 		apiKey = v.GetString("api_key")
 	} else {
-		apiKey = apiKeyFlag
+		apiKey = apiKeyEnv
 	}
 	if !insecureFlag {
 		insecure = v.GetBool("insecure")
@@ -85,88 +105,163 @@ func loadClientConfig(cmd *cobra.Command) (serverURL string, apiKey string, inse
 	}
 
 	if serverURL == "" {
-		return "", "", false, fmt.Errorf("server URL not configured — run 'sensor-hub config init' or pass --server")
+		return "", "", false, fmt.Errorf("server URL not configured - run 'sensor-hub config init' or pass --server")
 	}
 
 	return serverURL, apiKey, insecure, nil
 }
 
 func runConfigInit(cmd *cobra.Command, args []string) error {
-	reader := bufio.NewReader(os.Stdin)
+	keyFromStdin, _ := cmd.Flags().GetBool("api-key-stdin")
+	var cfg clientConfig
+	var err error
+	if keyFromStdin {
+		cfg, err = configFromStdin(cmd)
+	} else {
+		cfg, err = configFromPrompts(cmd)
+	}
+	if err != nil {
+		return err
+	}
+	return writeClientConfig(cmd, cfg)
+}
 
-	fmt.Print("Enter Sensor Hub server URL [http://localhost:8080]: ")
-	serverURL, _ := reader.ReadString('\n')
-	serverURL = strings.TrimSpace(serverURL)
+// configFromStdin takes the server from --server and the API key from stdin,
+// and refuses to go on unless the hub answers and accepts the key.
+func configFromStdin(cmd *cobra.Command) (clientConfig, error) {
+	serverURL, _ := cmd.Flags().GetString("server")
 	if serverURL == "" {
-		serverURL = "http://localhost:8080"
+		return clientConfig{}, errors.New("--api-key-stdin needs --server, the URL of the hub")
 	}
-	serverURL = strings.TrimRight(serverURL, "/")
-
-	insecure := false
-	if strings.HasPrefix(serverURL, "https://") {
-		fmt.Print("Skip TLS certificate verification (for self-signed certs)? [y/N]: ")
-		tlsAnswer, _ := reader.ReadString('\n')
-		insecure = strings.TrimSpace(strings.ToLower(tlsAnswer)) == "y"
+	insecure, _ := cmd.Flags().GetBool("insecure")
+	line, err := readSecretLine(cmd.InOrStdin())
+	if err != nil {
+		return clientConfig{}, err
+	}
+	cfg := clientConfig{serverURL: strings.TrimRight(serverURL, "/"), apiKey: strings.TrimSpace(line), insecure: insecure}
+	if cfg.apiKey == "" {
+		return clientConfig{}, errors.New("no API key on stdin")
 	}
 
-	// Test connectivity
-	fmt.Printf("Testing connection to %s...\n", serverURL)
+	out := cmd.OutOrStdout()
+	client := configProbeClient(cfg.insecure)
+	fmt.Fprintf(out, "Testing connection to %s...\n", cfg.serverURL)
+	if err := checkHubReachable(client, cfg.serverURL); err != nil {
+		return clientConfig{}, err
+	}
+	fmt.Fprintln(out, "✓ Server is reachable")
+	username, err := checkAPIKey(client, cfg.serverURL, cfg.apiKey)
+	if err != nil {
+		return clientConfig{}, err
+	}
+	fmt.Fprintf(out, "✓ Authenticated as %s\n", username)
+	return cfg, nil
+}
+
+// configFromPrompts asks for the server and the API key on the terminal,
+// without echoing the key. A hub that cannot be reached or a refused key is
+// reported, and the person at the terminal decides whether to save anyway.
+func configFromPrompts(cmd *cobra.Command) (clientConfig, error) {
+	fd, ok := stdinTerminal(cmd)
+	if !ok {
+		return clientConfig{}, errors.New("stdin is not a terminal, so config init cannot prompt; " +
+			"pipe the API key in with --api-key-stdin and give the URL with --server")
+	}
+	reader := bufio.NewReader(cmd.InOrStdin())
+	out := cmd.OutOrStdout()
+	ask := func(prompt string) string {
+		fmt.Fprint(out, prompt)
+		answer, _ := reader.ReadString('\n')
+		return strings.TrimSpace(answer)
+	}
+
+	cfg := clientConfig{serverURL: strings.TrimRight(ask("Enter Sensor Hub server URL [http://localhost:8080]: "), "/")}
+	if cfg.serverURL == "" {
+		cfg.serverURL = "http://localhost:8080"
+	}
+	if strings.HasPrefix(cfg.serverURL, "https://") {
+		cfg.insecure = strings.ToLower(ask("Skip TLS certificate verification (for self-signed certs)? [y/N]: ")) == "y"
+	}
+
+	client := configProbeClient(cfg.insecure)
+	fmt.Fprintf(out, "Testing connection to %s...\n", cfg.serverURL)
+	if err := checkHubReachable(client, cfg.serverURL); err != nil {
+		fmt.Fprintf(out, "⚠ %v\n", err)
+		if strings.ToLower(ask("Continue anyway? [y/N]: ")) != "y" {
+			return clientConfig{}, errors.New("setup cancelled")
+		}
+	} else {
+		fmt.Fprintln(out, "✓ Server is reachable")
+	}
+
+	key, err := promptSecret(cmd, fd, "Enter API key (leave empty to skip): ")
+	if err != nil {
+		return clientConfig{}, err
+	}
+	cfg.apiKey = strings.TrimSpace(key)
+	if cfg.apiKey != "" {
+		fmt.Fprintln(out, "Testing API key authentication...")
+		if username, err := checkAPIKey(client, cfg.serverURL, cfg.apiKey); err != nil {
+			fmt.Fprintf(out, "⚠ %v\n", err)
+		} else {
+			fmt.Fprintf(out, "✓ Authenticated as %s\n", username)
+		}
+	}
+	return cfg, nil
+}
+
+func configProbeClient(insecure bool) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if insecure {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // user-requested
 	}
-	client := &http.Client{Timeout: 10 * time.Second, Transport: transport}
+	return &http.Client{Timeout: 10 * time.Second, Transport: transport}
+}
+
+func checkHubReachable(client *http.Client, serverURL string) error {
 	resp, err := client.Get(serverURL + "/api/health")
 	if err != nil {
-		fmt.Printf("⚠ Could not connect: %v\n", err)
-		fmt.Print("Continue anyway? [y/N]: ")
-		confirm, _ := reader.ReadString('\n')
-		if strings.TrimSpace(strings.ToLower(confirm)) != "y" {
-			return fmt.Errorf("setup cancelled")
-		}
-	} else {
-		resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			fmt.Println("✓ Server is reachable")
-		} else {
-			fmt.Printf("⚠ Server returned status %d\n", resp.StatusCode)
-		}
+		return fmt.Errorf("could not connect to %s: %w", serverURL, err)
 	}
-
-	fmt.Print("Enter API key (leave empty to skip): ")
-	apiKey, _ := reader.ReadString('\n')
-	apiKey = strings.TrimSpace(apiKey)
-
-	if apiKey != "" {
-		fmt.Print("Testing API key authentication...")
-		req, _ := http.NewRequest("GET", serverURL+"/api/auth/me", nil)
-		req.Header.Set("X-API-Key", apiKey)
-		resp, err := client.Do(req)
-		if err != nil {
-			fmt.Printf("\n⚠ Auth test failed: %v\n", err)
-		} else {
-			defer resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				body, _ := io.ReadAll(resp.Body)
-				var user map[string]interface{}
-				if json.Unmarshal(body, &user) == nil {
-					fmt.Printf("\n✓ Authenticated as %s\n", user["username"])
-				} else {
-					fmt.Println("\n✓ Authentication successful")
-				}
-			} else {
-				fmt.Printf("\n⚠ Auth returned status %d — key may be invalid\n", resp.StatusCode)
-			}
-		}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s/api/health answered HTTP %d", serverURL, resp.StatusCode)
 	}
+	return nil
+}
 
-	// Write config file
+// checkAPIKey asks the hub who the key belongs to, and returns the username.
+func checkAPIKey(client *http.Client, serverURL, apiKey string) (string, error) {
+	req, err := http.NewRequest(http.MethodGet, serverURL+"/api/auth/me", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("X-API-Key", apiKey)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("could not test the API key: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("the hub refused the API key (HTTP %d)", resp.StatusCode)
+	}
+	var me gen.MeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&me); err != nil {
+		return "", fmt.Errorf("could not read the user the API key belongs to: %w", err)
+	}
+	if me.User == nil {
+		return "", errors.New("the hub did not say which user the API key belongs to")
+	}
+	return me.User.Username, nil
+}
+
+func writeClientConfig(cmd *cobra.Command, cfg clientConfig) error {
 	cfgPath := configFilePath()
-	content := fmt.Sprintf("server: %s\n", serverURL)
-	if apiKey != "" {
-		content += fmt.Sprintf("api_key: %s\n", apiKey)
+	content := fmt.Sprintf("server: %s\n", cfg.serverURL)
+	if cfg.apiKey != "" {
+		content += fmt.Sprintf("api_key: %s\n", cfg.apiKey)
 	}
-	if insecure {
+	if cfg.insecure {
 		content += "insecure: true\n"
 	}
 
@@ -174,7 +269,7 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
-	fmt.Printf("✓ Configuration saved to %s\n", cfgPath)
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Configuration saved to %s\n", cfgPath)
 	return nil
 }
 
@@ -186,7 +281,7 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 	v.SetConfigType("yaml")
 
 	if err := v.ReadInConfig(); err != nil {
-		return fmt.Errorf("no config file found at %s — run 'sensor-hub config init'", cfgPath)
+		return fmt.Errorf("no config file found at %s - run 'sensor-hub config init'", cfgPath)
 	}
 
 	server := v.GetString("server")
