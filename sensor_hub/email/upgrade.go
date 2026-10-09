@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"example/sensorHub/utils"
 )
@@ -17,8 +16,8 @@ import (
 const legacySMTPProperties = "smtp.properties"
 
 // legacyOAuthFiles are the Gmail OAuth client secret and token 1.5.x kept in
-// the configuration directory, and the 1.5.x properties that could put them
-// elsewhere, which an upgraded application.properties may still hold.
+// the configuration directory by default, and the 1.5.x properties that could
+// put them elsewhere, which an upgraded application.properties may still hold.
 var legacyOAuthFiles = []struct{ name, property string }{
 	{"credentials.json", "oauth.credentials.file.path"},
 	{"token.json", "oauth.token.file.path"},
@@ -32,10 +31,11 @@ type UpgradeSeeder interface {
 // FinishUpgrade completes the move from Gmail OAuth to SMTP once the schema
 // migration has run. It carries the old smtp.user from smtp.properties into
 // the email settings the first time it runs on them, and deletes the OAuth
-// credentials and token, which nothing reads any more, logging each file it
-// deletes: those in the configuration directory, and those at the paths the
-// leftover oauth.* properties name. It runs at every start and does nothing
-// once both are done.
+// credentials and token in the configuration directory, which nothing reads
+// any more, logging each file it deletes. A leftover oauth.* property naming
+// a file anywhere else gets a warning instead, at every start until a save of
+// the properties drops the key: the hub does not delete a file at a path an
+// operator chose. Otherwise it does nothing once both are done.
 func FinishUpgrade(ctx context.Context, seeder UpgradeSeeder, configDir string, logger *slog.Logger) error {
 	smtpUser := legacySMTPUser(configDir, logger)
 	seeded, err := seeder.SeedFromSMTPUser(ctx, smtpUser)
@@ -46,9 +46,10 @@ func FinishUpgrade(ctx context.Context, seeder UpgradeSeeder, configDir string, 
 		logger.Info("carried smtp.user into the email settings as the username and from address; enter an SMTP password on the Alerts & Notifications page to send email again",
 			"smtp_user", smtpUser)
 	}
-	for _, path := range legacyOAuthPaths(configDir) {
-		deleteLegacyOAuthFile(path, logger)
+	for _, file := range legacyOAuthFiles {
+		deleteLegacyOAuthFile(filepath.Join(configDir, file.name), logger)
 	}
+	warnOfOAuthFilesElsewhere(configDir, logger)
 	return nil
 }
 
@@ -66,14 +67,15 @@ func legacySMTPUser(configDir string, logger *slog.Logger) string {
 	return props["smtp.user"]
 }
 
-// legacyOAuthPaths lists where 1.5.x kept the OAuth files: the configuration
-// directory, and wherever oauth.*.file.path pointed, resolved against the
-// configuration directory as 1.5.x did.
-func legacyOAuthPaths(configDir string) []string {
-	props, _ := utils.ReadPropertiesFile(filepath.Join(configDir, "application.properties"))
-	var paths []string
+// warnOfOAuthFilesElsewhere warns about each OAuth file a leftover
+// oauth.*.file.path puts outside the configuration directory's default name,
+// resolved against the configuration directory as 1.5.x did.
+func warnOfOAuthFilesElsewhere(configDir string, logger *slog.Logger) {
+	props, err := utils.ReadPropertiesFile(filepath.Join(configDir, "application.properties"))
+	if err != nil {
+		return
+	}
 	for _, file := range legacyOAuthFiles {
-		paths = append(paths, filepath.Join(configDir, file.name))
 		configured := props[file.property]
 		if configured == "" {
 			continue
@@ -81,11 +83,13 @@ func legacyOAuthPaths(configDir string) []string {
 		if !filepath.IsAbs(configured) {
 			configured = filepath.Join(configDir, configured)
 		}
-		if !slices.Contains(paths, filepath.Clean(configured)) {
-			paths = append(paths, filepath.Clean(configured))
+		path := filepath.Clean(configured)
+		if path == filepath.Join(configDir, file.name) {
+			continue
 		}
+		logger.Warn("a Gmail OAuth file from before 2.0 may still be on disk, which email no longer uses; delete it and revoke the hub's Google token in the Google account",
+			"path", path, "property", file.property)
 	}
-	return paths
 }
 
 // deleteLegacyOAuthFile deletes one OAuth file, if it is there and is a

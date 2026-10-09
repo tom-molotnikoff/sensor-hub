@@ -114,6 +114,16 @@ func TestEmail_TestSendThatTheServerRefusesAnswers502AndRecordsTheError(t *testi
 	require.NotNil(t, after.LastError)
 	assert.True(t, strings.Contains(*after.LastError, "535"), *after.LastError)
 	assert.Equal(t, before.LastSentAt, after.LastSentAt, "a failure keeps when the last send succeeded")
+
+	// The next send that succeeds clears the error.
+	_, status = sender.UpdateEmailSettings(env.SMTPSettings(testharness.SMTPPassword))
+	require.Equal(t, http.StatusOK, status)
+	_, status = sender.SendTestEmail()
+	require.Equal(t, http.StatusOK, status)
+	recovered, _ := emailSettings(t, sender)
+	assert.Nil(t, recovered.LastError)
+	require.NotNil(t, recovered.LastSentAt)
+	assert.False(t, recovered.LastSentAt.Before(*after.LastSentAt))
 }
 
 func TestEmail_TestSendNeedsTheCallersEmailAddress(t *testing.T) {

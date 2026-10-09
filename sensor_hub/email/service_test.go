@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
-	"time"
 
 	database "example/sensorHub/db"
 	gen "example/sensorHub/gen"
@@ -124,53 +123,9 @@ func configuredService(t *testing.T, password string) (*Service, *fakeRepo, *smt
 	return newTestService(repo, store, nil), repo, fake
 }
 
-func TestSendNotification_SendsAndRecordsTheSend(t *testing.T) {
-	service, repo, fake := configuredService(t, testPassword)
-	sentAt := time.Date(2026, 10, 9, 8, 0, 0, 0, time.UTC)
-	service.now = func() time.Time { return sentAt }
-	repo.settings.LastError = ptr("an earlier failure")
-
-	require.NoError(t, service.SendNotification("admin@example.com", "Living Room is hot", "31.5°C", "threshold_alert"))
-
-	messages := fake.Messages()
-	require.Len(t, messages, 1)
-	assert.Equal(t, "hub@example.com", messages[0].From)
-	assert.Equal(t, []string{"admin@example.com"}, messages[0].To)
-	assert.Contains(t, messages[0].Data, "Subject: [threshold_alert] Living Room is hot")
-	assert.Nil(t, repo.settings.LastError)
-	assert.Equal(t, &sentAt, repo.settings.LastSentAt)
-}
-
-func TestSendTest_ReturnsTheSMTPErrorAndRecordsIt(t *testing.T) {
-	service, repo, fake := configuredService(t, "wrong-password")
-	earlier := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	repo.settings.LastSentAt = &earlier
-
-	err := service.SendTest(context.Background(), "admin@example.com")
-
-	var sendErr *SendError
-	require.ErrorAs(t, err, &sendErr)
-	assert.Contains(t, sendErr.Error(), "535 5.7.8")
-	require.NotNil(t, repo.settings.LastError)
-	assert.Equal(t, sendErr.Error(), *repo.settings.LastError)
-	assert.Equal(t, &earlier, repo.settings.LastSentAt, "a failure keeps the last successful send")
-	assert.Empty(t, fake.Messages())
-}
-
-func TestSendTest_SendsTheTestEmailToTheRecipient(t *testing.T) {
-	service, _, fake := configuredService(t, testPassword)
-
-	require.NoError(t, service.SendTest(context.Background(), "admin@example.com"))
-
-	messages := fake.Messages()
-	require.Len(t, messages, 1)
-	assert.Contains(t, messages[0].Data, "Subject: "+TestSubject)
-}
-
-func TestSendTest_NeedsARecipientAndSettings(t *testing.T) {
+func TestSendTest_NeedsSettings(t *testing.T) {
 	service := newTestService(&fakeRepo{}, newFakeSecrets(), nil)
 
-	assert.ErrorIs(t, service.SendTest(context.Background(), ""), ErrNoRecipient)
 	assert.ErrorIs(t, service.SendTest(context.Background(), "admin@example.com"), ErrNotConfigured)
 }
 

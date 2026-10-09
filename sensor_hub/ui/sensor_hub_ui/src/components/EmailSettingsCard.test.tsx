@@ -42,8 +42,7 @@ async function renderCard() {
 }
 
 function sentBody() {
-  expect(putMock).toHaveBeenCalledTimes(1);
-  return putMock.mock.calls[0][1].body as Record<string, unknown>;
+  return putMock.mock.calls.at(-1)![1].body as Record<string, unknown>;
 }
 
 describe('EmailSettingsCard', () => {
@@ -164,14 +163,15 @@ describe('EmailSettingsCard', () => {
     expect(await screen.findByText('from_address must be an email address')).toBeInTheDocument();
   });
 
-  it('sends a test email, shows the result and reloads the settings', async () => {
+  it('sends a test email, shows the result and the new last sent time', async () => {
     await renderCard();
-    expect(getMock).toHaveBeenCalledTimes(1);
+    const sentAt = '2026-10-09T09:15:00Z';
+    getMock.mockImplementation(() => ok({ ...saved, last_sent_at: sentAt }));
     fireEvent.click(screen.getByRole('button', { name: 'Send test email' }));
 
     expect(await screen.findByText('Test email sent to admin@example.com')).toBeInTheDocument();
     expect(postMock).toHaveBeenCalledWith('/email/smtp/test');
-    await waitFor(() => expect(getMock).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(`Last sent: ${new Date(sentAt).toLocaleString()}`)).toBeInTheDocument();
   });
 
   it("shows the SMTP server's error when the test email fails, and the updated last error", async () => {

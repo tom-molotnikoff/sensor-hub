@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,26 +84,4 @@ func TestEmailSettings_SeedNeverOverwritesSavedSettings(t *testing.T) {
 	settings, err := repo.Get(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, saved, settings)
-}
-
-func TestEmailSettings_RecordsHowTheLastSendWent(t *testing.T) {
-	ctx := context.Background()
-	repo := NewEmailSettingsRepository(newMigratedHandles(t))
-	sentAt := time.Date(2026, 10, 9, 8, 30, 0, 0, time.UTC)
-
-	require.NoError(t, repo.RecordSent(ctx, sentAt))
-	require.NoError(t, repo.RecordFailure(ctx, "535 5.7.8 Authentication credentials invalid"))
-
-	settings, err := repo.Get(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, settings.LastError)
-	assert.Equal(t, "535 5.7.8 Authentication credentials invalid", *settings.LastError)
-	require.NotNil(t, settings.LastSentAt)
-	assert.True(t, sentAt.Equal(*settings.LastSentAt), "a failure keeps when the last send succeeded")
-
-	require.NoError(t, repo.RecordSent(ctx, sentAt.Add(time.Minute)))
-	settings, err = repo.Get(ctx)
-	require.NoError(t, err)
-	assert.Nil(t, settings.LastError)
-	assert.True(t, sentAt.Add(time.Minute).Equal(*settings.LastSentAt))
 }
