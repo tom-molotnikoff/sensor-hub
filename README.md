@@ -14,6 +14,7 @@ It started life as a couple of DS18B20 temperature probes wired to some Pi Zeros
 
 - Plugs straight into Zigbee2MQTT. There's an MQTT broker built in, so you don't need to run Mosquitto unless you want to, and new devices show up on their own and wait for you to approve them.
 - Controls things too. Smart plugs, bulbs and switches get an on/off toggle.
+- Automations. Switch things at set times, delays, or driven by the readings from any of your sensors. Eg, turn this radiator on if the heat drops below 17C.
 - Dashboards you arrange yourself, from a range of widgets: charts, gauges, heatmaps, live readings and plenty more.
 - Alerts and notifications. Threshold rules on any measurement, with rate limiting, and notifications in the app and by email.
 - Keeps the history tidy. Old readings get aggregated so long time ranges stay quick, with a global retention period and per-sensor overrides.
