@@ -86,7 +86,7 @@ var emailSetCmd = &cobra.Command{
 			if current.PasswordStatus == nil || *current.PasswordStatus == "unset" {
 				label = "SMTP password (leave empty for none): "
 			}
-			password, err := readPassword(cmd, false, label)
+			password, err := readPassword(cmd, false, label, true)
 			if err != nil {
 				return err
 			}

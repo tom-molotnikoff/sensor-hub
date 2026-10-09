@@ -48,9 +48,33 @@ func cleanupSensorHubBinary() {
 	}
 }
 
-func runSensorHub(t *testing.T, stdin string, args ...string) (stdout, stderr string, err error) {
+var cliHomes sync.Map // *testing.T -> string
+
+// cliHome is the home directory every CLI run in the test sees, so the CLI's
+// ~/.sensor-hub.yaml is the test's own and never the developer's.
+func cliHome(t *testing.T) string {
+	t.Helper()
+	if dir, ok := cliHomes.Load(t); ok {
+		return dir.(string)
+	}
+	dir := t.TempDir()
+	cliHomes.Store(t, dir)
+	t.Cleanup(func() { cliHomes.Delete(t) })
+	return dir
+}
+
+// sensorHubCommand runs the CLI with the test process's environment and the
+// test's own home directory.
+func sensorHubCommand(t *testing.T, args ...string) *exec.Cmd {
 	t.Helper()
 	cmd := exec.Command(buildSensorHub(t), args...)
+	cmd.Env = append(os.Environ(), "HOME="+cliHome(t))
+	return cmd
+}
+
+func runSensorHub(t *testing.T, stdin string, args ...string) (stdout, stderr string, err error) {
+	t.Helper()
+	cmd := sensorHubCommand(t, args...)
 	cmd.Stdin = strings.NewReader(stdin)
 	var out, errOut bytes.Buffer
 	cmd.Stdout = &out

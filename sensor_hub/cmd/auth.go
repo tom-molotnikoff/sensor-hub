@@ -27,11 +27,18 @@ func init() {
 var authLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate with username and password",
+	Long:  "Log in to the hub as a user.\n\n" + existingPasswordInputHelp,
+	Example: "  sensor-hub auth login --username alice\n" +
+		"  printf '%s\\n' \"$PASSWORD\" | sensor-hub auth login --username alice --password-stdin",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		username, _ := cmd.Flags().GetString("username")
-		password, _ := cmd.Flags().GetString("password")
+		fromStdin, _ := cmd.Flags().GetBool("password-stdin")
 
 		client, ctx, err := newAPIClient(cmd)
+		if err != nil {
+			return err
+		}
+		password, err := readExistingPassword(cmd, fromStdin)
 		if err != nil {
 			return err
 		}
@@ -44,9 +51,8 @@ var authLoginCmd = &cobra.Command{
 
 func init() {
 	authLoginCmd.Flags().String("username", "", "Username")
-	authLoginCmd.Flags().String("password", "", "Password")
+	authLoginCmd.Flags().Bool("password-stdin", false, "Read the password from stdin instead of prompting for it")
 	_ = authLoginCmd.MarkFlagRequired("username")
-	_ = authLoginCmd.MarkFlagRequired("password")
 }
 
 var authLogoutCmd = &cobra.Command{
