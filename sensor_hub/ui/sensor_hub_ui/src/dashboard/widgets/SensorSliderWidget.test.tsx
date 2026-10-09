@@ -156,8 +156,22 @@ describe('SensorSliderWidget', () => {
     act(() => commandStatusHandler?.(status('timed_out')));
 
     await waitFor(() => expect(slider()).toHaveAttribute('aria-valuenow', '200'));
-    expect(screen.getAllByText('Command timed out').length).toBeGreaterThan(0);
-    expect(reportUpdateMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('alert')).toHaveTextContent('Command timed out');
+    expect(screen.queryByText('Setting to 64…')).not.toBeInTheDocument();
+  });
+
+  it('shows the command as acknowledged when the acknowledgement beats the reply to the send', async () => {
+    let resolvePost: ((value: { data: SensorCommandAccepted }) => void) | undefined;
+    postMock.mockImplementation(() => new Promise((resolve) => { resolvePost = resolve; }));
+    renderSlider();
+
+    await slideTo(64);
+    act(() => commandStatusHandler?.(status('acknowledged')));
+    expect(screen.getByText('Setting to 64…')).toBeInTheDocument();
+
+    await act(async () => resolvePost?.({ data: { id: 42, status: 'sent', property: 'brightness', value: '64' } }));
+
+    expect(screen.getByText('Acknowledged')).toBeInTheDocument();
   });
 
   it('stays inert until the first reading and for a user without control permission', () => {
