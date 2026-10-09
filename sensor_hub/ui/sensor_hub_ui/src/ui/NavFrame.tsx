@@ -34,10 +34,13 @@ import { navDrawer, navPermanent } from './theme/tokens';
 import { charcoalSurface } from './charcoalSurface';
 
 type NavFrameVariant =
-  | { variant: 'permanent'; rail: boolean; onToggleRail: () => void; onRailSettled: () => void }
+  | { variant: 'permanent'; rail: boolean; onToggleRail: () => void }
   | { variant: 'temporary'; open: boolean; onClose: () => void };
 
 type NavFrameProps = NavFrameVariant & {
+  // Called once a width transition the rail started has ended, in either
+  // variant: the window can narrow to the temporary drawer part way through.
+  onRailSettled?: () => void;
   logo: string;
   name: string;
   brandAction?: ReactNode;
@@ -66,7 +69,8 @@ const isWidthTransition = (animation: Animation) => 'transitionProperty' in anim
 // actually runs, not on a timer, which on a busy main thread can fire while
 // the transition is still running. A change that runs no transition settles
 // straight away, and so does a drawer removed part way through, as on moving
-// to another page, so nothing waiting on the nav is left waiting.
+// to another page or narrowing to the temporary drawer, so nothing waiting on
+// the nav is left waiting.
 function useRailSettled(rail: boolean, onRailSettled?: () => void) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const shownRail = useRef(rail);
@@ -113,10 +117,10 @@ function RailTooltip({ label, children }: { label: string; children: ReactElemen
 
 const railRowSx = { justifyContent: 'center', '& .MuiListItemIcon-root': { minWidth: 0 } } as const;
 
-export default function NavFrame({ logo, name, brandAction, navRef, foot, children, ...frame }: NavFrameProps) {
+export default function NavFrame({ onRailSettled, logo, name, brandAction, navRef, foot, children, ...frame }: NavFrameProps) {
   const temporary = frame.variant === 'temporary';
   const rail = frame.variant === 'permanent' && frame.rail;
-  const drawerRef = useRailSettled(rail, frame.variant === 'permanent' ? frame.onRailSettled : undefined);
+  const drawerRef = useRailSettled(rail, onRailSettled);
   const width = rail ? navPermanent.rail : navPermanent.expanded;
   const drawerProps = temporary
     ? {

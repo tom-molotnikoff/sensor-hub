@@ -373,7 +373,7 @@ const notifications: NotificationContextValue = {
   updatePreference: async () => {},
 };
 
-function PermanentShell({ rail, endWidthTransition }: { rail: boolean; endWidthTransition: () => void }) {
+function PermanentShell({ rail, endWidthTransition, permanent }: { rail: boolean; endWidthTransition: () => void; permanent: boolean }) {
   const [collapsed, setCollapsed] = useState(rail);
   return (
     <SidebarContext.Provider
@@ -386,23 +386,25 @@ function PermanentShell({ rail, endWidthTransition }: { rail: boolean; endWidthT
         endWidthTransition,
       }}
     >
-      <AppNav permanent />
+      <AppNav permanent={permanent} />
     </SidebarContext.Provider>
   );
 }
 
 function renderPermanentNav(as: AuthUser = admin, { rail = false, endWidthTransition = () => {} } = {}) {
-  return render(
+  const tree = (permanent: boolean) => (
     <ThemeProvider theme={theme}>
       <AuthContext.Provider value={{ user: as, refresh: async () => {} }}>
         <NotificationContext.Provider value={notifications}>
           <MemoryRouter initialEntries={['/dashboard']}>
-            <PermanentShell rail={rail} endWidthTransition={endWidthTransition} />
+            <PermanentShell rail={rail} endWidthTransition={endWidthTransition} permanent={permanent} />
           </MemoryRouter>
         </NotificationContext.Provider>
       </AuthContext.Provider>
-    </ThemeProvider>,
+    </ThemeProvider>
   );
+  const result = render(tree(true));
+  return { ...result, narrowToTemporary: () => result.rerender(tree(false)) };
 }
 
 const collapseToggle = () => nav().querySelector<HTMLElement>('[data-ui=nav-collapse]')!;
@@ -543,6 +545,22 @@ describe('AppNav permanent', () => {
       renderPermanentNav(admin, { endWidthTransition });
 
       fireEvent.click(collapseToggle());
+
+      await waitFor(() => expect(endWidthTransition).toHaveBeenCalledTimes(1));
+    });
+
+    it.each([
+      ['collapsing', false],
+      ['expanding', true],
+    ])('when the window narrows to the temporary drawer part way through %s', async (_, rail) => {
+      const endWidthTransition = vi.fn();
+      const { narrowToTemporary } = renderPermanentNav(admin, { rail, endWidthTransition });
+      const width = transition('width');
+      drawer().getAnimations = () => [width.animation];
+      fireEvent.click(collapseToggle());
+
+      narrowToTemporary();
+      width.cancel();
 
       await waitFor(() => expect(endWidthTransition).toHaveBeenCalledTimes(1));
     });
