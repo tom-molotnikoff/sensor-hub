@@ -155,7 +155,7 @@ An automation is one or more triggers (any of them starts a run) followed by ste
 - Use `margin-suggestion` for `rearm_margin`. `suggested_margin` is null when `confidence` is `"none"` (fewer than 30 readings). `get` shows `margin_hint` on a trigger when the daily check found the sensor noisier than its saved margin allows. The margin is never changed for you.
 
 **Steps:**
-- `{"type": "set", "sensor_id": 14, "property": "state", "value": "ON"}` - any capability the sensor has, with the value as a string, as for `sensor-hub sensors command`. See `sensor-hub sensors capabilities 14` for properties and allowed values. Only properties whose new value the device reports back are offered (on Zigbee, `state` and `brightness`), so a property not in that list, such as `color_temp` or `effect`, can't be set. The next step waits until the device acknowledges it, and a failed or timed-out command fails the run.
+- `{"type": "set", "sensor_id": 14, "property": "state", "value": "ON"}` - any capability the sensor has, with the value as a string, as for `sensor-hub sensors command`. See `sensor-hub sensors capabilities 14` for properties and allowed values. Only properties whose new value the device reports back are offered (on Zigbee, `state`, `brightness` and `color_temp`), so a property not in that list, such as `effect` or a cover's open/close `state`, can't be set. The next step waits until the device acknowledges it, and a failed or timed-out command fails the run.
 - `{"type": "wait", "seconds": 14400}` - at least 1 second, no maximum. Waits survive a hub restart.
 
 **Status** (from `list` and `get`): `off`, `armed`, `running` or `broken`, with `last_run_failed`. `broken` means a set step targets a property its device no longer has, and `status_reason` names it, such as `step 2: hallway-lamp no longer has color_temp_preset`. A broken automation starts no runs until it is saved with valid steps or the device gets the property back. `next_fire_at` is UTC, with the zone in `hub_timezone`.
@@ -337,7 +337,7 @@ The `update` command requires a JSON file with the full dashboard structure.
 | `heatmap`            | `sensorId` (number), `measurementType` (measurement-type), `scaleMin` (number, default 10), `scaleMax` (number, default 30) | Colour-coded 30-day heatmap                 |
 | `sensor-detail`      | `sensorId` (number)                                                                                                        | Latest readings grid for a sensor            |
 | `sensor-toggle`      | `sensorId` (controllable binary sensor), `property` (binary capability property, default `state`)                         | Large optimistic on/off switch for a controllable sensor |
-| `sensor-slider`      | `sensorId` (controllable numeric sensor), `property` (numeric capability property, default `brightness`)                  | Slider that sets a numeric property such as brightness, ranged by the device, showing whether the command was acknowledged |
+| `sensor-slider`      | `sensorId` (controllable numeric sensor), `property` (numeric capability property, default `brightness`)                  | Slider that sets a numeric property such as brightness or colour temperature, ranged by the device, showing whether the command was acknowledged |
 
 **Config field notes:**
 - `sensorId` is a numeric sensor ID (see `sensor-hub sensors list` to find IDs)

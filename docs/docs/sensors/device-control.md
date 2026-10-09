@@ -30,7 +30,9 @@ A command counts as done only when the device reports the new value back. So Sen
 - the device exposes it as both settable and reported in its state
 - Sensor Hub turns the reported value into a reading of the same name
 
-Today that means `state` (on and off) and `brightness`. Anything else a device exposes, such as `color_temp`, `effect`, `identify`, `power_on_behavior` or the `level_config` settings, is left off the list rather than offered and left to time out. It isn't offered in the dashboard, the automation editor, the CLI or the API.
+Today that means `state` (on and off), `brightness` and `color_temp`. Anything else a device exposes, such as `effect`, `identify`, `power_on_behavior` or the `level_config` settings, is left off the list rather than offered and left to time out. It isn't offered in the dashboard, the automation editor, the CLI or the API.
+
+Covers, such as blinds and curtains, can't be controlled yet. A cover's `state` is open, close or stop rather than on or off, and Sensor Hub can't read that back, so it isn't offered. [Issue #545](https://github.com/tom-molotnikoff/sensor-hub/issues/545) tracks reading cover state so that covers can be controlled.
 
 Not every Zigbee device is controllable. Many devices are read-only sensors, while smart plugs, relays, and similar devices usually expose one or more writable capabilities.
 
@@ -64,11 +66,11 @@ The widget then shows a large on/off control for that property. For broader dash
 
 ### Step 4 - Add a Sensor Slider widget for a numeric property
 
-To set a numeric property, such as a light's brightness:
+To set a numeric property, such as a light's brightness or colour temperature:
 
 1. Add a **Sensor Slider** widget
 2. Select the sensor
-3. Select the numeric property (`brightness` by default)
+3. Select the numeric property (`brightness` by default, or `color_temp`)
 
 The slider's range comes from the device: the minimum and maximum Zigbee2MQTT reports for the property, and its step where it gives one. Let go of the slider to send the value. The widget shows the value it's setting until the device reports it back, then says whether the command was acknowledged, failed or timed out. If it fails or times out, the slider goes back to the last value the device reported.
 

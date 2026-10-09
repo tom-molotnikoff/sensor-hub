@@ -97,7 +97,7 @@ func TestMeasurementTypes_MinAndMaxSupportedForNumericTypesOnly(t *testing.T) {
 		"voltage": true, "luminance": true, "link_quality": true, "illuminance": true, "energy": true,
 		"current": true, "co2": true, "voc": true, "formaldehyde": true, "pm25": true,
 		"soil_moisture": true, "energy_today": true, "energy_month": true, "energy_yesterday": true,
-		"brightness": true,
+		"brightness": true, "color_temp": true,
 	}
 
 	raw, status := client.GetAllMeasurementTypes()

@@ -56,6 +56,7 @@ var knownFields = map[string]fieldMapping{
 	"vibration":        {MeasurementType: "vibration", DisplayName: "Vibration", Unit: "", Category: "binary"},
 	"state":            {MeasurementType: "state", DisplayName: "State", Unit: "", Category: "binary"},
 	"brightness":       {MeasurementType: "brightness", DisplayName: "Brightness", Unit: "", Category: "numeric"},
+	"color_temp":       {MeasurementType: "color_temp", DisplayName: "Colour Temperature", Unit: "mired", Category: "numeric"},
 }
 
 // Zigbee2MQTTDriver parses MQTT messages from a Zigbee2MQTT bridge.

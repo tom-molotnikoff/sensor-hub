@@ -190,7 +190,7 @@ func TestSendSensorCommand_AcknowledgesAndBroadcastsCommandStatus(t *testing.T) 
 	require.NotNil(t, message.AcknowledgedAt)
 }
 
-func TestSendSensorCommand_ABrightnessCommandIsAcknowledgedByTheReportedBrightness(t *testing.T) {
+func TestSendSensorCommand_LightCommandsAreAcknowledgedByTheReportedValues(t *testing.T) {
 	fixture := setupCommandFixtureExposing(t, fmt.Sprintf("attic-bulb-%d", reserveTCPPort(t)), dimmableBulbExposes)
 	defer fixture.stop()
 
@@ -200,7 +200,7 @@ func TestSendSensorCommand_ABrightnessCommandIsAcknowledgedByTheReportedBrightne
 	for _, capability := range capabilities {
 		properties = append(properties, capability.Property)
 	}
-	assert.ElementsMatch(t, []string{"state", "brightness"}, properties)
+	assert.ElementsMatch(t, []string{"state", "brightness", "color_temp"}, properties)
 
 	bulb := pahomqtt.NewClient(pahomqtt.NewClientOptions().
 		AddBroker(fmt.Sprintf("tcp://127.0.0.1:%d", fixture.port)).
@@ -210,21 +210,23 @@ func TestSendSensorCommand_ABrightnessCommandIsAcknowledgedByTheReportedBrightne
 	require.NoError(t, token.Error())
 	defer bulb.Disconnect(250)
 	token = bulb.Subscribe(fmt.Sprintf("zigbee2mqtt/%s/set", fixture.sensor.Name), 1, func(client pahomqtt.Client, msg pahomqtt.Message) {
-		client.Publish(fmt.Sprintf("zigbee2mqtt/%s", fixture.sensor.Name), 1, false, `{"state":"ON","brightness":128,"color_mode":"color_temp"}`)
+		client.Publish(fmt.Sprintf("zigbee2mqtt/%s", fixture.sensor.Name), 1, false, `{"state":"ON","brightness":128,"color_temp":370,"color_mode":"color_temp"}`)
 	})
 	require.True(t, token.WaitTimeout(5*time.Second))
 	require.NoError(t, token.Error())
 
-	result, status := client.SendSensorCommand(fixture.sensor.Id, "brightness", "128")
-	require.Equal(t, http.StatusAccepted, status)
+	for _, command := range []struct{ property, value string }{{"brightness", "128"}, {"color_temp", "370"}} {
+		result, status := client.SendSensorCommand(fixture.sensor.Id, command.property, command.value)
+		require.Equal(t, http.StatusAccepted, status, command.property)
 
-	require.Eventually(t, func() bool {
-		var statusValue, acknowledgedValue sql.NullString
-		require.NoError(t, env.DB.Reader.QueryRow(`
-			SELECT status, acknowledged_value FROM sensor_command_history WHERE id = ?
-		`, result.Id).Scan(&statusValue, &acknowledgedValue))
-		return statusValue.String == "acknowledged" && acknowledgedValue.String == "128"
-	}, 5*time.Second, 100*time.Millisecond, "the brightness command was never acknowledged")
+		require.Eventually(t, func() bool {
+			var statusValue, acknowledgedValue sql.NullString
+			require.NoError(t, env.DB.Reader.QueryRow(`
+				SELECT status, acknowledged_value FROM sensor_command_history WHERE id = ?
+			`, result.Id).Scan(&statusValue, &acknowledgedValue))
+			return statusValue.String == "acknowledged" && acknowledgedValue.String == command.value
+		}, 5*time.Second, 100*time.Millisecond, "the %s command was never acknowledged", command.property)
+	}
 
 	_, status = client.SendSensorCommand(fixture.sensor.Id, "effect", "blink")
 	assert.Equal(t, http.StatusBadRequest, status)
@@ -359,6 +361,7 @@ var dimmableBulbExposes = []interface{}{
 	map[string]interface{}{"type": "light", "features": []interface{}{
 		map[string]interface{}{"type": "binary", "property": "state", "access": float64(7), "value_on": "ON", "value_off": "OFF"},
 		map[string]interface{}{"type": "numeric", "property": "brightness", "access": float64(7), "value_min": float64(0), "value_max": float64(254)},
+		map[string]interface{}{"type": "numeric", "property": "color_temp", "access": float64(7), "unit": "mired", "value_min": float64(250), "value_max": float64(454)},
 	}},
 	map[string]interface{}{"type": "enum", "property": "effect", "access": float64(2), "values": []interface{}{"blink", "okay"}},
 }

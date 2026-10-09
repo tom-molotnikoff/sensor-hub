@@ -341,8 +341,9 @@ func TestParseCapabilities_BooleanBinaryValues(t *testing.T) {
 	}}, capabilities)
 }
 
-// The exposes of an IKEA LED2103G5 bulb. Only state and brightness are both
-// published and settable and read back as readings of the same name.
+// The exposes of an IKEA LED2103G5 bulb. Only state, brightness and
+// color_temp are both published and settable and read back as readings of the
+// same name.
 func TestParseCapabilities_OffersOnlyPropertiesItCanConfirm(t *testing.T) {
 	d := &Zigbee2MQTTDriver{}
 
@@ -367,7 +368,23 @@ func TestParseCapabilities_OffersOnlyPropertiesItCanConfirm(t *testing.T) {
 	assert.Equal(t, []gen.Capability{
 		{Property: "state", Type: gen.CapabilityTypeBinary, ValueOn: strPtr("ON"), ValueOff: strPtr("OFF")},
 		{Property: "brightness", Type: gen.CapabilityTypeNumeric, Min: floatPtr(0), Max: floatPtr(254)},
+		{Property: "color_temp", Type: gen.CapabilityTypeNumeric, Min: floatPtr(250), Max: floatPtr(454), Unit: strPtr("mired")},
 	}, capabilities)
+}
+
+// A cover's state is an enum (OPEN, CLOSE, STOP) and the hub reads state only
+// as binary, so it can't confirm a cover command yet (#545).
+func TestParseCapabilities_DoesNotOfferACoversEnumState(t *testing.T) {
+	d := &Zigbee2MQTTDriver{}
+
+	capabilities := d.ParseCapabilities(json.RawMessage(`[
+		{"type":"cover","features":[
+			{"type":"enum","property":"state","name":"state","access":3,"values":["OPEN","CLOSE","STOP"]},
+			{"type":"numeric","property":"position","name":"position","access":7,"unit":"%","value_min":0,"value_max":100}
+		]}
+	]`))
+
+	assert.Empty(t, capabilities)
 }
 
 // A command is acknowledged by the next reading named after its property, so
