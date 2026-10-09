@@ -88,7 +88,9 @@ echo "==> Building $IMAGE"
 docker build -q -t "$IMAGE" - <<<"$DOCKERFILE" >/dev/null
 
 # --- Helpers ---
-FAILURES=0
+# Failures are counted in a file, so that the ones in a step's subshell count.
+FAILURE_LOG="$WORK_DIR/failures"
+: >"$FAILURE_LOG"
 
 on_host() {
   docker exec "$CONTAINER" bash -c "$1"
@@ -96,7 +98,11 @@ on_host() {
 
 fail() {
   echo "    FAIL: $*" >&2
-  FAILURES=$((FAILURES + 1))
+  echo "$*" >>"$FAILURE_LOG"
+}
+
+failure_count() {
+  awk 'END { print NR }' "$FAILURE_LOG"
 }
 
 check() {
@@ -149,7 +155,8 @@ EOF
 # systemd refuses a start over the limit for good rather than retrying it, so
 # each restart clears the count first.
 restart_hub() {
-  on_host 'systemctl reset-failed sensor-hub && systemctl restart sensor-hub'
+  on_host 'systemctl reset-failed sensor-hub && systemctl restart sensor-hub' \
+    || { fail "restarting the hub"; show_service; return 1; }
 }
 
 # show_service prints how systemd last ran the hub and its key check, after a
@@ -179,18 +186,42 @@ wait_healthy() {
 
 # run_steps runs a scenario's steps in order and stops at the first that
 # cannot go on, so the scenario still reaches its cleanup and the scenarios
-# after it still run. A step that stops without a failed check of its own is
-# counted as a failure here, so the script still exits non-zero.
+# after it still run. Each step runs in a subshell with errexit on, so a
+# command that fails partway through stops the step. Run any other way, as
+# the condition of an if for one, bash would ignore errexit in the whole step.
 run_steps() {
-  local step failures
+  local step failures level status
   for step; do
-    failures="$FAILURES"
-    if ! "$step"; then
-      [[ "$FAILURES" -gt "$failures" ]] || fail "$step stopped"
+    failures="$(failure_count)"
+    level=$((BASH_SUBSHELL + 1))
+    set +e
+    (
+      set -eE
+      trap 'step_stopped "$BASH_COMMAND"' ERR
+      "$step"
+    )
+    status=$?
+    set -e
+    if [[ "$status" -ne 0 ]]; then
+      [[ "$(failure_count)" -gt "$failures" ]] || fail "$step stopped with status $status"
       echo "    the rest of this scenario's steps are skipped" >&2
       return 0
     fi
   done
+}
+
+# step_stopped counts the command that stopped a step, and where it was,
+# unless the step already counted a failed check of its own. Failures inside a
+# command substitution are left to the command that uses its output.
+step_stopped() {
+  [[ "$BASH_SUBSHELL" -eq "$level" ]] || return 0
+  [[ "$(failure_count)" -gt "$failures" ]] && return 0
+  local i=1 trace=""
+  while [[ "${FUNCNAME[i]}" != run_steps ]]; do
+    trace+=" in ${FUNCNAME[i]} at line ${BASH_LINENO[i - 1]}"
+    i=$((i + 1))
+  done
+  fail "$step stopped: $1 failed$trace"
 }
 
 ADMIN_PASSWORD="package-test-password"
@@ -374,11 +405,11 @@ check_tpm_gone() {
     on_host 'curl -fsS http://127.0.0.1:8080/api/health' >/dev/null 2>&1 && break
     sleep 1
   done
-  failures="$FAILURES"
+  failures="$(failure_count)"
   restarts="$(on_host 'systemctl show -p NRestarts --value sensor-hub')"
   check "the hub restarted while it waited for the TPM" "yes" "$([[ "$restarts" -gt 0 ]] && echo yes || echo no)"
   check "the service runs once the grace period is over" "active" "$(on_host 'systemctl is-active sensor-hub')"
-  [[ "$FAILURES" -eq "$failures" ]] || show_service
+  [[ "$(failure_count)" -eq "$failures" ]] || show_service
   login >/dev/null || return 1
   # shellcheck disable=SC2016 # expanded on the host under test
   check "the new key is sealed with the host's credential secret" "2 host" \
@@ -450,8 +481,8 @@ remove_package /etc/sensor-hub/secrets.key
 stop_host
 
 echo ""
-if [[ "$FAILURES" -gt 0 ]]; then
-  echo "==> $FAILURES check(s) failed" >&2
+if [[ "$(failure_count)" -gt 0 ]]; then
+  echo "==> $(failure_count) check(s) failed" >&2
   exit 1
 fi
 echo "==> All checks passed"
