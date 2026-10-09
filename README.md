@@ -50,7 +50,7 @@ The docs cover the rest:
 - [Prerequisites](docs/docs/prerequisites.md)
 - [Installation](docs/docs/installation.md)
 - [nginx setup](docs/docs/nginx-setup.md)
-- [Upgrading](docs/docs/upgrading.md)
+- [Upgrading](docs/docs/upgrading.md), and [Upgrading to 2.0](docs/docs/upgrading-to-2-0.md) from 1.5.x
 - [Connecting a Zigbee device](docs/docs/how-to/connect-zigbee-device.md)
 
 ## CLI and AI assistants

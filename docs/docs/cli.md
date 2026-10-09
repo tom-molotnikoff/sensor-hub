@@ -17,7 +17,7 @@ A lightweight `sensor-hub-cli` package is available that contains just the binar
 **Fedora / RHEL:**
 
 ```bash
-sudo dnf install ./sensor-hub-cli-*.rpm
+sudo dnf install ./sensor-hub-cli_*.rpm
 ```
 
 **Debian / Ubuntu:**
@@ -26,7 +26,7 @@ sudo dnf install ./sensor-hub-cli-*.rpm
 sudo apt install ./sensor-hub-cli_*.deb
 ```
 
-Download the latest package from the [GitHub Releases](https://github.com/tom-molotnikoff/sensor-hub/releases) page. Packages are GPG-signed — see the [installation guide](installation) for verification steps.
+Download the latest package from the [GitHub Releases](https://github.com/tom-molotnikoff/sensor-hub/releases) page. Packages are GPG-signed: see [Verify the package](installation#verify-the-package) to check one.
 
 :::note
 The `sensor-hub-cli` and `sensor-hub` packages conflict with each other since they both provide the same binary. If you have the full server package installed, you already have the CLI — no need to install `sensor-hub-cli`.
@@ -137,7 +137,7 @@ The password must be at least 8 characters. It is hashed with bcrypt at `auth.bc
 sudo sensor-hub local db backup /var/backups/sensor-hub.db
 ```
 
-The copy is taken with SQLite's `VACUUM INTO` while the server keeps running, so it is consistent and includes writes not yet checkpointed out of the `-wal` file. The file is created with mode 0600, and an existing file is never overwritten. Keep the backup together with a copy of `/etc/sensor-hub`.
+The copy is taken with SQLite's `VACUUM INTO` while the server keeps running, so it is consistent and includes writes not yet checkpointed out of the `-wal` file. The file is created with mode 0600, and an existing file is never overwritten. Keep the backup together with a copy of the configuration files in `/etc/sensor-hub`, but not the key file `secrets.key`.
 
 The backup holds the stored secrets, such as outbound broker passwords, encrypted, and never the key that decrypts them. Restoring it needs the key too, so keep the output of `local secrets show-key` somewhere safe as well.
 

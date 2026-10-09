@@ -10,12 +10,23 @@ sidebar_position: 3
 
 Download the latest RPM or DEB package from the [GitHub Releases](https://github.com/tom-molotnikoff/sensor-hub/releases) page. Packages are GPG-signed.
 
+## Verify the package
+
+Each release carries a detached signature for every file, named after it with `.sig` on the end, and the public key `sensor-hub-gpg-public.key`. Download the package's `.sig` and the key from the same release, then check the signature:
+
+```bash
+gpg --import sensor-hub-gpg-public.key
+gpg --verify sensor-hub_<version>_linux_amd64.deb.sig sensor-hub_<version>_linux_amd64.deb
+```
+
+`gpg` reports `Good signature` when the package is the one the release signed. Use the file names you downloaded, such as the `.rpm` or `arm64` package.
+
 ## Install
 
 **Fedora / RHEL:**
 
 ```bash
-sudo dnf install ./sensor-hub-*.rpm
+sudo dnf install ./sensor-hub_*.rpm
 ```
 
 **Debian / Ubuntu:**
@@ -99,7 +110,7 @@ sudo systemctl start sensor-hub
 On first start:
 
 1. Embedded migrations create the SQLite database and schema automatically
-2. The binary starts serving the API and embedded React UI on port 8080
+2. The binary starts serving the API and embedded React UI on `127.0.0.1:8080`, where nginx reaches it (see [HTTP listen address](configuration#http-listen-address))
 
 ## Create the first admin user
 
