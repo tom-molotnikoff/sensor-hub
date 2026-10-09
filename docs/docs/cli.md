@@ -17,7 +17,7 @@ A lightweight `sensor-hub-cli` package is available that contains just the binar
 **Fedora / RHEL:**
 
 ```bash
-sudo dnf install ./sensor-hub-cli-*.rpm
+sudo dnf install ./sensor-hub-cli_*.rpm
 ```
 
 **Debian / Ubuntu:**
@@ -137,7 +137,7 @@ The password must be at least 8 characters. It is hashed with bcrypt at `auth.bc
 sudo sensor-hub local db backup /var/backups/sensor-hub.db
 ```
 
-The copy is taken with SQLite's `VACUUM INTO` while the server keeps running, so it is consistent and includes writes not yet checkpointed out of the `-wal` file. The file is created with mode 0600, and an existing file is never overwritten. Keep the backup together with a copy of `/etc/sensor-hub`.
+The copy is taken with SQLite's `VACUUM INTO` while the server keeps running, so it is consistent and includes writes not yet checkpointed out of the `-wal` file. The file is created with mode 0600, and an existing file is never overwritten. Keep the backup together with a copy of the configuration files in `/etc/sensor-hub`, but not the key file `secrets.key`.
 
 The backup holds the stored secrets, such as outbound broker passwords, encrypted, and never the key that decrypts them. Restoring it needs the key too, so keep the output of `local secrets show-key` somewhere safe as well.
 

@@ -6,11 +6,21 @@ sidebar_position: 4
 
 # Upgrading
 
+:::info[Upgrading from 1.5.x]
+Follow [Upgrading to 2.0](upgrading-to-2-0) instead. 2.0 needs a few steps of its own, and its backup step differs from the one below.
+:::
+
 ## Back up the database
 
+Take a copy of the database while the hub runs, and keep a copy of the configuration files with it:
+
 ```bash
-sudo cp /var/lib/sensor-hub/sensor_hub.db ~/sensor-hub-backup.db
+sudo install -d -m 0700 /var/backups/sensor-hub/etc-$(date +%F)
+sudo sensor-hub local db backup /var/backups/sensor-hub/sensor_hub-$(date +%F).db
+sudo cp -a /etc/sensor-hub/*.properties /etc/sensor-hub/environment /var/backups/sensor-hub/etc-$(date +%F)/
 ```
+
+`local db backup` writes one consistent file that includes the writes still in the database's `-wal` file. A plain copy of `sensor_hub.db` while the hub runs leaves those out, and can catch the file halfway through a write. The backup holds the stored secrets encrypted, and not the key that decrypts them. Keep the key apart from it, as the output of `sudo sensor-hub local secrets show-key` in a password manager, so the backup alone gives nothing away. See [Back up the database](cli-tool#back-up-the-database).
 
 ## Download and install the new package
 
@@ -19,7 +29,7 @@ Download the latest package from the [GitHub Releases](https://github.com/tom-mo
 **Fedora / RHEL:**
 
 ```bash
-sudo dnf upgrade ./sensor-hub-*.rpm
+sudo dnf upgrade ./sensor-hub_*.rpm
 ```
 
 **Debian / Ubuntu:**
@@ -58,11 +68,9 @@ sudo systemctl status sensor-hub
 curl -k https://localhost/api/health
 ```
 
-## Clean up old database backup
+## Clean up old backups
 
-```bash
-rm ~/sensor-hub-backup.db
-```
+Once you are happy with the new release, delete the backups you no longer need from `/var/backups/sensor-hub/`.
 
 ## Rollback (if needed)
 
@@ -72,7 +80,7 @@ If you encounter issues after upgrading, you can downgrade back to the previous 
 
 ```bash
 sudo dnf remove sensor-hub
-sudo dnf install ./sensor-hub-previous-version.rpm
+sudo dnf install ./sensor-hub_previous-version.rpm
 ```
 
 **Debian / Ubuntu:**
@@ -81,14 +89,16 @@ sudo dnf install ./sensor-hub-previous-version.rpm
 sudo apt install --allow-downgrades ./sensor-hub_previous-version.deb
 ```
 
-Then restore the database:
+Then restore the database, removing the newer database's `-wal` and `-shm` files with it:
 
 ```bash
 # Stop the service after installing the old version
 sudo systemctl stop sensor-hub
 # Restore the database from the backup
-sudo rm /var/lib/sensor-hub/sensor_hub.db
-sudo cp ~/sensor-hub-backup.db /var/lib/sensor-hub/sensor_hub.db
+sudo rm -f /var/lib/sensor-hub/sensor_hub.db /var/lib/sensor-hub/sensor_hub.db-wal /var/lib/sensor-hub/sensor_hub.db-shm
+sudo install -m 0600 -o sensor-hub -g sensor-hub /var/backups/sensor-hub/sensor_hub-<date>.db /var/lib/sensor-hub/sensor_hub.db
 # Start the service
 sudo systemctl start sensor-hub
 ```
+
+To go back from 2.0 to 1.5.x, see [Going back to 1.5.x](upgrading-to-2-0#going-back-to-15x).

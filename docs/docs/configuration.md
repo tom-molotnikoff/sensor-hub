@@ -17,7 +17,7 @@ Configuration files are located in `/etc/sensor-hub/`. There are two property fi
 | `application.properties` | Application behavior, sensor polling and authentication    |
 | `database.properties`    | Database connection details                                |
 
-The email settings are not in a file: they are kept in the database and set on the Alerts & Notifications page (see [Email](alerts-and-notifications#email)). An install upgraded from 1.5.x may still have `smtp.properties`, and `oauth.*` keys in `application.properties`. The hub ignores both, and its next save of the properties drops the keys.
+The email settings are not in a file: they are kept in the database and set on the Alerts & Notifications page (see [Email](alerts-and-notifications#email)).
 
 Files use a simple `KEY=VALUE` format, one property per line.
 

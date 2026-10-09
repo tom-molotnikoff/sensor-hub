@@ -15,7 +15,7 @@ Download the latest RPM or DEB package from the [GitHub Releases](https://github
 **Fedora / RHEL:**
 
 ```bash
-sudo dnf install ./sensor-hub-*.rpm
+sudo dnf install ./sensor-hub_*.rpm
 ```
 
 **Debian / Ubuntu:**
@@ -99,7 +99,7 @@ sudo systemctl start sensor-hub
 On first start:
 
 1. Embedded migrations create the SQLite database and schema automatically
-2. The binary starts serving the API and embedded React UI on port 8080
+2. The binary starts serving the API and embedded React UI on `127.0.0.1:8080`, where nginx reaches it (see [HTTP listen address](configuration#http-listen-address))
 
 ## Create the first admin user
 
