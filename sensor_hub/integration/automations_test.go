@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -303,6 +304,67 @@ func TestAutomation_RunNowOnAnAutomationThatIsOffCanBeCancelledAndThenDeleted(t 
 	require.Equal(t, http.StatusOK, client.DeleteAutomation(created.Id))
 }
 
+// The bulb answers each command the way Zigbee2MQTT does, with its whole state.
+func TestAutomation_ABrightnessStepSucceedsAndTheRunGoesOnToItsNextStep(t *testing.T) {
+	fixture := setupCommandFixtureExposing(t, fmt.Sprintf("timer-bulb-%d", reserveTCPPort(t)), dimmableBulbExposes)
+	defer fixture.stop()
+
+	bulb := pahomqtt.NewClient(pahomqtt.NewClientOptions().
+		AddBroker(fmt.Sprintf("tcp://127.0.0.1:%d", fixture.port)).
+		SetClientID(fmt.Sprintf("integration-automation-bulb-%d", fixture.port)))
+	token := bulb.Connect()
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	defer bulb.Disconnect(250)
+	var mu sync.Mutex
+	bulbState := map[string]any{"state": "ON", "brightness": 254}
+	token = bulb.Subscribe(fmt.Sprintf("zigbee2mqtt/%s/set", fixture.sensor.Name), 1, func(client pahomqtt.Client, msg pahomqtt.Message) {
+		mu.Lock()
+		defer mu.Unlock()
+		var set map[string]any
+		if json.Unmarshal(msg.Payload(), &set) != nil {
+			return
+		}
+		for key, value := range set {
+			bulbState[key] = value
+		}
+		state, _ := json.Marshal(bulbState)
+		client.Publish(fmt.Sprintf("zigbee2mqtt/%s", fixture.sensor.Name), 1, false, state)
+	})
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+
+	off := false
+	body, status := client.CreateAutomation(gen.AutomationInput{
+		Name:     "Integration lights timer",
+		Enabled:  &off,
+		Triggers: []gen.AutomationTrigger{{Type: gen.AutomationTriggerTypeSchedule, At: ptrStr("03:00"), Days: everyDay()}},
+		Steps: []gen.AutomationStep{
+			{Type: gen.AutomationStepTypeSet, SensorId: &fixture.sensor.Id, Property: ptrStr("brightness"), Value: ptrStr("64")},
+			{Type: gen.AutomationStepTypeSet, SensorId: &fixture.sensor.Id, Property: ptrStr("state"), Value: ptrStr("OFF")},
+		},
+	})
+	require.Equal(t, http.StatusCreated, status, string(body))
+	var created gen.Automation
+	require.NoError(t, json.Unmarshal(body, &created))
+	defer client.DeleteAutomation(created.Id)
+
+	_, status = client.RunAutomation(created.Id)
+	require.Equal(t, http.StatusAccepted, status)
+	require.Eventually(t, func() bool {
+		runs, status := client.ListAutomationRuns(created.Id)
+		require.Equal(t, http.StatusOK, status)
+		return len(runs) == 1 && runs[0].Status == gen.AutomationRunStatusSucceeded
+	}, 10*time.Second, 100*time.Millisecond, "the run never succeeded")
+
+	history, status := client.GetSensorCommandHistory(fixture.sensor.Id)
+	require.Equal(t, http.StatusOK, status)
+	require.Len(t, history, 2)
+	for _, command := range history {
+		assert.Equal(t, gen.CommandHistoryEntryStatusAcknowledged, command.Status, command.Property)
+	}
+}
+
 func TestAutomation_RejectsAReadingTriggerOnAMeasurementTypeTheSensorDoesNotReport(t *testing.T) {
 	fixture := setupCommandFixture(t, fmt.Sprintf("unreported-plug-%d", reserveTCPPort(t)))
 	defer fixture.stop()
@@ -541,7 +603,8 @@ func TestAutomation_ADeviceListWithoutTheStepsPropertyBreaksTheAutomationUntilIt
 	require.NoError(t, json.Unmarshal(body, &created))
 	defer client.DeleteAutomation(created.Id)
 
-	publishDevices(`[{"type":"binary","property":"child_lock","name":"child_lock","access":7,"value_on":"LOCK","value_off":"UNLOCK"}]`)
+	publishDevices(`[{"type":"numeric","property":"brightness","name":"brightness","access":7,"value_min":0,"value_max":254},
+		{"type":"binary","property":"child_lock","name":"child_lock","access":7,"value_on":"LOCK","value_off":"UNLOCK"}]`)
 
 	require.Eventually(t, func() bool {
 		return statusOf(created.Id).Status == gen.AutomationStatusBroken

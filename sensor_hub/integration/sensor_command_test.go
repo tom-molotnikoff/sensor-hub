@@ -190,6 +190,46 @@ func TestSendSensorCommand_AcknowledgesAndBroadcastsCommandStatus(t *testing.T) 
 	require.NotNil(t, message.AcknowledgedAt)
 }
 
+func TestSendSensorCommand_ABrightnessCommandIsAcknowledgedByTheReportedBrightness(t *testing.T) {
+	fixture := setupCommandFixtureExposing(t, fmt.Sprintf("attic-bulb-%d", reserveTCPPort(t)), dimmableBulbExposes)
+	defer fixture.stop()
+
+	capabilities, status := client.GetSensorCapabilities(fixture.sensor.Id)
+	require.Equal(t, http.StatusOK, status)
+	properties := make([]string, 0, len(capabilities))
+	for _, capability := range capabilities {
+		properties = append(properties, capability.Property)
+	}
+	assert.ElementsMatch(t, []string{"state", "brightness"}, properties)
+
+	bulb := pahomqtt.NewClient(pahomqtt.NewClientOptions().
+		AddBroker(fmt.Sprintf("tcp://127.0.0.1:%d", fixture.port)).
+		SetClientID(fmt.Sprintf("integration-command-bulb-%d", fixture.port)))
+	token := bulb.Connect()
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+	defer bulb.Disconnect(250)
+	token = bulb.Subscribe(fmt.Sprintf("zigbee2mqtt/%s/set", fixture.sensor.Name), 1, func(client pahomqtt.Client, msg pahomqtt.Message) {
+		client.Publish(fmt.Sprintf("zigbee2mqtt/%s", fixture.sensor.Name), 1, false, `{"state":"ON","brightness":128,"color_mode":"color_temp"}`)
+	})
+	require.True(t, token.WaitTimeout(5*time.Second))
+	require.NoError(t, token.Error())
+
+	result, status := client.SendSensorCommand(fixture.sensor.Id, "brightness", "128")
+	require.Equal(t, http.StatusAccepted, status)
+
+	require.Eventually(t, func() bool {
+		var statusValue, acknowledgedValue sql.NullString
+		require.NoError(t, env.DB.Reader.QueryRow(`
+			SELECT status, acknowledged_value FROM sensor_command_history WHERE id = ?
+		`, result.Id).Scan(&statusValue, &acknowledgedValue))
+		return statusValue.String == "acknowledged" && acknowledgedValue.String == "128"
+	}, 5*time.Second, 100*time.Millisecond, "the brightness command was never acknowledged")
+
+	_, status = client.SendSensorCommand(fixture.sensor.Id, "effect", "blink")
+	assert.Equal(t, http.StatusBadRequest, status)
+}
+
 func TestGetSensorCommandHistory_ReturnsAcknowledgedCommandWithActor(t *testing.T) {
 	fixture := setupCommandFixture(t, fmt.Sprintf("history-plug-%d", reserveTCPPort(t)))
 	defer fixture.stop()
@@ -303,6 +343,28 @@ func TestSendSensorCommand_TimesOutAndBroadcastsCommandStatus(t *testing.T) {
 
 func setupCommandFixture(t *testing.T, sensorName string) commandFixture {
 	t.Helper()
+	return setupCommandFixtureExposing(t, sensorName, []interface{}{
+		map[string]interface{}{
+			"type":      "binary",
+			"property":  "state",
+			"access":    float64(7),
+			"value_on":  "ON",
+			"value_off": "OFF",
+		},
+	})
+}
+
+// The exposes of an IKEA LED2103G5 bulb, trimmed to what the hub reads.
+var dimmableBulbExposes = []interface{}{
+	map[string]interface{}{"type": "light", "features": []interface{}{
+		map[string]interface{}{"type": "binary", "property": "state", "access": float64(7), "value_on": "ON", "value_off": "OFF"},
+		map[string]interface{}{"type": "numeric", "property": "brightness", "access": float64(7), "value_min": float64(0), "value_max": float64(254)},
+	}},
+	map[string]interface{}{"type": "enum", "property": "effect", "access": float64(2), "values": []interface{}{"blink", "okay"}},
+}
+
+func setupCommandFixtureExposing(t *testing.T, sensorName string, exposes []interface{}) commandFixture {
+	t.Helper()
 
 	ctx := context.Background()
 	logger := slog.Default()
@@ -331,17 +393,7 @@ func setupCommandFixture(t *testing.T, sensorName string) commandFixture {
 	})
 	require.NoError(t, err)
 
-	metadata := map[string]interface{}{
-		"exposes": []interface{}{
-			map[string]interface{}{
-				"type":      "binary",
-				"property":  "state",
-				"access":    float64(7),
-				"value_on":  "ON",
-				"value_off": "OFF",
-			},
-		},
-	}
+	metadata := map[string]interface{}{"exposes": exposes}
 	require.NoError(t, sensorRepo.AddSensor(ctx, gen.Sensor{
 		Name:         sensorName,
 		SensorDriver: "mqtt-zigbee2mqtt",

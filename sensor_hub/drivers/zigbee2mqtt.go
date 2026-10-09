@@ -55,6 +55,7 @@ var knownFields = map[string]fieldMapping{
 	"battery_low":      {MeasurementType: "battery_low", DisplayName: "Battery Low", Unit: "", Category: "binary"},
 	"vibration":        {MeasurementType: "vibration", DisplayName: "Vibration", Unit: "", Category: "binary"},
 	"state":            {MeasurementType: "state", DisplayName: "State", Unit: "", Category: "binary"},
+	"brightness":       {MeasurementType: "brightness", DisplayName: "Brightness", Unit: "", Category: "numeric"},
 }
 
 // Zigbee2MQTTDriver parses MQTT messages from a Zigbee2MQTT bridge.
@@ -182,7 +183,6 @@ type zigbeeCapabilityExpose struct {
 	ValueMin *float64                 `json:"value_min"`
 	ValueMax *float64                 `json:"value_max"`
 	Unit     *string                  `json:"unit"`
-	Values   []string                 `json:"values"`
 	Features []zigbeeCapabilityExpose `json:"features"`
 }
 
@@ -222,7 +222,6 @@ type zigbeeCapabilityExposePayload struct {
 	ValueMin *float64          `json:"value_min"`
 	ValueMax *float64          `json:"value_max"`
 	Unit     *string           `json:"unit"`
-	Values   []string          `json:"values"`
 	Features []json.RawMessage `json:"features"`
 }
 
@@ -251,7 +250,6 @@ func parseCapabilityExposeJSON(payload json.RawMessage) (zigbeeCapabilityExpose,
 		ValueMin: raw.ValueMin,
 		ValueMax: raw.ValueMax,
 		Unit:     raw.Unit,
-		Values:   raw.Values,
 		Features: make([]zigbeeCapabilityExpose, 0, len(raw.Features)),
 	}
 
@@ -347,16 +345,6 @@ func commandPayloadValue(capability gen.Capability, value string) (any, error) {
 		return binaryCommandPayloadValue(capability, value)
 	case gen.CapabilityTypeNumeric:
 		return numericCommandPayloadValue(value)
-	case gen.CapabilityTypeEnum:
-		if capability.Values != nil {
-			for _, allowed := range *capability.Values {
-				if allowed == value {
-					return value, nil
-				}
-			}
-			return nil, fmt.Errorf("invalid enum value %q for property %q", value, capability.Property)
-		}
-		return value, nil
 	default:
 		return nil, fmt.Errorf("unsupported capability type %q", capability.Type)
 	}
@@ -406,13 +394,30 @@ func numericCommandPayloadValue(value string) (any, error) {
 	return floatValue, nil
 }
 
+// Zigbee2MQTT access bits: the device publishes the property in its state
+// messages, and the property can be set.
+const (
+	accessPublished = 1
+	accessSet       = 2
+)
+
+// parseCapabilityExpose offers only commands the hub can confirm. A command is
+// acknowledged by the next reading of the same name, so a property is offered
+// only when the device publishes it, it can be set, and ParseMessage turns it
+// into a reading of that name and kind. Anything else would be sent and then
+// left to time out.
 func parseCapabilityExpose(expose zigbeeCapabilityExpose) []gen.Capability {
 	capabilities := make([]gen.Capability, 0)
-	for _, feature := range expose.Features {
-		capabilities = append(capabilities, parseCapabilityExpose(feature)...)
+	// A composite with a property of its own, such as level_config, has its
+	// features published nested under that property, where ParseMessage
+	// never reads them.
+	if expose.Property == "" {
+		for _, feature := range expose.Features {
+			capabilities = append(capabilities, parseCapabilityExpose(feature)...)
+		}
 	}
 
-	if expose.Access == nil || *expose.Access&2 == 0 || expose.Property == "" {
+	if !confirmable(expose) {
 		return capabilities
 	}
 
@@ -440,19 +445,20 @@ func parseCapabilityExpose(expose zigbeeCapabilityExpose) []gen.Capability {
 			Max:      expose.ValueMax,
 			Unit:     expose.Unit,
 		})
-	case "enum":
-		capability := gen.Capability{
-			Property: expose.Property,
-			Type:     gen.CapabilityTypeEnum,
-		}
-		if len(expose.Values) > 0 {
-			values := append([]string(nil), expose.Values...)
-			capability.Values = &values
-		}
-		capabilities = append(capabilities, capability)
 	}
 
 	return capabilities
+}
+
+func confirmable(expose zigbeeCapabilityExpose) bool {
+	if expose.Property == "" || expose.Access == nil {
+		return false
+	}
+	if *expose.Access&accessPublished == 0 || *expose.Access&accessSet == 0 {
+		return false
+	}
+	field, ok := knownFields[expose.Property]
+	return ok && field.MeasurementType == expose.Property && field.Category == expose.Type
 }
 
 // ParseMessage extracts readings from a Zigbee2MQTT JSON payload.

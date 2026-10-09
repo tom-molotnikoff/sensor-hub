@@ -19,8 +19,18 @@ For Zigbee devices, that information comes from Zigbee2MQTT metadata rather than
 - which properties are writable
 - what kind of control each property uses
 - which values represent **on** and **off** for binary controls
+- the range of a numeric control, such as a light's brightness
 
 This matters because a reading like `state: ON` tells Sensor Hub the current value, but it does not reliably tell the hub whether that property can be commanded back to `OFF`.
+
+### Only commands the hub can confirm
+
+A command counts as done only when the device reports the new value back. So Sensor Hub offers a property as a capability only when all of these are true:
+
+- the device exposes it as both settable and reported in its state
+- Sensor Hub turns the reported value into a reading of the same name
+
+Today that means `state` (on and off) and `brightness`. Anything else a device exposes, such as `color_temp`, `effect`, `identify`, `power_on_behavior` or the `level_config` settings, is left off the list rather than offered and left to time out. It isn't offered in the dashboard, the automation editor, the CLI or the API.
 
 Not every Zigbee device is controllable. Many devices are read-only sensors, while smart plugs, relays, and similar devices usually expose one or more writable capabilities.
 
@@ -87,7 +97,7 @@ Sensor Hub also records a **command history** for troubleshooting and auditing. 
 - Confirm the device is one that Zigbee2MQTT exposes as writable
 - Check that the sensor is approved and active in Sensor Hub
 - Check that Sensor Hub is ingesting Zigbee2MQTT `bridge/devices` metadata, because controllable capabilities are derived from that metadata
-- If the sensor reports readings but still looks read-only, the device may not expose any writable properties
+- If the sensor reports readings but still looks read-only, the device may not expose any writable properties, or none that Sensor Hub can confirm (see [Only commands the hub can confirm](#only-commands-the-hub-can-confirm))
 
 ### The Sensor Toggle widget is read-only
 
