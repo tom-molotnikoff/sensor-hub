@@ -6,9 +6,9 @@ sidebar_position: 4
 
 # Device Control
 
-Some sensors do more than report readings: they can also accept commands. In Sensor Hub these are **controllable sensors**. A common example is a Zigbee smart plug that reports power usage and can be turned on or off from the dashboard.
+Some sensors do more than report readings: they can also accept commands. In Sensor Hub these are **controllable sensors**. A common example is a Zigbee smart plug that reports power usage and can be turned on or off from the dashboard, or a dimmable light whose brightness can be set.
 
-This page explains how Sensor Hub decides whether a sensor is controllable, how to use the **Sensor Toggle** widget, which permission is required, and what to check when controls do not appear or commands time out.
+This page explains how Sensor Hub decides whether a sensor is controllable, how to use the **Sensor Toggle** and **Sensor Slider** widgets, which permission is required, and what to check when controls do not appear or commands time out.
 
 ## What makes a sensor controllable
 
@@ -48,7 +48,7 @@ Once the device publishes its first message:
 
 ### Step 2 - Confirm Sensor Hub detected a capability
 
-The easiest sign is that the sensor becomes selectable in the **Sensor Toggle** widget configuration.
+The easiest sign is that the sensor becomes selectable in the **Sensor Toggle** widget configuration, or for a numeric property such as brightness, the **Sensor Slider** widget configuration.
 
 If you need to inspect the raw capability data or recent command history for troubleshooting or automation, use the built-in Swagger UI rather than a separate reference page.
 
@@ -61,6 +61,16 @@ If you need to inspect the raw capability data or recent command history for tro
 5. Select the binary property you want to control (for most smart plugs this is `state`)
 
 The widget then shows a large on/off control for that property. For broader dashboard configuration details, see [Dashboards](../dashboards).
+
+### Step 4 - Add a Sensor Slider widget for a numeric property
+
+To set a numeric property, such as a light's brightness:
+
+1. Add a **Sensor Slider** widget
+2. Select the sensor
+3. Select the numeric property (`brightness` by default)
+
+The slider's range comes from the device: the minimum and maximum Zigbee2MQTT reports for the property, and its step where it gives one. Let go of the slider to send the value. The widget shows the value it's setting until the device reports it back, then says whether the command was acknowledged, failed or timed out. If it fails or times out, the slider goes back to the last value the device reported.
 
 ## Permissions
 
@@ -99,7 +109,7 @@ Sensor Hub also records a **command history** for troubleshooting and auditing. 
 - Check that Sensor Hub is ingesting Zigbee2MQTT `bridge/devices` metadata, because controllable capabilities are derived from that metadata
 - If the sensor reports readings but still looks read-only, the device may not expose any writable properties, or none that Sensor Hub can confirm (see [Only commands the hub can confirm](#only-commands-the-hub-can-confirm))
 
-### The Sensor Toggle widget is read-only
+### The Sensor Toggle or Sensor Slider widget is read-only
 
 - Check that your user has the `control_sensors` permission
 - Verify the user has an **admin** or **user** role, or another custom role that grants the same permission

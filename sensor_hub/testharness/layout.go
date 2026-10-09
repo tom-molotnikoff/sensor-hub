@@ -151,11 +151,17 @@ func createLayoutDashboard(ctx context.Context, env *Env) error {
 	}
 	toggle := gen.DashboardWidget{Id: "sensor-toggle", Type: "sensor-toggle", Config: map[string]interface{}{"sensorId": plugId, "property": "state"}}
 	toggle.Layout.X, toggle.Layout.Y, toggle.Layout.W, toggle.Layout.H = 8, 36, 4, 2
+	var bulbId int
+	if err := env.DB.Writer.QueryRowContext(ctx, "SELECT id FROM sensors WHERE name = 'attic-bulb'").Scan(&bulbId); err != nil {
+		return fmt.Errorf("the dashboard fixture needs the sensors fixture applied first: %w", err)
+	}
+	slider := gen.DashboardWidget{Id: "sensor-slider", Type: "sensor-slider", Config: map[string]interface{}{"sensorId": bulbId, "property": "brightness"}}
+	slider.Layout.X, slider.Layout.Y, slider.Layout.W, slider.Layout.H = 8, 38, 4, 2
 	detail := gen.DashboardWidget{Id: "sensor-detail", Type: "sensor-detail", Config: map[string]interface{}{"sensorId": 1}}
 	detail.Layout.Y, detail.Layout.W, detail.Layout.H = 40, 6, 4
 	widgets := []gen.DashboardWidget{
 		retired, readings, uptime, healthPie, typePie, stats, timeline, current, group, gauge, minMaxAvg,
-		comparison, live, weather, notifications, alerts, note, heatmap, toggle, detail,
+		comparison, live, weather, notifications, alerts, note, heatmap, toggle, slider, detail,
 	}
 
 	dashboards := service.NewDashboardService(database.NewDashboardRepository(env.DB, slog.Default()), slog.Default())
@@ -208,13 +214,16 @@ func createLayoutHealthHistory(ctx context.Context, env *Env) error {
 
 func createLayoutSensors(ctx context.Context, env *Env) error {
 	const switchExposes = `{"exposes":[{"type":"binary","property":"state","name":"state","access":7,"value_on":"ON","value_off":"OFF"}]}`
+	const dimmableExposes = `{"exposes":[{"type":"light","features":[` +
+		`{"type":"binary","property":"state","name":"state","access":7,"value_on":"ON","value_off":"OFF"},` +
+		`{"type":"numeric","property":"brightness","name":"brightness","access":7,"value_min":0,"value_max":254}]}]}`
 	sensors := []struct {
 		name, driver, health string
 		enabled              bool
 		retentionHours       *int
 		metadata             string
 	}{
-		{"attic-bulb", "mqtt-zigbee2mqtt", "good", true, ptr(120), "{}"},
+		{"attic-bulb", "mqtt-zigbee2mqtt", "good", true, ptr(120), dimmableExposes},
 		{"back-door-contact", "mqtt-zigbee2mqtt", "bad", true, ptr(720), "{}"},
 		{"garage-temp", "mqtt-zigbee2mqtt", "unknown", true, nil, "{}"},
 		{"hallway-motion", "mqtt-zigbee2mqtt", "good", false, nil, "{}"},

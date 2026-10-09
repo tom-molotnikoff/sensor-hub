@@ -29,7 +29,7 @@ test.describe('Dashboard at 390x844', () => {
 
     const stack = page.locator('[data-ui=stack]:has(> [data-ui=dashboard-slot])');
     const items = stack.locator('[data-ui=dashboard-slot]');
-    await expect(items).toHaveCount(20);
+    await expect(items).toHaveCount(21);
 
     const titles = await items.evaluateAll((elements) =>
       elements.map((element) => (element.querySelector('.MuiTypography-caption, .MuiTypography-root')?.textContent ?? '').split(':')[0]),
@@ -54,6 +54,7 @@ test.describe('Dashboard at 390x844', () => {
       'Markdown Note',
       'Heatmap',
       'Sensor Toggle',
+      'Sensor Slider',
       'Sensor Detail',
     ]);
 
@@ -66,7 +67,7 @@ test.describe('Dashboard at 390x844', () => {
   test('frames are their compact height, or their content height', async ({ page }) => {
     await openDashboard(page);
     const items = page.locator('[data-ui=dashboard-slot]');
-    await expect(items).toHaveCount(20);
+    await expect(items).toHaveCount(21);
 
     const frames = await items.evaluateAll((elements) =>
       elements.map((element) => {
@@ -81,7 +82,7 @@ test.describe('Dashboard at 390x844', () => {
     );
     expect(frames.map((frame) => frame.token)).toEqual([
       '280', '140', '220', '220', '220', null, null, '140', null, '200', '160',
-      '280', null, null, null, null, null, '260', '120', null,
+      '280', null, null, null, null, null, '260', '120', '160', null,
     ]);
     for (const frame of frames) {
       if (frame.token) {

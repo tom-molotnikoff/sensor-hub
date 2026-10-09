@@ -66,6 +66,19 @@ SWITCHED_PLUG = definition(
     ],
 )
 
+DIMMABLE_LIGHT = definition(
+    "LED2103G5",
+    "IKEA",
+    "TRADFRI bulb E26/E27, white spectrum, globe, opal, 1055/1100/1160 lm",
+    [
+        {"type": "light", "features": [
+            binary("state", access=7, value_on="ON", value_off="OFF"),
+            {"type": "numeric", "property": "brightness", "name": "brightness", "access": 7, "value_min": 0, "value_max": 254},
+        ]},
+        {"type": "enum", "property": "effect", "name": "effect", "access": 2, "values": ["blink", "breathe", "okay"]},
+    ],
+)
+
 METERED_PLUG = definition(
     "SP 120",
     "Innr",
@@ -125,6 +138,10 @@ def plug_reading(state):
     }
 
 
+def light_reading(state):
+    return {"state": state["state"], "brightness": state["brightness"]}
+
+
 @dataclass
 class Device:
     name: str
@@ -155,6 +172,8 @@ DEVICES = [
            {"state": "ON", "energy": 31.5, "min_power": 5.0, "max_power": 150.0}),
     Device("hallway-motion", "0x00158d0001000008", MOTION, motion_reading,
            {"occupancy": False, "illuminance": 120, "battery": 92}),
+    Device("landing-light", "0x00158d0001000009", DIMMABLE_LIGHT, light_reading,
+           {"state": "ON", "brightness": 180}, switchable=True),
 ]
 
 DEVICES_BY_NAME = {device.name: device for device in DEVICES}
@@ -175,6 +194,12 @@ def normalise_switch_value(value):
         if upper in {"ON", "OFF"}:
             return upper
     return None
+
+
+def normalise_brightness(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return max(0, min(254, round(value)))
 
 
 def publish_bridge_devices(client):
@@ -211,13 +236,17 @@ def on_message(client, userdata, msg):
         print(f"Ignoring command for unsupported topic {msg.topic}", flush=True)
         return
 
-    requested_state = normalise_switch_value(payload.get("state"))
-    if requested_state is None:
-        print(f"Ignoring unsupported {name} state payload: {payload!r}", flush=True)
+    changes = {}
+    if "state" in payload:
+        changes["state"] = normalise_switch_value(payload["state"])
+    if "brightness" in payload and "brightness" in device.state:
+        changes["brightness"] = normalise_brightness(payload["brightness"])
+    if not changes or None in changes.values():
+        print(f"Ignoring unsupported {name} payload: {payload!r}", flush=True)
         return
 
-    device.state["state"] = requested_state
-    print(f"  ← {msg.topic}: setting {name} state to {requested_state}", flush=True)
+    device.state.update(changes)
+    print(f"  ← {msg.topic}: setting {name} {changes}", flush=True)
     publish_device_state(client, device)
 
 

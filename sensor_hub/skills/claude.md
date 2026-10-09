@@ -337,6 +337,7 @@ The `update` command requires a JSON file with the full dashboard structure.
 | `heatmap`            | `sensorId` (number), `measurementType` (measurement-type), `scaleMin` (number, default 10), `scaleMax` (number, default 30) | Colour-coded 30-day heatmap                 |
 | `sensor-detail`      | `sensorId` (number)                                                                                                        | Latest readings grid for a sensor            |
 | `sensor-toggle`      | `sensorId` (controllable binary sensor), `property` (binary capability property, default `state`)                         | Large optimistic on/off switch for a controllable sensor |
+| `sensor-slider`      | `sensorId` (controllable numeric sensor), `property` (numeric capability property, default `brightness`)                  | Slider that sets a numeric property such as brightness, ranged by the device, showing whether the command was acknowledged |
 
 **Config field notes:**
 - `sensorId` is a numeric sensor ID (see `sensor-hub sensors list` to find IDs)

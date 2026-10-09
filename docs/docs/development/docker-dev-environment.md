@@ -60,8 +60,9 @@ docker compose logs seed | grep admin_api_key
 
 The hub is subscribed to `zigbee2mqtt/#`, and every mock sensor is registered
 and approved: the Zigbee2MQTT devices in `mocks/mqtt_devices.py` and the two
-HTTP mocks. Live readings land on those sensors from the first start, and
-`office-plug` can be switched on and off from the hub.
+HTTP mocks. Live readings land on those sensors from the first start,
+`office-plug` can be switched on and off from the hub, and `landing-light` can
+be switched and dimmed.
 
 The seed also creates range alert rules on `living-room-sensor` temperature and
 `kitchen-sensor` humidity, a status rule on the `front-door` contact, and a few

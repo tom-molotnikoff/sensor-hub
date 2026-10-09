@@ -20,6 +20,7 @@ describe('widget registry', () => {
       'current-reading': 140,
       uptime: 140,
       'sensor-toggle': 120,
+      'sensor-slider': 160,
       'health-timeline': 220,
       'markdown-note': 'content',
       'alert-summary': 'content',

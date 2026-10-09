@@ -120,7 +120,7 @@ Sensor Hub uses a stable `external_id` to track devices, so renaming a sensor in
 
 ## Controllable devices
 
-Some Zigbee devices, such as smart plugs and relays, can also receive commands. When Zigbee2MQTT reports writable features for a device, Sensor Hub exposes those as controllable capabilities and the device can be used with the **Sensor Toggle** widget.
+Some Zigbee devices, such as smart plugs, relays and dimmable lights, can also receive commands. When Zigbee2MQTT reports a writable feature that Sensor Hub can read back, such as `state` or `brightness`, Sensor Hub exposes it as a controllable capability. The device can then be used with the **Sensor Toggle** widget, and a dimmable light with the **Sensor Slider** widget.
 
 For setup, permissions, command routing, and troubleshooting, see [Device Control](device-control).
 

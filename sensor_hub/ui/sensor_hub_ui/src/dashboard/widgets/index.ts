@@ -18,6 +18,7 @@ import UptimeWidget from './UptimeWidget';
 import HeatmapWidget from './HeatmapWidget';
 import SensorDetailWidget from './SensorDetailWidget';
 import SensorToggleWidget from './SensorToggleWidget';
+import SensorSliderWidget from './SensorSliderWidget';
 
 export function registerAllWidgets(): void {
     registerWidget({
@@ -316,8 +317,25 @@ export function registerAllWidgets(): void {
         minW: 3,
         minH: 2,
         configFields: [
-            { key: 'sensorId', label: 'Sensor', type: 'controllable-sensor-select' },
-            { key: 'property', label: 'Property', type: 'binary-capability-select', defaultValue: 'state' },
+            { key: 'sensorId', label: 'Sensor', type: 'controllable-sensor-select', capabilityType: 'binary' },
+            { key: 'property', label: 'Property', type: 'capability-select', capabilityType: 'binary', defaultValue: 'state' },
+        ],
+    });
+
+    registerWidget({
+        type: 'sensor-slider',
+        compactHeight: 160,
+        label: 'Sensor Slider',
+        description: 'Slider that sets a controllable numeric sensor property, such as brightness',
+        kind: 'controllable',
+        component: SensorSliderWidget,
+        defaultConfig: { property: 'brightness' },
+        defaultLayout: { w: 4, h: 2 },
+        minW: 3,
+        minH: 2,
+        configFields: [
+            { key: 'sensorId', label: 'Sensor', type: 'controllable-sensor-select', capabilityType: 'numeric' },
+            { key: 'property', label: 'Property', type: 'capability-select', capabilityType: 'numeric', defaultValue: 'brightness' },
         ],
     });
 }

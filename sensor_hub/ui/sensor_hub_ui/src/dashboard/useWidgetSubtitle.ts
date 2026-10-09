@@ -4,6 +4,7 @@ import { useMeasurementTypes } from '../hooks/useMeasurementTypes';
 import type { MeasurementTypeInfo, Sensor } from '../gen/aliases';
 
 const CHART_TYPES = new Set(['readings-chart', 'comparison-chart']);
+const CONTROL_TYPES = new Set(['sensor-toggle', 'sensor-slider']);
 
 export function useWidgetSubtitle(type: string, config: Record<string, unknown>): string | null {
     const { sensors } = useSensorContext();
@@ -20,7 +21,7 @@ export function useWidgetSubtitle(type: string, config: Record<string, unknown>)
         return typeof name === 'string' && name ? name : null;
     }
 
-    if (type === 'sensor-toggle' && typeof config.sensorId === 'number') {
+    if (CONTROL_TYPES.has(type) && typeof config.sensorId === 'number') {
         const sensor = sensors.find(s => s.id === config.sensorId);
         const property = typeof config.property === 'string' && config.property ? config.property : null;
         if (!sensor) return null;

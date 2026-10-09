@@ -123,7 +123,7 @@ A hold suits a door contact that bounces: "becomes open, for at least 5 seconds"
 
 ## Set steps
 
-A set step sends a command to a writable capability of a controllable sensor, the same command you can send from a Sensor Toggle widget or `POST /api/sensors/{id}/command`:
+A set step sends a command to a capability of a controllable sensor, the same command you can send from a Sensor Toggle or Sensor Slider widget or `POST /api/sensors/{id}/command`:
 
 ```json
 { "type": "set", "sensor_id": 14, "property": "state", "value": "ON" }
