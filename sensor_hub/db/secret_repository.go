@@ -21,6 +21,13 @@ func BrokerSecretOwner(brokerID int) string {
 
 const brokerSecretOwnerPrefix = "mqtt_broker:"
 
+// SMTPSecretOwner and SMTPPasswordSecret name the password the hub logs in to
+// its SMTP server with.
+const (
+	SMTPSecretOwner    = "smtp"
+	SMTPPasswordSecret = "password"
+)
+
 // BrokerIDOfSecretOwner gives the broker id a BrokerSecretOwner names, and
 // false for an owner that is not a broker.
 func BrokerIDOfSecretOwner(owner string) (int, bool) {

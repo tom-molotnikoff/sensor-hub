@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sensor } from '../gen/aliases';
 import SensorDetailCard from './SensorDetailCard';
@@ -35,7 +35,11 @@ describe('SensorDetailCard loading state', () => {
   it('shows the detail grid once measurement types load', async () => {
     getMock.mockResolvedValue({ data: [{ name: 'temperature', display_name: 'Temperature', unit: '°C' }] });
     render(<SensorDetailCard sensor={makeSensor()} />);
-    expect(await screen.findByText('Temperature', {}, { timeout: 3000 })).toBeInTheDocument();
-    expect(screen.queryByTestId('widget-loader')).not.toBeInTheDocument();
+    // The grid can render more than once as it settles, replacing the element
+    // a query found, so both checks are retried together on the settled page.
+    await waitFor(() => {
+      expect(screen.getByText('Temperature')).toBeInTheDocument();
+      expect(screen.queryByTestId('widget-loader')).not.toBeInTheDocument();
+    }, { timeout: 3000 });
   });
 });

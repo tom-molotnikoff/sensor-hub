@@ -32,7 +32,7 @@ import type {
   RoleInfo,
   PermissionInfo,
   ApiKey,
-  OAuthStatus,
+  EmailSettings,
   LoginResponse,
   MeResponse,
 } from './aliases';
@@ -64,7 +64,7 @@ declare const _aliases: {
   roleInfo:                   RoleInfo                  extends components['schemas']['RoleInfo']                  ? true : never;
   permissionInfo:             PermissionInfo            extends components['schemas']['PermissionInfo']            ? true : never;
   apiKey:                     ApiKey                    extends components['schemas']['ApiKey']                    ? true : never;
-  oauthStatus:                OAuthStatus               extends components['schemas']['OAuthStatus']               ? true : never;
+  emailSettings:              EmailSettings             extends components['schemas']['EmailSettings']             ? true : never;
   loginResponse:              LoginResponse             extends components['schemas']['LoginResponse']             ? true : never;
   meResponse:                 MeResponse                extends components['schemas']['MeResponse']                ? true : never;
 };

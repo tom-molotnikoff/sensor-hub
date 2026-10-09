@@ -2,7 +2,6 @@ package appProps
 
 import (
 	"log/slog"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 
@@ -19,8 +18,6 @@ type ApplicationConfiguration struct {
 	CommandHistoryRetentionDays    int `prop:"command.history.retention.days" default:"90" file:"application" validate:"non_negative" label:"Command history retention" desc:"How long the history of commands sent to devices is kept, whether a person or an automation sent them." group:"retention" unit:"days"`
 	DataCleanupIntervalHours       int `prop:"data.cleanup.interval.hours" default:"1" file:"application" validate:"positive" label:"Cleanup interval" desc:"How often the retention cleanup task runs." group:"retention" unit:"hours" apply:"next-cycle"`
 
-	SMTPUser string `prop:"smtp.user" default:"" file:"smtp" desc:"Email address alert and notification emails are sent from." group:"email"`
-
 	DatabasePath              string `prop:"database.path" default:"data/sensor_hub.db" file:"database" validate:"non_empty" label:"Database file" desc:"SQLite database file, set at install time. Not changeable at runtime." group:"advanced" readonly:"true"`
 	DatabaseReaderConnections int    `prop:"database.reader.connections" default:"4" file:"database" validate:"positive" label:"Reader connections" desc:"Connections in the read-only database pool; reads run in parallel up to this many." group:"advanced" apply:"action:service-restart"`
 
@@ -31,10 +28,6 @@ type ApplicationConfiguration struct {
 	AuthLoginBackoffThreshold     int    `prop:"auth.login.backoff.threshold" default:"5" file:"application" label:"Login backoff threshold" desc:"Failed logins allowed in the window before backoff starts." group:"security"`
 	AuthLoginBackoffBaseSeconds   int    `prop:"auth.login.backoff.base.seconds" default:"2" file:"application" label:"Login backoff base delay" desc:"Initial delay applied once login backoff starts." group:"security" unit:"seconds"`
 	AuthLoginBackoffMaxSeconds    int    `prop:"auth.login.backoff.max.seconds" default:"300" file:"application" label:"Login backoff max delay" desc:"Upper limit on the login backoff delay." group:"security" unit:"seconds"`
-
-	OAuthCredentialsFilePath         string `prop:"oauth.credentials.file.path" default:"credentials.json" file:"application" label:"OAuth credentials file" desc:"OAuth client credentials file used for sending mail." group:"email" apply:"action:oauth-reload"`
-	OAuthTokenFilePath               string `prop:"oauth.token.file.path" default:"token.json" file:"application" label:"OAuth token file" desc:"File where the OAuth token is stored." group:"email" apply:"action:oauth-reload"`
-	OAuthTokenRefreshIntervalMinutes int    `prop:"oauth.token.refresh.interval.minutes" default:"30" file:"application" label:"Token refresh interval" desc:"How often the OAuth token is refreshed in the background." group:"email" unit:"minutes" apply:"action:service-restart"`
 
 	WeatherLatitude     string `prop:"weather.latitude" default:"53.383" file:"application" label:"Latitude" desc:"Latitude the weather forecast is fetched for." group:"weather"`
 	WeatherLongitude    string `prop:"weather.longitude" default:"-1.4659" file:"application" label:"Longitude" desc:"Longitude the weather forecast is fetched for." group:"weather"`
@@ -76,12 +69,12 @@ func SetAppConfig(cfg *ApplicationConfiguration) {
 	appConfigPtr.Store(cfg)
 }
 
-func ConvertConfigurationToMaps(cfg *ApplicationConfiguration) (map[string]string, map[string]string, map[string]string) {
+func ConvertConfigurationToMaps(cfg *ApplicationConfiguration) (map[string]string, map[string]string) {
 	return ConvertToMaps(cfg)
 }
 
-func LoadConfigurationFromMaps(appProps, smtpProps, dbProps map[string]string) (*ApplicationConfiguration, error) {
-	cfg, err := LoadFromMaps(appProps, smtpProps, dbProps)
+func LoadConfigurationFromMaps(appProps, dbProps map[string]string) (*ApplicationConfiguration, error) {
+	cfg, err := LoadFromMaps(appProps, dbProps)
 	if err != nil {
 		return nil, err
 	}
@@ -96,29 +89,20 @@ func InitialiseConfig(dir string) error {
 		return err
 	}
 
-	smtpProps, err := ReadSMTPPropertiesFile()
-	if err != nil {
-		return err
-	}
-
 	dbProps, err := ReadDatabasePropertiesFile()
 	if err != nil {
 		return err
 	}
 
-	return ReloadConfig(appProps, smtpProps, dbProps)
+	return ReloadConfig(appProps, dbProps)
 }
 
 // ReloadConfig replaces the global AppConfig from the supplied raw property
 // maps, returning an error and leaving the config untouched when the maps do
-// not parse. Relative OAuth file paths are stored as-is on the returned
-// struct; callers obtain a config-dir-resolved absolute path via
-// [ApplicationConfiguration.ResolvedOAuthCredentialsPath] /
-// [ApplicationConfiguration.ResolvedOAuthTokenPath]. Resolving on demand
-// (rather than mutating the struct on load) keeps reloads idempotent — see
-// issue #44.
-func ReloadConfig(appProps, smtpProps, dbProps map[string]string) error {
-	cfg, err := LoadConfigurationFromMaps(appProps, smtpProps, dbProps)
+// not parse. Keys no property is registered for, such as the oauth.* keys a
+// 1.5.x install saved, are ignored, and the next save drops them.
+func ReloadConfig(appProps, dbProps map[string]string) error {
+	cfg, err := LoadConfigurationFromMaps(appProps, dbProps)
 	if err != nil {
 		slog.Error("failed to reload configuration", "error", err)
 		return err
@@ -162,25 +146,4 @@ func OnReload(listener func(cfg *ApplicationConfiguration)) (remove func()) {
 		defer reloadListenersMu.Unlock()
 		delete(reloadListeners, id)
 	}
-}
-
-// ResolvedOAuthCredentialsPath returns the OAuth credentials file path
-// resolved against the configuration directory when the stored value is
-// relative. Absolute and empty values pass through unchanged.
-func (cfg *ApplicationConfiguration) ResolvedOAuthCredentialsPath() string {
-	return resolveAgainstConfigDir(cfg.OAuthCredentialsFilePath)
-}
-
-// ResolvedOAuthTokenPath returns the OAuth token file path resolved against
-// the configuration directory when the stored value is relative. Absolute and
-// empty values pass through unchanged.
-func (cfg *ApplicationConfiguration) ResolvedOAuthTokenPath() string {
-	return resolveAgainstConfigDir(cfg.OAuthTokenFilePath)
-}
-
-func resolveAgainstConfigDir(p string) string {
-	if p == "" || filepath.IsAbs(p) {
-		return p
-	}
-	return filepath.Join(configDir, p)
 }

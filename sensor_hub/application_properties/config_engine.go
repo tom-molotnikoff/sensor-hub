@@ -25,7 +25,6 @@ const (
 // applyActionIDs are the action ids the UI knows how to describe.
 var applyActionIDs = map[string]bool{
 	"service-restart": true,
-	"oauth-reload":    true,
 }
 
 // Valid reports whether the state is one the UI can render.
@@ -47,13 +46,13 @@ type PropertyDef struct {
 	Key         string // dotted property key, e.g. "sensor.collection.interval"
 	Kind        reflect.Kind
 	Default     string     // default value from `default` tag
-	File        string     // "application", "smtp", or "database"
+	File        string     // "application" or "database"
 	Validate    string     // comma-separated rules: "positive", "non_negative", "min:<n>", "max:<n>" for ints; one string rule; or ""
 	Min         *int       // lower bound from a "min:<n>" rule
 	Max         *int       // upper bound from a "max:<n>" rule
 	Label       string     // label - falls back to the field name split into words
 	Description string     // desc - one sentence, shown under the label
-	Group       string     // group - sensors|automations|retention|security|mqtt|email|weather|advanced
+	Group       string     // group - sensors|automations|retention|security|mqtt|weather|advanced
 	Unit        string     // unit - "seconds", "days", "hours", "minutes"
 	Enum        []string   // enum - comma-separated in the tag
 	Apply       ApplyState // apply - defaults to live; readonly tag forces readonly
@@ -82,9 +81,8 @@ var propertyGroups = []PropertyGroup{
 	{ID: "retention", Label: "Data retention", Description: "How long readings, history and logs are kept before cleanup.", Order: 3},
 	{ID: "security", Label: "Security & sessions", Description: "Password hashing, session lifetime and login backoff.", Order: 4},
 	{ID: "mqtt", Label: "MQTT broker", Description: "The embedded MQTT broker sensors publish to.", Order: 5},
-	{ID: "email", Label: "Email & OAuth", Description: "How alert emails are sent and authenticated.", Order: 6},
-	{ID: "weather", Label: "Weather", Description: "The location the weather forecast is fetched for.", Order: 7},
-	{ID: "advanced", Label: "Advanced", Description: "Logging, aggregation and instance internals.", Order: 8},
+	{ID: "weather", Label: "Weather", Description: "The location the weather forecast is fetched for.", Order: 6},
+	{ID: "advanced", Label: "Advanced", Description: "Logging, aggregation and instance internals.", Order: 7},
 }
 
 // Definitions returns the registered property definitions in struct order.
@@ -166,32 +164,27 @@ func buildRegistryFrom(t reflect.Type) []PropertyDef {
 }
 
 // BuildDefaults returns default property maps grouped by file tag.
-func BuildDefaults() (application map[string]string, smtp map[string]string, database map[string]string) {
+func BuildDefaults() (application map[string]string, database map[string]string) {
 	application = make(map[string]string)
-	smtp = make(map[string]string)
 	database = make(map[string]string)
 
 	for _, def := range registry {
 		switch def.File {
 		case "application":
 			application[def.Key] = def.Default
-		case "smtp":
-			smtp[def.Key] = def.Default
 		case "database":
 			database[def.Key] = def.Default
 		}
 	}
 
-	return application, smtp, database
+	return application, database
 }
 
 // mapForFile selects the correct map based on the file tag.
-func mapForFile(file string, app, smtp, db map[string]string) map[string]string {
+func mapForFile(file string, app, db map[string]string) map[string]string {
 	switch file {
 	case "application":
 		return app
-	case "smtp":
-		return smtp
 	case "database":
 		return db
 	default:
@@ -199,13 +192,14 @@ func mapForFile(file string, app, smtp, db map[string]string) map[string]string 
 	}
 }
 
-// LoadFromMaps parses three string maps into a typed ApplicationConfiguration.
-func LoadFromMaps(appProps, smtpProps, dbProps map[string]string) (*ApplicationConfiguration, error) {
+// LoadFromMaps parses the application and database property maps into a
+// typed ApplicationConfiguration.
+func LoadFromMaps(appProps, dbProps map[string]string) (*ApplicationConfiguration, error) {
 	cfg := &ApplicationConfiguration{}
 	val := reflect.ValueOf(cfg).Elem()
 
 	for _, def := range registry {
-		m := mapForFile(def.File, appProps, smtpProps, dbProps)
+		m := mapForFile(def.File, appProps, dbProps)
 		if m == nil {
 			continue
 		}
@@ -371,10 +365,10 @@ func validateString(def PropertyDef, value string) error {
 	return nil
 }
 
-// ConvertToMaps serialises an ApplicationConfiguration into three string maps.
-func ConvertToMaps(cfg *ApplicationConfiguration) (application map[string]string, smtp map[string]string, database map[string]string) {
+// ConvertToMaps serialises an ApplicationConfiguration into the application
+// and database string maps.
+func ConvertToMaps(cfg *ApplicationConfiguration) (application map[string]string, database map[string]string) {
 	application = make(map[string]string)
-	smtp = make(map[string]string)
 	database = make(map[string]string)
 
 	val := reflect.ValueOf(cfg).Elem()
@@ -395,14 +389,12 @@ func ConvertToMaps(cfg *ApplicationConfiguration) (application map[string]string
 		switch def.File {
 		case "application":
 			application[def.Key] = s
-		case "smtp":
-			smtp[def.Key] = s
 		case "database":
 			database[def.Key] = s
 		}
 	}
 
-	return application, smtp, database
+	return application, database
 }
 
 // LogConfig logs all configuration values.
@@ -420,7 +412,7 @@ func LogConfig(cfg *ApplicationConfiguration) {
 
 // SaveToFiles writes the current configuration to the property files.
 func SaveToFiles(cfg *ApplicationConfiguration) error {
-	appMap, smtpMap, dbMap := ConvertToMaps(cfg)
+	appMap, dbMap := ConvertToMaps(cfg)
 
 	type fileEntry struct {
 		path string
@@ -429,7 +421,6 @@ func SaveToFiles(cfg *ApplicationConfiguration) error {
 
 	files := []fileEntry{
 		{applicationPropertiesFilePath, appMap},
-		{smtpPropertiesFilePath, smtpMap},
 		{databasePropertiesFilePath, dbMap},
 	}
 
@@ -441,7 +432,6 @@ func SaveToFiles(cfg *ApplicationConfiguration) error {
 
 	fileTagForPath := map[string]string{
 		applicationPropertiesFilePath: "application",
-		smtpPropertiesFilePath:        "smtp",
 		databasePropertiesFilePath:    "database",
 	}
 
@@ -491,7 +481,7 @@ func openPropertiesFileForWrite(path string) (*os.File, error) {
 
 // labelFromFieldName turns a PascalCase field name into words, keeping
 // acronym runs intact: "DataCleanupIntervalHours" -> "Data cleanup interval
-// hours", "SMTPUser" -> "SMTP user".
+// hours", "MQTTBrokerPort" -> "MQTT broker port".
 func labelFromFieldName(name string) string {
 	runes := []rune(name)
 	var words []string

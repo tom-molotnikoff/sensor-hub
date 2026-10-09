@@ -85,11 +85,10 @@ var routePermissions = map[string][]string{
 	"POST /api/notifications/preferences":  {"manage_notifications"},
 	"GET /api/notifications/ws":            {"view_notifications"},
 
-	// OAuth
-	"GET /api/oauth/status":       {"manage_oauth"},
-	"GET /api/oauth/authorize":    {"manage_oauth"},
-	"POST /api/oauth/submit-code": {"manage_oauth"},
-	"POST /api/oauth/reload":      {"manage_oauth"},
+	// Email
+	"GET /api/email/smtp":       {"manage_email"},
+	"PUT /api/email/smtp":       {"manage_email"},
+	"POST /api/email/smtp/test": {"manage_email"},
 
 	// Properties
 	"PATCH /api/properties":           {"manage_properties"},

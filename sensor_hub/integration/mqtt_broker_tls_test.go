@@ -11,6 +11,7 @@ import (
 
 	gen "example/sensorHub/gen"
 	"example/sensorHub/testharness"
+	"example/sensorHub/testharness/testca"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,16 +19,16 @@ import (
 
 const tlsPassword = "tls-broker-password"
 
-func newTestCA(t *testing.T, name string) *testharness.TestCA {
+func newTestCA(t *testing.T, name string) *testca.CA {
 	t.Helper()
-	ca, err := testharness.NewTestCA(name)
+	ca, err := testca.New(name)
 	require.NoError(t, err)
 	return ca
 }
 
 // startTLSBroker starts a login-protected broker serving TLS with a
 // certificate the CA issued for the given hosts.
-func startTLSBroker(t *testing.T, ca *testharness.TestCA, hosts ...string) *testharness.ExternalBroker {
+func startTLSBroker(t *testing.T, ca *testca.CA, hosts ...string) *testharness.ExternalBroker {
 	t.Helper()
 	certificate, err := ca.ServerCertificate(hosts...)
 	require.NoError(t, err)

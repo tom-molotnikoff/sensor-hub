@@ -19,7 +19,7 @@ func TestLoadConfigurationFromMaps_RejectsAnInvalidListenOrProxySetting(t *testi
 			appProps := validAppPropsMap()
 			appProps[key] = value
 
-			_, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+			_, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 			var vErr *ValidationError
 			require.ErrorAs(t, err, &vErr, "%s=%q", key, value)
@@ -35,7 +35,7 @@ func TestLoadConfigurationFromMaps_AcceptsListenAndProxySettings(t *testing.T) {
 	appProps["http.trusted.proxies"] = "127.0.0.1, ::1,10.0.0.0/8"
 	appProps["mqtt.broker.listen.address"] = "::"
 
-	cfg, err := LoadConfigurationFromMaps(appProps, validSmtpPropsMap(), validDbPropsMap())
+	cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"127.0.0.1", "::1", "10.0.0.0/8"}, cfg.TrustedProxies())

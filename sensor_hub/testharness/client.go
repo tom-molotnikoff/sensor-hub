@@ -427,6 +427,20 @@ func (c *Client) CancelAutomationRun(id int, runID int) (gen.AutomationRun, int)
 
 // --- Alerts ---
 
+// GetEmailSettings returns the raw body, so a test can check what the wire
+// carries, and the status.
+func (c *Client) GetEmailSettings() (json.RawMessage, int) {
+	return c.consume(c.gen.GetEmailSettings(c.ctx()))
+}
+
+func (c *Client) UpdateEmailSettings(settings gen.EmailSettings) (json.RawMessage, int) {
+	return c.consume(c.gen.UpdateEmailSettings(c.ctx(), settings))
+}
+
+func (c *Client) SendTestEmail() (json.RawMessage, int) {
+	return c.consume(c.gen.SendTestEmail(c.ctx()))
+}
+
 func (c *Client) CreateAlertRule(rule gen.AlertRule) (json.RawMessage, int) {
 	return c.consume(c.gen.CreateAlertRule(c.ctx(), rule))
 }

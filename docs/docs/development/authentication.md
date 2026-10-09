@@ -109,8 +109,3 @@ Failed login attempts are tracked. The system applies exponential backoff when
 the number of failures within a configurable window exceeds a threshold:
 
 Rate limiting is applied per-username and per-IP-address independently.
-
-## OAuth (Gmail SMTP)
-
-OAuth 2.0 is used specifically for Gmail SMTP integration (sending alert
-emails). It is not a user-facing login method.

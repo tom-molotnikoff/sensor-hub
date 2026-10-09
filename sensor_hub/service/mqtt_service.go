@@ -14,10 +14,6 @@ import (
 // maxTopicLength is the MQTT specification limit for topic filters (UTF-8 encoded).
 const maxTopicLength = 65535
 
-// keepPassword is the placeholder a client may send back for a password it
-// was never shown. Like an omitted password, it leaves the stored one alone.
-const keepPassword = "****"
-
 // BrokerSecrets is the part of the secret store the MQTT service writes broker
 // passwords through. It never reads a password back.
 type BrokerSecrets interface {
@@ -80,7 +76,7 @@ func (s *MQTTService) AddBroker(ctx context.Context, broker gen.MQTTBroker) (int
 	if err != nil {
 		return 0, err
 	}
-	if password, ok := newPassword(broker.Password); ok && password != "" {
+	if password, ok := secrets.Requested(broker.Password); ok && password != "" {
 		if err := s.secrets.Set(ctx, database.BrokerSecretOwner(id), database.BrokerPasswordSecret, password); err != nil {
 			// Without its password the broker is not what was asked for.
 			if deleteErr := s.brokerRepo.Delete(ctx, id); deleteErr != nil {
@@ -136,16 +132,6 @@ func (s *MQTTService) describePassword(broker *gen.MQTTBroker) {
 	broker.PasswordStatus = &status
 }
 
-// newPassword reads the password a create or update asks for. ok is false
-// when the stored password is to be left as it is: the field is omitted or
-// holds the "****" placeholder. An empty password asks for none.
-func newPassword(password *string) (string, bool) {
-	if password == nil || *password == keepPassword {
-		return "", false
-	}
-	return *password, true
-}
-
 func (s *MQTTService) UpdateBroker(ctx context.Context, broker gen.MQTTBroker) error {
 	if broker.Id == nil || *broker.Id <= 0 {
 		return fmt.Errorf("broker id must be positive")
@@ -165,7 +151,7 @@ func (s *MQTTService) UpdateBroker(ctx context.Context, broker gen.MQTTBroker) e
 	}
 	// The row has changed even if the password write below fails.
 	defer s.brokerChanged(*broker.Id)
-	password, ok := newPassword(broker.Password)
+	password, ok := secrets.Requested(broker.Password)
 	if !ok {
 		return nil
 	}

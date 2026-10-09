@@ -20,7 +20,6 @@ func setupWatcherConfigDir(t *testing.T) string {
 
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "application.properties"), []byte(validAppPropsContent), 0644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "smtp.properties"), []byte("smtp.user=\n"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "database.properties"), []byte("database.path=data/test.db\n"), 0644))
 
 	oldDir := GetConfigDir()

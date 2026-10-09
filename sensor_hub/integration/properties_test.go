@@ -38,14 +38,14 @@ func TestProperties_SetAndGet(t *testing.T) {
 // Whatever a client writes is what it reads back. No value is reserved, and no
 // value is rewritten on the way out.
 func TestProperties_ValuesRoundTripVerbatim(t *testing.T) {
-	original := readProperty(t, "smtp.user")
-	defer client.SetProperty("smtp.user", original)
+	original := readProperty(t, "weather.location.name")
+	defer client.SetProperty("weather.location.name", original)
 
 	for _, value := range []string{"probe@example.com", "*****", "Mixed Case Value"} {
-		status := client.SetProperty("smtp.user", value)
+		status := client.SetProperty("weather.location.name", value)
 		require.Equal(t, http.StatusAccepted, status)
 
-		assert.Equal(t, value, readProperty(t, "smtp.user"))
+		assert.Equal(t, value, readProperty(t, "weather.location.name"))
 	}
 }
 
@@ -135,8 +135,8 @@ func TestProperties_DefinitionsCoverEveryValue(t *testing.T) {
 	defs, status := client.GetPropertyDefinitions()
 	require.Equal(t, http.StatusOK, status)
 
-	assert.Len(t, defs.Definitions, 38)
-	assert.Len(t, defs.Groups, 8)
+	assert.Len(t, defs.Definitions, 34)
+	assert.Len(t, defs.Groups, 7)
 
 	resp, status := client.GetProperties()
 	require.Equal(t, http.StatusOK, status)
@@ -162,13 +162,13 @@ func TestProperties_DefinitionsCoverEveryValue(t *testing.T) {
 // offending key, so a client can attach the error to the right field.
 func TestProperties_ValidationFailureNamesKeyAndRejectsBatch(t *testing.T) {
 	originalInterval := readProperty(t, "sensor.collection.interval")
-	originalUser := readProperty(t, "smtp.user")
+	originalLocation := readProperty(t, "weather.location.name")
 	defer client.SetProperty("sensor.collection.interval", originalInterval)
-	defer client.SetProperty("smtp.user", originalUser)
+	defer client.SetProperty("weather.location.name", originalLocation)
 
 	body, status := client.UpdateProperties(map[string]string{
 		"sensor.collection.interval": "not-a-number",
-		"smtp.user":                  "batch-probe@example.com",
+		"weather.location.name":      "Batch Probe",
 	})
 	require.Equal(t, http.StatusBadRequest, status)
 
@@ -179,7 +179,7 @@ func TestProperties_ValidationFailureNamesKeyAndRejectsBatch(t *testing.T) {
 	assert.NotEmpty(t, errResp.Message)
 
 	assert.Equal(t, originalInterval, readProperty(t, "sensor.collection.interval"))
-	assert.Equal(t, originalUser, readProperty(t, "smtp.user"))
+	assert.Equal(t, originalLocation, readProperty(t, "weather.location.name"))
 }
 
 // auth.bcrypt.cost holds to 10 through 31: below 10 a stolen hash is cheap to

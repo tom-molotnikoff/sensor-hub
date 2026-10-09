@@ -10,12 +10,11 @@ import (
 	"example/sensorHub/automation"
 	database "example/sensorHub/db"
 	_ "example/sensorHub/drivers" // register sensor drivers
+	"example/sensorHub/email"
 	mqttBrokerPkg "example/sensorHub/mqtt"
-	"example/sensorHub/oauth"
 	"example/sensorHub/readings"
 	"example/sensorHub/secrets"
 	"example/sensorHub/service"
-	"example/sensorHub/smtp"
 	"example/sensorHub/telemetry"
 	"example/sensorHub/ws"
 	"fmt"
@@ -98,6 +97,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open the secret store: %w", err)
 	}
+	emailSettingsRepo := database.NewEmailSettingsRepository(db)
+	if err := email.FinishUpgrade(ctx, emailSettingsRepo, localConfigDir, logger); err != nil {
+		return fmt.Errorf("failed to finish moving email to SMTP: %w", err)
+	}
 
 	// Start the embedded MQTT broker if enabled. Devices authenticate against
 	// the MQTT clients in the database, so it starts once the database is open.
@@ -130,11 +133,11 @@ func runServe(cmd *cobra.Command, args []string) error {
 	failedRepo := database.NewFailedLoginRepository(db, logger)
 	roleRepo := database.NewRoleRepository(db, logger)
 
-	smtpNotifier := smtp.NewSMTPNotifier(logger)
+	emailService := email.NewService(emailSettingsRepo, secretStore, logger)
 	wsBroadcaster := ws.NewNotificationBroadcaster(logger)
 	notificationService := service.NewNotificationService(notificationRepo, wsBroadcaster, logger)
-	notificationService.SetEmailNotifier(smtpNotifier)
-	thresholdProcessor := alerting.NewThresholdAlertProcessor(alertRepo, &notifRepoAdapter{notificationRepo}, wsBroadcaster, smtpNotifier, logger)
+	notificationService.SetEmailNotifier(emailService)
+	thresholdProcessor := alerting.NewThresholdAlertProcessor(alertRepo, &notifRepoAdapter{notificationRepo}, wsBroadcaster, emailService, logger)
 	readingsSampler := service.NewReadingsSampler(readingsRepo, logger)
 	commandHistoryRepo := database.NewSensorCommandHistoryRepository(db, logger)
 	commandTracker := actuation.NewCommandTracker(commandHistoryRepo, ws.NewCommandStatusBroadcaster(logger), logger)
@@ -222,13 +225,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 	defer connManager.Stop()
 
-	err = oauth.InitialiseOauth()
-	if err != nil {
-		logger.Warn("failed to initialise OAuth", "error", err)
-	}
-
-	oauthAdapter := service.NewOAuthServiceAdapter(oauth.GetService())
-
 	server := api.NewServer(
 		sensorService,
 		commandService,
@@ -243,7 +239,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		propertiesService,
 		mqttService,
 		mqttClientService,
-		oauthAdapter,
+		emailService,
 		connManager,
 		automationService,
 	)

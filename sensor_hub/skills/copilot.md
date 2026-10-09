@@ -267,12 +267,12 @@ sensor-hub api-keys revoke 3
 sensor-hub api-keys delete 3
 ```
 
-### OAuth
+### Email
 ```bash
-sensor-hub oauth status                              # Configuration status
-sensor-hub oauth authorize                           # Start auth flow
-sensor-hub oauth submit-code --code CODE --state STATE
-sensor-hub oauth reload                              # Reload from disk
+sensor-hub email show                                # SMTP settings, password status, last send
+sensor-hub email set --host smtp.example.com --port 587 --security starttls \
+  --username USER --from-address alerts@example.com --password-stdin  # password on stdin
+sensor-hub email test                                # Send a test email to your own address
 ```
 
 ### Properties

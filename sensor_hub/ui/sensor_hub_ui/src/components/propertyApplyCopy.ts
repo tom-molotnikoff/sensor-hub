@@ -2,12 +2,10 @@ import type { PropertyDefinition } from '../gen/aliases';
 
 const ACTION_CHIP_LABELS: Record<string, string> = {
   'service-restart': 'Service restart required',
-  'oauth-reload': 'OAuth reload required',
 };
 
 const ACTION_APPLY_SEGMENTS: Record<string, string> = {
   'service-restart': 'applies after a service restart',
-  'oauth-reload': 'applies after an OAuth reload',
 };
 
 // An action id the frontend has no copy for must never read as live - fall back to the raw id.
@@ -24,8 +22,6 @@ function actionApplySegment(action: string): string {
 export const CONSEQUENCE_NOTES: Record<string, string> = {
   'mqtt.broker.enabled': 'Changing this disconnects connected sensors.',
   'mqtt.broker.port': 'Changing this disconnects connected sensors.',
-  'oauth.credentials.file.path': 'Apply this with Reload Config on the Notifications page.',
-  'oauth.token.file.path': 'Apply this with Reload Config on the Notifications page.',
 };
 
 export function applyAction(definition: PropertyDefinition): string | undefined {

@@ -39,10 +39,4 @@ For local development, [mkcert](https://github.com/FiloSottile/mkcert) can gener
 
 ## Email notifications (optional)
 
-To send alert notifications via email, you need:
-
-- A Google Cloud project with the Gmail API enabled
-- An OAuth 2.0 credential of type "Desktop application"
-- The `credentials.json` file downloaded from the Google Cloud Console
-
-The OAuth token is obtained during setup using a provided authorization tool or through the web UI after deployment.
+To send alert notifications by email, you need an SMTP server the hub can reach and a username and password for it, ideally a credential that can only send, such as Amazon SES SMTP credentials or a transactional email provider's. See [Getting a send-only credential](alerts-and-notifications#getting-a-send-only-credential).

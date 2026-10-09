@@ -56,6 +56,20 @@ func TestNotifySecretFailures_RaisesOneNotificationNamingEachOwner(t *testing.T)
 	assert.NoError(t, got.notification.Validate())
 }
 
+func TestNotifySecretFailures_NamesTheEmailSettings(t *testing.T) {
+	recorder := &notificationRecorder{}
+	failed := []secrets.Ref{
+		{Owner: "mqtt_broker:1", Name: "password"},
+		{Owner: "smtp", Name: "password"},
+	}
+
+	err := NotifySecretFailures(context.Background(), failed, nil, namedBrokers{1: "Home Mosquitto"}, recorder, slog.Default())
+
+	require.NoError(t, err)
+	require.Len(t, recorder.created, 1)
+	assert.Contains(t, recorder.created[0].notification.Message, `MQTT broker "Home Mosquitto", the email (SMTP) settings.`)
+}
+
 func TestNotifySecretFailures_RaisesNothingWhenEverySecretDecrypts(t *testing.T) {
 	recorder := &notificationRecorder{}
 

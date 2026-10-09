@@ -5,7 +5,7 @@ import { hasPerm } from '../../tools/Utils';
 import AlertRulesCard from '../../components/AlertRulesCard';
 import NotificationsCard from '../../components/NotificationsCard';
 import NotificationPreferencesCard from '../../components/NotificationPreferencesCard';
-import OAuthConfigCard from '../../components/OAuthConfigCard';
+import EmailSettingsCard from '../../components/EmailSettingsCard';
 
 export default function NotificationsPage() {
   const { user } = useAuth();
@@ -19,8 +19,8 @@ export default function NotificationsPage() {
         {hasPerm(user, 'manage_notifications') && (
           <PageGrid.Item><NotificationPreferencesCard /></PageGrid.Item>
         )}
-        {hasPerm(user, 'manage_oauth') && (
-          <PageGrid.Item><OAuthConfigCard /></PageGrid.Item>
+        {hasPerm(user, 'manage_email') && (
+          <PageGrid.Item><EmailSettingsCard /></PageGrid.Item>
         )}
         {hasPerm(user, 'view_notifications') && (
           <PageGrid.Item><NotificationsCard /></PageGrid.Item>

@@ -211,29 +211,11 @@ describe('PropertyField', () => {
     expect(restartChip).toBeInTheDocument();
     expect(restartChip.closest('button')).toBeNull();
 
-    rerender(
-      <PropertyField
-        definition={makeDefinition({
-          key: 'oauth.credentials.file.path',
-          label: 'OAuth credentials file',
-          description: 'Path to the OAuth client credentials file.',
-          type: 'string',
-          default: '',
-          group: 'email',
-          apply: 'action:oauth-reload',
-        })}
-        serverValue="/etc/sensor-hub/credentials.json"
-        onChange={() => {}}
-      />,
-    );
-    expect(screen.getByText('OAuth reload required')).toBeInTheDocument();
-    expect(screen.queryByText('Service restart required')).not.toBeInTheDocument();
-
     rerender(<PropertyField definition={makeDefinition()} serverValue="false" onChange={() => {}} />);
     expect(screen.queryByText(/required/)).not.toBeInTheDocument();
   });
 
-  it('carries a muted consequence line on the MQTT properties and a Notifications pointer on the OAuth file paths', () => {
+  it('carries a muted consequence line on the MQTT properties and none on a property without one', () => {
     const { rerender } = render(
       <PropertyField
         definition={makeDefinition({
@@ -254,40 +236,39 @@ describe('PropertyField', () => {
     rerender(
       <PropertyField
         definition={makeDefinition({
-          key: 'oauth.token.file.path',
-          label: 'OAuth token file',
-          description: 'Path to the stored OAuth token.',
+          key: 'metrics.listen.address',
+          label: 'Metrics listen address',
+          description: 'Host and port the Prometheus /metrics endpoint listens on, apart from the API.',
           type: 'string',
-          default: '',
-          group: 'email',
-          apply: 'action:oauth-reload',
+          default: '127.0.0.1:9464',
+          group: 'advanced',
+          apply: 'action:service-restart',
         })}
-        serverValue="/etc/sensor-hub/token.json"
+        serverValue="127.0.0.1:9464"
         onChange={() => {}}
       />,
     );
     expect(screen.queryByText('Changing this disconnects connected sensors.')).not.toBeInTheDocument();
-    expect(screen.getByText(/reload config on the notifications page/i)).toBeInTheDocument();
   });
 
   it('renders an empty saved value or default as "(empty)" in the helper line', () => {
     const definition = makeDefinition({
-      key: 'smtp.user',
-      label: 'SMTP user',
-      description: 'Address mail is sent from.',
+      key: 'hub.timezone',
+      label: 'Hub timezone',
+      description: 'IANA zone name that automation schedules run in.',
       type: 'string',
       default: '',
-      group: 'email',
+      group: 'automations',
       apply: 'live',
     });
 
     const { rerender } = render(
-      <PropertyField definition={definition} serverValue="old@example.com" editedValue="new@example.com" onChange={() => {}} />,
+      <PropertyField definition={definition} serverValue="Europe/London" editedValue="Europe/Paris" onChange={() => {}} />,
     );
-    expect(screen.getByText('Saved value old@example.com · default (empty)')).toBeInTheDocument();
+    expect(screen.getByText('Saved value Europe/London · default (empty)')).toBeInTheDocument();
 
     // Edited before the value feed has delivered anything.
-    rerender(<PropertyField definition={definition} editedValue="new@example.com" onChange={() => {}} />);
+    rerender(<PropertyField definition={definition} editedValue="Europe/Paris" onChange={() => {}} />);
     expect(screen.getByText('Saved value (empty) · default (empty)')).toBeInTheDocument();
   });
 

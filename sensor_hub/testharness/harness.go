@@ -24,14 +24,15 @@ import (
 	"example/sensorHub/automation"
 	database "example/sensorHub/db"
 	_ "example/sensorHub/drivers" // register sensor drivers
+	"example/sensorHub/email"
 	gen "example/sensorHub/gen"
 	mqttpkg "example/sensorHub/mqtt"
 	"example/sensorHub/notifications"
 	"example/sensorHub/readings"
 	"example/sensorHub/secrets"
 	"example/sensorHub/service"
-	"example/sensorHub/smtp"
 	"example/sensorHub/testharness/fixtures"
+	"example/sensorHub/testharness/smtpfake"
 	"example/sensorHub/web"
 	"example/sensorHub/ws"
 
@@ -49,7 +50,10 @@ type Env struct {
 	Readings          *readings.Pipeline
 	ConnectionManager *mqttpkg.ConnectionManager
 	WSCapture         *RecordingWSNotifier
-	EmailCapture      *RecordingEmailNotifier
+
+	// SMTP is a mail server the hub can be pointed at with SMTPSettings. It
+	// takes SMTPUsername and SMTPPassword over an unencrypted connection.
+	SMTP *smtpfake.Server
 
 	// MQTTBrokerAddress is where devices reach the hub's embedded broker, and
 	// MQTTClient is a credential it accepts, limited to zigbee2mqtt/.
@@ -70,6 +74,24 @@ const (
 )
 
 var DefaultMQTTClient = fixtures.MQTTClient{Name: "zigbee2mqtt", TopicPrefix: "zigbee2mqtt/", Password: "testmqttpassword"}
+
+const (
+	SMTPUsername = "hub@example.com"
+	SMTPPassword = "test-smtp-password"
+)
+
+// SMTPSettings are email settings that send through the harness's SMTP
+// server with the given password.
+func (e *Env) SMTPSettings(password string) gen.EmailSettings {
+	return gen.EmailSettings{
+		Host:        e.SMTP.Host(),
+		Port:        e.SMTP.Port(),
+		Security:    email.SecurityNone,
+		Username:    SMTPUsername,
+		FromAddress: "sensor-hub@example.com",
+		Password:    &password,
+	}
+}
 
 // StartServer creates a temp DB, wires up all services, starts the Gin server
 // on a random port, and creates an admin user. Cleanup via t.Cleanup.
@@ -142,9 +164,20 @@ func startServer(opts serverOptions) (*Env, func(), error) {
 		"sensor.collection.interval=300\ndatabase.path=%s\nlog.level=debug\nauth.bcrypt.cost=10\nmqtt.broker.enabled=true\nmqtt.broker.port=%d\nhttp.trusted.proxies=127.0.0.1,::1\n", dbPath, mqttBrokerPort)
 	writeFileOrErr(filepath.Join(configDir, "application.properties"), appPropsContent)
 	writeFileOrErr(filepath.Join(configDir, "database.properties"), fmt.Sprintf("database.path=%s\n", dbPath))
-	writeFileOrErr(filepath.Join(configDir, "smtp.properties"), "smtp.user=\n")
+
+	smtpServer, err := smtpfake.Start(smtpfake.Options{Username: SMTPUsername, Password: SMTPPassword})
+	if err != nil {
+		cleanupDir()
+		return nil, func() {}, fmt.Errorf("failed to start the SMTP server: %w", err)
+	}
+	cleanupDir = func() {
+		smtpServer.Close()
+		os.RemoveAll(tmpDir)
+		os.RemoveAll(configDir)
+	}
 
 	env := &Env{
+		SMTP:              smtpServer,
 		AdminUser:         DefaultAdminUser,
 		AdminPass:         DefaultAdminPass,
 		ConfigDir:         configDir,
@@ -196,6 +229,11 @@ func (e *Env) boot(listenAddr string) error {
 		db.Close()
 		return err
 	}
+	emailSettingsRepo := database.NewEmailSettingsRepository(db)
+	if err := email.FinishUpgrade(context.Background(), emailSettingsRepo, e.ConfigDir, logger); err != nil {
+		db.Close()
+		return err
+	}
 
 	// As in cmd/local_serve.go, the embedded broker authenticates devices
 	// against the MQTT clients in the database.
@@ -227,14 +265,14 @@ func (e *Env) boot(listenAddr string) error {
 	roleRepo := database.NewRoleRepository(db, logger)
 	apiKeyRepo := database.NewApiKeyRepository(db, logger)
 
-	smtpNotifier := smtp.NewSMTPNotifier(logger)
+	// As in cmd/local_serve.go, email goes through the stored SMTP settings.
+	emailService := email.NewService(emailSettingsRepo, secretStore, logger)
 	wsBroadcaster := ws.NewNotificationBroadcaster(logger)
 	notificationService := service.NewNotificationService(notificationRepo, wsBroadcaster, logger)
-	notificationService.SetEmailNotifier(smtpNotifier)
+	notificationService.SetEmailNotifier(emailService)
 
 	wsCapture := &RecordingWSNotifier{}
-	emailCapture := &RecordingEmailNotifier{}
-	thresholdProcessor := alerting.NewThresholdAlertProcessor(alertRepo, &harnessNotifRepoAdapter{notificationRepo}, wsCapture, emailCapture, logger)
+	thresholdProcessor := alerting.NewThresholdAlertProcessor(alertRepo, &harnessNotifRepoAdapter{notificationRepo}, wsCapture, emailService, logger)
 	readingsSampler := service.NewReadingsSampler(readingsRepo, logger)
 	if err := readingsSampler.Sample(context.Background()); err != nil {
 		_ = embeddedBroker.Stop()
@@ -306,7 +344,7 @@ func (e *Env) boot(listenAddr string) error {
 		propertiesService,
 		mqttService,
 		mqttClientService,
-		nil, // no OAuth in tests
+		emailService,
 		connManager,
 		automationService,
 	)
@@ -360,7 +398,6 @@ func (e *Env) boot(listenAddr string) error {
 	e.Readings = readingPipeline
 	e.ConnectionManager = connManager
 	e.WSCapture = wsCapture
-	e.EmailCapture = emailCapture
 
 	adminHash, err := service.HashFirstAdminPassword(DefaultAdminPass)
 	if err != nil {
@@ -443,34 +480,6 @@ func (r *RecordingWSNotifier) Reset() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.userIDs = nil
-}
-
-// RecordingEmailNotifier implements alerting.EmailNotifier and records every
-// SendNotification call. Used by integration tests to assert email delivery.
-type RecordingEmailNotifier struct {
-	mu         sync.Mutex
-	recipients []string
-}
-
-func (r *RecordingEmailNotifier) SendNotification(recipient, title, message, category string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.recipients = append(r.recipients, recipient)
-	return nil
-}
-
-// Recipients returns a copy of all recipient email addresses.
-func (r *RecordingEmailNotifier) Recipients() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return append([]string(nil), r.recipients...)
-}
-
-// Reset clears captured calls — call at the start of each test that asserts email.
-func (r *RecordingEmailNotifier) Reset() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.recipients = nil
 }
 
 type harnessNotifRepoAdapter struct {

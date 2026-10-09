@@ -218,6 +218,17 @@ type ClientInterface interface {
 	// ListDrivers request
 	ListDrivers(ctx context.Context, params *ListDriversParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetEmailSettings request
+	GetEmailSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateEmailSettingsWithBody request with any body
+	UpdateEmailSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateEmailSettings(ctx context.Context, body UpdateEmailSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SendTestEmail request
+	SendTestEmail(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetHealth request
 	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -315,20 +326,6 @@ type ClientInterface interface {
 
 	// MarkAsRead request
 	MarkAsRead(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetOAuthAuthorizeUrl request
-	GetOAuthAuthorizeUrl(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ReloadOAuth request
-	ReloadOAuth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetOAuthStatus request
-	GetOAuthStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SubmitOAuthCodeWithBody request with any body
-	SubmitOAuthCodeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SubmitOAuthCode(ctx context.Context, body SubmitOAuthCodeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetOpenApiSpec request
 	GetOpenApiSpec(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1026,6 +1023,54 @@ func (c *Client) ListDrivers(ctx context.Context, params *ListDriversParams, req
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetEmailSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEmailSettingsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateEmailSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEmailSettingsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateEmailSettings(ctx context.Context, body UpdateEmailSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEmailSettingsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendTestEmail(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendTestEmailRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetHealthRequest(c.Server)
 	if err != nil {
@@ -1436,66 +1481,6 @@ func (c *Client) DismissNotification(ctx context.Context, id int, reqEditors ...
 
 func (c *Client) MarkAsRead(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewMarkAsReadRequest(c.Server, id)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetOAuthAuthorizeUrl(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetOAuthAuthorizeUrlRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ReloadOAuth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReloadOAuthRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetOAuthStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetOAuthStatusRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SubmitOAuthCodeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSubmitOAuthCodeRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SubmitOAuthCode(ctx context.Context, body SubmitOAuthCodeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSubmitOAuthCodeRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3434,6 +3419,100 @@ func NewListDriversRequest(server string, params *ListDriversParams) (*http.Requ
 	return req, nil
 }
 
+// NewGetEmailSettingsRequest generates requests for GetEmailSettings
+func NewGetEmailSettingsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/email/smtp")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateEmailSettingsRequest calls the generic UpdateEmailSettings builder with application/json body
+func NewUpdateEmailSettingsRequest(server string, body UpdateEmailSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateEmailSettingsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUpdateEmailSettingsRequestWithBody generates requests for UpdateEmailSettings with any type of body
+func NewUpdateEmailSettingsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/email/smtp")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSendTestEmailRequest generates requests for SendTestEmail
+func NewSendTestEmailRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/email/smtp/test")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetHealthRequest generates requests for GetHealth
 func NewGetHealthRequest(server string) (*http.Request, error) {
 	var err error
@@ -4459,127 +4538,6 @@ func NewMarkAsReadRequest(server string, id int) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewGetOAuthAuthorizeUrlRequest generates requests for GetOAuthAuthorizeUrl
-func NewGetOAuthAuthorizeUrlRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/oauth/authorize")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewReloadOAuthRequest generates requests for ReloadOAuth
-func NewReloadOAuthRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/oauth/reload")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetOAuthStatusRequest generates requests for GetOAuthStatus
-func NewGetOAuthStatusRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/oauth/status")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSubmitOAuthCodeRequest calls the generic SubmitOAuthCode builder with application/json body
-func NewSubmitOAuthCodeRequest(server string, body SubmitOAuthCodeJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSubmitOAuthCodeRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSubmitOAuthCodeRequestWithBody generates requests for SubmitOAuthCode with any type of body
-func NewSubmitOAuthCodeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/oauth/submit-code")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -6260,6 +6218,17 @@ type ClientWithResponsesInterface interface {
 	// ListDriversWithResponse request
 	ListDriversWithResponse(ctx context.Context, params *ListDriversParams, reqEditors ...RequestEditorFn) (*ListDriversResp, error)
 
+	// GetEmailSettingsWithResponse request
+	GetEmailSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetEmailSettingsResp, error)
+
+	// UpdateEmailSettingsWithBodyWithResponse request with any body
+	UpdateEmailSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEmailSettingsResp, error)
+
+	UpdateEmailSettingsWithResponse(ctx context.Context, body UpdateEmailSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEmailSettingsResp, error)
+
+	// SendTestEmailWithResponse request
+	SendTestEmailWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*SendTestEmailResp, error)
+
 	// GetHealthWithResponse request
 	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResp, error)
 
@@ -6357,20 +6326,6 @@ type ClientWithResponsesInterface interface {
 
 	// MarkAsReadWithResponse request
 	MarkAsReadWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*MarkAsReadResp, error)
-
-	// GetOAuthAuthorizeUrlWithResponse request
-	GetOAuthAuthorizeUrlWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOAuthAuthorizeUrlResp, error)
-
-	// ReloadOAuthWithResponse request
-	ReloadOAuthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ReloadOAuthResp, error)
-
-	// GetOAuthStatusWithResponse request
-	GetOAuthStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOAuthStatusResp, error)
-
-	// SubmitOAuthCodeWithBodyWithResponse request with any body
-	SubmitOAuthCodeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitOAuthCodeResp, error)
-
-	SubmitOAuthCodeWithResponse(ctx context.Context, body SubmitOAuthCodeJSONRequestBody, reqEditors ...RequestEditorFn) (*SubmitOAuthCodeResp, error)
 
 	// GetOpenApiSpecWithResponse request
 	GetOpenApiSpecWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOpenApiSpecResp, error)
@@ -7345,6 +7300,77 @@ func (r ListDriversResp) StatusCode() int {
 	return 0
 }
 
+type GetEmailSettingsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EmailSettings
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEmailSettingsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEmailSettingsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateEmailSettingsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EmailSettings
+	JSON400      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateEmailSettingsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateEmailSettingsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SendTestEmailResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SuccessMessage
+	JSON400      *ErrorResponse
+	JSON502      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r SendTestEmailResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SendTestEmailResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetHealthResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7974,102 +8000,6 @@ func (r MarkAsReadResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r MarkAsReadResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetOAuthAuthorizeUrlResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *OAuthAuthorizeResponse
-	JSON500      *ErrorResponse
-	JSON503      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetOAuthAuthorizeUrlResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetOAuthAuthorizeUrlResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ReloadOAuthResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *SuccessMessage
-	JSON500      *ErrorResponse
-	JSON503      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r ReloadOAuthResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ReloadOAuthResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetOAuthStatusResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *OAuthStatus
-	JSON503      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetOAuthStatusResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetOAuthStatusResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type SubmitOAuthCodeResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *SuccessMessage
-	JSON400      *ErrorResponse
-	JSON500      *ErrorResponse
-	JSON503      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r SubmitOAuthCodeResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SubmitOAuthCodeResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -9436,6 +9366,41 @@ func (c *ClientWithResponses) ListDriversWithResponse(ctx context.Context, param
 	return ParseListDriversResp(rsp)
 }
 
+// GetEmailSettingsWithResponse request returning *GetEmailSettingsResp
+func (c *ClientWithResponses) GetEmailSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetEmailSettingsResp, error) {
+	rsp, err := c.GetEmailSettings(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEmailSettingsResp(rsp)
+}
+
+// UpdateEmailSettingsWithBodyWithResponse request with arbitrary body returning *UpdateEmailSettingsResp
+func (c *ClientWithResponses) UpdateEmailSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEmailSettingsResp, error) {
+	rsp, err := c.UpdateEmailSettingsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEmailSettingsResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateEmailSettingsWithResponse(ctx context.Context, body UpdateEmailSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEmailSettingsResp, error) {
+	rsp, err := c.UpdateEmailSettings(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEmailSettingsResp(rsp)
+}
+
+// SendTestEmailWithResponse request returning *SendTestEmailResp
+func (c *ClientWithResponses) SendTestEmailWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*SendTestEmailResp, error) {
+	rsp, err := c.SendTestEmail(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendTestEmailResp(rsp)
+}
+
 // GetHealthWithResponse request returning *GetHealthResp
 func (c *ClientWithResponses) GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResp, error) {
 	rsp, err := c.GetHealth(ctx, reqEditors...)
@@ -9742,50 +9707,6 @@ func (c *ClientWithResponses) MarkAsReadWithResponse(ctx context.Context, id int
 		return nil, err
 	}
 	return ParseMarkAsReadResp(rsp)
-}
-
-// GetOAuthAuthorizeUrlWithResponse request returning *GetOAuthAuthorizeUrlResp
-func (c *ClientWithResponses) GetOAuthAuthorizeUrlWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOAuthAuthorizeUrlResp, error) {
-	rsp, err := c.GetOAuthAuthorizeUrl(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetOAuthAuthorizeUrlResp(rsp)
-}
-
-// ReloadOAuthWithResponse request returning *ReloadOAuthResp
-func (c *ClientWithResponses) ReloadOAuthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ReloadOAuthResp, error) {
-	rsp, err := c.ReloadOAuth(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseReloadOAuthResp(rsp)
-}
-
-// GetOAuthStatusWithResponse request returning *GetOAuthStatusResp
-func (c *ClientWithResponses) GetOAuthStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOAuthStatusResp, error) {
-	rsp, err := c.GetOAuthStatus(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetOAuthStatusResp(rsp)
-}
-
-// SubmitOAuthCodeWithBodyWithResponse request with arbitrary body returning *SubmitOAuthCodeResp
-func (c *ClientWithResponses) SubmitOAuthCodeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitOAuthCodeResp, error) {
-	rsp, err := c.SubmitOAuthCodeWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSubmitOAuthCodeResp(rsp)
-}
-
-func (c *ClientWithResponses) SubmitOAuthCodeWithResponse(ctx context.Context, body SubmitOAuthCodeJSONRequestBody, reqEditors ...RequestEditorFn) (*SubmitOAuthCodeResp, error) {
-	rsp, err := c.SubmitOAuthCode(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSubmitOAuthCodeResp(rsp)
 }
 
 // GetOpenApiSpecWithResponse request returning *GetOpenApiSpecResp
@@ -11521,6 +11442,119 @@ func ParseListDriversResp(rsp *http.Response) (*ListDriversResp, error) {
 	return response, nil
 }
 
+// ParseGetEmailSettingsResp parses an HTTP response from a GetEmailSettingsWithResponse call
+func ParseGetEmailSettingsResp(rsp *http.Response) (*GetEmailSettingsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEmailSettingsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EmailSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateEmailSettingsResp parses an HTTP response from a UpdateEmailSettingsWithResponse call
+func ParseUpdateEmailSettingsResp(rsp *http.Response) (*UpdateEmailSettingsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateEmailSettingsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EmailSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSendTestEmailResp parses an HTTP response from a SendTestEmailWithResponse call
+func ParseSendTestEmailResp(rsp *http.Response) (*SendTestEmailResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SendTestEmailResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SuccessMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetHealthResp parses an HTTP response from a GetHealthWithResponse call
 func ParseGetHealthResp(rsp *http.Response) (*GetHealthResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -12316,166 +12350,6 @@ func ParseMarkAsReadResp(rsp *http.Response) (*MarkAsReadResp, error) {
 			return nil, err
 		}
 		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetOAuthAuthorizeUrlResp parses an HTTP response from a GetOAuthAuthorizeUrlWithResponse call
-func ParseGetOAuthAuthorizeUrlResp(rsp *http.Response) (*GetOAuthAuthorizeUrlResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetOAuthAuthorizeUrlResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OAuthAuthorizeResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseReloadOAuthResp parses an HTTP response from a ReloadOAuthWithResponse call
-func ParseReloadOAuthResp(rsp *http.Response) (*ReloadOAuthResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ReloadOAuthResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SuccessMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetOAuthStatusResp parses an HTTP response from a GetOAuthStatusWithResponse call
-func ParseGetOAuthStatusResp(rsp *http.Response) (*GetOAuthStatusResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetOAuthStatusResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OAuthStatus
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSubmitOAuthCodeResp parses an HTTP response from a SubmitOAuthCodeWithResponse call
-func ParseSubmitOAuthCodeResp(rsp *http.Response) (*SubmitOAuthCodeResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SubmitOAuthCodeResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SuccessMessage
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
 
 	}
 

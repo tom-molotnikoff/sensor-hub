@@ -36,7 +36,7 @@ export type User                      = components['schemas']['User'];
 export type RoleInfo                  = components['schemas']['RoleInfo'];
 export type PermissionInfo            = components['schemas']['PermissionInfo'];
 export type ApiKey                    = components['schemas']['ApiKey'];
-export type OAuthStatus               = components['schemas']['OAuthStatus'];
+export type EmailSettings             = components['schemas']['EmailSettings'];
 export type LoginResponse             = components['schemas']['LoginResponse'];
 export type PropertyDefinition        = components['schemas']['PropertyDefinition'];
 export type PropertyGroup             = components['schemas']['PropertyGroup'];
@@ -52,7 +52,6 @@ export type CommandHistoryEntry       = components['schemas']['CommandHistoryEnt
 
 export type NotificationSeverity = Notification['severity'];
 export type NotificationCategory = Notification['category'];
-export type OAuthAuthorizeResponse = components['schemas']['OAuthAuthorizeResponse'];
 
 // Types not in the schema (frontend-only shapes)
 export type SensorStatus = 'active' | 'pending' | 'dismissed';

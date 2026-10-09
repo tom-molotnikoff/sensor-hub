@@ -185,6 +185,20 @@ printf '%s\n' "$BROKER_PASSWORD" | sensor-hub mqtt brokers create --name cloud -
 
 In the JSON given to `mqtt brokers update --file`, leaving `password` out or setting it to `"****"` keeps the stored password, a new value replaces it, and `""` removes it. `mqtt brokers enable` and `disable` write the broker back without a password, so its password is kept.
 
+## Email
+
+`sensor-hub email` manages the SMTP settings alert and notification emails go through (see [Email](alerts-and-notifications#email)). It needs the `manage_email` permission. The password is write-only: `email show` prints the settings with `password_status` (`unset`, `set` or `needs_reentry`), when an email was last sent and the last error, never the password.
+
+`email set` changes only the settings given as flags: `--host`, `--port`, `--security` (`starttls`, `implicit_tls` or `none`), `--username` and `--from-address`. It never takes the password as a flag. On a terminal it prompts for one, twice, and leaving it empty keeps the stored password. In a script, `--password-stdin` reads one line from stdin; without it and with no terminal, the stored password is kept.
+
+```bash
+printf '%s\n' "$SMTP_PASSWORD" | sensor-hub email set --host email-smtp.eu-west-1.amazonaws.com --port 587 \
+  --security starttls --username "$SES_SMTP_USERNAME" --from-address alerts@example.com --password-stdin
+sensor-hub email test
+```
+
+`email test` sends "Sensor Hub test email" to the email address of the user the CLI is signed in as, and prints the SMTP server's error if the send fails.
+
 ## Users
 
 `sensor-hub users` manages the hub's users. No command takes a password as a flag value, where the shell history and the process list would show it.

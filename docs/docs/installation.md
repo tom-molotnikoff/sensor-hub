@@ -90,14 +90,6 @@ Edit the configuration files in `/etc/sensor-hub/`:
 
 Review and adjust the defaults. See [Configuration Settings](configuration) for a description of each property.
 
-### smtp.properties
-
-Set the Gmail address used as the sender for email notifications (only required if you plan to enable email alerts):
-
-```properties
-smtp.user=your-email@gmail.com
-```
-
 ## Start the service
 
 ```bash
@@ -135,8 +127,6 @@ Expected response:
 
 Open the web UI at `https://<host>/` and log in with the admin credentials you configured.
 
-## Set up OAuth for email notifications (optional)
+## Set up email notifications (optional)
 
-Email notifications require Gmail OAuth 2.0 authorization.
-
-After deployment, navigate to the Alerts and Notifications page and use the OAuth Configuration card to authorize Gmail access. This requires the `manage_oauth` permission.
+Email notifications go through an SMTP server. After deployment, open the Alerts & Notifications page and fill in the Email card, then use **Send test email** to check it. This needs the `manage_email` permission. See [Email](alerts-and-notifications#email), including how to get a credential that can only send.

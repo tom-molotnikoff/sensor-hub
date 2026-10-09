@@ -403,21 +403,63 @@ func (e CommandHistoryEntryStatus) Valid() bool {
 	}
 }
 
+// Defines values for EmailSettingsPasswordStatus.
+const (
+	EmailSettingsPasswordStatusNeedsReentry EmailSettingsPasswordStatus = "needs_reentry"
+	EmailSettingsPasswordStatusSet          EmailSettingsPasswordStatus = "set"
+	EmailSettingsPasswordStatusUnset        EmailSettingsPasswordStatus = "unset"
+)
+
+// Valid indicates whether the value is a known member of the EmailSettingsPasswordStatus enum.
+func (e EmailSettingsPasswordStatus) Valid() bool {
+	switch e {
+	case EmailSettingsPasswordStatusNeedsReentry:
+		return true
+	case EmailSettingsPasswordStatusSet:
+		return true
+	case EmailSettingsPasswordStatusUnset:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EmailSettingsSecurity.
+const (
+	EmailSettingsSecurityImplicitTls EmailSettingsSecurity = "implicit_tls"
+	EmailSettingsSecurityNone        EmailSettingsSecurity = "none"
+	EmailSettingsSecurityStarttls    EmailSettingsSecurity = "starttls"
+)
+
+// Valid indicates whether the value is a known member of the EmailSettingsSecurity enum.
+func (e EmailSettingsSecurity) Valid() bool {
+	switch e {
+	case EmailSettingsSecurityImplicitTls:
+		return true
+	case EmailSettingsSecurityNone:
+		return true
+	case EmailSettingsSecurityStarttls:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MQTTBrokerPasswordStatus.
 const (
-	NeedsReentry MQTTBrokerPasswordStatus = "needs_reentry"
-	Set          MQTTBrokerPasswordStatus = "set"
-	Unset        MQTTBrokerPasswordStatus = "unset"
+	MQTTBrokerPasswordStatusNeedsReentry MQTTBrokerPasswordStatus = "needs_reentry"
+	MQTTBrokerPasswordStatusSet          MQTTBrokerPasswordStatus = "set"
+	MQTTBrokerPasswordStatusUnset        MQTTBrokerPasswordStatus = "unset"
 )
 
 // Valid indicates whether the value is a known member of the MQTTBrokerPasswordStatus enum.
 func (e MQTTBrokerPasswordStatus) Valid() bool {
 	switch e {
-	case NeedsReentry:
+	case MQTTBrokerPasswordStatusNeedsReentry:
 		return true
-	case Set:
+	case MQTTBrokerPasswordStatusSet:
 		return true
-	case Unset:
+	case MQTTBrokerPasswordStatusUnset:
 		return true
 	default:
 		return false
@@ -663,28 +705,28 @@ func (e GetReadingsBetweenDatesParamsAggregation) Valid() bool {
 
 // Defines values for GetReadingsBetweenDatesParamsAggregationFunction.
 const (
-	GetReadingsBetweenDatesParamsAggregationFunctionAvg      GetReadingsBetweenDatesParamsAggregationFunction = "avg"
-	GetReadingsBetweenDatesParamsAggregationFunctionCount    GetReadingsBetweenDatesParamsAggregationFunction = "count"
-	GetReadingsBetweenDatesParamsAggregationFunctionIncrease GetReadingsBetweenDatesParamsAggregationFunction = "increase"
-	GetReadingsBetweenDatesParamsAggregationFunctionLast     GetReadingsBetweenDatesParamsAggregationFunction = "last"
-	GetReadingsBetweenDatesParamsAggregationFunctionMax      GetReadingsBetweenDatesParamsAggregationFunction = "max"
-	GetReadingsBetweenDatesParamsAggregationFunctionMin      GetReadingsBetweenDatesParamsAggregationFunction = "min"
+	Avg      GetReadingsBetweenDatesParamsAggregationFunction = "avg"
+	Count    GetReadingsBetweenDatesParamsAggregationFunction = "count"
+	Increase GetReadingsBetweenDatesParamsAggregationFunction = "increase"
+	Last     GetReadingsBetweenDatesParamsAggregationFunction = "last"
+	Max      GetReadingsBetweenDatesParamsAggregationFunction = "max"
+	Min      GetReadingsBetweenDatesParamsAggregationFunction = "min"
 )
 
 // Valid indicates whether the value is a known member of the GetReadingsBetweenDatesParamsAggregationFunction enum.
 func (e GetReadingsBetweenDatesParamsAggregationFunction) Valid() bool {
 	switch e {
-	case GetReadingsBetweenDatesParamsAggregationFunctionAvg:
+	case Avg:
 		return true
-	case GetReadingsBetweenDatesParamsAggregationFunctionCount:
+	case Count:
 		return true
-	case GetReadingsBetweenDatesParamsAggregationFunctionIncrease:
+	case Increase:
 		return true
-	case GetReadingsBetweenDatesParamsAggregationFunctionLast:
+	case Last:
 		return true
-	case GetReadingsBetweenDatesParamsAggregationFunctionMax:
+	case Max:
 		return true
-	case GetReadingsBetweenDatesParamsAggregationFunctionMin:
+	case Min:
 		return true
 	default:
 		return false
@@ -1184,6 +1226,42 @@ type DriverInfo struct {
 	Type string `json:"type"`
 }
 
+// EmailSettings The SMTP server alert and notification emails are sent through. The hub sends nothing until a host is set and a password is stored.
+type EmailSettings struct {
+	// FromAddress Address the emails are sent from, such as alerts@example.com. Empty until it is set.
+	FromAddress string `json:"from_address"`
+
+	// Host SMTP server host name.
+	Host string `json:"host"`
+
+	// LastError The error the last send failed with, or null when the last send succeeded or none was tried.
+	LastError *string `json:"last_error,omitempty"`
+
+	// LastSentAt When an email was last sent successfully, or null if none has been.
+	LastSentAt *time.Time `json:"last_sent_at,omitempty"`
+
+	// Password SMTP password, write-only: no response carries it. It is held encrypted in the secret store. A non-empty value other than "****" sets it, an empty string clears it, and omitting it or sending "****" leaves the stored password unchanged.
+	Password *string `json:"password,omitempty"`
+
+	// PasswordStatus Whether a password is stored. needs_reentry means the stored password does not decrypt under the hub's current key and has to be entered again; until then nothing is sent.
+	PasswordStatus *EmailSettingsPasswordStatus `json:"password_status,omitempty"`
+
+	// Port SMTP server port, usually 587 for starttls and 465 for implicit_tls.
+	Port int `json:"port"`
+
+	// Security How the connection is protected. starttls upgrades a plain connection with STARTTLS and fails if the server does not offer it; implicit_tls opens TLS first. Both verify the server's certificate against the system's trusted roots and that it was issued for the host. none sends everything, the password included, unencrypted.
+	Security EmailSettingsSecurity `json:"security"`
+
+	// Username Login name for SMTP authentication. When empty the hub does not authenticate.
+	Username string `json:"username"`
+}
+
+// EmailSettingsPasswordStatus Whether a password is stored. needs_reentry means the stored password does not decrypt under the hub's current key and has to be entered again; until then nothing is sent.
+type EmailSettingsPasswordStatus string
+
+// EmailSettingsSecurity How the connection is protected. starttls upgrades a plain connection with STARTTLS and fails if the server does not offer it; implicit_tls opens TLS first. Both verify the server's certificate against the system's trusted roots and that it was issued for the host. none sends everything, the password included, unencrypted.
+type EmailSettingsSecurity string
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	// Message Human-readable error message.
@@ -1420,27 +1498,6 @@ type NotificationCategory string
 // NotificationSeverity defines model for Notification.Severity.
 type NotificationSeverity string
 
-// OAuthAuthorizeResponse OAuth authorization URL response
-type OAuthAuthorizeResponse struct {
-	// AuthUrl URL to redirect user for authorization
-	AuthUrl string `json:"auth_url"`
-
-	// State CSRF state token
-	State string `json:"state"`
-}
-
-// OAuthStatus OAuth configuration status
-type OAuthStatus map[string]interface{}
-
-// OAuthSubmitCodeRequest OAuth code submission request
-type OAuthSubmitCodeRequest struct {
-	// Code Authorization code from OAuth provider
-	Code string `json:"code"`
-
-	// State CSRF state token from authorize response
-	State string `json:"state"`
-}
-
 // OperationAccepted defines model for OperationAccepted.
 type OperationAccepted struct {
 	Message string `json:"message"`
@@ -1467,7 +1524,7 @@ type PropertiesMap map[string]string
 
 // PropertyDefinition Metadata for one registered configuration property.
 type PropertyDefinition struct {
-	// Apply How a saved change takes effect: "live", "next-cycle", "readonly", or "action:<id>" naming a required user action ("action:service-restart" or "action:oauth-reload").
+	// Apply How a saved change takes effect: "live", "next-cycle", "readonly", or "action:<id>" naming a required user action ("action:service-restart").
 	Apply string `json:"apply"`
 
 	// Default Default value, as a string like every property value.
@@ -1882,6 +1939,9 @@ type UpdateDashboardJSONRequestBody = UpdateDashboardRequest
 // ShareDashboardJSONRequestBody defines body for ShareDashboard for application/json ContentType.
 type ShareDashboardJSONRequestBody = ShareDashboardRequest
 
+// UpdateEmailSettingsJSONRequestBody defines body for UpdateEmailSettings for application/json ContentType.
+type UpdateEmailSettingsJSONRequestBody = EmailSettings
+
 // CreateMqttBrokerJSONRequestBody defines body for CreateMqttBroker for application/json ContentType.
 type CreateMqttBrokerJSONRequestBody = MQTTBroker
 
@@ -1902,9 +1962,6 @@ type UpdateMqttSubscriptionJSONRequestBody = MQTTSubscription
 
 // SetChannelPreferenceJSONRequestBody defines body for SetChannelPreference for application/json ContentType.
 type SetChannelPreferenceJSONRequestBody = ChannelPreference
-
-// SubmitOAuthCodeJSONRequestBody defines body for SubmitOAuthCode for application/json ContentType.
-type SubmitOAuthCodeJSONRequestBody = OAuthSubmitCodeRequest
 
 // UpdatePropertiesJSONRequestBody defines body for UpdateProperties for application/json ContentType.
 type UpdatePropertiesJSONRequestBody = UpdatePropertiesRequest

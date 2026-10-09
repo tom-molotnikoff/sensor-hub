@@ -12,15 +12,14 @@ func TestReloadConfig_ConcurrentWithReads_IsRaceFree(t *testing.T) {
 	defer func() { SetAppConfig(origConfig) }()
 
 	appMap := validAppPropsMap()
-	smtpMap := validSmtpPropsMap()
 	dbMap := validDbPropsMap()
 
-	ReloadConfig(appMap, smtpMap, dbMap)
+	ReloadConfig(appMap, dbMap)
 
 	done := make(chan struct{})
 	go func() {
 		for i := 0; i < 100; i++ {
-			ReloadConfig(appMap, smtpMap, dbMap)
+			ReloadConfig(appMap, dbMap)
 		}
 		close(done)
 	}()
