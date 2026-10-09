@@ -63,12 +63,13 @@ function AppNav({ permanent = false }: AppNavProps) {
   };
   const rail = permanent && collapsed;
   const frame = permanent
-    ? ({ variant: 'permanent', rail, onToggleRail: toggleCollapsed, onRailSettled: endWidthTransition } as const)
+    ? ({ variant: 'permanent', rail, onToggleRail: toggleCollapsed } as const)
     : ({ variant: 'temporary', open, onClose: close } as const);
 
   return (
     <NavFrame
       {...frame}
+      onRailSettled={endWidthTransition}
       logo="/sensor_hub.svg"
       name="Sensor Hub"
       navRef={setNavElement}

@@ -144,3 +144,36 @@ for (const nav of ['rail', 'expanded'] as const satisfies readonly NavState[]) {
     });
   });
 }
+
+// One long unbroken run, as a database path under macOS's temporary directory is.
+const longValue = `/var/folders/zt/${'1tph3q896k36h6tvdpdg16qw'.repeat(3)}/T/sensor-hub-integration-2515922398/test.db`;
+
+// serveLongValues passes the hub's properties on with longValue as the read-only
+// database path and as the saved location name, so the test does not depend on
+// where the harness happens to put its database.
+async function serveLongValues(page: Page) {
+  await page.routeWebSocket('**/properties/ws', (ws) => {
+    const server = ws.connectToServer();
+    server.onMessage((message) => {
+      const properties = JSON.parse(String(message)) as Record<string, string>;
+      ws.send(JSON.stringify({ ...properties, 'database.path': longValue, 'weather.location.name': longValue }));
+    });
+  });
+}
+
+for (const viewport of contractViewports) {
+  test.describe(`Properties Overview with long values at ${viewport.width}x${viewport.height}`, () => {
+    test.use({ viewport: { width: viewport.width, height: viewport.height } });
+
+    test('wraps a long read-only value and a long saved value inside their column', async ({ page }) => {
+      await serveLongValues(page);
+      await openProperties(page);
+      await expect(page.getByText(longValue, { exact: true })).toBeVisible();
+      await page.getByRole('textbox', { name: 'Location name' }).fill('Leeds');
+      await expect(page.getByText(`Saved value ${longValue}`)).toBeVisible();
+
+      expect(await overflowingText(page)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth), 'document scroll width').toBeLessThanOrEqual(viewport.width);
+    });
+  });
+}

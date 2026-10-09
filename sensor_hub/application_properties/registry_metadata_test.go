@@ -135,7 +135,7 @@ func TestRegistry_SpecAssignments(t *testing.T) {
 		assert.Equal(t, group, def.Group, key)
 	}
 	assert.Equal(t, "127.0.0.1:8080", defByKey(t, defs, "http.listen.address").Default)
-	assert.Equal(t, "", defByKey(t, defs, "http.trusted.proxies").Default)
+	assert.Equal(t, "127.0.0.1,::1", defByKey(t, defs, "http.trusted.proxies").Default)
 	assert.Equal(t, "127.0.0.1:9464", defByKey(t, defs, "metrics.listen.address").Default)
 	assert.Equal(t, "127.0.0.1", defByKey(t, defs, "mqtt.broker.listen.address").Default)
 	assert.Equal(t, "20", defByKey(t, defs, "mqtt.broker.connect.rate.limit").Default)

@@ -31,3 +31,8 @@ if (!globalThis.ResizeObserver) {
 
   globalThis.ResizeObserver = ResizeObserver;
 }
+
+// jsdom runs no CSS transitions, so an element has no animations.
+if (!Element.prototype.getAnimations) {
+  Element.prototype.getAnimations = () => [];
+}

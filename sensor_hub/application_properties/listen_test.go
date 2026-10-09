@@ -1,6 +1,8 @@
 package appProps
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,4 +42,33 @@ func TestLoadConfigurationFromMaps_AcceptsListenAndProxySettings(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"127.0.0.1", "::1", "10.0.0.0/8"}, cfg.TrustedProxies())
 	assert.Equal(t, "[::]:1883", cfg.MQTTBrokerAddress())
+}
+
+// A 1.5.x application.properties has no http.trusted.proxies line, so it takes
+// the default, which trusts nginx on the same machine. A line left empty is how
+// an operator trusts no proxy at all.
+func TestReadApplicationPropertiesFile_TrustedProxiesDefaultToLoopbackUnlessSetEmpty(t *testing.T) {
+	cases := map[string]struct {
+		file string
+		want []string
+	}{
+		"no line":    {file: "sensor.collection.interval=300\n", want: []string{"127.0.0.1", "::1"}},
+		"empty line": {file: "sensor.collection.interval=300\nhttp.trusted.proxies=\n", want: nil},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			previousDir := GetConfigDir()
+			t.Cleanup(func() { setConfigPaths(previousDir) })
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "application.properties"), []byte(tc.file), 0o600))
+			setConfigPaths(dir)
+
+			appProps, err := ReadApplicationPropertiesFile()
+			require.NoError(t, err)
+			cfg, err := LoadConfigurationFromMaps(appProps, validDbPropsMap())
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, cfg.TrustedProxies())
+		})
+	}
 }

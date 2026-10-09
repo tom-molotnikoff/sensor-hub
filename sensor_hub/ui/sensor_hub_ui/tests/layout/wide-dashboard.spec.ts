@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { expect, test, type Page } from './test';
-import { railTransition, watchRailTransition } from './checks';
+import { railTransition, saveNav, watchRailTransition } from './checks';
 import {
   copyLayoutDashboard,
   dashboardId,
@@ -289,6 +289,32 @@ test.describe('Wide dashboard', () => {
     expect(requests, 'requests sent because of the toggle').toEqual([]);
     expect(await keptWidgetContent(page), 'widget content kept mounted').toBe(marked);
     expect(await widgetStates(page)).toEqual(states);
+  });
+
+  test('uncovers every widget when the window narrows to the compact tier part way through the nav animation', async ({ page }) => {
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await saveNav(page, 'rail');
+    await openDashboard(page);
+    // Slowed twenty times, the 180ms transition is still running when the window narrows.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Animation.enable');
+    await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.05 });
+
+    await page.locator('[data-ui=nav-collapse]').click();
+    await page.waitForFunction(() =>
+      document
+        .querySelector('[data-ui=nav-drawer]')!
+        .getAnimations()
+        .some((animation) => animation instanceof CSSTransition && animation.transitionProperty === 'width' && animation.playState === 'running'),
+    );
+    await expect(page.locator('[data-ui=frame-placeholder]').first()).toBeVisible();
+    await page.setViewportSize({ width: 800, height: 900 });
+    await expect(page.locator('[data-ui=nav-drawer]')).toHaveCount(0);
+    await page.setViewportSize({ width: 1000, height: 900 });
+
+    await expect(page.locator('[data-ui=nav-drawer]')).toBeVisible();
+    await expect(page.locator('[data-widget-id]').first()).toBeVisible();
+    await expect(page.locator('[data-ui=frame-placeholder]')).toHaveCount(0);
   });
 
   test('animates the nav while editing, and editing carries on afterwards', async ({ page }) => {

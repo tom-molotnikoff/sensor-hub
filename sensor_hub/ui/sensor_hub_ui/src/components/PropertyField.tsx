@@ -27,9 +27,14 @@ interface PropertyControlProps {
   disabled?: boolean;
 }
 
+// A value can be one long unbroken run, such as a database path, so text that
+// shows one breaks anywhere rather than run past its column. Keys use the code
+// variant, which does the same.
+const wrapsAnywhere = { overflowWrap: 'anywhere' } as const;
+
 function PropertyControl({ definition, value, unset, invalid, onChange, disabled }: PropertyControlProps) {
   if (definition.readOnly) {
-    return <Typography sx={{ fontFamily: 'monospace' }} color="text.secondary">{value}</Typography>;
+    return <Typography sx={{ fontFamily: 'monospace', ...wrapsAnywhere }} color="text.secondary">{value}</Typography>;
   }
 
   if (definition.type === 'bool') {
@@ -139,13 +144,13 @@ export default function PropertyField({ definition, described = true, serverValu
           )}
         </Inline>
         {error !== undefined && (
-          <Typography variant="body2" color="error">
+          <Typography variant="body2" color="error" sx={wrapsAnywhere}>
             {error}
           </Typography>
         )}
         {described && <ApplyNote definition={definition} />}
         {modified && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={wrapsAnywhere}>
             {collided ? `Someone else changed this to ${shown(serverValue ?? '')}` : helperLine(definition, described, serverValue ?? '')}
             {collided && onUndo && (
               <>

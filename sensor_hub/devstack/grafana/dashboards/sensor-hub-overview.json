@@ -574,7 +574,7 @@
       "type": "logs",
       "targets": [
         {
-          "expr": "{service_name=\"sensor-hub\"} | json",
+          "expr": "{service_name=\"sensor-hub\"}",
           "legendFormat": "",
           "refId": "A"
         }

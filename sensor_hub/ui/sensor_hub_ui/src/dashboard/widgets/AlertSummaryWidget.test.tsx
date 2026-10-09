@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AlertSummaryWidget from './AlertSummaryWidget';
 
@@ -35,6 +35,12 @@ describe('AlertSummaryWidget loading state', () => {
     getMock.mockResolvedValue({ data: [] });
     scheduleMock.mockImplementation((_priority: string, fetcher: () => Promise<unknown>) => fetcher());
     render(<AlertSummaryWidget {...props} />);
-    expect(await screen.findByText('No alert rules configured', {}, { timeout: 3000 })).toBeInTheDocument();
+    // The swap from the loader can render the empty state more than once,
+    // replacing the element a query found, so both checks are retried together
+    // on the settled widget.
+    await waitFor(() => {
+      expect(screen.getByText('No alert rules configured')).toBeInTheDocument();
+      expect(screen.queryByTestId('widget-loader')).not.toBeInTheDocument();
+    }, { timeout: 3000 });
   });
 });

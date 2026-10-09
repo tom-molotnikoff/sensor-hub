@@ -1,7 +1,6 @@
 import {SidebarContext} from "./SidebarContextType.tsx";
-import {useCallback, useEffect, useState} from "react";
+import {useCallback, useState} from "react";
 import {useRoomForExpandedNav} from "../ui/tiers";
-import {navPermanent} from "../ui/theme/tokens";
 
 const collapsedKey = "sensor-hub.nav.collapsed";
 
@@ -29,12 +28,6 @@ export function SidebarContextProvider({children}: SidebarContextProviderProps) 
   };
 
   const endWidthTransition = useCallback(() => setWidthTransitioning(false), []);
-
-  useEffect(() => {
-    if (!widthTransitioning) return;
-    const fallback = window.setTimeout(endWidthTransition, navPermanent.duration * 2);
-    return () => window.clearTimeout(fallback);
-  }, [widthTransitioning, collapsed, endWidthTransition]);
 
   return (
     <SidebarContext.Provider

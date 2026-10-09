@@ -60,15 +60,31 @@ func TestGenerate_WritesTheRequestedShape(t *testing.T) {
 		"the window ends at generation time, so the seed always looks like a live database")
 }
 
-func TestGenerate_StampsTheVersionAndTheShape(t *testing.T) {
+func TestGenerate_StampsTheVersionTheSchemaVersionAndTheShape(t *testing.T) {
 	shape := Shape{Sensors: 2, MeasurementTypes: 2, Days: 4, Readings: 40}
 	path := generate(t, shape)
+	var migrated uint
+	require.NoError(t, openSeed(t, path).QueryRow("SELECT version FROM schema_migrations").Scan(&migrated))
 
-	version, stored, err := StoredStamp(path)
+	stored, err := StoredStamp(path)
 	require.NoError(t, err)
-	assert.Equal(t, Version, version)
-	assert.Equal(t, shape, stored)
+	assert.Equal(t, Stamp{Version: Version, SchemaVersion: migrated, Shape: shape}, stored)
 	assert.True(t, IsCurrent(path, shape))
+}
+
+func TestIsCurrent_IsFalseForASeedBuiltAtAnotherSchemaVersion(t *testing.T) {
+	shape := Shape{Sensors: 1, MeasurementTypes: 1, Days: 2, Readings: 10}
+
+	for _, built := range []string{"schema_version - 1", "schema_version + 1"} {
+		path := generate(t, shape)
+		db, err := sql.Open("sqlite", "file:"+path)
+		require.NoError(t, err)
+		_, err = db.Exec("UPDATE seed_metadata SET schema_version = " + built)
+		require.NoError(t, err)
+		require.NoError(t, db.Close())
+
+		assert.False(t, IsCurrent(path, shape), "a seed built at %s is not current", built)
+	}
 }
 
 func TestIsCurrent_IsFalseForAMissingFileOrADifferentShape(t *testing.T) {
