@@ -61,7 +61,7 @@ If nginx runs on another host:
 2. Set `http.trusted.proxies` to nginx's address, such as `192.168.1.20`.
 3. Restart sensor-hub: `sudo systemctl restart sensor-hub`.
 
-Never list an address that untrusted clients can connect from: a client sending from it could claim any address it liked.
+Never list an address that untrusted clients can connect from: a client sending from it could claim any address it liked. The default lists loopback, so the same goes for a tunnel or port forward that brings other clients to the hub on `127.0.0.1`.
 
 ### WebSocket origin
 
