@@ -40,21 +40,49 @@ func TestInitialiseAndListen_ServesMetricsOnlyOnTheMetricsAddress(t *testing.T) 
 	assert.NoError(t, <-done)
 }
 
-func TestNewEngine_NoTrustedProxiesIgnoresForwardingHeaders(t *testing.T) {
+// A forged X-Forwarded-For is believed only from a trusted proxy. By default
+// that is a peer on this machine, as nginx is on a packaged install.
+func TestNewEngine_DefaultTrustsForwardingHeadersFromLoopbackOnly(t *testing.T) {
+	defaults, _ := appProps.BuildDefaults()
+	router := engineWithTrustedProxiesFrom(t, defaults)
+
+	assert.Equal(t, "198.51.100.1", clientIPFrom(router, "127.0.0.1:51234"))
+	assert.Equal(t, "198.51.100.1", clientIPFrom(router, "[::1]:51234"))
+	assert.Equal(t, "192.0.2.10", clientIPFrom(router, "192.0.2.10:51234"))
+}
+
+func TestNewEngine_EmptyTrustedProxiesIgnoresForwardingHeadersFromLoopback(t *testing.T) {
+	appProperties, _ := appProps.BuildDefaults()
+	appProperties["http.trusted.proxies"] = ""
+	router := engineWithTrustedProxiesFrom(t, appProperties)
+
+	assert.Equal(t, "127.0.0.1", clientIPFrom(router, "127.0.0.1:51234"))
+}
+
+// engineWithTrustedProxiesFrom builds the engine from the trusted proxies in
+// appProperties, as InitialiseAndListen does from the loaded configuration,
+// with a route that answers the client address it sees.
+func engineWithTrustedProxiesFrom(t *testing.T, appProperties map[string]string) *gin.Engine {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
-	router, err := NewEngine(nil)
+	cfg, err := appProps.LoadConfigurationFromMaps(appProperties, nil)
+	require.NoError(t, err)
+	router, err := NewEngine(cfg.TrustedProxies())
 	require.NoError(t, err)
 	router.GET("/ip", func(c *gin.Context) { c.String(http.StatusOK, c.ClientIP()) })
+	return router
+}
 
+// clientIPFrom sends a request from peer whose forwarding headers claim
+// 198.51.100.1, and returns the client address the engine took.
+func clientIPFrom(router *gin.Engine, peer string) string {
 	req := httptest.NewRequest(http.MethodGet, "/ip", nil)
-	req.RemoteAddr = "192.0.2.10:51234"
+	req.RemoteAddr = peer
 	req.Header.Set("X-Forwarded-For", "198.51.100.1")
-	req.Header.Set("X-Real-IP", "198.51.100.2")
+	req.Header.Set("X-Real-IP", "198.51.100.1")
 	w := httptest.NewRecorder()
-
 	router.ServeHTTP(w, req)
-
-	assert.Equal(t, "192.0.2.10", w.Body.String())
+	return w.Body.String()
 }
 
 func freeLoopbackAddress(t *testing.T) string {

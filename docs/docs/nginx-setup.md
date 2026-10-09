@@ -41,17 +41,17 @@ The example configuration proxies all requests from port 443 to `http://127.0.0.
 
 ## What sensor-hub expects of nginx
 
-Three properties in `/etc/sensor-hub/application.properties` decide how nginx and sensor-hub fit together. See [Configuration](configuration) for each.
+Three properties decide how nginx and sensor-hub fit together. Their defaults suit nginx on the same machine, so none of them needs setting there. See [Configuration](configuration) for each.
 
-| Property | Packaged value | Why |
+| Property | Default | Why |
 |---|---|---|
-| `http.listen.address` | `127.0.0.1:8080` (default) | Only nginx, on the same machine, reaches the hub. Everything else goes through nginx |
+| `http.listen.address` | `127.0.0.1:8080` | Only nginx, on the same machine, reaches the hub. Everything else goes through nginx |
 | `http.trusted.proxies` | `127.0.0.1,::1` | The hub believes the client address nginx forwards, so the login backoff applies to each client, not to nginx |
-| `metrics.listen.address` | `127.0.0.1:9464` (default) | `/metrics` has no authentication, so it has its own listener and nginx never serves it. See [Telemetry](telemetry#prometheus-metrics) |
+| `metrics.listen.address` | `127.0.0.1:9464` | `/metrics` has no authentication, so it has its own listener and nginx never serves it. See [Telemetry](telemetry#prometheus-metrics) |
 
 ### Client addresses
 
-nginx passes the client's address on in `X-Forwarded-For` and `X-Real-IP`. Sensor Hub believes those headers only when the request comes from an address in `http.trusted.proxies`, so nginx's own address must be in that list. The packaged value covers nginx on the same machine.
+nginx passes the client's address on in `X-Forwarded-For` and `X-Real-IP`. Sensor Hub believes those headers only when the request comes from an address in `http.trusted.proxies`, so nginx's own address must be in that list. The default, `127.0.0.1,::1`, covers nginx on the same machine.
 
 If `http.trusted.proxies` is empty, every request appears to come from nginx. One person failing to log in then puts every user under the login backoff.
 

@@ -17,7 +17,7 @@ The first 2.0 start rewrites the database in a way 1.5.x cannot use, and the ins
 |---|---|
 | [1. Back up](#1-back-up) | Everyone |
 | [2. Check the systemd unit](#2-check-the-systemd-unit) | Everyone checks; only a changed unit needs work |
-| [3. Add the settings your setup needs](#3-add-the-settings-your-setup-needs) | Everyone behind nginx, and some others, such as anyone keeping old command history |
+| [3. Add the settings your setup needs](#3-add-the-settings-your-setup-needs) | Some setups, such as no nginx on the hub's machine, devices on your network, or keeping old command history |
 | [4. Install the package](#4-install-the-package) | Everyone |
 | [5. Save the secret-store key](#5-save-the-secret-store-key) | Everyone |
 | [6. Give Zigbee2MQTT a login](#6-give-zigbee2mqtt-a-login) | Anything that publishes to the embedded broker |
@@ -60,11 +60,10 @@ Make the change just before you install, since 1.5.x has no `local serve`. The i
 
 ### 3. Add the settings your setup needs
 
-2.0 listens on the hub's own machine only: the web UI and API on `127.0.0.1:8080`, metrics on `127.0.0.1:9464` and the MQTT broker on `127.0.0.1:1883`. It also believes the client address nginx forwards only from a proxy you list. The upgrade keeps your `application.properties`, so add a line to the end of `/etc/sensor-hub/application.properties` for each row that fits your setup, for example with `sudoedit`:
+2.0 listens on the hub's own machine only: the web UI and API on `127.0.0.1:8080`, metrics on `127.0.0.1:9464` and the MQTT broker on `127.0.0.1:1883`. It also believes the client address a proxy forwards only from a proxy on the hub's machine, unless you list others. The upgrade keeps your `application.properties`, so add a line to the end of `/etc/sensor-hub/application.properties` for each row that fits your setup, for example with `sudoedit`. nginx on the hub's machine, as in [Nginx Setup](nginx-setup), needs no line.
 
 | If | Add |
 |---|---|
-| nginx runs on the hub's machine, as in [Nginx Setup](nginx-setup) | `http.trusted.proxies=127.0.0.1,::1` |
 | nginx runs on another host | `http.listen.address=0.0.0.0:8080` and `http.trusted.proxies=` nginx's address |
 | There is no nginx: browsers and the CLI reach the hub on port 8080 | `http.listen.address=0.0.0.0:8080` |
 | Zigbee2MQTT or another device on your home network connects to the embedded broker | `mqtt.broker.listen.address=0.0.0.0`, or the hub's LAN address |
@@ -72,7 +71,7 @@ Make the change just before you install, since 1.5.x has no `local serve`. The i
 | Prometheus scrapes the hub from another host | `metrics.listen.address=0.0.0.0:9464`, with a firewall that lets only Prometheus reach port 9464 |
 | You want to keep command history older than 90 days | `command.history.retention.days=0` |
 
-Without `http.trusted.proxies`, every request through nginx seems to come from nginx itself, so five failed logins by anyone hold up everyone's logins for a while. A fresh 2.0 install has the line. An upgrade gives `application.properties` the new default only if nobody ever changed it, and you or the Properties page may have.
+With nginx on another host and its address not in `http.trusted.proxies`, every request through nginx seems to come from nginx itself, so five failed logins by anyone hold up everyone's logins for a while.
 
 2.0 deletes commands sent to devices more than `command.history.retention.days` ago, 90 by default, and the first cleanup runs as it starts. `0` keeps them all (see [Command history retention](configuration#command-history-retention)).
 
@@ -165,7 +164,7 @@ If this prints a line that does not start with `#`, delete that line. 2.0 ignore
 
 - `proxy_pass` goes to `http://127.0.0.1:8080`, or to the `http.listen.address` you set in step 3. The hub no longer listens on its LAN address.
 - On a port other than 443, use `proxy_set_header Host $http_host;` rather than `$host`, or the hub refuses every browser WebSocket with 403 and the pages stop updating live (see [WebSocket origin](nginx-setup#websocket-origin)).
-- nginx passes `X-Forwarded-For`, and its address is in `http.trusted.proxies` from step 3 (see [Client addresses](nginx-setup#client-addresses)).
+- nginx passes `X-Forwarded-For`. nginx on another host also needs its address in `http.trusted.proxies` from step 3 (see [Client addresses](nginx-setup#client-addresses)).
 - Only if devices are to dial in to the broker over the internet: add the `stream` block for [MQTT over TLS on port 8883](nginx-setup#mqtt-over-tls-on-port-8883). A tunnel needs none of it.
 
 Run `sudo nginx -t` and `sudo systemctl reload nginx` after any change.

@@ -19,9 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The harness trusts loopback as a proxy, as a packaged install trusts nginx,
-// so the test client plays nginx: X-Forwarded-For carries whatever the client
-// sent followed by the address nginx saw it connect from.
+// The harness leaves http.trusted.proxies at its default, which trusts
+// loopback as a proxy as it trusts nginx on the same machine, so the test
+// client plays nginx: X-Forwarded-For carries whatever the client sent
+// followed by the address nginx saw it connect from.
 func TestTrustedProxy_LoginBackoffKeysOnTheRightmostUntrustedAddress(t *testing.T) {
 	const clientAddr = "203.0.113.7"
 	c := testharness.NewClient(t, env.ServerURL)
