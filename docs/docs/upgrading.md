@@ -6,10 +6,6 @@ sidebar_position: 4
 
 # Upgrading
 
-:::info[Upgrading from 1.5.x]
-Follow [Upgrading to 2.0](upgrading-to-2-0) instead. 2.0 needs a few steps of its own, and its backup step differs from the one below.
-:::
-
 ## Back up the database
 
 Take a copy of the database while the hub runs, and keep a copy of the configuration files with it:
@@ -57,8 +53,6 @@ Some releases change what the hub deletes. Read these before upgrading past the 
 
 The configuration files in `/etc/sensor-hub/` are yours, not the package's. The package ships their defaults as templates in `/usr/share/sensor-hub/defaults/` and copies one to `/etc/sensor-hub/` only when it is missing, so an upgrade never changes a file you have and never stops to ask about one. A property missing from your `application.properties` takes its built-in default.
 
-Up to 1.5.x the package owned these files. The upgrade from 1.5.x keeps every file you or the hub changed as it is, and gives a file nobody changed the new default, as the package manager used to. It asks nothing, so it also runs unattended.
-
 Review release notes for any new properties and refer to [Configuration Settings](configuration) for the full property reference.
 
 ## Verify
@@ -100,5 +94,3 @@ sudo install -m 0600 -o sensor-hub -g sensor-hub /var/backups/sensor-hub/sensor_
 # Start the service
 sudo systemctl start sensor-hub
 ```
-
-To go back from 2.0 to 1.5.x, see [Going back to 1.5.x](upgrading-to-2-0#going-back-to-15x).
