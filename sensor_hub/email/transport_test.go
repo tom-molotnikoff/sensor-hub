@@ -7,6 +7,7 @@ import (
 	"mime"
 	"mime/quotedprintable"
 	"net/mail"
+	"net/textproto"
 	"strings"
 	"testing"
 	"time"
@@ -135,8 +136,10 @@ func TestSend_ReturnsTheServersErrorWhenItRefusesTheLogin(t *testing.T) {
 
 	err := sendOne(transport{}, serverFor(fake, SecurityNone, "wrong-password"))
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "535 5.7.8 Authentication credentials invalid")
+	var serverErr *textproto.Error
+	require.ErrorAs(t, err, &serverErr)
+	assert.Equal(t, 535, serverErr.Code)
+	assert.Equal(t, "5.7.8 Authentication credentials invalid", serverErr.Msg)
 	assert.Empty(t, fake.Messages())
 }
 
