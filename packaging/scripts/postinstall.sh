@@ -4,12 +4,7 @@ install -d -m 0750 -o sensor-hub -g sensor-hub /var/log/sensor-hub
 
 CONFIG_DIR=/etc/sensor-hub
 DEFAULTS_DIR=/usr/share/sensor-hub/defaults
-# 1.5.x also shipped smtp.properties. 2.0 neither ships nor reads it, past
-# carrying its smtp.user into the email settings, and leaves an existing one
-# where it is.
 CONFIG_FILES="environment application.properties database.properties"
-# The rpm posttrans script reads what this one leaves here.
-RPM_STATE_DIR=/run/sensor-hub-package
 # init-key exits with this status when a key already exists in any form.
 KEY_EXISTS=3
 
@@ -24,31 +19,6 @@ create_missing_config() {
   install -d -m 0755 "$CONFIG_DIR"
   for name in $CONFIG_FILES; do
     [ -e "$CONFIG_DIR/$name" ] || install_default "$name"
-  done
-}
-
-# Up to 1.5.x dpkg owned the configuration files as conffiles, and it still
-# remembers what each one held when it was installed. One the operator never
-# changed takes the new default, as a conffile upgrade would have done; a
-# changed one is kept as it is.
-update_unchanged_dpkg_conffiles() {
-  dpkg-query -W -f='${Conffiles}\n' sensor-hub 2>/dev/null | while read -r path md5 state _; do
-    [ "$state" = obsolete ] || continue
-    name="${path#"$CONFIG_DIR"/}"
-    case " $CONFIG_FILES " in *" $name "*) ;; *) continue ;; esac
-    [ -f "$path" ] && [ "$(md5sum < "$path" | cut -d' ' -f1)" = "$md5" ] || continue
-    install_default "$name"
-  done
-}
-
-# Up to 1.5.x email went through Gmail OAuth, with its client secret and
-# token in the configuration directory. 2.0 sends through SMTP and never
-# reads them. The hub deletes them too, but cannot here: the directory
-# belongs to root.
-delete_gmail_oauth_files() {
-  for name in credentials.json token.json; do
-    [ -f "$CONFIG_DIR/$name" ] || continue
-    rm -f "$CONFIG_DIR/$name" && echo "Deleted $CONFIG_DIR/$name: email no longer uses Gmail OAuth."
   done
 }
 
@@ -93,22 +63,14 @@ ensure_secrets_key() {
   esac
 }
 
-if [ "$1" = "configure" ]; then
-  update_unchanged_dpkg_conffiles
-fi
 create_missing_config
-delete_gmail_oauth_files
 ensure_secrets_key
 
 systemctl daemon-reload
 
-if [ "$1" = "2" ]; then
-  # An rpm upgrade. rpm removes the old package after this script, which on an
-  # upgrade from 1.5.x takes its configuration files with it, so the posttrans
-  # script puts them back and restarts once the transaction is done.
-  install -d -m 0700 "$RPM_STATE_DIR" && touch "$RPM_STATE_DIR/restart"
-elif [ "$1" = "configure" ] && [ -n "$2" ]; then
-  # A deb upgrade: dpkg names the version it replaces.
+# An upgrade: rpm passes the number of installed versions, which is 2, and
+# dpkg names the version it replaces.
+if [ "$1" = "2" ] || { [ "$1" = "configure" ] && [ -n "$2" ]; }; then
   systemctl restart sensor-hub
 else
   systemctl enable sensor-hub
