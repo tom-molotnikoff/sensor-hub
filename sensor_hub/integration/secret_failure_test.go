@@ -60,8 +60,6 @@ func decryptFailuresGauge(t *testing.T, metricsAddress string) int {
 	return 0
 }
 
-// servedConfigDir is a fresh configuration directory for a hub run with
-// startHub, with an admin to log in as.
 func servedConfigDir(t *testing.T, adminPassword string) (configDir, dbPath, httpAddress, metricsAddress string) {
 	t.Helper()
 	configDir, dbPath = freshConfigDir(t)
@@ -76,8 +74,7 @@ func servedConfigDir(t *testing.T, adminPassword string) (configDir, dbPath, htt
 	return configDir, dbPath, httpAddress, metricsAddress
 }
 
-// replaceSecretsKey replaces the hub's key, as on a new host or after a lost
-// key.
+// replaceSecretsKey stands in for a new host or a lost key.
 func replaceSecretsKey(t *testing.T, configDir string) secrets.Key {
 	t.Helper()
 	newKey, err := secrets.GenerateKey()
@@ -86,7 +83,6 @@ func replaceSecretsKey(t *testing.T, configDir string) secrets.Key {
 	return newKey
 }
 
-// storedSecret reads a secret from the database as the hub would under key.
 func storedSecret(t *testing.T, dbPath string, key secrets.Key, owner, name string) (string, secrets.Status) {
 	t.Helper()
 	readOnly := openSQLite(t, dbPath)
