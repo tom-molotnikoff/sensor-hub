@@ -44,9 +44,7 @@ func TestLoadConfigurationFromMaps_AcceptsListenAndProxySettings(t *testing.T) {
 	assert.Equal(t, "[::]:1883", cfg.MQTTBrokerAddress())
 }
 
-// A 1.5.x application.properties has no http.trusted.proxies line, so it takes
-// the default, which trusts nginx on the same machine. A line left empty is how
-// an operator trusts no proxy at all.
+// The loopback default trusts nginx on the same machine.
 func TestReadApplicationPropertiesFile_TrustedProxiesDefaultToLoopbackUnlessSetEmpty(t *testing.T) {
 	cases := map[string]struct {
 		file string

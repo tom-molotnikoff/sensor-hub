@@ -240,8 +240,6 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 sensor_hub/configuration/database.properties
-sensor_hub/configuration/credentials.json
-sensor_hub/configuration/token.json
 __notes__
 node_modules
 

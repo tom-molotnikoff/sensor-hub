@@ -8,7 +8,6 @@ const sidebars: SidebarsConfig = {
     'nginx-setup',
     'connecting-your-home',
     'upgrading',
-    'upgrading-to-2-0',
     'uninstalling',
     {
       type: 'category',

@@ -51,7 +51,7 @@ The docs cover the rest:
 - [Prerequisites](docs/docs/prerequisites.md)
 - [Installation](docs/docs/installation.md)
 - [nginx setup](docs/docs/nginx-setup.md)
-- [Upgrading](docs/docs/upgrading.md), and [Upgrading to 2.0](docs/docs/upgrading-to-2-0.md) from 1.5.x
+- [Upgrading](docs/docs/upgrading.md)
 - [Connecting a Zigbee device](docs/docs/how-to/connect-zigbee-device.md)
 
 ## CLI and AI assistants
@@ -88,7 +88,7 @@ Grafana and Delve are opt-in overlays. The logins, ports and overlays are in the
 A few other handy bits:
 
 ```bash
-./scripts/build-packages.sh          # unsigned snapshot .deb/.rpm in dist/ (needs GoReleaser)
+./scripts/build-packages.sh server   # unsigned .deb or .rpm for this machine in dist/ (needs Go, npm and nfpm)
 
 cd sensor_hub && go test ./...       # Go unit tests
 cd sensor_hub && go test -tags integration -timeout 300s ./integration/
