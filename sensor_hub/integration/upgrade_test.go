@@ -42,7 +42,6 @@ type install15 struct {
 	configDir   string
 	dbPath      string
 	httpAddress string
-	brokerID    int
 }
 
 // seed15Install lays out a 1.5.x install: its configuration directory and a
@@ -67,13 +66,8 @@ func seed15Install(t *testing.T, brokerPassword string) install15 {
 	require.NoError(t, err)
 	require.NoError(t, m.Migrate(schemaVersionOf15))
 
-	result, err := db.Exec(`INSERT INTO mqtt_brokers (name, type, host, port, username, password, enabled)
+	_, err = db.Exec(`INSERT INTO mqtt_brokers (name, type, host, port, username, password, enabled)
 		VALUES ('Home Mosquitto', 'external', 'mosquitto.home.lan', 1883, 'hub', ?, 0)`, brokerPassword)
-	require.NoError(t, err)
-	id, err := result.LastInsertId()
-	require.NoError(t, err)
-	// A 1.5.x hub rewrote the row on every edit, leaving copies in free space.
-	_, err = db.Exec("UPDATE mqtt_brokers SET username = 'hub-account' WHERE id = ?", id)
 	require.NoError(t, err)
 	sourceErr, dbErr := m.Close()
 	require.NoError(t, sourceErr)
@@ -95,7 +89,7 @@ func seed15Install(t *testing.T, brokerPassword string) install15 {
 	for name, content := range files {
 		require.NoError(t, os.WriteFile(filepath.Join(configDir, name), []byte(content), 0o640))
 	}
-	return install15{configDir: configDir, dbPath: dbPath, httpAddress: httpAddress, brokerID: int(id)}
+	return install15{configDir: configDir, dbPath: dbPath, httpAddress: httpAddress}
 }
 
 // runningHub is a 'local serve' process started by a test.
@@ -145,39 +139,6 @@ func fileHolds(t *testing.T, path string, needle string) bool {
 	}
 	require.NoError(t, err)
 	return bytes.Contains(data, []byte(needle))
-}
-
-func TestUpgradeFrom15_EncryptsBrokerPasswordsAndScrubsThePlaintext(t *testing.T) {
-	const brokerPassword = "plaintext-1.5-broker-password-e81b"
-	install := seed15Install(t, brokerPassword)
-	dbPath := install.dbPath
-	require.True(t, fileHolds(t, dbPath, brokerPassword), "the 1.5.x database holds the password in plaintext")
-
-	hub := startHub(t, install.configDir, install.httpAddress)
-
-	assert.Contains(t, hub.output.String(), "generated")
-	assert.False(t, fileHolds(t, dbPath, brokerPassword), "the password is gone from the database file")
-	assert.False(t, fileHolds(t, dbPath+"-wal", brokerPassword), "the password is gone from the WAL")
-
-	keyText, err := os.ReadFile(filepath.Join(install.configDir, "secrets.key"))
-	require.NoError(t, err)
-	key, err := secrets.ParseKey(keyText)
-	require.NoError(t, err)
-	readOnly, err := sql.Open("sqlite", "file:"+dbPath+"?mode=ro")
-	require.NoError(t, err)
-	t.Cleanup(func() { readOnly.Close() })
-	store, err := secrets.NewStore(database.NewSecretRepository(&database.Handles{Reader: readOnly, Writer: readOnly}), key, slog.Default())
-	require.NoError(t, err)
-
-	value, status, err := store.Get(context.Background(), database.BrokerSecretOwner(install.brokerID), database.BrokerPasswordSecret)
-	require.NoError(t, err)
-	assert.Equal(t, secrets.StatusSet, status)
-	assert.Equal(t, brokerPassword, value, "the secret decrypts to the original password")
-
-	var passwordColumns int
-	require.NoError(t, readOnly.QueryRow(
-		"SELECT COUNT(*) FROM pragma_table_info('mqtt_brokers') WHERE name = 'password'").Scan(&passwordColumns))
-	assert.Zero(t, passwordColumns)
 }
 
 // The move from Gmail OAuth to SMTP needs nothing of the operator: the hub

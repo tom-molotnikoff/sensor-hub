@@ -49,9 +49,6 @@ type SealedSecret struct {
 	Ciphertext []byte
 }
 
-// Seal encrypts a secret's value for its owner and name.
-type Seal func(owner, name string, value []byte) (SealedSecret, error)
-
 const upsertSecretSQL = `INSERT INTO secrets (owner, name, key_id, nonce, ciphertext)
 	VALUES (?, ?, ?, ?, ?)
 	ON CONFLICT (owner, name) DO UPDATE SET

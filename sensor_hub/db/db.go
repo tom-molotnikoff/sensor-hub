@@ -64,10 +64,11 @@ func runMigrations(db *sql.DB, logger *slog.Logger) error {
 	}
 
 	// Migrations copy and drop tables that held broker passwords in plaintext:
-	// 000035 rebuilds mqtt_brokers. With secure_delete on, SQLite zeroes the
-	// pages and cells they free, so no stray copy outlives the startup step
-	// that encrypts the passwords (MoveBrokerPasswordsToSecrets). The writer
-	// pool holds one connection, so the setting reaches the one migrate uses.
+	// 000035 rebuilds mqtt_brokers, and 000041 rebuilds it without the
+	// password column. With secure_delete on, SQLite zeroes the pages and
+	// cells they free, so no stray copy of a password outlives them. The
+	// writer pool holds one connection, so the setting reaches the one migrate
+	// uses.
 	if _, err := db.Exec("PRAGMA secure_delete = ON"); err != nil {
 		return fmt.Errorf("could not turn on secure_delete for migrations: %w", err)
 	}
