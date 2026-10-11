@@ -97,10 +97,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open the secret store: %w", err)
 	}
-	emailSettingsRepo := database.NewEmailSettingsRepository(db)
-	if err := email.FinishUpgrade(ctx, emailSettingsRepo, localConfigDir, logger); err != nil {
-		return fmt.Errorf("failed to finish moving email to SMTP: %w", err)
-	}
 
 	// Start the embedded MQTT broker if enabled. Devices authenticate against
 	// the MQTT clients in the database, so it starts once the database is open.
@@ -133,7 +129,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	failedRepo := database.NewFailedLoginRepository(db, logger)
 	roleRepo := database.NewRoleRepository(db, logger)
 
-	emailService := email.NewService(emailSettingsRepo, secretStore, logger)
+	emailService := email.NewService(database.NewEmailSettingsRepository(db), secretStore, logger)
 	wsBroadcaster := ws.NewNotificationBroadcaster(logger)
 	notificationService := service.NewNotificationService(notificationRepo, wsBroadcaster, logger)
 	notificationService.SetEmailNotifier(emailService)

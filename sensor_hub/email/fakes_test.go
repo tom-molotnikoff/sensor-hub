@@ -12,7 +12,6 @@ import (
 type fakeRepo struct {
 	mu       sync.Mutex
 	settings database.EmailSettings
-	seeded   bool
 }
 
 func (r *fakeRepo) Get(context.Context) (database.EmailSettings, error) {
@@ -41,19 +40,6 @@ func (r *fakeRepo) RecordFailure(_ context.Context, sendErr string) error {
 	defer r.mu.Unlock()
 	r.settings.LastError = &sendErr
 	return nil
-}
-
-func (r *fakeRepo) SeedFromSMTPUser(_ context.Context, smtpUser string) (bool, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.seeded {
-		return false, nil
-	}
-	r.seeded = true
-	if smtpUser != "" {
-		r.settings.Username, r.settings.FromAddress = smtpUser, smtpUser
-	}
-	return true, nil
 }
 
 // fakeSecrets holds plaintext by owner and name, and a status that can be

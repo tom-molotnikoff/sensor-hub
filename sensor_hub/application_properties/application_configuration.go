@@ -99,8 +99,8 @@ func InitialiseConfig(dir string) error {
 
 // ReloadConfig replaces the global AppConfig from the supplied raw property
 // maps, returning an error and leaving the config untouched when the maps do
-// not parse. Keys no property is registered for, such as the oauth.* keys a
-// 1.5.x install saved, are ignored, and the next save drops them.
+// not parse. Keys no property is registered for are ignored, and the next
+// save drops them.
 func ReloadConfig(appProps, dbProps map[string]string) error {
 	cfg, err := LoadConfigurationFromMaps(appProps, dbProps)
 	if err != nil {

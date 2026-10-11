@@ -4,6 +4,7 @@ package integration
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -59,6 +60,66 @@ func decryptFailuresGauge(t *testing.T, metricsAddress string) int {
 	return 0
 }
 
+func servedConfigDir(t *testing.T, adminPassword string) (configDir, dbPath, httpAddress, metricsAddress string) {
+	t.Helper()
+	configDir, dbPath = freshConfigDir(t)
+	httpAddress, metricsAddress = freeLocalAddress(t), freeLocalAddress(t)
+	properties, err := os.OpenFile(filepath.Join(configDir, "application.properties"), os.O_APPEND|os.O_WRONLY, 0)
+	require.NoError(t, err)
+	_, err = fmt.Fprintf(properties, "http.listen.address=%s\nmetrics.listen.address=%s\nmqtt.broker.enabled=false\n", httpAddress, metricsAddress)
+	require.NoError(t, err)
+	require.NoError(t, properties.Close())
+	_, stderr, err := runSensorHub(t, adminPassword+"\n", "local", "admin", "create", "admin", "--config-dir", configDir)
+	require.NoError(t, err, stderr)
+	return configDir, dbPath, httpAddress, metricsAddress
+}
+
+// replaceSecretsKey stands in for a new host or a lost key.
+func replaceSecretsKey(t *testing.T, configDir string) secrets.Key {
+	t.Helper()
+	newKey, err := secrets.GenerateKey()
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "secrets.key"), []byte(newKey.Encode()+"\n"), 0o600))
+	return newKey
+}
+
+func storedSecret(t *testing.T, dbPath string, key secrets.Key, owner, name string) (string, secrets.Status) {
+	t.Helper()
+	readOnly := openSQLite(t, dbPath)
+	store, err := secrets.NewStore(database.NewSecretRepository(&database.Handles{Reader: readOnly, Writer: readOnly}), key, slog.Default())
+	require.NoError(t, err)
+	value, status, err := store.Get(context.Background(), owner, name)
+	require.NoError(t, err)
+	return value, status
+}
+
+func fileHolds(t *testing.T, path string, needle string) bool {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return false
+	}
+	require.NoError(t, err)
+	return bytes.Contains(data, []byte(needle))
+}
+
+func smtpSettingsWithPassword(password string) gen.EmailSettings {
+	return gen.EmailSettings{
+		Host: "smtp.example.com", Port: 587, Security: gen.EmailSettingsSecurityStarttls,
+		Username: "alerts@example.com", FromAddress: "alerts@example.com", Password: &password,
+	}
+}
+
+func emailPasswordStatus(t *testing.T, client *testharness.Client) gen.EmailSettingsPasswordStatus {
+	t.Helper()
+	resp, status := client.GetEmailSettings()
+	require.Equal(t, http.StatusOK, status, "body: %s", resp)
+	var settings gen.EmailSettings
+	require.NoError(t, json.Unmarshal(resp, &settings))
+	require.NotNil(t, settings.PasswordStatus)
+	return *settings.PasswordStatus
+}
+
 func secretFailureNotifications(t *testing.T, client *testharness.Client) []gen.Notification {
 	t.Helper()
 	resp, status := client.GetNotifications(100, 0)
@@ -78,15 +139,7 @@ func TestSecretFailure_AHubStartedWithAnotherKeyRunsWithoutTheSecretUntilItIsEnt
 	const adminPassword = "secret-failure-admin"
 	const brokerPassword = "broker-password-under-the-first-key"
 	external := startLoginBroker(t, brokerPassword)
-	configDir, dbPath := freshConfigDir(t)
-	httpAddress, metricsAddress := freeLocalAddress(t), freeLocalAddress(t)
-	properties, err := os.OpenFile(filepath.Join(configDir, "application.properties"), os.O_APPEND|os.O_WRONLY, 0)
-	require.NoError(t, err)
-	_, err = fmt.Fprintf(properties, "http.listen.address=%s\nmetrics.listen.address=%s\nmqtt.broker.enabled=false\n", httpAddress, metricsAddress)
-	require.NoError(t, err)
-	require.NoError(t, properties.Close())
-	_, stderr, err := runSensorHub(t, adminPassword+"\n", "local", "admin", "create", "admin", "--config-dir", configDir)
-	require.NoError(t, err, stderr)
+	configDir, dbPath, httpAddress, metricsAddress := servedConfigDir(t, adminPassword)
 	baseURL := "http://" + httpAddress
 
 	// The broker's password is stored under the key the hub generates.
@@ -107,10 +160,7 @@ func TestSecretFailure_AHubStartedWithAnotherKeyRunsWithoutTheSecretUntilItIsEnt
 	assert.Empty(t, secretFailureNotifications(t, admin), "every secret decrypted at the first start")
 	hub.stop()
 
-	// The key is replaced, as on a new host or after a lost key.
-	newKey, err := secrets.GenerateKey()
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(configDir, "secrets.key"), []byte(newKey.Encode()+"\n"), 0o600))
+	newKey := replaceSecretsKey(t, configDir)
 	hub = startHub(t, configDir, httpAddress)
 
 	admin = testharness.NewClient(t, baseURL)
@@ -149,12 +199,66 @@ func TestSecretFailure_AHubStartedWithAnotherKeyRunsWithoutTheSecretUntilItIsEnt
 	assert.Equal(t, 0, decryptFailuresGauge(t, metricsAddress))
 	assert.Len(t, secretFailureNotifications(t, admin), 1, "re-entry raises no more notifications")
 
-	readOnly := openSQLite(t, dbPath)
-	store, err := secrets.NewStore(database.NewSecretRepository(&database.Handles{Reader: readOnly, Writer: readOnly}), newKey, slog.Default())
-	require.NoError(t, err)
-	value, secretStatus, err := store.Get(context.Background(), database.BrokerSecretOwner(created.ID), database.BrokerPasswordSecret)
-	require.NoError(t, err)
+	value, secretStatus := storedSecret(t, dbPath, newKey, database.BrokerSecretOwner(created.ID), database.BrokerPasswordSecret)
 	assert.Equal(t, secrets.StatusSet, secretStatus)
 	assert.Equal(t, brokerPassword, value, "the row is overwritten under the current key")
 	hub.stop()
+}
+
+func TestSecretFailure_AnSMTPPasswordUnderAnotherKeyNeedsReentryUntilItIsEnteredAgain(t *testing.T) {
+	const adminPassword = "smtp-reentry-admin"
+	const smtpPassword = "smtp-password-under-the-first-key"
+	configDir, dbPath, httpAddress, _ := servedConfigDir(t, adminPassword)
+	baseURL := "http://" + httpAddress
+
+	hub := startHub(t, configDir, httpAddress)
+	admin := testharness.NewClient(t, baseURL)
+	require.Equal(t, http.StatusOK, admin.Login("admin", adminPassword))
+	resp, status := admin.UpdateEmailSettings(smtpSettingsWithPassword(smtpPassword))
+	require.Equal(t, http.StatusOK, status, "body: %s", resp)
+	require.Equal(t, gen.EmailSettingsPasswordStatusSet, emailPasswordStatus(t, admin))
+	hub.stop()
+
+	newKey := replaceSecretsKey(t, configDir)
+	hub = startHub(t, configDir, httpAddress)
+	admin = testharness.NewClient(t, baseURL)
+	require.Equal(t, http.StatusOK, admin.Login("admin", adminPassword))
+	assert.Equal(t, gen.EmailSettingsPasswordStatusNeedsReentry, emailPasswordStatus(t, admin))
+
+	resp, status = admin.UpdateEmailSettings(smtpSettingsWithPassword(smtpPassword))
+	require.Equal(t, http.StatusOK, status, "body: %s", resp)
+	assert.Equal(t, gen.EmailSettingsPasswordStatusSet, emailPasswordStatus(t, admin))
+	hub.stop()
+
+	value, secretStatus := storedSecret(t, dbPath, newKey, database.SMTPSecretOwner, database.SMTPPasswordSecret)
+	assert.Equal(t, secrets.StatusSet, secretStatus)
+	assert.Equal(t, smtpPassword, value, "the row is overwritten under the current key")
+}
+
+// The password is checked for in the WAL while the hub runs, before a
+// checkpoint at shutdown can fold the WAL into the database file.
+func TestSMTPPassword_NeverReachesTheDatabaseTheWALOrTheLogs(t *testing.T) {
+	const adminPassword = "smtp-secrecy-admin"
+	const smtpPassword = "plaintext-smtp-password-5c1d"
+	configDir, dbPath, httpAddress, _ := servedConfigDir(t, adminPassword)
+
+	hub := startHub(t, configDir, httpAddress)
+	admin := testharness.NewClient(t, "http://"+httpAddress)
+	require.Equal(t, http.StatusOK, admin.Login("admin", adminPassword))
+	resp, status := admin.UpdateEmailSettings(smtpSettingsWithPassword(smtpPassword))
+	require.Equal(t, http.StatusOK, status, "body: %s", resp)
+	assert.NotContains(t, string(resp), smtpPassword)
+	assert.False(t, fileHolds(t, dbPath, smtpPassword), "the SMTP password is not in the database file")
+	assert.False(t, fileHolds(t, dbPath+"-wal", smtpPassword), "the SMTP password is not in the WAL")
+	hub.stop()
+
+	assert.NotContains(t, hub.output.String(), smtpPassword, "the hub never logs the SMTP password")
+	assert.False(t, fileHolds(t, dbPath, smtpPassword), "the SMTP password is not in the database file")
+	keyText, err := os.ReadFile(filepath.Join(configDir, "secrets.key"))
+	require.NoError(t, err)
+	key, err := secrets.ParseKey(keyText)
+	require.NoError(t, err)
+	value, secretStatus := storedSecret(t, dbPath, key, database.SMTPSecretOwner, database.SMTPPasswordSecret)
+	assert.Equal(t, secrets.StatusSet, secretStatus)
+	assert.Equal(t, smtpPassword, value, "the password is stored, encrypted")
 }
