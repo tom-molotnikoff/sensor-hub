@@ -21,8 +21,7 @@ import (
 )
 
 // The package's postinstall runs here in a plain Debian container, against
-// the real sensor-hub binary, with stand-ins for systemd. Installing the
-// built packages under a real systemd is scripts/test-packages.sh.
+// the real sensor-hub binary, with stand-ins for systemd.
 
 const (
 	keyFile      = "/etc/sensor-hub/secrets.key"

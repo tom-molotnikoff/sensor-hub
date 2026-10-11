@@ -132,8 +132,8 @@ signs:
       - "--detach-sign"
       - "${artifact}"
 
-# A snapshot, such as CI's package test builds, sorts above the last release,
-# so installing it over that release is an upgrade.
+# A snapshot sorts above the last release, so installing it over that release
+# is an upgrade.
 snapshot:
   version_template: "{{ incpatch .Version }}-SNAPSHOT-{{ .ShortCommit }}"
 
