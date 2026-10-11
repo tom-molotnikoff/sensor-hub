@@ -20,8 +20,8 @@ import (
 	tcexec "github.com/testcontainers/testcontainers-go/exec"
 )
 
-// The package's postinstall runs here in a plain Debian container, against
-// the real sensor-hub binary, with stand-ins for systemd.
+// The package's postinstall and postremove run here in a plain Debian
+// container, against the real sensor-hub binary, with stand-ins for systemd.
 
 const (
 	keyFile      = "/etc/sensor-hub/secrets.key"
@@ -31,6 +31,15 @@ const (
 	packagedUnit = "/usr/lib/systemd/system/sensor-hub.service"
 	defaultsDir  = "/usr/share/sensor-hub/defaults"
 	sealedFake   = "SEALED:"
+)
+
+// rpm passes postinstall the number of installed versions; dpkg passes
+// configure and, on an upgrade, the version it replaces.
+const (
+	debInstall = "configure"
+	debUpgrade = "configure 2.0.1"
+	rpmInstall = "1"
+	rpmUpgrade = "2"
 )
 
 // fakeSystemctl records each call and which of the key files exist at that
@@ -114,7 +123,6 @@ func packagingDir() string {
 type packageHost struct {
 	t         *testing.T
 	container testcontainers.Container
-	upgrade   bool
 }
 
 // configFiles are the configuration files the package ships as templates.
@@ -141,6 +149,7 @@ func startPackageHost(t *testing.T, systemdCredsScript string, upgrade bool) *pa
 		{HostFilePath: buildLinuxSensorHub(t), ContainerFilePath: "/usr/bin/sensor-hub", FileMode: 0o755},
 		{HostFilePath: filepath.Join(packaging, "scripts", "preinstall.sh"), ContainerFilePath: "/tmp/preinstall.sh", FileMode: 0o755},
 		{HostFilePath: filepath.Join(packaging, "scripts", "postinstall.sh"), ContainerFilePath: "/tmp/postinstall.sh", FileMode: 0o755},
+		{HostFilePath: filepath.Join(packaging, "scripts", "postremove.sh"), ContainerFilePath: "/tmp/postremove.sh", FileMode: 0o755},
 		{HostFilePath: filepath.Join(packaging, "sensor-hub.service"), ContainerFilePath: packagedUnit, FileMode: 0o644},
 		{Reader: strings.NewReader(fakeSystemctl), ContainerFilePath: "/usr/local/bin/systemctl", FileMode: 0o755},
 	}
@@ -167,7 +176,7 @@ func startPackageHost(t *testing.T, systemdCredsScript string, upgrade bool) *pa
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = container.Terminate(ctx) })
 
-	h := &packageHost{t: t, container: container, upgrade: upgrade}
+	h := &packageHost{t: t, container: container}
 	h.mustRun("/tmp/preinstall.sh")
 	if upgrade {
 		h.mustRun("install -d -m 0755 /etc/sensor-hub && cp " + defaultsDir + "/* /etc/sensor-hub/" +
@@ -193,14 +202,8 @@ func (h *packageHost) mustRun(script string) string {
 	return out
 }
 
-// postinstall runs the script with the arguments dpkg passes it: an upgrade
-// names the version it replaces.
-func (h *packageHost) postinstall() string {
+func (h *packageHost) postinstall(args string) string {
 	h.t.Helper()
-	args := "configure"
-	if h.upgrade {
-		args = "configure 1.5.2"
-	}
 	return h.mustRun("/tmp/postinstall.sh " + args)
 }
 
@@ -230,14 +233,17 @@ func TestPostinstall_WritesAKeyFileTheServiceCanReadWhereThereIsNoTPM(t *testing
 	for name, tc := range map[string]struct {
 		systemdCreds string
 		upgrade      bool
+		args         string
 		calls        string
 	}{
 		"upgrade, no systemd-creds": {
 			upgrade: true,
+			args:    debUpgrade,
 			calls:   "daemon-reload: secrets.key\nrestart sensor-hub: secrets.key\n",
 		},
 		"install, systemd-creds without a TPM": {
 			systemdCreds: systemdCreds(false, false),
+			args:         debInstall,
 			calls:        "daemon-reload: secrets.key\nenable sensor-hub: secrets.key\n",
 		},
 	} {
@@ -245,7 +251,7 @@ func TestPostinstall_WritesAKeyFileTheServiceCanReadWhereThereIsNoTPM(t *testing
 			t.Parallel()
 			h := startPackageHost(t, tc.systemdCreds, tc.upgrade)
 
-			out := h.postinstall()
+			out := h.postinstall(tc.args)
 
 			assert.Contains(t, out, "Wrote a new secret-store key to "+keyFile)
 			assert.Contains(t, out, "sensor-hub local secrets show-key")
@@ -265,7 +271,7 @@ func TestPostinstall_SealsTheKeyWithTheTPM(t *testing.T) {
 	t.Parallel()
 	h := startPackageHost(t, systemdCreds(true, false), true)
 
-	out := h.postinstall()
+	out := h.postinstall(debUpgrade)
 
 	assert.Contains(t, out, "Sealed a new secret-store key with the TPM in "+sealedKey)
 	assert.Equal(t, "600 root:root", h.modeAndOwner(sealedKey))
@@ -287,7 +293,7 @@ func TestPostinstall_FallsBackToAKeyFileWhenSealingFails(t *testing.T) {
 	t.Parallel()
 	h := startPackageHost(t, systemdCreds(true, true), true)
 
-	out := h.postinstall()
+	out := h.postinstall(debUpgrade)
 
 	assert.Contains(t, out, "Could not seal the secret-store key with the TPM")
 	assert.Contains(t, out, "Failed to seal to the TPM")
@@ -313,8 +319,8 @@ func TestPostinstall_LeavesAnExistingKeyAlone(t *testing.T) {
 			snapshot := "find /etc/sensor-hub " + filepath.Dir(dropInDir) + " -type f | sort | xargs md5sum"
 			before := h.mustRun(snapshot)
 
-			out := h.postinstall()
-			again := h.postinstall()
+			out := h.postinstall(debUpgrade)
+			again := h.postinstall(debUpgrade)
 
 			assert.Equal(t, before, h.mustRun(snapshot), "no key file, sealed key or drop-in is written or changed")
 			assert.NotContains(t, out+again, "secret-store key", "nothing is said about a key that is already there")
@@ -340,40 +346,73 @@ func TestPostinstall_CreatesTheConfigurationFilesOnAFreshInstall(t *testing.T) {
 	t.Parallel()
 	h := startPackageHost(t, "", false)
 
-	h.postinstall()
+	h.postinstall(debInstall)
 
 	for name, source := range configFiles {
 		path := "/etc/sensor-hub/" + name
 		assert.Equal(t, "640 sensor-hub:sensor-hub", h.modeAndOwner(path), path)
-		shipped, err := os.ReadFile(filepath.Join(packagingDir(), source))
-		require.NoError(t, err)
-		assert.Equal(t, string(shipped), h.read(path), path)
+		assert.Equal(t, shippedTemplate(t, source), h.read(path), path)
 	}
-	assert.Equal(t, "no", strings.TrimSpace(h.mustRun("test -e /etc/sensor-hub/smtp.properties && echo yes || echo no")),
-		"2.0 has no smtp.properties")
 }
 
-func TestPostinstall_LeavesTheConfigurationFilesOfAnUpgradeAlone(t *testing.T) {
+func TestPostinstall_KeepsTheConfigurationFilesOfAnUpgrade(t *testing.T) {
 	t.Parallel()
 	h := startPackageHost(t, "", true)
-	h.mustRun("rm /etc/sensor-hub/environment")
-	// 1.5.x shipped smtp.properties too, and an upgrade leaves it in place.
-	h.mustRun("printf 'smtp.user=alerts@example.com\n' > /etc/sensor-hub/smtp.properties" +
-		" && chown sensor-hub:sensor-hub /etc/sensor-hub/smtp.properties && chmod 0640 /etc/sensor-hub/smtp.properties")
-	kept := "cd /etc/sensor-hub && stat -c '%n %a %U:%G %Y' application.properties database.properties smtp.properties" +
-		" && md5sum application.properties database.properties smtp.properties"
-	// And the Gmail OAuth files, which the hub cannot delete from a directory
-	// root owns.
-	h.mustRun("cd /etc/sensor-hub && echo '{}' > credentials.json && echo '{}' > token.json")
+	h.mustRun("rm /etc/sensor-hub/environment && echo '{}' > /etc/sensor-hub/credentials.json")
+	// An mtime in the past shows a rewrite even within the second the test runs in.
+	h.mustRun("cd /etc/sensor-hub && touch -d '2025-01-01 00:00:00' application.properties database.properties")
+	kept := "cd /etc/sensor-hub && stat -c '%n %a %U:%G %Y' application.properties database.properties" +
+		" && md5sum application.properties database.properties"
 	before := h.mustRun(kept)
 
-	out := h.postinstall()
+	out := h.postinstall(debUpgrade)
 
 	assert.Equal(t, before, h.mustRun(kept), "files that exist are not changed")
-	assert.Equal(t, "", strings.TrimSpace(h.mustRun("cd /etc/sensor-hub && ls credentials.json token.json 2>/dev/null || true")),
-		"the Gmail OAuth files are deleted")
-	assert.Contains(t, out, "Deleted /etc/sensor-hub/credentials.json")
-	assert.Contains(t, out, "Deleted /etc/sensor-hub/token.json")
-	assert.Contains(t, h.read("/etc/sensor-hub/application.properties"), operatorChange)
 	assert.Equal(t, "640 sensor-hub:sensor-hub", h.modeAndOwner("/etc/sensor-hub/environment"), "a missing file is created")
+	assert.Equal(t, shippedTemplate(t, configFiles["environment"]), h.read("/etc/sensor-hub/environment"))
+	assert.True(t, h.exists("/etc/sensor-hub/credentials.json"))
+	assert.NotContains(t, out, "credentials.json")
+}
+
+func TestPostinstall_RestartsTheHubOnAnUpgradeAndEnablesItOnAnInstall(t *testing.T) {
+	for name, tc := range map[string]struct {
+		upgrade bool
+		args    string
+		calls   string
+	}{
+		"deb install": {args: debInstall, calls: "daemon-reload: secrets.key\nenable sensor-hub: secrets.key\n"},
+		"deb upgrade": {upgrade: true, args: debUpgrade, calls: "daemon-reload: secrets.key\nrestart sensor-hub: secrets.key\n"},
+		"rpm install": {args: rpmInstall, calls: "daemon-reload: secrets.key\nenable sensor-hub: secrets.key\n"},
+		"rpm upgrade": {upgrade: true, args: rpmUpgrade, calls: "daemon-reload: secrets.key\nrestart sensor-hub: secrets.key\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			h := startPackageHost(t, "", tc.upgrade)
+
+			h.postinstall(tc.args)
+
+			assert.Equal(t, tc.calls, h.systemctlCalls())
+			assert.False(t, h.exists("/run/sensor-hub-package"))
+		})
+	}
+}
+
+func TestPostremove_PurgeRemovesOnlyTheConfigurationFilesThePackageShips(t *testing.T) {
+	t.Parallel()
+	h := startPackageHost(t, "", true)
+	h.mustRun("touch /etc/sensor-hub/smtp.properties")
+
+	h.mustRun("/tmp/postremove.sh purge")
+
+	for name := range configFiles {
+		assert.False(t, h.exists("/etc/sensor-hub/"+name), name)
+	}
+	assert.True(t, h.exists("/etc/sensor-hub/smtp.properties"))
+}
+
+func shippedTemplate(t *testing.T, source string) string {
+	t.Helper()
+	shipped, err := os.ReadFile(filepath.Join(packagingDir(), source))
+	require.NoError(t, err)
+	return string(shipped)
 }

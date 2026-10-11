@@ -55,9 +55,6 @@ conflicts:
 
 rpm:
   group: Applications/System
-  scripts:
-    pretrans: packaging/scripts/rpm-pretrans.sh
-    posttrans: packaging/scripts/rpm-posttrans.sh
 
 overrides:
   deb:
