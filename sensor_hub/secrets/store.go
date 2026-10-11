@@ -79,20 +79,12 @@ func NewStore(repo Repository, key Key, logger *slog.Logger) (*Store, error) {
 	}, nil
 }
 
-// Open readies the store for a starting hub. It finishes the 2.0 upgrade by
-// moving any plaintext broker passwords into the store, then decrypts every
-// stored secret to learn its status.
+// Open readies the store for a starting hub. It decrypts every stored secret
+// to learn its status.
 func Open(ctx context.Context, db *database.Handles, key Key, logger *slog.Logger) (*Store, error) {
 	s, err := NewStore(database.NewSecretRepository(db), key, logger)
 	if err != nil {
 		return nil, err
-	}
-	moved, err := database.MoveBrokerPasswordsToSecrets(ctx, db, s.seal, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to move broker passwords into the secret store: %w", err)
-	}
-	if moved > 0 {
-		s.logger.Info("encrypted the outbound broker passwords into the secret store and scrubbed the plaintext", "count", moved)
 	}
 	if err := s.load(ctx); err != nil {
 		return nil, err
