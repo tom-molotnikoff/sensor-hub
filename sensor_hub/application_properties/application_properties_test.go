@@ -543,10 +543,13 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	_, err = os.Stat(applicationPropertiesFilePath)
-	assert.NoError(t, err)
-	_, err = os.Stat(databasePropertiesFilePath)
-	assert.NoError(t, err)
+	entries, err := os.ReadDir(tempDir)
+	require.NoError(t, err)
+	var written []string
+	for _, entry := range entries {
+		written = append(written, entry.Name())
+	}
+	assert.ElementsMatch(t, []string{"application.properties", "database.properties"}, written)
 
 	appContent, err := os.ReadFile(applicationPropertiesFilePath)
 	assert.NoError(t, err)
