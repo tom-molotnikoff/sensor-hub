@@ -545,8 +545,6 @@ func TestSaveConfigurationToFiles_Success(t *testing.T) {
 
 	_, err = os.Stat(applicationPropertiesFilePath)
 	assert.NoError(t, err)
-	_, err = os.Stat(filepath.Join(tempDir, "smtp.properties"))
-	assert.ErrorIs(t, err, os.ErrNotExist, "smtp.properties is no longer written")
 	_, err = os.Stat(databasePropertiesFilePath)
 	assert.NoError(t, err)
 
@@ -703,8 +701,8 @@ func TestLoadConfigurationFromMaps_NonPositiveReaderConnections(t *testing.T) {
 // not parse does no harm.
 func TestLoadConfigurationFromMaps_IgnoresKeysWithNoRegisteredProperty(t *testing.T) {
 	appProps := validAppPropsMap()
-	appProps["oauth.credentials.file.path"] = "credentials.json"
-	appProps["oauth.token.file.path"] = "token.json"
+	appProps["oauth.credentials.file.path"] = "client.json"
+	appProps["oauth.token.file.path"] = "refresh.json"
 	appProps["oauth.token.refresh.interval.minutes"] = "not-a-number"
 	appProps["smtp.user"] = "alerts@example.com"
 
@@ -718,10 +716,10 @@ func TestLoadConfigurationFromMaps_IgnoresKeysWithNoRegisteredProperty(t *testin
 	}
 }
 
-func TestInitialiseConfig_NeedsNoSMTPProperties(t *testing.T) {
+func TestInitialiseConfig_LoadsTheTwoPropertiesFilesInTheDirectory(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "application.properties"),
-		[]byte("sensor.collection.interval=300\noauth.token.file.path=token.json\n"), 0o640))
+		[]byte("sensor.collection.interval=300\noauth.token.file.path=refresh.json\n"), 0o640))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "database.properties"), []byte("database.path=data/test.db\n"), 0o640))
 	oldDir, oldCfg := GetConfigDir(), AppConfig()
 	t.Cleanup(func() {
