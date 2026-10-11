@@ -85,29 +85,3 @@ func (r *EmailSettingsRepository) RecordFailure(ctx context.Context, sendErr str
 	}
 	return nil
 }
-
-// SeedFromSMTPUser finishes the email settings a 1.5.x upgrade created. The
-// old smtp.user property was both the Gmail login and the sender, so when it
-// is non-empty it becomes the username and the from address. It runs once, on
-// a row nothing has written since the migration created it, and reports
-// whether it did.
-func (r *EmailSettingsRepository) SeedFromSMTPUser(ctx context.Context, smtpUser string) (bool, error) {
-	var result sql.Result
-	var err error
-	if smtpUser == "" {
-		result, err = r.db.Writer.ExecContext(ctx,
-			`UPDATE email_settings SET updated_at = datetime('now') WHERE id = 1 AND updated_at IS NULL`)
-	} else {
-		result, err = r.db.Writer.ExecContext(ctx,
-			`UPDATE email_settings SET username = ?, from_address = ?, updated_at = datetime('now') WHERE id = 1 AND updated_at IS NULL`,
-			smtpUser, smtpUser)
-	}
-	if err != nil {
-		return false, fmt.Errorf("error seeding the email settings: %w", err)
-	}
-	seeded, err := result.RowsAffected()
-	if err != nil {
-		return false, fmt.Errorf("error seeding the email settings: %w", err)
-	}
-	return seeded > 0, nil
-}

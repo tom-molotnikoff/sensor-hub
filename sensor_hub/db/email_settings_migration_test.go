@@ -50,38 +50,3 @@ func TestMigration39_StartsTheEmailSettingsOnGmail(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, EmailSettings{Host: "smtp.gmail.com", Port: 587, Security: "starttls"}, settings)
 }
-
-func TestEmailSettings_SeedFromSMTPUserRunsOnceOnAnUntouchedRow(t *testing.T) {
-	ctx := context.Background()
-	repo := NewEmailSettingsRepository(newMigratedHandles(t))
-
-	seeded, err := repo.SeedFromSMTPUser(ctx, "alerts@example.com")
-	require.NoError(t, err)
-	assert.True(t, seeded)
-	settings, err := repo.Get(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, "alerts@example.com", settings.Username)
-	assert.Equal(t, "alerts@example.com", settings.FromAddress)
-
-	seeded, err = repo.SeedFromSMTPUser(ctx, "someone-else@example.com")
-	require.NoError(t, err)
-	assert.False(t, seeded)
-	settings, err = repo.Get(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, "alerts@example.com", settings.Username)
-}
-
-func TestEmailSettings_SeedNeverOverwritesSavedSettings(t *testing.T) {
-	ctx := context.Background()
-	repo := NewEmailSettingsRepository(newMigratedHandles(t))
-	saved := EmailSettings{Host: "smtp.example.com", Port: 465, Security: "implicit_tls", Username: "hub", FromAddress: "hub@example.com"}
-	require.NoError(t, repo.Save(ctx, saved))
-
-	seeded, err := repo.SeedFromSMTPUser(ctx, "alerts@example.com")
-
-	require.NoError(t, err)
-	assert.False(t, seeded)
-	settings, err := repo.Get(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, saved, settings)
-}

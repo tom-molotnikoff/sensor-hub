@@ -230,11 +230,6 @@ func (e *Env) boot(listenAddr string) error {
 		db.Close()
 		return err
 	}
-	emailSettingsRepo := database.NewEmailSettingsRepository(db)
-	if err := email.FinishUpgrade(context.Background(), emailSettingsRepo, e.ConfigDir, logger); err != nil {
-		db.Close()
-		return err
-	}
 
 	// As in cmd/local_serve.go, the embedded broker authenticates devices
 	// against the MQTT clients in the database.
@@ -267,7 +262,7 @@ func (e *Env) boot(listenAddr string) error {
 	apiKeyRepo := database.NewApiKeyRepository(db, logger)
 
 	// As in cmd/local_serve.go, email goes through the stored SMTP settings.
-	emailService := email.NewService(emailSettingsRepo, secretStore, logger)
+	emailService := email.NewService(database.NewEmailSettingsRepository(db), secretStore, logger)
 	wsBroadcaster := ws.NewNotificationBroadcaster(logger)
 	notificationService := service.NewNotificationService(notificationRepo, wsBroadcaster, logger)
 	notificationService.SetEmailNotifier(emailService)

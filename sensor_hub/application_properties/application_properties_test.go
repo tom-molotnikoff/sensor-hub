@@ -699,10 +699,9 @@ func TestLoadConfigurationFromMaps_NonPositiveReaderConnections(t *testing.T) {
 	}
 }
 
-// A 1.5.x install keeps oauth.* keys in application.properties, which its
-// saver wrote, and smtp.user in smtp.properties. 2.0 has no such properties:
-// it ignores the keys and its next save drops them.
-func TestLoadConfigurationFromMaps_IgnoresTheKeys15xLeftBehind(t *testing.T) {
+// A key no property is registered for is never parsed, so a value that would
+// not parse does no harm.
+func TestLoadConfigurationFromMaps_IgnoresKeysWithNoRegisteredProperty(t *testing.T) {
 	appProps := validAppPropsMap()
 	appProps["oauth.credentials.file.path"] = "credentials.json"
 	appProps["oauth.token.file.path"] = "token.json"
