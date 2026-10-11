@@ -108,8 +108,7 @@ func TestEmail_TestSendThatTheServerRefusesAnswers502AndRecordsTheError(t *testi
 	require.Equal(t, http.StatusBadGateway, status, "body: %s", resp)
 	var body gen.ErrorResponse
 	require.NoError(t, json.Unmarshal(resp, &body))
-	assert.Contains(t, body.Message, "535")
-	assert.Contains(t, body.Message, "5.7.8 Authentication credentials invalid")
+	assert.Regexp(t, `535 "?5\.7\.8 Authentication credentials invalid"?`, body.Message)
 	assert.Empty(t, env.SMTP.Messages())
 	after, _ := emailSettings(t, sender)
 	require.NotNil(t, after.LastError)
