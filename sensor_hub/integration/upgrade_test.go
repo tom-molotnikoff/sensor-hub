@@ -45,11 +45,10 @@ type install15 struct {
 }
 
 // seed15Install lays out a 1.5.x install: its configuration directory and a
-// database at the 1.5.x schema holding an outbound broker with a password.
-// The configuration is as a 1.5.x hub that sent email through Gmail left it:
-// smtp.user set, the oauth.* keys its saver wrote, and the OAuth credentials
-// and token.
-func seed15Install(t *testing.T, brokerPassword string) install15 {
+// database at the 1.5.x schema. The configuration is as a 1.5.x hub that sent
+// email through Gmail left it: smtp.user set, the oauth.* keys its saver
+// wrote, and the OAuth credentials and token.
+func seed15Install(t *testing.T) install15 {
 	t.Helper()
 	root := t.TempDir()
 	configDir := filepath.Join(root, "etc")
@@ -65,10 +64,6 @@ func seed15Install(t *testing.T, brokerPassword string) install15 {
 	m, err := migrate.NewWithDatabaseInstance("file://../db/migrations", "sqlite", driver)
 	require.NoError(t, err)
 	require.NoError(t, m.Migrate(schemaVersionOf15))
-
-	_, err = db.Exec(`INSERT INTO mqtt_brokers (name, type, host, port, username, password, enabled)
-		VALUES ('Home Mosquitto', 'external', 'mosquitto.home.lan', 1883, 'hub', ?, 0)`, brokerPassword)
-	require.NoError(t, err)
 	sourceErr, dbErr := m.Close()
 	require.NoError(t, sourceErr)
 	require.NoError(t, dbErr)
@@ -150,7 +145,7 @@ func fileHolds(t *testing.T, path string, needle string) bool {
 func TestUpgradeFrom15_MovesEmailToSMTPAndKeepsTheSMTPPasswordEncrypted(t *testing.T) {
 	const adminPassword = "upgrade-admin-password"
 	const smtpPassword = "plaintext-smtp-password-5c1d"
-	install := seed15Install(t, "broker-password-not-under-test")
+	install := seed15Install(t)
 
 	hub := startHub(t, install.configDir, install.httpAddress)
 

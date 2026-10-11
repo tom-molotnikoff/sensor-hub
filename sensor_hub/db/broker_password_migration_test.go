@@ -40,8 +40,8 @@ const (
 	subscriptionRowsQuery = "SELECT * FROM mqtt_subscriptions ORDER BY id"
 )
 
-// seedBrokers adds two external brokers, every column set away from its
-// default, with three subscriptions between them.
+// Garage sets every column it can away from its default, so a value the
+// rebuild lost would not come back looking unchanged.
 func seedBrokers(t *testing.T, db *sql.DB, withPasswords bool) {
 	t.Helper()
 	columns, values := "", ""
