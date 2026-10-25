@@ -58,13 +58,17 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
-      # Ahead of pip-minor-and-patch: a dependency goes to the first group it matches.
+      # OpenTelemetry core (1.x) and contrib (0.x betas) pin each other exactly, so
+      # they must move in one PR. Dependabot gives a dependency to its most specific
+      # matching group and ranks a pattern-less group above "opentelemetry-*", so
+      # pip-minor-and-patch has to exclude them explicitly.
       opentelemetry:
         applies-to: version-updates
         patterns: ["opentelemetry-*"]
       pip-minor-and-patch:
         applies-to: version-updates
         update-types: ["minor", "patch"]
+        exclude-patterns: ["opentelemetry-*"]
       pip-security:
         applies-to: security-updates
         patterns: ["*"]
@@ -75,12 +79,14 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
+      # See the /temperature_sensor entry for why OpenTelemetry is excluded below.
       opentelemetry:
         applies-to: version-updates
         patterns: ["opentelemetry-*"]
       pip-minor-and-patch:
         applies-to: version-updates
         update-types: ["minor", "patch"]
+        exclude-patterns: ["opentelemetry-*"]
       pip-security:
         applies-to: security-updates
         patterns: ["*"]
