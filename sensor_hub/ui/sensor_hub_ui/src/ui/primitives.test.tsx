@@ -26,6 +26,7 @@ import StatGrid from './StatGrid';
 import Strip, { StripCell, StripDetail } from './Strip';
 import SlideSwitch from './SlideSwitch';
 import Sticky, { StickyBar } from './Sticky';
+import { pageHeaderHeightVar } from './stickyTop';
 import TileGrid from './TileGrid';
 import ValueSlider from './ValueSlider';
 import { theme } from './theme';
@@ -207,12 +208,18 @@ describe('PageGrid', () => {
   });
 });
 
+// jsdom evaluates CSS media queries against a fixed 1024px viewport, so rendered
+// styles here are the wide tier. The compact offsets are covered in stickyTop.test.tsx.
+function underPageHeader(height: number, ui: React.ReactElement) {
+  return <div style={{ [pageHeaderHeightVar]: `${height}px` } as React.CSSProperties}>{ui}</div>;
+}
+
 describe('Sticky', () => {
-  it('sticks its offset below the app bar', () => {
-    const { container } = renderUi(<Sticky offset={40}>rail</Sticky>);
+  it('sticks its offset below the page header on wide', () => {
+    const { container } = renderUi(underPageHeader(71, <Sticky offset={40}>rail</Sticky>));
 
     const sticky = container.querySelector('[data-ui=sticky]')!;
-    expect(sticky).toHaveStyle({ position: 'sticky', top: `${56 + 40}px` });
+    expect(sticky).toHaveStyle({ position: 'sticky', top: `${71 + 40}px` });
   });
 
   it('keeps its own height inside a page grid item', () => {
@@ -229,11 +236,13 @@ describe('Sticky', () => {
 });
 
 describe('StickyBar', () => {
-  it('puts the title before the actions and sticks right below the app bar', () => {
-    const { container } = renderUi(<StickyBar title="Properties" actions={<button>Save</button>} />);
+  it('puts the title before the actions and sticks right below the page header on wide', () => {
+    const { container } = renderUi(
+      underPageHeader(71, <StickyBar title="Properties" actions={<button>Save</button>} />),
+    );
 
     const bar = container.querySelector('[data-ui=sticky-bar]')!;
-    expect(bar).toHaveStyle({ position: 'sticky', top: '56px' });
+    expect(bar).toHaveStyle({ position: 'sticky', top: '71px' });
     expect(bar.firstElementChild).toHaveTextContent('Properties');
     expect(bar.lastElementChild).toContainElement(screen.getByRole('button', { name: 'Save' }));
     expect(bar.lastElementChild).toHaveStyle({ marginLeft: 'auto' });

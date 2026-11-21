@@ -496,8 +496,8 @@ describe('SensorToggleWidget', () => {
 
     const boxShadow = getComputedStyle(document.querySelector('[data-ui=slide-switch-thumb]')!).boxShadow;
 
-    expect(boxShadow).toContain('0 0 18px');
-    expect(boxShadow).not.toContain('0 10px 24px');
+    expect(boxShadow).toContain('0px 0px 18px');
+    expect(boxShadow).not.toContain('0px 10px 24px');
   });
 
   it('holds the thumb on its starting side until a late latch is crossed', () => {
