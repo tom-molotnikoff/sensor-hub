@@ -1,8 +1,9 @@
 import { ThemeProvider } from '@mui/material';
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PageHeaderHeightContext, useStickyTop } from './stickyTop';
+import { PageHeaderHeightContext, pageHeaderHeightVar, stickyTop, useStickyTop } from './stickyTop';
 import { theme } from './theme';
+import { wideMediaQuery } from './tiers';
 
 function atWidth(width: number) {
   vi.stubGlobal('matchMedia', (query: string) => ({
@@ -54,5 +55,15 @@ describe('useStickyTop', () => {
     [1440, 71],
   ])('puts sticky content under a 71px page header at a %ipx wide viewport %ipx from the top', (width, top) => {
     expect(stickyTopAt(width, 71)).toBe(top);
+  });
+});
+
+describe('stickyTop', () => {
+  it('sits its offset below the 56px app bar on compact and grows with the taller sm app bar', () => {
+    expect(stickyTop(theme, 40)).toMatchObject({ top: 56 + 40, '@media (min-width:600px)': { top: 64 + 40 } });
+  });
+
+  it('sits its offset below the page header on wide', () => {
+    expect(stickyTop(theme, 40)[wideMediaQuery]).toEqual({ top: `calc(var(${pageHeaderHeightVar}, 0px) + 40px)` });
   });
 });
